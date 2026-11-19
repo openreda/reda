@@ -214,14 +214,19 @@ fn teardrops_reopen_as_filled_vector_paths_on_each_affected_board_scene_layer() 
         "Teardrops.reda",
     );
     let status = e.run_ok("pcb.zone.fill", json!({}));
-    assert_eq!(status["teardrops"]["generated"], 2);
-    assert_eq!(status["teardrops"]["shortened"], 1);
+    // The inner-Layer Track ends short of the full length, but nothing crowds it, so
+    // that Teardrop is complete rather than shortened for clearance.
+    assert_eq!(status["teardrops"]["generated"], 3);
+    assert_eq!(status["teardrops"]["shortened"], 0);
     assert_eq!(status["teardrops"]["left_out"], 1);
     let pcb = e.project().unwrap().pcb().unwrap();
     let scene = e.board_scene(pcb.uuid, &Default::default()).unwrap();
+    // Each base meets its land at the land's full height: on the rounded SMD Pad that
+    // pulls it 0.25 mm back to where the corner rounding starts, and on the round Via
+    // back to its tangent points, 0.45 mm behind the edge crossing.
     for (layer, expected) in
         pcb.copper_layers()
-            .zip([Some((0.6, 1.2)), Some((0.24, 1.4)), None, Some((0.45, 0.9))])
+            .zip([Some((0.85, 1.2)), Some((0.24, 1.4)), None, Some((0.9, 0.9))])
     {
         let mut page = scene.clone();
         page.items.retain(|item| {

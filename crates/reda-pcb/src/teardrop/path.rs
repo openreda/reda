@@ -1,6 +1,6 @@
 //! Follow the narrow Track through bends. A taper is a strip of decreasing
 //! width along that centreline, with the two turns of each corner joined.
-use super::{Junction, obstacles::Obstacles, percent};
+use super::{Junction, base::Base, obstacles::Obstacles, percent};
 use crate::copper::{Copper, Item};
 use crate::zone::{ARC_TOLERANCE, fill, poly};
 use reda_model::geom::{Nm, Point, grown::Shape};
@@ -144,18 +144,30 @@ fn first_junction(
     stop
 }
 
-fn taper(path: &[Point], length: f64, base: f64, tip: f64, curved: bool) -> poly::Area {
-    if length < 1. || base <= tip {
+/// The base corners come from `base`: each side narrows from its own half-width at
+/// the target to half the Track at the tip, and its corner's shift back into the
+/// target fades out along the first segment, so a straight side stays straight.
+fn taper(
+    path: &[Point],
+    length: f64,
+    width: f64,
+    tip: f64,
+    curved: bool,
+    base: &Base,
+) -> poly::Area {
+    if length < 1. || width <= tip {
         return Vec::new();
     }
-    let radius = |s: f64| {
+    let sides = base.sides(width, tip);
+    let radius = |s: f64, half: f64| {
         let t = (1.0 - s / length).clamp(0., 1.);
-        (tip + (base - tip) * if curved { t * t } else { t }) / 2.
+        tip / 2. + (half - tip / 2.) * if curved { t * t } else { t }
     };
     // For a quadratic, the maximum chord error is its second difference
     // divided by four. Both offset edges use this bound in nanometres.
+    let flare = 2. * sides[0].half.max(sides[1].half) - tip;
     let steps = if curved {
-        ((base - tip) / (8. * ARC_TOLERANCE.0 as f64))
+        (flare / (8. * ARC_TOLERANCE.0 as f64))
             .sqrt()
             .ceil()
             .max(1.)
@@ -172,14 +184,18 @@ fn taper(path: &[Point], length: f64, base: f64, tip: f64, curved: bool) -> poly
         if span <= 0. || d == 0. {
             break;
         }
-        let normal = (-(b.y.0 - a.y.0) as f64 / d, (b.x.0 - a.x.0) as f64 / d);
+        let dir = ((b.x.0 - a.x.0) as f64 / d, (b.y.0 - a.y.0) as f64 / d);
+        let normal = (-dir.1, dir.0);
+        let first = s == 0.;
         let section = |travel: f64| {
             let p = along(a, b, travel / d);
-            let r = radius(s + travel);
-            [1., -1.].map(|side| {
+            let fade = if first { 1. - travel / span } else { 0. };
+            [(1., sides[0]), (-1., sides[1])].map(|(sign, side)| {
+                let r = radius(s + travel, side.half) * sign;
+                let back = side.shift * fade;
                 poly::ip([
-                    p.x.0 + (r * normal.0 * side).round() as i64,
-                    p.y.0 + (r * normal.1 * side).round() as i64,
+                    p.x.0 + (r * normal.0 + back * dir.0).round() as i64,
+                    p.y.0 + (r * normal.1 + back * dir.1).round() as i64,
                 ])
             })
         };
@@ -214,8 +230,16 @@ pub(super) fn fit(
     let length = requested.min(j.path.windows(2).map(|p| distance(p[0], p[1])).sum());
     let width = percent(j.size, j.rule.width, j.rule.max_width).0 as f64;
     let tip = j.track.width.0 as f64;
-    let mut area = taper(&j.path, length, width, tip, j.rule.curved);
-    let mut shortened = length + 1. < requested;
+    let land = copper
+        .item_pieces(j.target)
+        .into_iter()
+        .find(|(layer, _)| *layer == j.track.layer)
+        .map(|(_, shape)| shape.clone());
+    let base = Base::new(land, &j.path);
+    let mut area = taper(&j.path, length, width, tip, j.rule.curved, &base);
+    // A path that simply ends sooner (a junction, a branch, the end of the Track)
+    // is complete. Only room taken by clearance counts as shortened.
+    let mut shortened = false;
     if !obstacles.clears(&area) {
         let copper_under = std::iter::once(j.target)
             .chain(j.path_tracks.iter().map(|&uuid| Item::Track { uuid }))
@@ -243,6 +267,7 @@ pub(super) fn fit(
                     tip + (width - tip) * trial,
                     tip,
                     j.rule.curved,
+                    &base,
                 );
                 if obstacles.clears(&candidate) {
                     lo = trial;

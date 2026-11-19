@@ -77,7 +77,9 @@ fn branch_halfway_along_the_narrow_segment_stops_the_taper() {
     );
     enable(&mut engine, json!({"enabled":true,"length":100}));
     let fill = engine.run_ok("pcb.zone.fill", json!({}));
-    assert_eq!(fill["teardrops"]["shortened"], 1);
+    // Stopping at the branch is the Teardrop's full extent, not a clearance cut.
+    assert_eq!(fill["teardrops"]["shortened"], 0);
+    assert_eq!(fill["teardrops"]["generated"], 1);
     let project = engine.project().unwrap();
     let drops = &project
         .zone_fills(project.pcb().unwrap().uuid)
@@ -609,8 +611,10 @@ fn the_zone_gap_includes_the_taper_of_a_relieved_or_disconnected_pad() {
                 .iter()
                 .any(|i| matches!(i,Item::Zone{zone:z,..} if *z==zone))
         };
+        // The taper's side runs from the tangent point (10, 11) to the tip at
+        // (12, 10.05), so at x = 11.5 its edge is at y = 10.2875; the gap goes 0.25 beyond.
         assert!(
-            !in_zone(11_500_000, 10_750_000),
+            !in_zone(11_500_000, 10_480_000),
             "{style} gap must continue along taper"
         );
         assert!(
@@ -806,6 +810,14 @@ fn coincident_pads_of_one_footprint_keep_distinct_locations_in_status_and_cache(
     )["result"]
         .clone();
     let owner = track(&mut e, net, 100_000, &[(0, 0), (750_000, 0)])[0];
+    // Another Net's Track beside the tip makes both Teardrops give way to clearance.
+    let other = uuid(&e.run_ok("test.net.add", json!({"name":"OTHER"}))["result"]["uuid"]);
+    track(
+        &mut e,
+        other,
+        100_000,
+        &[(750_000, 300_000), (750_000, 1_300_000)],
+    );
     e.run_ok(
         "pcb.rules.set",
         json!({"kind":"teardrop","values":{"smd_pad":{"enabled":true}}}),
@@ -824,4 +836,211 @@ fn coincident_pads_of_one_footprint_keep_distinct_locations_in_status_and_cache(
         e.run_ok("pcb.zone.fill_status", json!({}))["stale_teardrops"],
         0
     );
+}
+
+/// Whether `p` lies inside the closed polygon `outline`, by crossing parity.
+fn in_polygon(outline: &[Point], p: [f64; 2]) -> bool {
+    let mut inside = false;
+    for i in 0..outline.len() {
+        let a = outline[i];
+        let b = outline[(i + 1) % outline.len()];
+        let (ax, ay, bx, by) = (a.x.0 as f64, a.y.0 as f64, b.x.0 as f64, b.y.0 as f64);
+        if (ay > p[1]) != (by > p[1]) && p[0] < ax + (p[1] - ay) * (bx - ax) / (by - ay) {
+            inside = !inside;
+        }
+    }
+    inside
+}
+
+/// The single Teardrop on the board must flare from its land: every vertex short
+/// of the tip lies on or inside the land (within 1 nm), and across the middle of
+/// the base the copper just outside the land belongs to the Teardrop, so the two
+/// meet along an edge rather than at a point and leave no notch between them.
+fn assert_flares_from_land(e: &TestEngine, target: Item, far: (i64, i64)) {
+    let project = e.project().unwrap();
+    let pcb = project.pcb().unwrap();
+    let drops = &project.zone_fills(pcb.uuid).unwrap().teardrops;
+    assert_eq!(drops.len(), 1);
+    let drop = &drops[0];
+    assert!(!drop.shortened);
+    assert_eq!(drop.shapes.len(), 1, "one piece");
+    assert!(drop.shapes[0].holes.is_empty());
+    let outline = &drop.shapes[0].outer;
+    let copper = Copper::of(project).unwrap();
+    let layer = drop.location.layer;
+    let land = |p: [f64; 2]| {
+        let p = Point::new(Nm(p[0].round() as i64), Nm(p[1].round() as i64));
+        copper.items_at(layer, p).contains(&target)
+    };
+    let at = drop.location.at;
+    let origin = [at.x.0 as f64, at.y.0 as f64];
+    let (dx, dy) = (
+        (far.0 + 10_000_000) as f64 - origin[0],
+        (far.1 + 10_000_000) as f64 - origin[1],
+    );
+    let d = dx.hypot(dy);
+    let (u, n) = ([dx / d, dy / d], [-dy / d, dx / d]);
+    let local = |p: &Point| {
+        let (x, y) = (p.x.0 as f64 - origin[0], p.y.0 as f64 - origin[1]);
+        (x * u[0] + y * u[1], x * n[0] + y * n[1])
+    };
+    let tip = outline.iter().map(|p| local(p).0).fold(f64::MIN, f64::max);
+    let mut base = (f64::INFINITY, f64::NEG_INFINITY);
+    for p in outline {
+        let (along, across) = local(p);
+        if along > tip - 2. {
+            continue;
+        }
+        let near =
+            (-1..=1).any(|i| (-1..=1).any(|j| land([(p.x.0 + i) as f64, (p.y.0 + j) as f64])));
+        assert!(near, "base vertex {p:?} lies outside the land: {outline:?}");
+        base = (base.0.min(across), base.1.max(across));
+    }
+    assert!(
+        base.1 - base.0 > 100_000.,
+        "the base spans the land: {base:?}"
+    );
+    for k in 0..=10 {
+        let across = base.0 / 2. + (base.1 - base.0) / 2. * k as f64 / 10.;
+        let point = |t: f64| {
+            [
+                origin[0] + t * u[0] + across * n[0],
+                origin[1] + t * u[1] + across * n[1],
+            ]
+        };
+        // Walk out of the land along the Track, then step just past its edge.
+        let mut lo = [0., -250_000., -500_000.]
+            .into_iter()
+            .find(|&t| land(point(t)))
+            .expect("the line across the base meets the land");
+        let mut hi = 2_000_000.;
+        while hi - lo > 1. {
+            let mid = (lo + hi) / 2.;
+            if land(point(mid)) {
+                lo = mid;
+            } else {
+                hi = mid;
+            }
+        }
+        let outside = point(hi + 2_000.);
+        assert!(!land(outside));
+        assert!(
+            in_polygon(outline, outside),
+            "no Teardrop just outside the land at {across} across: {outline:?}"
+        );
+    }
+}
+
+fn single_outline(e: &TestEngine) -> Vec<(i64, i64)> {
+    let project = e.project().unwrap();
+    project
+        .zone_fills(project.pcb().unwrap().uuid)
+        .unwrap()
+        .teardrops[0]
+        .shapes[0]
+        .outer
+        .iter()
+        .map(|p| (p.x.0, p.y.0))
+        .collect()
+}
+
+#[test]
+fn a_round_vias_teardrop_meets_it_at_the_tangent_points() {
+    let dir = TempDir::new("teardrop-round-via-base");
+    let (mut e, net) = board(&dir);
+    let via = uuid(
+        &e.run_ok(
+            "pcb.via.add",
+            json!({"net":net,"at":{"x":"10mm","y":"10mm"},"hole":"0.3mm","diameter":"1mm"}),
+        )["result"]["uuid"],
+    );
+    track(&mut e, net, 200_000, &[(0, 0), (5_000_000, 0)]);
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"teardrop","values":{"via":{"enabled":true}}}),
+    );
+    e.run_ok("pcb.zone.fill", json!({}));
+    assert_flares_from_land(&e, Item::Via { uuid: via }, (5_000_000, 0));
+    // The base runs between the tangent points (cx, cy ± r), the tip 0.5 mm past the edge.
+    let mut points = single_outline(&e);
+    points.sort();
+    let expected = [
+        (10_000_000, 9_500_000),
+        (10_000_000, 10_500_000),
+        (11_000_000, 9_900_000),
+        (11_000_000, 10_100_000),
+    ];
+    assert_eq!(points.len(), 4, "{points:?}");
+    for (p, q) in points.iter().zip(expected) {
+        assert!(
+            p.0.abs_diff(q.0) <= 2 && p.1.abs_diff(q.1) <= 2,
+            "{points:?}"
+        );
+    }
+}
+
+#[test]
+fn an_off_centre_track_on_a_rect_pad_keeps_its_base_on_the_pad() {
+    let dir = TempDir::new("teardrop-off-centre-rect-base");
+    let (mut e, net) = board(&dir);
+    let pad = uuid(
+        &e.run_ok(
+            "pcb.free_pad.add",
+            json!({"kind":"smd","net":net,"shape":"rect","width":"2mm","height":"1mm",
+            "at":{"x":"10mm","y":"10mm"}}),
+        )["result"]["uuid"],
+    );
+    track(&mut e, net, 200_000, &[(0, 350_000), (4_000_000, 350_000)]);
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"teardrop","values":{"smd_pad":{"enabled":true}}}),
+    );
+    e.run_ok("pcb.zone.fill", json!({}));
+    assert_flares_from_land(&e, Item::FreePad { uuid: pad }, (4_000_000, 350_000));
+    // The full 1 mm base covers the Pad's edge instead of running past its top.
+    let points = single_outline(&e);
+    assert_eq!(points.iter().map(|p| p.1).max(), Some(10_500_000));
+    assert_eq!(points.iter().map(|p| p.1).min(), Some(9_500_000));
+}
+
+#[test]
+fn a_diagonal_track_on_a_rect_pad_keeps_both_base_corners_on_the_pad() {
+    let dir = TempDir::new("teardrop-diagonal-rect-base");
+    let (mut e, net) = board(&dir);
+    let pad = uuid(
+        &e.run_ok(
+            "pcb.free_pad.add",
+            json!({"kind":"smd","net":net,"shape":"rect","width":"1mm","height":"1mm",
+            "at":{"x":"10mm","y":"10mm"}}),
+        )["result"]["uuid"],
+    );
+    track(&mut e, net, 200_000, &[(0, 0), (3_000_000, 1_500_000)]);
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"teardrop","values":{"smd_pad":{"enabled":true}}}),
+    );
+    e.run_ok("pcb.zone.fill", json!({}));
+    assert_flares_from_land(&e, Item::FreePad { uuid: pad }, (3_000_000, 1_500_000));
+}
+
+#[test]
+fn a_teardrop_cut_short_only_by_the_track_reaching_another_via_is_complete() {
+    let dir = TempDir::new("teardrop-short-path-complete");
+    let (mut e, net) = board(&dir);
+    for x in ["10mm", "11.1mm"] {
+        e.run_ok(
+            "pcb.via.add",
+            json!({"net":net,"at":{"x":x,"y":"10mm"},"hole":"0.3mm","diameter":"0.8mm"}),
+        );
+    }
+    track(&mut e, net, 100_000, &[(0, 0), (1_100_000, 0)]);
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"teardrop","values":{"via":{"enabled":true}}}),
+    );
+    e.run_ok("pcb.zone.fill", json!({}));
+    let status = e.run_ok("pcb.teardrop.status", json!({}));
+    assert_eq!(status["generated"], 2, "{status}");
+    assert_eq!(status["shortened"], 0, "{status}");
+    assert_eq!(status["shortened_items"], json!([]));
 }
