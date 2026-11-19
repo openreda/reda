@@ -54,6 +54,8 @@ pub fn resolve(pcb: &PcbDocument) -> Vec<Opening> {
                 Point::default(),
                 CornerCut::Round(Nm(via.diameter.start.0 / 2)),
             ),
+            middle: None,
+            bottom: None,
             hole: Some(reda_model::Hole::new(via.hole, via.hole)),
             side: None,
             net: via.net,
@@ -79,6 +81,10 @@ pub fn element_openings(pcb: &PcbDocument, footprint: &reda_model::Footprint) ->
             at: pad.at,
             rotation: pad.rotation,
             outline: pad.outline(),
+            middle: pad.middle.map(|c| (c.shape, pad.form_on(None).outline())),
+            bottom: pad
+                .bottom
+                .map(|c| (c.shape, pad.form_on(Some(Side::Bottom)).outline())),
             hole: pad.hole,
             side: pad.copper_side(),
             net: None,
@@ -122,7 +128,7 @@ fn pad_openings(
         let from_hole = mask
             .from_hole_edge
             .unwrap_or_else(|| flag(pcb, pad.net, RuleField::FromHoleEdge));
-        let mut copper = pad.clone();
+        let mut copper = pad.clone().on_side(Some(side));
         if let Some(via) = via
             && let Some(end) = via.diameter.end
             && pcb

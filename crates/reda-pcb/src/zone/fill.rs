@@ -239,17 +239,16 @@ struct Frame {
 /// The frame of a Pad, Free Pad or Via item, with its resolved Zone connection; `None`
 /// for other copper.
 fn frame(pcb: &PcbDocument, zone: &Zone, item: Item) -> Option<Frame> {
+    let side = pcb.layers().layer(zone.layer)?.side;
     let placed = match item {
         Item::Pad { footprint, pad } => {
             let instance = pcb.footprint(footprint)?;
-            placed::placed_pads(pcb, instance)
-                .into_iter()
-                .find(|p| p.pad == pad)?
+            placed::placed_pads_on(pcb, instance, side).find(|p| p.pad == pad)?
         }
-        Item::FreePad { uuid } => placed::placed_free_pad(pcb.free_pad(uuid)?),
+        Item::FreePad { uuid } => placed::placed_free_pad_on(pcb.free_pad(uuid)?, side),
         Item::Via { uuid } => {
             let via = pcb.via(uuid)?;
-            let r = via.diameter.start.0 / 2;
+            let r = via.diameter_on(zone.layer).0 / 2;
             return Some(Frame {
                 centre: [via.at.x.0, via.at.y.0],
                 angle: Millideg::ZERO,

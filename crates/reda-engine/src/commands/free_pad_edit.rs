@@ -31,6 +31,12 @@ pub struct FreePadEditParams {
     pub rotation: Option<Angle>,
     pub width: Option<Length>,
     pub height: Option<Length>,
+    /// Replaces the entire inner copper shape. `null` inherits the top.
+    #[serde(default, deserialize_with = "present")]
+    pub middle: Option<Option<reda_command::PadCopperParam>>,
+    /// Replaces the entire bottom copper shape. `null` inherits the top.
+    #[serde(default, deserialize_with = "present")]
+    pub bottom: Option<Option<reda_command::PadCopperParam>>,
     /// `null` returns a rounded rectangle to the default ratio.
     #[serde(default, deserialize_with = "present")]
     pub corner_ratio: Option<Option<RatioParam>>,
@@ -107,6 +113,8 @@ impl Command for FreePadEdit {
             side: p.side,
             mask: p.mask,
             paste: p.paste,
+            middle: p.middle,
+            bottom: p.bottom,
             zone_connection: p.zone_connection,
         };
         let pad = patch.apply(as_pad(&free))?;
@@ -119,6 +127,8 @@ impl Command for FreePadEdit {
             rotation: pad.rotation,
             width: pad.width,
             height: pad.height,
+            middle: pad.middle,
+            bottom: pad.bottom,
             corner_ratio: pad.corner_ratio,
             chamfer_ratio: pad.chamfer_ratio,
             corners: pad.corners,
@@ -150,6 +160,8 @@ fn as_pad(free: &FreePad) -> Pad {
         rotation: free.rotation,
         width: free.width,
         height: free.height,
+        middle: free.middle,
+        bottom: free.bottom,
         corner_ratio: free.corner_ratio,
         chamfer_ratio: free.chamfer_ratio,
         corners: free.corners,

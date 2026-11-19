@@ -128,6 +128,8 @@ fn soic() -> Footprint {
         rotation: Millideg(0),
         width: Nm::from_um(600),
         height: Nm::from_um(1550),
+        middle: None,
+        bottom: None,
         corner_ratio: Some(reda_engine::model::Ratio::percent(50)),
         chamfer_ratio: None,
         corners: None,
@@ -217,6 +219,8 @@ fn hole() -> Footprint {
             rotation: Millideg(0),
             width: Nm::from_um(3200),
             height: Nm::from_um(3200),
+            middle: None,
+            bottom: None,
             corner_ratio: None,
             chamfer_ratio: None,
             corners: None,
@@ -566,4 +570,19 @@ fn footprint_text_defaults_to_center_when_justification_is_omitted() {
             .iter()
             .all(|text| text.style.justify == reda_model::TextJustify::CENTER)
     );
+}
+
+#[test]
+fn footprint_files_refuse_an_inner_land_on_an_smd_pad() {
+    let mut file: serde_json::Value =
+        serde_json::from_slice(&write_footprint(&soic()).unwrap()).unwrap();
+    file["pads"][0]["middle"] =
+        serde_json::json!({"shape":"circle","width":1000000,"height":1000000});
+    let error = read_footprint(
+        Path::new("invalid.redafp"),
+        &serde_json::to_vec(&file).unwrap(),
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(error.contains("middle"), "{error}");
 }

@@ -269,12 +269,7 @@ impl FootprintRow {
     ) -> Result<Footprint, String> {
         unique(pads.iter().map(|p| p.uuid), "Pad")?;
         for pad in &pads {
-            if let Some((field, problem)) = reda_model::opening_problem(
-                pad.kind,
-                pad.side,
-                pad.mask.as_ref(),
-                pad.paste.as_ref(),
-            ) {
+            if let Some((field, problem)) = pad.stored_problem() {
                 return Err(format!("Pad {}{field}: {problem}", pad.uuid));
             }
         }
