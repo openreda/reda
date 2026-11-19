@@ -102,7 +102,9 @@ impl Copper {
                 if ties.tie_pad_on(net, piece.item) && !shape.touches(&piece.shape) {
                     continue;
                 }
-                if gap < required.0 as f64 {
+                if gap < required.0 as f64
+                    || (piece.item.is_artwork() && gap <= reda_model::geom::grown::TOUCH)
+                {
                     hits.push(ClearanceHit {
                         item: piece.item,
                         layer,
@@ -176,7 +178,7 @@ impl Copper {
     }
 }
 
-/// Two pieces of stored copper closer than the clearance rules allow, without touching.
+/// Two pieces of stored copper that violate the clearance rule.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Gap {
     pub layers: Vec<Uuid>,
@@ -192,9 +194,9 @@ pub(crate) struct Gap {
 
 impl Copper {
     /// Every pair of copper pieces of different Nets (or on no Net) that comes closer than
-    /// the clearance rules allow but does not touch, sorted by pair. Touching copper is a
-    /// short (different Nets) or a connection, never a clearance breach. Zone fills are
-    /// left out: a current fill keeps its clearance by construction.
+    /// the clearance rules allow, sorted by pair. Touching artwork violates clearance
+    /// since it never connects. Other contacts are handled by the connection checks.
+    /// Zone fills keep clear by construction, but are also checked against artwork.
     pub(crate) fn gaps(&self, pcb: &PcbDocument) -> Vec<Gap> {
         let reach = max_clearance(pcb).0;
         let ties = super::ties::Ties::of(pcb);
@@ -202,6 +204,7 @@ impl Copper {
         for (&layer, tree) in &self.index {
             for entry in tree.iter() {
                 let piece = self.piece(entry.slot);
+                // Zone fills are checked from the artwork side of each pair.
                 if matches!(piece.item, Item::Zone { .. }) {
                     continue;
                 }
@@ -211,16 +214,17 @@ impl Copper {
                     [hi[0] + reach, hi[1] + reach],
                 );
                 for other in self.candidates(layer, search) {
-                    if other.item <= piece.item || matches!(other.item, Item::Zone { .. }) {
+                    let artwork = piece.item.is_artwork() || other.item.is_artwork();
+                    if other.item <= piece.item
+                        || (!artwork && matches!(other.item, Item::Zone { .. }))
+                    {
                         continue;
                     }
                     let (na, nb) = (self.net(piece.item), self.net(other.item));
                     if na.is_some() && na == nb {
                         continue;
                     }
-                    if piece.shape.touches(&other.shape) {
-                        continue;
-                    }
+
                     let Some(source) = resolve_pair_on(
                         pcb,
                         na,
@@ -233,7 +237,7 @@ impl Copper {
                     };
                     let required = source.value.length().expect("clearance is a length");
                     let gap = piece.shape.distance(&other.shape);
-                    if gap >= required.0 as f64
+                    if !breaches_clearance(gap, required, artwork)
                         || exempt_pair(pcb, &ties, (piece.item, na), (other.item, nb))
                     {
                         continue;
@@ -260,6 +264,16 @@ impl Copper {
             }
         }
         found.into_values().collect()
+    }
+}
+
+/// Ordinary copper contacts are handled by connectivity checks. Free artwork has
+/// no electrical connection, so its contact is itself a clearance breach.
+pub(crate) fn breaches_clearance(distance: f64, required: Nm, artwork: bool) -> bool {
+    if distance <= reda_model::geom::grown::TOUCH {
+        artwork
+    } else {
+        distance < required.0 as f64
     }
 }
 

@@ -720,3 +720,20 @@ fn stitching_uses_the_chosen_type_and_ignores_copper_beyond_its_span() {
         (layers[1], layers[0], Nm(150000))
     );
 }
+
+#[test]
+fn a_route_starting_on_an_etched_graphic_keeps_its_clearance() {
+    let mut b = board();
+    run(
+        &mut b.shell,
+        "pcb.graphic.add_rect",
+        json!({
+            "layer":"copper_top", "from":{"x":"3mm","y":"3mm"},"to":{"x":"6mm","y":"6mm"},
+            "filled":true, "width":0
+        }),
+    );
+    run(&mut b.shell, "tool.activate:route", json!({}));
+    route_to(&mut b, mm(4.0, 4.0));
+    b.shell.route_hover(mm(7.0, 4.0));
+    assert!(b.shell.route_preview().unwrap().blocked);
+}

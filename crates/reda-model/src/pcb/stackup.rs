@@ -140,7 +140,9 @@ impl ViaDiameter {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum UnusedLayers {
     #[default]
@@ -150,6 +152,19 @@ pub enum UnusedLayers {
 }
 
 impl UnusedLayers {
+    pub(crate) fn pad_problem(self, kind: crate::PadKind) -> Option<(String, String)> {
+        let message = match self {
+            Self::RemoveKeepEnds => {
+                "remove_keep_ends is a Via mode; plated Pads always retain their outer lands"
+            }
+            Self::Remove if kind != crate::PadKind::PlatedThroughHole => {
+                "only plated through-hole Pads can remove unused inner lands"
+            }
+            _ => return None,
+        };
+        Some(("/unused_layers".into(), message.into()))
+    }
+
     pub fn is_keep(&self) -> bool {
         *self == Self::Keep
     }

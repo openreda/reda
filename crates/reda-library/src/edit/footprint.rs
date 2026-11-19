@@ -133,6 +133,7 @@ pub struct PadAddParams {
     pub middle: Option<reda_command::PadCopperParam>,
     /// A plated through-hole Pad's complete bottom copper shape.
     pub bottom: Option<reda_command::PadCopperParam>,
+    pub unused_layers: Option<reda_model::UnusedLayers>,
     /// For a `rounded_rect` (50% when left out) and the uncut corners of a
     /// `chamfered_rect`.
     pub corner_ratio: Option<RatioParam>,
@@ -197,6 +198,7 @@ impl Command for PadAdd {
             paste: reda_command::paste(p.paste),
             middle: p.middle.map(reda_command::PadCopperParam::copper),
             bottom: p.bottom.map(reda_command::PadCopperParam::copper),
+            unused_layers: p.unused_layers.unwrap_or_default(),
             zone_connection: zone_connection(p.zone_connection),
         };
         let pad = finish_pad(pad, explicit)?;
@@ -277,6 +279,7 @@ pub struct PadEditParams {
     /// Replaces the entire bottom copper shape. `null` inherits the top.
     #[serde(default, deserialize_with = "present")]
     pub bottom: Option<Option<reda_command::PadCopperParam>>,
+    pub unused_layers: Option<reda_model::UnusedLayers>,
     /// `null` returns a rounded rectangle to the default ratio.
     #[serde(default, deserialize_with = "present")]
     pub corner_ratio: Option<Option<RatioParam>>,
@@ -340,6 +343,7 @@ impl Command for PadEdit {
             paste: p.paste,
             middle: p.middle,
             bottom: p.bottom,
+            unused_layers: p.unused_layers,
             zone_connection: p.zone_connection,
         };
         edit_footprint(cx, p.footprint, |f| {
@@ -360,6 +364,7 @@ impl Command for PadEdit {
 pub struct PadPatch {
     pub middle: Option<Option<reda_command::PadCopperParam>>,
     pub bottom: Option<Option<reda_command::PadCopperParam>>,
+    pub unused_layers: Option<reda_model::UnusedLayers>,
     pub kind: Option<PadKind>,
     pub shape: Option<PadShape>,
     pub at: Option<PointParam>,
@@ -384,6 +389,9 @@ impl PadPatch {
         let p = self;
         if let Some(kind) = p.kind {
             pad.kind = kind;
+        }
+        if let Some(mode) = p.unused_layers {
+            pad.unused_layers = mode;
         }
         if let Some(copper) = p.middle {
             pad.middle = copper.map(reda_command::PadCopperParam::copper);

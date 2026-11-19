@@ -124,7 +124,7 @@ fn stub_length(board: &Board<'_>, track: &Track, end: Point) -> f64 {
             .copper
             .items_at(current.layer, at)
             .into_iter()
-            .filter(|i| *i != Item::Track { uuid: current.uuid })
+            .filter(|i| !i.is_artwork() && *i != Item::Track { uuid: current.uuid })
             .collect();
         let [Item::Track { uuid }] = others.as_slice() else {
             return length;
@@ -159,7 +159,7 @@ fn poor_connection(board: &Board<'_>, report: &mut Report) {
         }
         for end in [from, to] {
             let on = copper.items_at(track.layer, end);
-            if on.iter().any(|other| *other != item) {
+            if on.iter().any(|other| !other.is_artwork() && *other != item) {
                 continue;
             }
             let cap = Shape::disc(end, track.width);

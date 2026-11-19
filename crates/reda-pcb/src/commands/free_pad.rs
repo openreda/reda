@@ -51,6 +51,7 @@ pub struct FreePadAddParams {
     pub middle: Option<reda_command::PadCopperParam>,
     /// A plated through-hole Pad's complete bottom copper shape.
     pub bottom: Option<reda_command::PadCopperParam>,
+    pub unused_layers: Option<reda_model::UnusedLayers>,
     /// For a `rounded_rect` (50% when left out) and the uncut corners of a
     /// `chamfered_rect`.
     #[serde(default)]
@@ -143,6 +144,7 @@ impl Command for FreePadAdd {
             paste: reda_command::paste(p.paste),
             middle: p.middle.map(reda_command::PadCopperParam::copper),
             bottom: p.bottom.map(reda_command::PadCopperParam::copper),
+            unused_layers: p.unused_layers.unwrap_or_default(),
             zone_connection: zone_connection(p.zone_connection),
         };
         if let Some((pointer, problem)) = pad.problem() {

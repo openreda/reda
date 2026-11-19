@@ -1,11 +1,12 @@
 //! Measuring: the clearance between two primitives and the length of selected Tracks.
 
+use crate::copper::shape::graphic_shape;
 use reda_command::{
     AvailabilityContext, Command, CommandError, Context, Kind, Meta, Registry, Unavailable,
 };
-use reda_model::geom::grown::{Core, Prim, Shape, arc_points};
+use reda_model::geom::grown::Shape;
 use reda_model::geom::{Nm, Point, Vertex};
-use reda_model::{GraphicShape, LayerKind, PadRef, PcbDocument, Uuid};
+use reda_model::{LayerKind, PadRef, PcbDocument, Uuid};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -197,36 +198,6 @@ fn pieces(
         return Err(refuse(format!("{uuid} has no copper to measure")));
     }
     Ok(found)
-}
-
-fn p(point: Point) -> [i64; 2] {
-    [point.x.0, point.y.0]
-}
-
-/// A board graphic drawn with a round pen of `width`.
-fn graphic_shape(shape: &GraphicShape, width: Nm) -> Shape {
-    let r = width.0 / 2;
-    match *shape {
-        GraphicShape::Line { from, to } => Shape::chain(&[from, to], r),
-        GraphicShape::Arc { from, to, sweep } => Shape::chain(&arc_points(from, to, sweep), r),
-        GraphicShape::Rect { from, to, filled } => {
-            let corners = [
-                from,
-                Point::new(to.x, from.y),
-                to,
-                Point::new(from.x, to.y),
-                from,
-            ];
-            let mut shape = Shape::chain(&corners, r);
-            if filled && from.x != to.x && from.y != to.y {
-                shape.prims.push(Prim {
-                    core: Core::Poly(corners[..4].iter().map(|c| p(*c)).collect()),
-                    radius: r,
-                });
-            }
-            shape
-        }
-    }
 }
 
 /// The edge of a closed outline, as a line of no width.

@@ -87,6 +87,7 @@ pub fn from_free(free: &FreePad) -> Pad {
         height: free.height,
         middle: free.middle,
         bottom: free.bottom,
+        unused_layers: free.unused_layers,
         corner_ratio: free.corner_ratio,
         chamfer_ratio: free.chamfer_ratio,
         corners: free.corners,
@@ -183,6 +184,12 @@ pub fn patch(pad: &Pad, edit: &PadEdit) -> Option<Map<String, Value>> {
             }
             set("kind", json!(kind));
             if *kind != PadKind::PlatedThroughHole {
+                if !pad.unused_layers.is_keep() {
+                    set(
+                        "unused_layers",
+                        json!(reda_engine::model::UnusedLayers::Keep),
+                    );
+                }
                 if pad.middle.is_some() {
                     set("middle", Value::Null);
                 }

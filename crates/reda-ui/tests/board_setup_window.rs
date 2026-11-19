@@ -500,6 +500,7 @@ fn stackup_table_names_and_moves_used_via_types_via_the_preview() {
         pcb(&h).stackup().via_types[1].name.as_deref(),
         Some("Laser")
     );
+    choose(&mut h, "New Via lands", "Remove and keep both ends");
     let shell = h.state_mut().shell_mut();
     shell
         .run(
@@ -507,6 +508,10 @@ fn stackup_table_names_and_moves_used_via_types_via_the_preview() {
             json!({"from":kind.from,"to":kind.to,"at":{"x":0,"y":0}}),
         )
         .unwrap();
+    assert_eq!(
+        pcb(&h).vias().next().unwrap().unused_layers,
+        reda_ui::engine::model::UnusedLayers::RemoveKeepEnds
+    );
     choose(&mut h, "Laser to", "L3");
     h.get_by_role_and_label(Role::Button, "Move Vias").click();
     h.run();
@@ -619,6 +624,70 @@ fn layer_table_previews_add_and_delete_then_commits_each_once() {
     for id in ["pcb.layer.add", "pcb.layer.remove"] {
         assert_eq!(entries.iter().filter(|entry| entry.id == id).count(), 1);
     }
+}
+
+#[test]
+fn stackup_shows_the_bare_impedance_and_default_width_on_the_layer_row() {
+    let (home, work) = (TempDir::new("z0-home"), TempDir::new("z0-work"));
+    let mut h = harness(home.path(), work.path(), "Impedance");
+    let board = pcb(&h);
+    let bottom = board.copper_layers().last().unwrap().uuid;
+    let sheet = board.stackup().dielectrics().next().unwrap().uuid;
+    let shell = h.state_mut().shell_mut();
+    shell
+        .run("pcb.layer.set", json!({"layer":bottom,"role":"plane"}))
+        .unwrap();
+    shell
+        .run(
+            "pcb.stackup.set",
+            json!({"dielectrics":[{"uuid":sheet,"dk":4400,"thickness":200000}]}),
+        )
+        .unwrap();
+    shell
+        .run(
+            "pcb.rules.set",
+            json!({"kind":"track_width","values":{"preferred":"0.35mm"}}),
+        )
+        .unwrap();
+    shell
+        .run(
+            "pcb.rules.set",
+            json!({"kind":"track_width","scope":{"layers":[bottom]},"values":{"preferred":"0.3mm"}}),
+        )
+        .unwrap();
+    shell
+        .run("pcb.stackup.open", json!({"document":board.uuid}))
+        .unwrap();
+    h.run();
+    h.get_by_label("Z0");
+    let top = h.get_by_role_and_label(Role::Row, "Top Copper").rect();
+    assert!(top.contains(h.get_by_label("50.2 Ω").rect().center()));
+    h.get_by_label_contains("without solder mask");
+    h.get_by_label_contains("L1 0.35 mm");
+    h.get_by_label_contains("L2 0.3 mm");
+    h.state_mut()
+        .shell_mut()
+        .run(
+            "pcb.stackup.set",
+            json!({"dielectrics":[{"uuid":sheet,"dk":null,"thickness":"1.53mm"}]}),
+        )
+        .unwrap();
+    h.run();
+    let rough = h.get_by_label_contains("≈");
+    assert!(top.contains(rough.rect().center()));
+    assert!(
+        rough
+            .accesskit_node()
+            .description()
+            .unwrap()
+            .contains("4.5")
+    );
+    // A three-digit rough estimate, including its unit, must fit the column.
+    assert!(h.output().shapes.iter().any(|shape| matches!(
+        &shape.shape,
+        egui::Shape::Text(text) if text.galley.text().starts_with('≈')
+            && text.galley.text().ends_with('Ω') && !text.galley.elided
+    )));
 }
 
 #[test]

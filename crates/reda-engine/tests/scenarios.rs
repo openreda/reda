@@ -12,7 +12,7 @@ use reda_testkit::read_tree;
 
 /// Each reference Project under `tests/projects/`, by the folder it shares with the
 /// scenario script that builds it.
-const REFERENCE_PROJECTS: &[&str] = &["minimal_board", "blinky_555", "usb_c_mcu"];
+const REFERENCE_PROJECTS: &[&str] = &["minimal_board", "blinky_555", "usb_c_mcu", "six_layer_hdi"];
 
 fn repo() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
@@ -155,6 +155,19 @@ fn inner_layers_reopens_an_outline_plane_and_both_drill_clearance_measurements()
             .any(|z| z.layer == plane.uuid && z.follows_outline && z.vertices.is_empty())
     );
     let via = pcb.vias().next().unwrap();
+    let copper = reda_engine::pcb::Copper::of(engine.project().unwrap()).unwrap();
+    let pad = pcb.free_pads().next().unwrap();
+    for (item, at) in [
+        (reda_engine::pcb::Item::Via { uuid: via.uuid }, via.at),
+        (reda_engine::pcb::Item::FreePad { uuid: pad.uuid }, pad.at),
+    ] {
+        assert!(!copper.items_at(plane.uuid, at).contains(&item));
+        assert!(
+            copper
+                .items_at(pcb.copper_layers().next().unwrap().uuid, at)
+                .contains(&item)
+        );
+    }
     let relief = via.zone_connection.unwrap();
     assert_eq!(
         relief.style,

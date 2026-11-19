@@ -1258,3 +1258,241 @@ fn via_aspect_ratio_uses_each_span_depth_and_max_stack_counts_only_laser_holes()
     assert!(of(&cleared, "aspect_ratio").is_empty());
     assert!(of(&cleared, "max_stack").is_empty());
 }
+
+#[test]
+fn etched_lettering_and_graphics_report_clearance_without_joining_copper() {
+    use reda_pcb::{Copper, Item};
+    let dir = TempDir::new("drc-free-drawing");
+    let mut engine = engine(&dir);
+    let sig = net(&mut engine, "SIG");
+    class(
+        &mut engine,
+        json!({"name":"Wide","rules":[{"kind":"clearance","values":{"value":"0.5mm"}}]}),
+        &[sig],
+    );
+    let t1 = track(&mut engine, Some(sig), "1mm", "1mm", "8mm");
+    let t2 = track(&mut engine, Some(sig), "3mm", "1mm", "8mm");
+    let text = uuid(
+        &engine.run_ok(
+            "pcb.text.add",
+            json!({
+                "layer":"copper_top", "text":"I","x":"3mm","y":0,"height":"4mm"
+            }),
+        )["result"]["uuid"],
+    );
+    let line = uuid(&engine.run_ok("pcb.graphic.add_line", json!({
+        "layer":"copper_top","from":{"x":"2mm","y":"2mm"},"to":{"x":"6mm","y":"2mm"},"width":"0.2mm"
+    }))["result"]["uuid"]);
+    let item = Item::Track { uuid: t1 };
+    let copper = Copper::of(engine.project().unwrap()).unwrap();
+    let run = drc(&mut engine);
+    let found = of(&run, "clearance");
+    for (other, required) in [(t1, 500_000), (t2, 500_000), (line, 160_000)] {
+        let hit = found
+            .iter()
+            .find(|v| objects(v).contains(&text) && objects(v).contains(&other))
+            .unwrap_or_else(|| panic!("missing clearance between {text} and {other}: {found:#?}"));
+        assert_eq!(hit["measured"]["length"], 0);
+        assert_eq!(hit["required"]["length"], required);
+    }
+    assert_eq!(copper.connected(item), [item]);
+    assert_eq!(copper.islands(sig).len(), 2);
+    assert!(of(&run, "short_circuit").is_empty());
+}
+
+#[test]
+fn every_disconnected_glyph_keeps_clear_of_the_board_edge() {
+    let dir = TempDir::new("drc-outside-glyph");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Outline","layers":4,
+        "board":{"width":"10mm","height":"10mm"}}),
+    );
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let edge = pcb.outline().unwrap().uuid;
+    let inner = pcb.copper_layers().nth(1).unwrap().uuid;
+    let text = uuid(
+        &engine.run_ok(
+            "pcb.text.add",
+            json!({"layer":inner,
+        "text":"I                I","x":"4mm","y":"4mm","height":"2mm"}),
+        )["result"]["uuid"],
+    );
+    // The first I is inside and the last is fully outside. No stroke crosses the outline.
+    let hits = of(&drc(&mut engine), "edge_clearance");
+    assert!(
+        hits.iter().any(|v| objects(v) == [text, edge]
+            && v["layers"] == json!([inner])
+            && v["measured"]["length"] == 0),
+        "{hits:#?}"
+    );
+}
+
+#[test]
+fn a_free_graphic_keeps_plated_and_nonplated_hole_clearance_on_its_layer() {
+    let dir = TempDir::new("drc-copper-drawing-holes");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Holes","layers":4}),
+    );
+    let inner = engine
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .nth(1)
+        .unwrap()
+        .uuid;
+    engine.run_ok("pcb.rules.set",json!({"kind":"clearance","scope":{"layers":"inner"},"values":{"hole":{"via":"1mm","pad":"0.9mm"}}}));
+    let via = uuid(
+        &engine.run_ok(
+            "pcb.via.add",
+            json!({"at":{"x":"2mm","y":"3mm"},
+        "diameter":"0.7mm","hole":"0.3mm"}),
+        )["result"]["uuid"],
+    );
+    let mut pads = Vec::new();
+    for (kind, x) in [("plated_through_hole", "6mm"), ("non_plated", "10mm")] {
+        pads.push(uuid(
+            &engine.run_ok(
+                "pcb.free_pad.add",
+                json!({"kind":kind,
+            "at":{"x":x,"y":"3mm"},"width":"1mm","hole":{"width":"0.8mm"}}),
+            )["result"]["uuid"],
+        ));
+    }
+    let line = uuid(
+        &engine.run_ok(
+            "pcb.graphic.add_line",
+            json!({"layer":inner,
+        "from":{"x":"1mm","y":"3.8mm"},"to":{"x":"11mm","y":"3.8mm"},"width":"0.2mm"}),
+        )["result"]["uuid"],
+    );
+    let run = drc(&mut engine);
+    for (check, object, actual) in [
+        ("clearance", via, 550_000),
+        ("clearance", pads[0], 300_000),
+        ("edge_clearance", pads[1], 300_000),
+    ] {
+        let hits = of(&run, check);
+        assert!(
+            hits.iter().any(|v| objects(v).contains(&object)
+                && objects(v).contains(&line)
+                && v["layers"] == json!([inner])
+                && v["measured"]["length"] == actual),
+            "{hits:#?}"
+        );
+    }
+}
+
+#[test]
+fn only_retained_lands_have_annular_ring_checks_but_an_omitted_layer_keeps_hole_clearance() {
+    let dir = TempDir::new("unused-ring-and-hole");
+    let mut e = probe_engine();
+    e.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Demo","layers":4}),
+    );
+    let layers: Vec<_> = e
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .map(|l| l.uuid)
+        .collect();
+    let sig = net(&mut e, "SIG");
+    let via = e.run_ok(
+        "pcb.via.add",
+        json!({"net":sig,"at":{"x":"5mm","y":"5mm"},
+        "hole":"0.4mm","diameter":"0.5mm","unused_layers":"remove_keep_ends"}),
+    )["result"]["uuid"]
+        .clone();
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"clearance","values":{"hole":{"via":"0.4mm"}}}),
+    );
+    e.run_ok("pcb.track.add",json!({"layer":layers[1],"net":sig,"width":"0.1mm","points":[{"x":"4mm","y":"5.5mm"},{"x":"6mm","y":"5.5mm"}]}));
+    let connected = e.run_ok("pcb.track.add",json!({"layer":layers[2],"net":sig,"width":"0.1mm","points":[{"x":"5mm","y":"5mm"},{"x":"6mm","y":"5mm"}]}));
+    let report = drc(&mut e);
+    let rings = of(&report, "annular_ring");
+    assert_eq!(rings.len(), 1);
+    assert_eq!(rings[0]["objects"], json!([via]));
+    assert_eq!(rings[0]["layers"], json!([layers[0], layers[2], layers[3]]));
+    let hits = of(&report, "clearance");
+    assert_eq!(hits.len(), 1);
+    assert_eq!(hits[0]["args"]["part"], "hole.via");
+    assert_eq!(hits[0]["layers"], json!([layers[1]]));
+    assert_eq!(hits[0]["measured"]["length"], 250000);
+
+    // With every land removed the drill remains subject to the same clearance.
+    e.run_ok(
+        "pcb.track.delete",
+        json!({"tracks":connected["result"]["tracks"]}),
+    );
+    e.run_ok(
+        "pcb.via.set",
+        json!({"vias":[via],"unused_layers":"remove"}),
+    );
+    let report = drc(&mut e);
+    assert!(of(&report, "annular_ring").is_empty());
+    let holes = of(&report, "clearance");
+    assert!(holes.iter().any(|hit| hit["args"]["part"] == "hole.via"
+        && hit["layers"] == json!([layers[1]])
+        && hit["measured"]["length"] == 250_000));
+}
+
+#[test]
+fn a_via_with_missing_lands_is_not_duplicate_copper() {
+    let dir = TempDir::new("drc-duplicate-unused");
+    let mut e = probe_engine();
+    e.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Demo","layers":4}),
+    );
+    for mode in ["remove_keep_ends", "keep"] {
+        e.run_ok(
+            "pcb.via.add",
+            json!({"at":{"x":"5mm","y":"5mm"},"unused_layers":mode}),
+        );
+    }
+    assert!(of(&drc(&mut e), "duplicate_copper").is_empty());
+}
+
+#[test]
+fn markers_locate_a_via_with_all_lands_removed_by_its_bore() {
+    let dir = TempDir::new("drc-landless-via-marker");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"name":"Demo","path":dir.path(),"layers":4}),
+    );
+    let inner: Vec<_> = engine
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .filter(|layer| layer.side.is_none())
+        .map(|layer| layer.uuid)
+        .collect();
+    let at = json!({"x":5_000_000, "y":7_000_000});
+    let via = engine.run_ok(
+        "pcb.via.add",
+        json!({
+            "at":at, "from":inner[0], "to":inner[1], "unused_layers":"remove"
+        }),
+    )["result"]["uuid"]
+        .clone();
+    let run = drc(&mut engine);
+    for check in ["dangling", "copper_without_net"] {
+        let hits = of(&run, check);
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0]["objects"], json!([via]));
+        assert_eq!(hits[0]["at"], at);
+        assert_eq!(hits[0]["layers"], json!(inner));
+    }
+}

@@ -2,6 +2,7 @@
 //!
 //! Every crate takes this as a dev-dependency only; a workspace test enforces that.
 
+mod csv;
 mod engine;
 mod files;
 mod pcb;
@@ -9,8 +10,9 @@ mod probe;
 mod scenario;
 mod slow;
 
+pub use csv::read_csv;
 pub use engine::{
-    FolderTrash, TestEngine, starter_library, test_engine, test_engine_in,
+    FolderTrash, TestEngine, open_reference_copy, starter_library, test_engine, test_engine_in,
     test_engine_with_library, test_engine_with_library_in, test_engine_with_trash,
 };
 pub use files::{TempDir, read_tree};

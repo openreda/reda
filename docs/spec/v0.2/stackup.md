@@ -168,12 +168,23 @@ The readout is a Z0 figure per copper Layer in the Layers table ([stackup-editor
 
 - `≈` carries a tooltip saying the figure is rough and why.
 - A Dielectric with no `dk` is taken as 4.5, and the figure is marked `≈`.
+- Z0 is empty when the resolved dielectric gap to a reference is zero or the formula yields no finite, positive impedance. This can happen when a Track is too wide for the embedded or offset logarithmic fit.
 - Solder mask is not modelled and the Stackup gains no mask entries. The readout is labelled "without solder mask". Mask lowers a surface figure by about 2 Ω.
 
 ### Track width
 
 - Each figure is worked out at the Default Net Class's Track width as it applies on that Layer ([How do design rules vary by Layer?](https://github.com/openreda/reda/issues/336)).
 - The width used is shown under the table. There is no separate width input.
+
+### Numerical checks for the impedance readout
+
+The bare surface calculations reproduce the six rounded Hammerstad–Jensen values in
+research cases A1–A3 and B1–B3 within 0.01 Ω. The zero-thickness case at 0.35 mm is
+52.72 Ω and the finite-thickness result is 50.20 Ω. The same tolerance applies to the
+two published-Dk sensitivity calculations for offset case C (48.87 Ω at 4.4 and
+47.79 Ω at 4.6). The ideal centred stripline check compares Wheeler with Cohn's
+zero-thickness result within 0.3%. These tolerances compare calculations. Fabrication
+and measurement introduce additional variation. [Formula research and reference inputs](https://github.com/openreda/reda/blob/000a8c31/docs/research/impedance-formulas.md)
 
 ## Left to other tickets
 

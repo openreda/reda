@@ -104,6 +104,15 @@ fn resolve(family: &str, fonts: &Fonts) -> Resolved {
     }
 }
 
+/// An installed face whose bytes can affect a stored fill or DRC result.
+pub(crate) fn installed_fingerprint<'a>(family: &str, fonts: &'a Fonts) -> Option<&'a str> {
+    if family.eq_ignore_ascii_case(HERSHEY_FONT) || family.eq_ignore_ascii_case(NOTO_SANS_FONT) {
+        None
+    } else {
+        fonts.fingerprint(family)
+    }
+}
+
 /// Whether the family is missing on this machine: neither built in nor handed to the
 /// engine as loadable bytes.
 pub fn font_is_missing(family: &str, fonts: &Fonts) -> bool {
