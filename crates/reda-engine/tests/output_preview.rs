@@ -289,3 +289,44 @@ fn preview_names_both_files_in_an_active_zip_clash_and_keeps_empty_plots_out() {
         ("paste_top", FileState::Empty)
     );
 }
+
+#[test]
+fn a_layer_name_with_a_slash_blocks_only_jobs_that_write_it_as_a_filename() {
+    let dir = TempDir::new("preview-inner-file-name");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Board","layers":4,
+               "board":{"width":"20mm","height":"15mm"}}),
+    );
+    let project = engine.project().unwrap();
+    let job = project.output_jobs().next().unwrap().clone();
+    let inner = project.pcb().unwrap().copper_layers().nth(1).unwrap().uuid;
+    engine.run_ok("pcb.layer.set", json!({"layer":inner,"name":"Power/GND"}));
+    engine.run_ok(
+        "fab_preset.set",
+        json!({"preset":job.fab_preset,"values":{"gerber":{"naming":"descriptive"}}}),
+    );
+    let why = job_preview(&engine, &job)
+        .unwrap()
+        .invalid_file_name
+        .unwrap();
+    assert!(why.contains("Board-Power/GND.gbr"), "{why}");
+    assert_eq!(
+        why,
+        engine
+            .run_err("output.job.run", json!({"job":job.uuid}))
+            .message
+    );
+
+    engine.run_ok(
+        "output.job.set",
+        json!({"job":job.uuid,"outputs":{"gerber":false}}),
+    );
+    let disabled = engine.project().unwrap().output_job(job.uuid).unwrap();
+    assert_eq!(
+        job_preview(&engine, disabled).unwrap().invalid_file_name,
+        None
+    );
+    engine.run_ok("output.job.run", json!({"job":job.uuid}));
+}

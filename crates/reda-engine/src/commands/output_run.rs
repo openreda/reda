@@ -347,11 +347,6 @@ pub(crate) fn run_job(cx: &mut Context<'_>, job_id: Uuid) -> Result<JobRunResult
         zipped.push(reda_output::fab_notes_file(&plot, &zip_names));
     }
     zipped.extend(after);
-    for name in &known {
-        super::project::check_file_stem(name).map_err(|why| {
-            CommandError::rejected(format!("Output file {name:?} cannot be used: {why}"))
-        })?;
-    }
     check_zip_names(zipped.iter().map(OutputFile::name_and_function))
         .map_err(CommandError::rejected)?;
 
@@ -414,7 +409,10 @@ pub(crate) fn run_job(cx: &mut Context<'_>, job_id: Uuid) -> Result<JobRunResult
     cx.check_cancelled()?;
     let destination: PathBuf = folder.join(destination).components().collect();
     let mut stale: Vec<String> = Vec::new();
-    for name in &known {
+    for name in known
+        .iter()
+        .filter(|name| super::project::check_file_stem(name).is_ok())
+    {
         // The top level too: runs before `fab/` wrote the files there.
         stale.push(name.clone());
         stale.push(format!("{FAB}/{name}"));
@@ -444,12 +442,14 @@ pub(crate) fn run_job(cx: &mut Context<'_>, job_id: Uuid) -> Result<JobRunResult
     })
 }
 
-/// Returns the first filename clash in zip order, with both output functions.
+/// Checks that the active zip entries have usable, distinct filenames.
 pub(crate) fn check_zip_names<'a>(
     entries: impl IntoIterator<Item = (&'a str, &'a str)>,
 ) -> Result<(), String> {
     let mut names = BTreeMap::new();
     for (name, function) in entries {
+        super::project::check_file_stem(name)
+            .map_err(|why| format!("Output file {function} cannot use {name:?}: {why}"))?;
         if let Some(previous) = names.insert(name.to_lowercase(), function) {
             return Err(format!(
                 "Output files {previous} and {function} both resolve to {name:?}"
