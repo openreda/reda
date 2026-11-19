@@ -146,7 +146,7 @@ impl Router {
                         .via_types
                         .iter()
                         .find(|t| t.uuid == id)
-                        .map(|t| t.display_name(pcb))
+                        .map(|t| crate::pcb::via_type_name(pcb, t))
                 })
                 .collect::<Vec<_>>()
                 .join(" + "),
@@ -224,7 +224,7 @@ impl Router {
         let ends = route.track_ends(&path);
         for member in &members {
             if let Some(t) = pcb.stackup().type_for_span(member.span) {
-                names.push(t.display_name(pcb));
+                names.push(crate::pcb::via_type_name(pcb, t));
             }
             let proposal = copper.propose_via(pcb, at, route.net, *member, &ends);
             rings.insert(member.hole);

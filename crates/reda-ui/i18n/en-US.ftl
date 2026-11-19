@@ -3244,3 +3244,9 @@ route-via-previous-page = Previous
 route-via-next-page = Next
 route-via-page = Candidate page
 route-via-invalid-size = The Via hole must fit inside every land after applying the size limits.
+
+via-name-through = Through
+via-name-blind = Blind { $from }:{ $to }
+via-name-buried = Buried { $from }:{ $to }
+via-name-micro = Micro { $from }:{ $to }
+stackup-length-mm = { $field } (mm)

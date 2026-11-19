@@ -19,11 +19,13 @@
     {"uuid":"00000000-0000-4000-8000-000000000013","kind":"documentation"}
   ]},
   "stackups": [
-    {"uuid":"00000000-0000-4000-8000-000000000026","construction":"2 Layer","thickness":1600000,"entries":[
+    {"uuid":"00000000-0000-4000-8000-00000000002b","construction":"2 Layer","thickness":1600000,"entries":[
       {"layer":"00000000-0000-4000-8000-00000000000a","thickness":35000},
-      {"uuid":"00000000-0000-4000-8000-000000000025","kind":"core","thickness":1530000},
+      {"uuid":"00000000-0000-4000-8000-00000000002a","kind":"core","thickness":1530000},
       {"layer":"00000000-0000-4000-8000-00000000000b","thickness":35000}
-    ],"via_types":[{"uuid":"fb26f99f-7b7e-84e5-9de6-c52686ec3a58","from":"00000000-0000-4000-8000-00000000000a","to":"00000000-0000-4000-8000-00000000000b","hole":300000,"diameter":{"start":700000}}]}
+    ],"via_types":[
+      {"uuid":"00000000-0000-4000-8000-00000000002c","from":"00000000-0000-4000-8000-00000000000a","to":"00000000-0000-4000-8000-00000000000b","hole":300000,"diameter":{"start":700000}}
+    ]}
   ],
   "board": {"uuid":"00000000-0000-4000-8000-000000000014"},
   "rules": [
@@ -43,14 +45,14 @@
     {"uuid":"00000000-0000-4000-8000-000000000022","kind":"micro_segment","scope":{},"values":{"max_length":10000}},
     {"uuid":"00000000-0000-4000-8000-000000000023","kind":"dead_copper","scope":{},"values":{"min_area":64516000000}},
     {"uuid":"00000000-0000-4000-8000-000000000024","kind":"zone_connection","scope":{},"values":{"through_hole":{"style":"relief","spokes":4,"spoke_width":250000,"gap":250000,"angle":0},"smd":{"style":"relief","spokes":4,"spoke_width":250000,"gap":250000,"angle":0},"via":{"style":"solid","spokes":4,"spoke_width":250000,"gap":250000,"angle":0}}},
-    {"uuid":"7532afb4-37fb-87ed-8203-85c674d4d3ed","kind":"via_span","scope":{},"values":{}},
-    {"uuid":"a4d4d018-617c-8b32-a339-a772f645a99c","kind":"microvia_size","scope":{},"values":{}},
-    {"uuid":"ba43999e-06fb-87e2-b1e3-242726bfa195","kind":"teardrop","scope":{},"values":{"via":{"enabled":false,"length":50,"max_length":1000000,"width":100,"max_width":2000000,"curved":false,"skip_ratio":90},"through_hole_pad":{"enabled":false,"length":50,"max_length":1000000,"width":100,"max_width":2000000,"curved":false,"skip_ratio":90},"smd_pad":{"enabled":false,"length":50,"max_length":1000000,"width":100,"max_width":2000000,"curved":false,"skip_ratio":90},"width_change":{"enabled":false,"length":50,"max_length":1000000,"width":100,"max_width":2000000,"curved":false,"skip_ratio":90}}},
-    {"uuid":"be90e6de-b053-8133-8354-030261527951","kind":"silk_text_height","scope":{},"values":{"min":1000000}},
-    {"uuid":"f0795c00-2af6-8b6f-a29c-1e9c117f1a6e","kind":"silk_width","scope":{},"values":{"min":150000}}
+    {"uuid":"00000000-0000-4000-8000-000000000025","kind":"via_span","scope":{},"values":{}},
+    {"uuid":"00000000-0000-4000-8000-000000000026","kind":"microvia_size","scope":{},"values":{}},
+    {"uuid":"00000000-0000-4000-8000-000000000027","kind":"teardrop","scope":{},"values":{"via":{"enabled":false,"length":50,"max_length":1000000,"width":100,"max_width":2000000,"curved":false,"skip_ratio":90},"through_hole_pad":{"enabled":false,"length":50,"max_length":1000000,"width":100,"max_width":2000000,"curved":false,"skip_ratio":90},"smd_pad":{"enabled":false,"length":50,"max_length":1000000,"width":100,"max_width":2000000,"curved":false,"skip_ratio":90},"width_change":{"enabled":false,"length":50,"max_length":1000000,"width":100,"max_width":2000000,"curved":false,"skip_ratio":90}}},
+    {"uuid":"00000000-0000-4000-8000-000000000028","kind":"silk_width","scope":{},"values":{"min":150000}},
+    {"uuid":"00000000-0000-4000-8000-000000000029","kind":"silk_text_height","scope":{},"values":{"min":1000000}}
   ],
   "severities": {"clearance":"error","short_circuit":"error","shorted_copper":"error","net_tie_not_joined":"error","track_width":"error","via_size":"error","via_span":"error","microvia_size":"error","aspect_ratio":"error","max_stack":"error","silk_width":"warning","silk_text_height":"warning","hole_size":"error","annular_ring":"error","hole_to_hole":"error","edge_clearance":"error","keepout":"error","footprint_outside_board":"error","unrouted":"error","copper_without_net":"warning","dangling":"warning","poor_connection":"warning","via_under_smd":"warning","courtyard_overlap":"warning","silk_to_mask":"warning","silk_to_edge":"warning","zero_length_track":"warning","micro_segment":"warning","duplicate_copper":"warning","zero_area_zone":"warning","dead_copper":"warning","empty_zone":"warning","shelved_zone":"warning","out_of_sync":"warning","opening_collapsed":"warning","rule_invalid":"error","rule_outside_preset":"warning"},
-  "board_outline": {"uuid":"00000000-0000-4000-8000-000000000029","vertices":[
+  "board_outline": {"uuid":"00000000-0000-4000-8000-00000000002f","vertices":[
     {"x":0,"y":0},
     {"x":35000000,"y":0},
     {"x":35000000,"y":20000000},
@@ -62,7 +64,7 @@
   "texts": [],
   "graphics": [],
   "footprint_copies": [
-    {"uuid":"00000000-0000-4000-8000-000000000038","hash":"8663e2c08d4adca1947ea9e5cb2fda42","footprint":{"uuid":"0691e5e7-9eb6-49f3-9f3e-d4159258693e","name":"RESC1608X55N","description":"Chip resistor, 0603 (1608 metric), IPC-7351 Nominal","height":550000},"pads":[
+    {"uuid":"00000000-0000-4000-8000-00000000003e","hash":"8663e2c08d4adca1947ea9e5cb2fda42","footprint":{"uuid":"0691e5e7-9eb6-49f3-9f3e-d4159258693e","name":"RESC1608X55N","description":"Chip resistor, 0603 (1608 metric), IPC-7351 Nominal","height":550000},"pads":[
       {"uuid":"0c71e033-af95-4f12-87ae-8d0c35399464","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-775000,"y":0},"rotation":0,"width":900000,"height":950000,"corner_ratio":25000},
       {"uuid":"53384bba-48b7-4032-9f0b-0b1238401de3","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":775000,"y":0},"rotation":0,"width":900000,"height":950000,"corner_ratio":25000}
     ],"graphics":[
@@ -75,22 +77,22 @@
     ]}
   ],
   "footprints": [
-    {"uuid":"00000000-0000-4000-8000-000000000039","component":{"uuid":"00000000-0000-4000-8000-000000000030"},"footprint":"00000000-0000-4000-8000-000000000038","at":{"x":5000000,"y":8000000},"rotation":90000,"side":"top","designator":"R1","fields":{"value":"10k","description":"Resistor","keywords":"R resistor"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
+    {"uuid":"00000000-0000-4000-8000-00000000003f","component":{"uuid":"00000000-0000-4000-8000-000000000036"},"footprint":"00000000-0000-4000-8000-00000000003e","at":{"x":5000000,"y":8000000},"rotation":90000,"side":"top","designator":"R1","fields":{"value":"10k","description":"Resistor","keywords":"R resistor"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
       {"pad":"0c71e033-af95-4f12-87ae-8d0c35399464"},
       {"pad":"53384bba-48b7-4032-9f0b-0b1238401de3"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000003a","component":{"uuid":"00000000-0000-4000-8000-000000000032"},"footprint":"00000000-0000-4000-8000-000000000038","at":{"x":10000000,"y":8000000},"rotation":90000,"side":"top","designator":"R2","fields":{"value":"10k","description":"Part, \"A\"","keywords":"R resistor","custom":[{"name":"LCSC","value":" c25804 "}]},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000040","component":{"uuid":"00000000-0000-4000-8000-000000000038"},"footprint":"00000000-0000-4000-8000-00000000003e","at":{"x":10000000,"y":8000000},"rotation":90000,"side":"top","designator":"R2","fields":{"value":"10k","description":"Part, \"A\"","keywords":"R resistor","custom":[{"name":"LCSC","value":" c25804 "}]},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
       {"pad":"0c71e033-af95-4f12-87ae-8d0c35399464"},
       {"pad":"53384bba-48b7-4032-9f0b-0b1238401de3"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000003b","component":{"uuid":"00000000-0000-4000-8000-000000000034"},"footprint":"00000000-0000-4000-8000-000000000038","at":{"x":15000000,"y":8000000},"rotation":90000,"side":"bottom","designator":"R3","fields":{"value":"10k","description":"Resistor","keywords":"R resistor"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000041","component":{"uuid":"00000000-0000-4000-8000-00000000003a"},"footprint":"00000000-0000-4000-8000-00000000003e","at":{"x":15000000,"y":8000000},"rotation":90000,"side":"bottom","designator":"R3","fields":{"value":"10k","description":"Resistor","keywords":"R resistor"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
       {"pad":"0c71e033-af95-4f12-87ae-8d0c35399464"},
       {"pad":"53384bba-48b7-4032-9f0b-0b1238401de3"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000003c","component":{"uuid":"00000000-0000-4000-8000-000000000036"},"footprint":"00000000-0000-4000-8000-000000000038","at":{"x":20000000,"y":8000000},"rotation":90000,"side":"bottom","designator":"R4","fields":{"value":"10k","description":"Part, \"A\"","keywords":"R resistor","custom":[{"name":"LCSC","value":" c25804 "}]},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000042","component":{"uuid":"00000000-0000-4000-8000-00000000003c"},"footprint":"00000000-0000-4000-8000-00000000003e","at":{"x":20000000,"y":8000000},"rotation":90000,"side":"bottom","designator":"R4","fields":{"value":"10k","description":"Part, \"A\"","keywords":"R resistor","custom":[{"name":"LCSC","value":" c25804 "}]},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
       {"pad":"0c71e033-af95-4f12-87ae-8d0c35399464"},
       {"pad":"53384bba-48b7-4032-9f0b-0b1238401de3"}
     ]}
   ],
-  "output_origin": {"uuid":"00000000-0000-4000-8000-00000000003d","at":{"x":1000000,"y":2000000}}
+  "output_origin": {"uuid":"00000000-0000-4000-8000-000000000043","at":{"x":1000000,"y":2000000}}
 }

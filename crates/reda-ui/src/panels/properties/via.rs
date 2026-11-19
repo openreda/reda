@@ -17,19 +17,22 @@ pub(super) fn tool_options(ui: &mut Ui, shell: &Shell) -> Option<Vec<Out>> {
     let mut out = Vec::new();
     let label = tr!("via-type");
     ui.label(&label);
-    let menu = widgets::dropdown("stitching-via", current.display_name(pcb)).show(ui, |ui| {
-        for kind in &pcb.stackup().via_types {
-            if ui
-                .add(widgets::choice(
-                    current.uuid == kind.uuid,
-                    kind.display_name(pcb),
-                ))
-                .clicked()
-            {
-                out.push(Out::Run("pcb.via.pick_type", json!({"via_type":kind.uuid})));
+    let menu = widgets::dropdown("stitching-via", crate::pcb::via_type_name(pcb, current)).show(
+        ui,
+        |ui| {
+            for kind in &pcb.stackup().via_types {
+                if ui
+                    .add(widgets::choice(
+                        current.uuid == kind.uuid,
+                        crate::pcb::via_type_name(pcb, kind),
+                    ))
+                    .clicked()
+                {
+                    out.push(Out::Run("pcb.via.pick_type", json!({"via_type":kind.uuid})));
+                }
             }
-        }
-    });
+        },
+    );
     menu.response
         .widget_info(|| WidgetInfo::labeled(Role::ComboBox, true, &label));
     Some(out)
@@ -45,7 +48,7 @@ pub(super) fn selected(
     let name = pcb
         .stackup()
         .type_for_span(via.span)
-        .map_or_else(|| tr!("via-no-type"), |t| t.display_name(pcb));
+        .map_or_else(|| tr!("via-no-type"), |t| crate::pcb::via_type_name(pcb, t));
     let mask = via.mask.unwrap_or_default();
     widgets::form(("via-properties",via.uuid)).show(ui,|ui|{
         widgets::form_row(ui,tr!("via-type"),|ui|ui.label(name));

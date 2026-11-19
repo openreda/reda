@@ -1,6 +1,6 @@
 //! The base artwork of the Stackup preview. The Scene is in nm, y up, with its
 //! origin on the upper left copper surface. Selection and drag feedback are overlays.
-use super::{Band, Barrel, Scale, color, drawing, mask_color, mm};
+use super::{Band, Barrel, BarrelColumns, Scale, color, drawing, mask_color, mm};
 use crate::theme::Tokens;
 use crate::widgets;
 use egui::{Align2, Color32, Painter, Pos2, Rect, Stroke, StrokeKind, pos2, vec2};
@@ -33,7 +33,7 @@ impl Names {
             .stackup()
             .via_types
             .iter()
-            .map(|v| v.display_name(pcb))
+            .map(|v| crate::pcb::via_type_name(pcb, v))
             .collect();
         Self {
             bands,
@@ -77,13 +77,11 @@ impl Section {
         names: &Names,
         body: Rect,
         scale: Scale,
-        pitch: f32,
+        columns: BarrelColumns,
         t: &Tokens,
     ) -> Self {
         let stack = pcb.stackup();
         let bands = drawing::bands(pcb, info, body, scale, t.ty.small.line);
-        let first =
-            body.center().x - (stack.via_types.len().saturating_sub(1) as f32) * pitch / 2.0;
         let mut s = Self {
             scene: Scene::new(SceneSource::Pcb(pcb.uuid)),
             projection: Projection {
@@ -150,7 +148,7 @@ impl Section {
         );
         let copper = widgets::data_color(0xc8, 0x75, 0x33);
         for (i, kind) in stack.via_types.iter().enumerate() {
-            let x = first + pitch * i as f32;
+            let x = body.left() + columns.first + columns.pitch * i as f32;
             let Some(barrel) = drawing::barrel(&bands, kind, x, t.size.of(13.0)) else {
                 continue;
             };
@@ -175,9 +173,15 @@ impl Section {
             if kind.micro {
                 s.line(kind.uuid, [d, c], t.stroke.accent_line, copper);
             }
+            let label_y = body.top() - t.space.gap;
+            let label_y = if columns.staggered && i % 2 != 0 {
+                label_y - t.ty.small.line
+            } else {
+                label_y
+            };
             s.label(
                 kind.uuid,
-                pos2(x, body.top() - t.space.gap),
+                pos2(x, label_y),
                 HAlign::Center,
                 &names.vias[i],
                 t.ty.small.size,

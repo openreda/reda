@@ -701,6 +701,9 @@ pub struct RuleChanges {
     pub changes: Vec<RuleChange>,
     /// The Net Class records the ticked (or applied) rows would break.
     pub class_problems: Vec<ClassProblem>,
+    /// New inner-Layer records by kind, for later edits and Journal replay.
+    #[serde(skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub created_rules: std::collections::BTreeMap<RuleKind, Uuid>,
 }
 
 /// The board-wide values that `preset` seeds differently from the board, each with
@@ -825,6 +828,9 @@ fn reseeded(
     rows: &[(RuleKind, RuleField, Option<reda_model::LayerGroup>)],
 ) -> Vec<DesignRule> {
     let mut changed: Vec<DesignRule> = Vec::new();
+    let mut placeholders = (0..)
+        .map(Uuid::from_u128)
+        .filter(|id| pcb.rule(*id).is_none());
     for change in changes
         .iter()
         .filter(|c| rows.contains(&(c.kind, c.field, c.layers)))
@@ -843,7 +849,7 @@ fn reseeded(
                     pcb.scoped_rule(change.kind, &scope)
                         .cloned()
                         .unwrap_or_else(|| DesignRule {
-                            uuid: pcb.uuid.child(&format!("inner.{}", change.kind.id())),
+                            uuid: placeholders.next().expect("unbounded preview identities"),
                             kind: change.kind,
                             scope,
                             values: Default::default(),
@@ -948,6 +954,7 @@ impl Command for FabPresetDiff {
         Ok(RuleChanges {
             changes,
             class_problems,
+            created_rules: Default::default(),
         })
     }
 }
@@ -1032,6 +1039,17 @@ impl Command for FabPresetApply {
             .into_iter()
             .filter(|c| rows.contains(&(c.kind, c.field, c.layers)))
             .collect();
+        let (project, ids) = cx.project_and_ids()?;
+        let mut changed = changed;
+        let mut created_rules = std::collections::BTreeMap::new();
+        for rule in &mut changed {
+            if !existing.contains(&rule.uuid) {
+                rule.uuid = std::iter::from_fn(|| Some(ids.next_id()))
+                    .find(|id| !project.identity_in_use(*id))
+                    .unwrap();
+                created_rules.insert(rule.kind, rule.uuid);
+            }
+        }
         let tx = cx.tx()?;
         for rule in changed {
             let id = rule.uuid;
@@ -1048,6 +1066,7 @@ impl Command for FabPresetApply {
         Ok(RuleChanges {
             changes,
             class_problems,
+            created_rules,
         })
     }
 }

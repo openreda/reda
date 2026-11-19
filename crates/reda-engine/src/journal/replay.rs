@@ -9,6 +9,8 @@
 //! are paired by what is already known first, so a second pass over each result pairs
 //! the rest once the positional UUIDs elsewhere in it are known.
 
+mod creation;
+
 use std::collections::BTreeMap;
 
 use reda_command::{CommandError, ErrorCode};
@@ -46,7 +48,8 @@ pub fn replay_with(
         let outcome = run(&step.id, params);
         match (&step.outcome, outcome) {
             (None, Ok(_)) => {}
-            (Some(Ok(recorded)), Ok(replayed)) => {
+            (Some(Ok(recorded)), Ok(mut replayed)) => {
+                creation::prepare(step, recorded, &mut replayed, &mut map);
                 for last_pass in [false, true] {
                     compare(recorded, &replayed, "", &mut map, last_pass)
                         .map_err(|(pointer, message)| fail(Some(pointer), message))?;

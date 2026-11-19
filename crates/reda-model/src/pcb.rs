@@ -43,7 +43,7 @@ pub use rules::{
 pub use stackup::{
     CopperEntry, DEFAULT_BOARD_THICKNESS, DEFAULT_COPPER, DielectricEntry, DielectricKind,
     ResolvedEntry, Stackup, StackupEntry, StackupInfo, StackupSeeds, StackupTotals, UnusedLayers,
-    ViaDiameter, ViaType,
+    ViaDiameter, ViaType, ViaTypeName,
 };
 
 pub use graphics::{GraphicShape, HERSHEY_FONT, NOTO_SANS_FONT, PcbGraphic, PcbText};

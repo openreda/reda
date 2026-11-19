@@ -284,10 +284,10 @@ fn replay_with_random_uuids_remaps_the_change_list_a_sync_names() {
 #[test]
 fn replay_maps_copper_and_dielectric_identities_created_by_apply_construction() {
     let dir = TempDir::new("construction-replay");
-    let mut e = test_engine();
+    let mut e = reda_testkit::TestEngine(Engine::builder().user_dirs(None).build());
     let new = e.run_ok("project.new", json!({"path":dir.path(),"name":"Replay"}));
     let document = &new["documents"][1]["uuid"];
-    let preset = e.run_ok("fab_preset.add", json!({"name":"Generic"}))["result"]["uuid"].clone();
+    let preset = e.project().unwrap().fab_presets().next().unwrap().uuid;
     let p = json!({"document":document,"preset":preset,"construction":"4 Layer"});
     e.run_ok(
         "pcb.stackup.change_preview",
@@ -300,7 +300,7 @@ fn replay_maps_copper_and_dielectric_identities_created_by_apply_construction() 
     );
     e.run_ok("pcb.stackup.set",json!({"dielectrics":[{"uuid":ids["result"]["dielectrics"][1],"material":"Test material"}]}));
     let (_dir, script) = script(&journal::export(e.journal()));
-    let mut replayed = engine_seeded(31);
+    let mut replayed = Engine::builder().user_dirs(None).build();
     journal::replay(&mut replayed, &script).unwrap();
     let board = replayed.project().unwrap().pcb().unwrap();
     assert_eq!(
@@ -317,4 +317,186 @@ fn replay_maps_copper_and_dielectric_identities_created_by_apply_construction() 
             .as_deref(),
         Some("Test material")
     );
+}
+
+#[test]
+fn a_new_pcb_documents_seeded_rows_replay_from_an_independent_id_source() {
+    let work = TempDir::new("journal-document-seeds");
+    let mut e = engine_seeded(7);
+    let project = e
+        .run("project.new", json!({"path":work.path(),"name":"Board"}))
+        .unwrap();
+    e.run(
+        "document.delete",
+        json!({"document":project["documents"][1]["uuid"]}),
+    )
+    .unwrap();
+    e.run(
+        "batch",
+        json!({"commands":[{"id":"document.add","params":{"kind":"pcb","layers":4}}]}),
+    )
+    .unwrap();
+    let pcb = e.project().unwrap().pcb().unwrap();
+    let layer = pcb.copper_layers().nth(2).unwrap().uuid;
+    let sheet = pcb.stackup().dielectrics().next().unwrap().uuid;
+    let through = pcb.stackup().through_type().uuid;
+    let rule = pcb.board_rule(reda_engine::model::RuleKind::Clearance).uuid;
+    e.run("pcb.layer.set", json!({"layer":layer,"name":"Reference"}))
+        .unwrap();
+    e.run(
+        "pcb.stackup.set",
+        json!({"dielectrics":[{"uuid":sheet,"material":"Glass"}]}),
+    )
+    .unwrap();
+    e.run(
+        "pcb.via_type.set",
+        json!({"via_type":through,"name":"Mechanical"}),
+    )
+    .unwrap();
+    e.run("object.get", json!({"uuid":rule})).unwrap();
+    let (_copy, steps) = script(&journal::export(e.journal()));
+    let mut replayed = Engine::builder().user_dirs(None).build();
+    journal::replay(&mut replayed, &steps).unwrap();
+    let pcb = replayed.project().unwrap().pcb().unwrap();
+    assert_eq!(
+        pcb.copper_layers().nth(2).unwrap().name.as_deref(),
+        Some("Reference")
+    );
+    assert_eq!(
+        pcb.stackup()
+            .dielectrics()
+            .next()
+            .unwrap()
+            .material
+            .as_deref(),
+        Some("Glass")
+    );
+    assert_eq!(
+        pcb.stackup().through_type().name.as_deref(),
+        Some("Mechanical")
+    );
+    assert_eq!(
+        replayed.journal().last().unwrap().outcome.as_ref().unwrap()["object"]["kind"],
+        "clearance"
+    );
+}
+
+#[test]
+fn old_and_new_preset_recordings_remap_each_created_inner_rule_by_kind() {
+    let folder = TempDir::new("journal-created-rules");
+    let mut e = engine_seeded(3);
+    let project = e
+        .run(
+            "project.new",
+            json!({"path":folder.path(),"name":"RuleSeeds","layers":4}),
+        )
+        .unwrap();
+    let doc = e.project().unwrap().pcb().unwrap().uuid;
+    let preset = e.project().unwrap().fab_presets().next().unwrap().uuid;
+    e.run("fab_preset.set",json!({"preset":preset,"values":{"rules":{"inner":{"clearance":123456,"track_width_min":154000}}}})).unwrap();
+    e.run("project.save", json!({})).unwrap();
+    let before = e.journal().len();
+    let applied = e
+        .run(
+            "batch",
+            json!({"commands":[{"id":"pcb.rules.apply_fab_preset", "params":{"preset":preset}}]}),
+        )
+        .unwrap();
+    let created = &applied["result"][0]["created_rules"];
+    let kinds = ["clearance", "track_width"];
+    for kind in kinds {
+        e.run("object.get", json!({"uuid":created[kind]})).unwrap();
+    }
+    let current = journal::export(&e.journal()[before..]);
+    let mut archived = current.clone();
+    for kind in kinds {
+        let old = doc.child(&format!("inner.{kind}"));
+        archived = archived.replace(created[kind].as_str().unwrap(), &old.to_string());
+    }
+    let mut rows = lines(&archived);
+    rows[0]["result"]["result"][0]
+        .as_object_mut()
+        .unwrap()
+        .remove("created_rules");
+    rows[0]["result"]["changes"][doc.to_string()]["created"]
+        .as_array_mut()
+        .unwrap()
+        .sort_by(|a, b| a.as_str().cmp(&b.as_str()));
+    let archived = rows
+        .iter()
+        .map(Value::to_string)
+        .collect::<Vec<_>>()
+        .join("\n");
+    for recording in [archived, current] {
+        let steps = journal::parse(&recording).unwrap();
+        let mut replayed = engine_seeded(92);
+        replayed
+            .run("project.open", json!({"path":project["path"]}))
+            .unwrap();
+        journal::replay(&mut replayed, &steps).unwrap();
+        let queries = replayed.journal().iter().filter(|e| e.id == "object.get");
+        let observed: Vec<_> = queries
+            .map(|e| {
+                e.outcome.as_ref().unwrap()["object"]["kind"]
+                    .as_str()
+                    .unwrap()
+            })
+            .collect();
+        assert_eq!(observed, kinds);
+    }
+}
+
+#[test]
+fn older_board_creation_recordings_accept_only_the_added_identity_metadata() {
+    let folder = TempDir::new("old-board-creation");
+    let mut e = engine_seeded(0);
+    let project = e
+        .run(
+            "project.new",
+            json!({"path":folder.path(),"name":"OldBoard"}),
+        )
+        .unwrap();
+    let doc = &project["documents"][1]["uuid"];
+    e.run(
+        "object.get",
+        json!({"uuid":project["documents"][0]["uuid"]}),
+    )
+    .unwrap();
+    e.run("document.delete", json!({"document":doc})).unwrap();
+    let direct = e.run("document.add", json!({"kind":"pcb"})).unwrap();
+    e.run(
+        "document.delete",
+        json!({"document":direct["result"]["uuid"]}),
+    )
+    .unwrap();
+    e.run(
+        "batch",
+        json!({"commands":[{"id":"document.add","params":{"kind":"pcb"}}]}),
+    )
+    .unwrap();
+    let mut rows = lines(&journal::export(e.journal()));
+    rows[0]["result"].as_object_mut().unwrap().remove("seeded");
+    rows[3]["result"]["result"]
+        .as_object_mut()
+        .unwrap()
+        .remove("seeded");
+    rows[5]["result"]["result"][0]
+        .as_object_mut()
+        .unwrap()
+        .remove("seeded");
+    let export = |rows: &[Value]| {
+        rows.iter()
+            .map(Value::to_string)
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
+    let (_copy, steps) = script(&export(&rows));
+    journal::replay(&mut engine_seeded(70), &steps).unwrap();
+    rows[5]["result"]["result"][0]
+        .as_object_mut()
+        .unwrap()
+        .remove("title");
+    let (_copy, malformed) = script(&export(&rows));
+    let err = journal::replay(&mut engine_seeded(70), &malformed).unwrap_err();
+    assert_eq!(err.pointer.as_deref(), Some("/result/0/title"));
 }

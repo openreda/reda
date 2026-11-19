@@ -280,7 +280,7 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
             comment: None,
         });
     }
-    let mut added = reda_engine::pcb::multilayer_rules(doc);
+    let mut added = reda_engine::pcb::multilayer_rules(|_| id());
     let teardrop = added
         .iter_mut()
         .find(|r| r.kind == RuleKind::Teardrop)
@@ -297,7 +297,7 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
         uuid: stack_id,
         construction: None,
         via_types: vec![reda_model::ViaType::through(
-            stack_id,
+            id(),
             layers.layers[0].uuid,
             layers.layers[1].uuid,
             preferred.via_hole,
@@ -677,7 +677,7 @@ prop_compose! {
     ) -> (ProjectFabPreset, OutputJob) {
         let rules = fab_rules(lengths);
         let gerber = GerberSettings { x2_attributes, naming: FileNaming::Classic, ..Default::default() };
-        let mut construction = reda_model::Construction::two_layer(reda_model::StackupSeeds {
+        let mut construction = reda_engine::pcb::construction::two_layer(reda_model::StackupSeeds {
             thickness: Some(Nm(1_000_000 + lengths[0].0.unsigned_abs() as i64)),
             copper: Some(Nm(1 + lengths[1].0.unsigned_abs() as i64 % 200_000)),
         });

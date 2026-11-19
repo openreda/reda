@@ -1,5 +1,5 @@
 //! The Via types table and its counted span-edit confirmation.
-use super::{Edits, Field, View, choice, strong};
+use super::{Edits, Field, Land, ViaField, View, choice, strong};
 use crate::theme::TokensExt as _;
 use crate::widgets::{Column, RowLook, Selection};
 use crate::{modal, tr, widgets};
@@ -12,16 +12,16 @@ pub(super) fn table(ui: &mut Ui, pcb: &PcbDocument, view: &mut View, edits: &mut
     let t = ui.tokens();
     let layers: Vec<_> = pcb
         .copper_layers()
-        .enumerate()
-        .map(|(i, l)| (l.uuid, format!("L{}", i + 1)))
+        .map(|l| (l.uuid, crate::panels::layers::layer_name(pcb, l)))
         .collect();
     let through = stack.through_type().uuid;
     strong(ui, tr!("via-types"));
     widgets::table("via-types")
+        .width(ui.available_width().max(t.size.of(super::TABLE_WIDTH)))
         .columns([
             Column::fill(),
-            Column::fixed(t.size.of(76.0)),
-            Column::fixed(t.size.of(76.0)),
+            Column::fixed(t.size.of(160.0)),
+            Column::fixed(t.size.of(160.0)),
             Column::fixed(t.size.of(64.0)),
             Column::fixed(t.size.of(64.0)),
         ])
@@ -39,7 +39,7 @@ pub(super) fn table(ui: &mut Ui, pcb: &PcbDocument, view: &mut View, edits: &mut
             });
             for kind in &stack.via_types {
                 let id = kind.uuid;
-                let name = kind.display_name(pcb);
+                let name = crate::pcb::via_type_name(pcb, kind);
                 let selected = if view.selected == Some(id) {
                     Selection::Live
                 } else {
@@ -51,7 +51,7 @@ pub(super) fn table(ui: &mut Ui, pcb: &PcbDocument, view: &mut View, edits: &mut
                         focused |= view
                             .text(
                                 ui,
-                                Field::Via(id, "name"),
+                                Field::Via(id, ViaField::Name),
                                 kind.name.as_deref().unwrap_or(""),
                                 &name,
                                 &tr!("stackup-entry-name", entry = name.as_str()),
@@ -61,11 +61,15 @@ pub(super) fn table(ui: &mut Ui, pcb: &PcbDocument, view: &mut View, edits: &mut
                     });
                     for (key, current, label) in [
                         (
-                            "from",
+                            ViaField::From,
                             kind.from,
                             tr!("via-from-field", name = name.as_str()),
                         ),
-                        ("to", kind.to, tr!("via-to-field", name = name.as_str())),
+                        (
+                            ViaField::To,
+                            kind.to,
+                            tr!("via-to-field", name = name.as_str()),
+                        ),
                     ] {
                         row.ui(|ui| {
                             ui.add_enabled_ui(id != through, |ui| {
@@ -79,33 +83,26 @@ pub(super) fn table(ui: &mut Ui, pcb: &PcbDocument, view: &mut View, edits: &mut
                     }
                     for (key, value, title) in [
                         (
-                            "hole",
+                            Field::Via(id, ViaField::Hole),
                             kind.hole,
                             tr!("via-drill-field", name = name.as_str()),
                         ),
                         (
-                            "diameter",
+                            Field::Land(id, Land::Start),
                             kind.diameter.start,
                             tr!("via-pad-field", name = name.as_str()),
                         ),
                     ] {
                         row.ui(|ui| {
                             focused |= view
-                                .text(
-                                    ui,
-                                    Field::Via(id, key),
-                                    &value.mm_exact(),
-                                    "",
-                                    &title,
-                                    edits,
-                                )
+                                .text(ui, key, &value.mm_exact(), "", &title, edits)
                                 .gained_focus();
                         });
                     }
                 });
                 row.widget_info(|| WidgetInfo::labeled(Role::Row, true, &name));
-                if row.clicked() || focused {
-                    view.selected = Some(id);
+                if (row.clicked() || focused) && view.selected != Some(id) {
+                    edits.select(id);
                 }
                 if kind.micro && pcb.span_layers(kind.span()).len() > 3 {
                     table.row(|row| {
@@ -195,9 +192,37 @@ pub(super) fn table(ui: &mut Ui, pcb: &PcbDocument, view: &mut View, edits: &mut
     });
     if let Some(i) = selection {
         let kind = &stack.via_types[i];
+        widgets::form(("via-diameters", kind.uuid)).show(ui, |ui| {
+            for (land, value, label) in [
+                (
+                    Land::Middle,
+                    kind.diameter.middle,
+                    tr!("via-middle-diameter"),
+                ),
+                (Land::End, kind.diameter.end, tr!("via-end-diameter")),
+            ] {
+                if land == Land::Middle && pcb.span_layers(kind.span()).len() <= 2 {
+                    continue;
+                }
+                let label = tr!("stackup-length-mm", field = label);
+                ui.add(widgets::form_name(&label));
+                ui.scope(|ui| {
+                    ui.set_width(ui.tokens().size.of(110.0));
+                    view.text(
+                        ui,
+                        Field::Land(kind.uuid, land),
+                        &value.map(|n| n.mm_exact()).unwrap_or_default(),
+                        &kind.diameter.start.mm_exact(),
+                        &label,
+                        edits,
+                    );
+                });
+                ui.end_row();
+            }
+        });
         ui.horizontal_wrapped(|ui| {
             if let Some(mode) = crate::pcb::unused_layers::via_default(ui, kind.unused_layers) {
-                edits.set(Field::Via(kind.uuid, "unused_layers"), json!(mode));
+                edits.set(Field::Via(kind.uuid, ViaField::UnusedLayers), json!(mode));
             }
             let mut micro = kind.micro;
             if ui
@@ -207,7 +232,7 @@ pub(super) fn table(ui: &mut Ui, pcb: &PcbDocument, view: &mut View, edits: &mut
                 )
                 .changed()
             {
-                edits.set(Field::Via(kind.uuid, "micro"), json!(micro));
+                edits.set(Field::Via(kind.uuid, ViaField::Micro), json!(micro));
             }
         });
     }
@@ -286,7 +311,9 @@ pub(super) fn confirm(ui: &Ui, view: &mut View, document: Uuid, shell: &mut crat
             if !remove {
                 p.params["move_vias"] = json!(move_vias);
             }
-            let _ = shell.run_reporting(p.command, p.params);
+            if let Ok(out) = shell.run_reporting(p.command, p.params) {
+                super::layer_actions::settle(shell, document, view.selected, p.command, &out);
+            }
         }
     }
 }

@@ -19,7 +19,7 @@ impl Uuid {
         Uuid(value)
     }
 
-    /// Stable identity for a named child created both on a fresh board and by migration.
+    /// Stable derived identity, for example for a child introduced by file migration.
     /// FNV-1a-128 over the parent bytes and the UTF-8 name, with the UUID v8 layout.
     pub fn child(self, name: &str) -> Self {
         let mut hash = 0x6c62272e07bb014262b821756295c58du128;

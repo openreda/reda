@@ -80,24 +80,33 @@ impl Command for Add {
         needs_pcb(cx)
     }
     fn run(&self, cx: &mut Context<'_>, p: AddParams) -> Result<AddedLayer, CommandError> {
-        let uuid = p.uuid.unwrap_or_else(|| cx.new_id());
-        add_plan(cx.project()?, p.document, p.split, Some(uuid))?.apply(cx.tx()?)?;
-        Ok(AddedLayer {
-            uuid,
-            dielectric: uuid.child("dielectric"),
-        })
+        let (project, ids) = cx.project_and_ids()?;
+        let (plan, added) = add_plan(project, p, std::iter::from_fn(|| Some(ids.next_id())))?;
+        plan.apply(cx.tx()?)?;
+        Ok(added)
     }
 }
 
 pub(crate) fn add_plan(
     project: &Project,
-    document: Uuid,
-    split: Option<Uuid>,
-    uuid: Option<Uuid>,
-) -> Result<Plan, CommandError> {
+    p: AddParams,
+    ids: impl Iterator<Item = Uuid>,
+) -> Result<(Plan, AddedLayer), CommandError> {
     let pcb = project
-        .pcb_document(document)
+        .pcb_document(p.document)
         .ok_or_else(|| CommandError::not_found("no such PCB Document"))?;
+    let mut ids = ids.filter(|id| !project.identity_in_use(*id));
+    let uuid = match p.uuid {
+        Some(id) if project.identity_in_use(id) => {
+            return Err(CommandError::invalid_params(
+                "/uuid",
+                "that UUID is already in use",
+            ));
+        }
+        Some(id) => id,
+        None => ids.next().expect("unbounded ID source"),
+    };
+    let lower = ids.find(|id| *id != uuid).expect("unbounded ID source");
     let mut plan = Plan::new(pcb);
     let stack = &mut plan.stack;
     let copper: Vec<_> = stack.copper().copied().collect();
@@ -106,31 +115,7 @@ pub(crate) fn add_plan(
             "the board already has 32 copper Layers",
         ));
     }
-    let available = |uuid: Uuid| {
-        [uuid, uuid.child("dielectric")].into_iter().all(|id| {
-            project.object(id).is_none()
-                && pcb.layers().layer(id).is_none()
-                && !stack.dielectrics().any(|sheet| sheet.uuid == id)
-                && !stack.via_types.iter().any(|kind| kind.uuid == id)
-        })
-    };
-    let uuid = match uuid {
-        Some(id) if available(id) => id,
-        Some(_) => {
-            return Err(CommandError::invalid_params(
-                "/uuid",
-                "that UUID is already in use",
-            ));
-        }
-        // A preview with an unspecified UUID must neither reserve an identity nor
-        // reject an otherwise valid edit because its placeholder is in use.
-        None => (0..)
-            .map(Uuid::from_u128)
-            .find(|id| available(*id))
-            .unwrap(),
-    };
-    let lower = uuid.child("dielectric");
-    let split = split.unwrap_or_else(|| {
+    let split = p.split.unwrap_or_else(|| {
         let middle = stack.dielectrics().count() / 2;
         stack
             .dielectrics()
@@ -195,7 +180,13 @@ pub(crate) fn add_plan(
         ));
     }
     insert_copper(&mut plan, pcb, before, [uuid]);
-    Ok(plan)
+    Ok((
+        plan,
+        AddedLayer {
+            uuid,
+            dielectric: lower,
+        },
+    ))
 }
 
 /// Insert new signal Layers in one gap. Every span crossing it stretches once,

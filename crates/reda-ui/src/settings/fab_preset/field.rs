@@ -286,7 +286,7 @@ impl Field {
             }
             Field::SeedThickness | Field::SeedCopper => {
                 use reda_engine::model::{
-                    Construction, ConstructionEntry, DEFAULT_BOARD_THICKNESS, DEFAULT_COPPER,
+                    ConstructionEntry, DEFAULT_BOARD_THICKNESS, DEFAULT_COPPER,
                 };
                 let value = optional(
                     text,
@@ -310,7 +310,7 @@ impl Field {
                     .unwrap_or_else(|| {
                         preset
                             .constructions
-                            .push(Construction::two_layer(Default::default()));
+                            .push(reda_engine::pcb::construction::two_layer(Default::default()));
                         preset.constructions.len() - 1
                     });
                 let construction = &mut preset.constructions[index];

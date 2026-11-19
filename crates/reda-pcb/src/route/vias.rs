@@ -48,7 +48,7 @@ impl ViaCandidates {
             .filter(|t| crate::rules::via_type_allowed(pcb, net, t.uuid))
             .filter_map(|t| {
                 let (a, b) = (position(t.from)?, position(t.to)?);
-                Some(Edge {
+                (!t.micro || a.abs_diff(b) <= 2).then_some(Edge {
                     id: t.uuid,
                     start: a.min(b),
                     end: a.max(b),

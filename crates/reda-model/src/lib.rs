@@ -68,8 +68,8 @@ pub use pcb::{
     RuleSet, RuleValue, RuleValues, Side, SilkMaskMode, Stackup, StackupEntry, StackupInfo,
     StackupSeeds, StackupTotals, TeardropField, TeardropFill, TeardropKind, TeardropLocation,
     TeardropTarget, TeardropValues, TextAutoposition, TextOverride, Track, TrackGeometry,
-    UnusedLayers, Via, ViaDiameter, ViaRuleValues, ViaType, Zone, ZoneCutout, ZoneFill, ZoneFills,
-    ZoneNameScheme,
+    UnusedLayers, Via, ViaDiameter, ViaRuleValues, ViaType, ViaTypeName, Zone, ZoneCutout,
+    ZoneFill, ZoneFills, ZoneNameScheme,
 };
 #[cfg(feature = "test-objects")]
 pub use probe::Probe;

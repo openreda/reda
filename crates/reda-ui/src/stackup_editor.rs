@@ -1,6 +1,7 @@
 //! A PCB Document's Stackup tab. The tables form one scrolling pane beside its
 //! cross-section. Edits use the same PCB Commands as scripts.
 mod apply;
+pub(crate) mod commands;
 mod construction;
 mod fields;
 mod layer_actions;
@@ -13,7 +14,7 @@ use crate::theme::TokensExt as _;
 use crate::widgets::{Column, RowLook, Selection, Tooltip as _};
 use crate::{tr, widgets};
 use egui::{Align, Layout, Rect, Role, Sense, Ui, UiBuilder, WidgetInfo};
-use fields::{Edits, Field, View};
+use fields::{BoardField, Edits, Field, Land, LayerField, SheetField, ViaField, View};
 use reda_engine::model::{
     CopperRole, DielectricEntry, DielectricKind, PcbDocument, Project, StackupEntry, StackupInfo,
     Uuid,
@@ -21,7 +22,8 @@ use reda_engine::model::{
 };
 use serde_json::json;
 
-const TABLE_WIDTH: f32 = 468.0;
+// Room for the editable Via name beside both copper Layer selectors.
+const TABLE_WIDTH: f32 = 636.0;
 const POSITION: f32 = 32.0;
 const KIND: f32 = 96.0;
 const THICKNESS: f32 = 87.0;
@@ -35,7 +37,15 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, document: Uuid) {
     };
     let key = egui::Id::NULL.with(("stackup-editor", document));
     let mut view = ui.data(|d| d.get_temp::<View>(key)).unwrap_or_default();
-    let mut edits = Edits::default();
+    let display = shell
+        .engine()
+        .view()
+        .get::<commands::Displays>()
+        .expect("installed by Shell")
+        .get(document);
+    view.selected = display.selected;
+    view.scale = display.scale;
+    let mut edits = Edits::new(document);
     let t = ui.tokens();
     let full = ui.available_rect_before_wrap().shrink(t.space.panel);
     // The dimension and the split button need to fit side by side in a small
@@ -97,7 +107,7 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, document: Uuid) {
         let _ = shell.run_reporting("pcb.zone.add_from_board_outline", params);
     }
     for (field, command, mut params) in edits.commands {
-        if let Some(Field::Via(id, "diameter")) = field
+        if let Some(Field::Land(id, land)) = field
             && let Some(kind) = shell
                 .engine()
                 .project()
@@ -106,7 +116,7 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, document: Uuid) {
         {
             let mut diameter =
                 serde_json::to_value(kind.diameter).expect("Via diameter serializes");
-            diameter["start"] = params["diameter"].clone();
+            diameter[land.key()] = params["diameter"].clone();
             params["diameter"] = diameter;
         }
         if matches!(
@@ -116,7 +126,9 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, document: Uuid) {
         {
             continue;
         }
-        if command == "pcb.via_type.remove" || matches!(field, Some(Field::Via(_, "from" | "to"))) {
+        if command == "pcb.via_type.remove"
+            || matches!(field, Some(Field::Via(_, ViaField::From | ViaField::To)))
+        {
             match shell.run_reporting(
                 "pcb.stackup.change_preview",
                 json!({"change":{"id":command,"params":params}}),
@@ -140,14 +152,14 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, document: Uuid) {
         if let Some(field) = field {
             let plane = params["role"] == "plane";
             let result = shell.run(command, params);
-            if let Field::Layer(layer, "role") = field
+            if let Field::Layer(layer, LayerField::Role) = field
                 && result.is_ok()
             {
                 view.plane_offer = plane.then_some(layer);
             }
             view.settled(field, result.err().map(|e| e.message));
         } else if let Ok(out) = shell.run_reporting(command, params) {
-            layer_actions::settle(&mut view, command, &out);
+            layer_actions::settle(shell, document, view.selected, command, &out);
         }
     }
     types::confirm(ui, &mut view, document, shell);
@@ -201,7 +213,7 @@ fn layers(ui: &mut Ui, pcb: &PcbDocument, info: &StackupInfo, view: &mut View, e
     let t = ui.tokens();
     let stack = pcb.stackup();
     let impedances = reda_engine::pcb::impedance::layers(pcb, info);
-    let mut selected = view.selected;
+    let selected = view.selected;
     widgets::table("layers")
         .columns([
             Column::fixed(t.size.of(POSITION)),
@@ -244,7 +256,7 @@ fn layers(ui: &mut Ui, pcb: &PcbDocument, info: &StackupInfo, view: &mut View, e
                                 interacted |= view
                                     .text(
                                         ui,
-                                        Field::Layer(uuid, "name"),
+                                        Field::Layer(uuid, LayerField::Name),
                                         layer.name.as_deref().unwrap_or(""),
                                         &position,
                                         &label,
@@ -263,7 +275,7 @@ fn layers(ui: &mut Ui, pcb: &PcbDocument, info: &StackupInfo, view: &mut View, e
                             if let Some(role) =
                                 choice(ui, (uuid, "role"), &label, layer.role, &options)
                             {
-                                edits.set(Field::Layer(uuid, "role"), json!(role));
+                                edits.set(Field::Layer(uuid, LayerField::Role), json!(role));
                                 interacted = true;
                             }
                         });
@@ -312,7 +324,7 @@ fn layers(ui: &mut Ui, pcb: &PcbDocument, info: &StackupInfo, view: &mut View, e
                             interacted |= view
                                 .text(
                                     ui,
-                                    Field::Sheet(uuid, "name"),
+                                    Field::Sheet(uuid, SheetField::Name),
                                     d.name.as_deref().unwrap_or(""),
                                     &name,
                                     &label,
@@ -328,7 +340,7 @@ fn layers(ui: &mut Ui, pcb: &PcbDocument, info: &StackupInfo, view: &mut View, e
                             let label = tr!("stackup-entry-kind", entry = name.as_str());
                             if let Some(kind) = choice(ui, (uuid, "kind"), &label, d.kind, &options)
                             {
-                                edits.set(Field::Sheet(uuid, "kind"), json!(kind));
+                                edits.set(Field::Sheet(uuid, SheetField::Kind), json!(kind));
                                 interacted = true;
                             }
                         });
@@ -340,7 +352,7 @@ fn layers(ui: &mut Ui, pcb: &PcbDocument, info: &StackupInfo, view: &mut View, e
                             let hint = Nm(nm.round() as i64).mm_exact();
                             let response = view.text(
                                 ui,
-                                Field::Sheet(uuid, "thickness"),
+                                Field::Sheet(uuid, SheetField::Thickness),
                                 &value,
                                 &hint,
                                 &label,
@@ -360,8 +372,8 @@ fn layers(ui: &mut Ui, pcb: &PcbDocument, info: &StackupInfo, view: &mut View, e
                 {
                     view.plane_picker = Some(picker);
                 }
-                if row.clicked() || interacted {
-                    selected = Some(uuid);
+                if (row.clicked() || interacted) && selected != Some(uuid) {
+                    edits.select(uuid);
                 }
             }
         });
@@ -428,12 +440,11 @@ fn layers(ui: &mut Ui, pcb: &PcbDocument, info: &StackupInfo, view: &mut View, e
         }
     });
     view.problems(ui, false);
-    view.selected = selected;
 }
 
 fn choice<T: Copy + PartialEq>(
     ui: &mut Ui,
-    id: (Uuid, &str),
+    id: impl egui::AsIdSalt,
     label: &str,
     current: T,
     options: &[(T, String)],
@@ -462,24 +473,24 @@ fn sheet_details(ui: &mut Ui, view: &mut View, d: &DielectricEntry, edits: &mut 
     widgets::form(("sheet", d.uuid)).show(ui, |ui| {
         for (key, label, value) in [
             (
-                "material",
+                SheetField::Material,
                 tr!("stackup-material"),
                 d.material.clone().unwrap_or_default(),
             ),
             (
-                "dk",
+                SheetField::Dk,
                 tr!("stackup-dk"),
                 d.dk.map(|v| exact_decimal(v.into(), 1_000))
                     .unwrap_or_default(),
             ),
             (
-                "df",
+                SheetField::Df,
                 tr!("stackup-df"),
                 d.df.map(|v| exact_decimal(v.into(), 1_000_000))
                     .unwrap_or_default(),
             ),
             (
-                "test_frequency",
+                SheetField::TestFrequency,
                 tr!("stackup-frequency"),
                 d.test_frequency.map(|v| v.to_string()).unwrap_or_default(),
             ),
@@ -511,7 +522,7 @@ fn board(
             ui.set_width(ui.tokens().size.of(THICKNESS));
             view.text(
                 ui,
-                Field::Board("thickness"),
+                Field::Board(BoardField::Thickness),
                 &stack.thickness.mm_exact(),
                 "",
                 &label,
@@ -568,19 +579,19 @@ fn board(
     widgets::form("board-looks").show(ui, |ui| {
         for (key, label, value, choices) in [
             (
-                "finish",
+                BoardField::Finish,
                 tr!("board-setup-finish"),
                 &stack.finish,
                 suggestions.map(|s| &s.finish),
             ),
             (
-                "mask_color",
+                BoardField::MaskColor,
                 tr!("board-setup-mask-color"),
                 &stack.mask_color,
                 suggestions.map(|s| &s.mask_color),
             ),
             (
-                "silk_color",
+                BoardField::SilkColor,
                 tr!("board-setup-silk-color"),
                 &stack.silk_color,
                 suggestions.map(|s| &s.silk_color),

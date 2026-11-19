@@ -212,7 +212,12 @@ pub(crate) fn write_pcb_file(pcb: &PcbDocument) -> Result<Vec<u8>, CanonicalErro
     let mut w = CanonicalWriter::new(FORMAT);
     w.field("pcb", &PcbRow { uuid: pcb.uuid })?;
     w.container("layers", pcb.layers(), "layers")?;
-    w.containers("stackups", pcb.stackups(), |s| s.uuid, "entries")?;
+    w.containers_spread(
+        "stackups",
+        pcb.stackups(),
+        |s| s.uuid,
+        &["entries", "via_types"],
+    )?;
     w.field(
         "board",
         &BoardRow {

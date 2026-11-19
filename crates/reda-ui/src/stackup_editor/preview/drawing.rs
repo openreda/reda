@@ -2,12 +2,7 @@
 use egui::{Pos2, Rect, pos2};
 use reda_engine::model::{PcbDocument, StackupEntry, StackupInfo, Uuid, ViaType};
 
-#[derive(Clone, Copy, Default, PartialEq, Eq)]
-pub(in crate::stackup_editor) enum Scale {
-    #[default]
-    Physical,
-    Schematic,
-}
+use super::Scale;
 
 pub(super) struct Band {
     pub id: Uuid,
@@ -114,13 +109,7 @@ pub(super) fn barrel(bands: &[Band], kind: &ViaType, x: f32, max_radius: f32) ->
         .iter()
         .filter(|b| b.copper)
         .map(|band| {
-            let diameter = if band.id == kind.from {
-                kind.diameter.start
-            } else if band.id == kind.to {
-                kind.diameter.end.unwrap_or(kind.diameter.start)
-            } else {
-                kind.diameter.middle.unwrap_or(kind.diameter.start)
-            };
+            let diameter = kind.diameter.on(kind.span(), band.id);
             let r = radius(diameter.0);
             Rect::from_x_y_ranges(x - r..=x + r, band.rect.y_range())
         })

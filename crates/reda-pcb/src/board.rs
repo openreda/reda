@@ -217,7 +217,7 @@ pub fn default_rules() -> Vec<(RuleKind, RuleValues)> {
 
 /// The additional board-wide records introduced by format 2. Existing boards had no
 /// silk minimum. A zero minimum preserves their behaviour until a fab limit is applied.
-pub fn multilayer_rules(document: Uuid) -> Vec<DesignRule> {
+pub fn multilayer_rules(mut id_for: impl FnMut(RuleKind) -> Uuid) -> Vec<DesignRule> {
     let target = reda_model::TeardropTarget::default().into();
     let silk = RuleValues {
         min: Some(reda_model::geom::Nm::ZERO),
@@ -241,7 +241,7 @@ pub fn multilayer_rules(document: Uuid) -> Vec<DesignRule> {
     ]
     .into_iter()
     .map(|(kind, values)| DesignRule {
-        uuid: document.child(kind.id()),
+        uuid: id_for(kind),
         kind,
         scope: RuleScope::BOARD,
         values,
@@ -482,7 +482,7 @@ fn build_board(
         };
         objects.push(Object::DesignRule(InDocument::new(document, rule)));
     }
-    objects.extend(multilayer_rules(document).into_iter().map(|mut rule| {
+    objects.extend(multilayer_rules(|_| new_id()).into_iter().map(|mut rule| {
         if let Some((_, values)) = silk_rules(rules)
             .into_iter()
             .find(|(kind, _)| *kind == rule.kind)
@@ -536,7 +536,7 @@ fn seeded_stackup(
     let build = match construction {
         Some(build) => build,
         None => {
-            fallback = Construction::evenly_spaced(copper.len() as u8, seeds);
+            fallback = crate::construction::evenly_spaced(copper.len() as u8, seeds);
             &fallback
         }
     };

@@ -230,11 +230,13 @@ proptest::proptest! {
         if let Some(n) = thickness { seeds["thickness"] = json!(n); }
         if let Some(n) = copper { seeds["copper"] = json!(n); }
         preset["stackup"] = seeds;
-        let mut embedded = preset.clone();
-        embedded.as_object_mut().unwrap().remove("format");
+        let mut project: Value = serde_json::from_slice(&std::fs::read(Path::new(V1).join("minimal_board/Minimal.reda")).unwrap()).unwrap();
+        let mut embedded = project["fab_presets"][0].clone();
+        embedded["stackup"] = preset["stackup"].clone();
+        embedded["rules"] = preset["rules"].clone();
         let mut empty = embedded.clone();
         empty.as_object_mut().unwrap().remove("stackup");
-        let project = json!({"format":1,"fab_presets":[empty, embedded]});
+        project["fab_presets"] = json!([empty, embedded]);
         let migrated = migrate(FileKind::Project, project).unwrap();
         let standalone = migrate(FileKind::FabPreset, preset).unwrap();
         let construction = &standalone["constructions"][0];
@@ -526,4 +528,54 @@ fn a_legacy_board_with_an_explicit_null_net_class_saves_as_the_same_migrated_boa
         .unwrap()
         .join("migrated-v2/blinky_555/Blinky.redapcb");
     assert_eq!(migrated, std::fs::read(golden).unwrap());
+}
+
+#[test]
+fn migrating_refuses_fields_that_did_not_exist_in_the_declared_format() {
+    for (kind, file, pointer, key) in [
+        (
+            FileKind::Project,
+            "blinky_555/Blinky.reda",
+            "/fab_presets/0",
+            "placement_corrections",
+        ),
+        (
+            FileKind::FabPreset,
+            "standalone/Blinky.redafab",
+            "",
+            "constructions",
+        ),
+        (
+            FileKind::FabPreset,
+            "standalone/Blinky.redafab",
+            "/rules",
+            "clearance_hole",
+        ),
+        (
+            FileKind::Pcb,
+            "blinky_555/Blinky.redapcb",
+            "/stackups/0",
+            "via_types",
+        ),
+        (
+            FileKind::Pcb,
+            "blinky_555/Blinky.redapcb",
+            "/stackups/0/entries/1",
+            "kind",
+        ),
+        (
+            FileKind::Pcb,
+            "blinky_555/Blinky.redapcb",
+            "/layers/layers/0",
+            "name",
+        ),
+    ] {
+        let mut source: Value =
+            serde_json::from_slice(&std::fs::read(Path::new(V1).join(file)).unwrap()).unwrap();
+        source.pointer_mut(pointer).unwrap()[key] = json!("hand edited");
+        assert!(
+            migrate(kind, source).is_err(),
+            "{file} accepted {pointer}/{key}"
+        );
+    }
 }

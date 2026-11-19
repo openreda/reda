@@ -235,3 +235,55 @@ fn grids_and_guides_stay_reserved_in_the_pcb_file() {
         std::fs::write(&file, &text).unwrap();
     }
 }
+
+#[test]
+fn newly_authored_board_layers_sheets_via_types_and_rules_use_v4_identities() {
+    let dir = TempDir::new("authoring-identities");
+    let mut e = new_project(dir.path(), "Board");
+    let doc = e.project().unwrap().pcb().unwrap().uuid;
+    let preset = e.project().unwrap().fab_presets().next().unwrap().uuid;
+    let check = |e: &reda_testkit::TestEngine| {
+        let pcb = e.project().unwrap().pcb().unwrap();
+        for id in pcb
+            .layers()
+            .layers
+            .iter()
+            .map(|l| l.uuid)
+            .chain(pcb.stackup().dielectrics().map(|d| d.uuid))
+            .chain(pcb.stackup().via_types.iter().map(|v| v.uuid))
+            .chain(pcb.rules().map(|r| r.uuid))
+        {
+            assert_eq!(id.as_u128() >> 76 & 15, 4, "fresh {id}");
+        }
+    };
+    check(&e);
+    e.run_ok("pcb.layer.add", json!({"document":doc}));
+    check(&e);
+    e.run_ok(
+        "pcb.stackup.apply_construction",
+        json!({"document":doc,"preset":preset,"construction":"6 Layer"}),
+    );
+    check(&e);
+}
+
+#[test]
+fn every_via_type_has_its_own_line_in_table_order() {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/projects/six_layer_hdi/SixLayerHdi.reda");
+    let project = reda_engine::store::load(&path).unwrap().0;
+    let files = reda_engine::store::encode(&project).unwrap();
+    let (_, board) = files
+        .iter()
+        .find(|(name, _)| name.ends_with(".redapcb"))
+        .unwrap();
+    let text = std::str::from_utf8(board).unwrap();
+    let mut lines = text
+        .lines()
+        .skip_while(|line| !line.contains("\"via_types\":["))
+        .skip(1);
+    for kind in &project.pcb().unwrap().stackup().via_types {
+        let row = lines.next().unwrap().trim().trim_end_matches(',');
+        let object: serde_json::Value = serde_json::from_str(row).expect("one Via type per line");
+        assert_eq!(object["uuid"], json!(kind.uuid));
+    }
+}

@@ -4,7 +4,7 @@ use crate::{
     tr, widgets,
 };
 use egui::Ui;
-use reda_engine::model::{Construction, FabPreset};
+use reda_engine::model::FabPreset;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct List {
@@ -131,7 +131,9 @@ impl List {
                     )
                     .clicked()
                 {
-                    count.map(|n| Construction::evenly_spaced(n, Default::default()))
+                    count.map(|n| {
+                        reda_engine::pcb::construction::evenly_spaced(n, Default::default())
+                    })
                 } else if ui
                     .add_enabled(
                         free && current.is_some(),

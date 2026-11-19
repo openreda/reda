@@ -188,23 +188,36 @@ pub fn confirm(ui: &Ui, view: &mut View, document: Uuid, shell: &mut Shell) {
             return;
         }
         if let Ok(out) = shell.run_reporting(p.command, p.params) {
-            settle(view, p.command, &out);
+            settle(shell, document, view.selected, p.command, &out);
         }
     }
 }
 
-pub fn settle(view: &mut View, command: &str, out: &Value) {
-    if command == super::apply::COMMAND {
-        view.selected = view.selected.filter(|id| {
+pub fn settle(
+    shell: &mut Shell,
+    document: Uuid,
+    selected: Option<Uuid>,
+    command: &str,
+    out: &Value,
+) {
+    let next = match command {
+        super::apply::COMMAND => selected.filter(|id| {
             ["layers", "dielectrics", "via_types"].iter().any(|key| {
                 out["result"][key]
                     .as_array()
                     .is_some_and(|ids| ids.contains(&json!(id)))
             })
-        });
-    } else if command == "pcb.layer.remove" {
-        view.selected = None;
-    } else if let Some(id) = out["result"]["uuid"].as_str().and_then(|s| s.parse().ok()) {
-        view.selected = Some(id);
+        }),
+        "pcb.layer.remove" | "pcb.stackup.dielectric.remove" | "pcb.via_type.remove" => None,
+        "pcb.layer.add" | "pcb.stackup.dielectric.add" | "pcb.via_type.add" => {
+            out["result"]["uuid"].as_str().and_then(|s| s.parse().ok())
+        }
+        _ => return,
+    };
+    if selected != next {
+        let _ = shell.run_reporting(
+            super::commands::SELECT,
+            json!({"document":document,"entry":next}),
+        );
     }
 }

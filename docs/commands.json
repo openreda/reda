@@ -842,10 +842,77 @@
               "pcb"
             ],
             "type": "string"
+          },
+          "SeededBoard": {
+            "description": "The objects seeded by board creation, including children of the Layer and Stackup tables.\nPhysical rows follow board order. Rule rows follow kind and scope, independent of UUIDs.",
+            "properties": {
+              "board": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "dielectrics": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "layer_set": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "layers": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "outline": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "preset": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "rules": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "stackup": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "via_types": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "preset",
+              "board",
+              "layer_set",
+              "stackup",
+              "outline",
+              "layers",
+              "dielectrics",
+              "via_types",
+              "rules"
+            ],
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "additionalProperties": false,
         "description": "One Document in the Project's Document list, stored in `<name>.reda`.",
         "properties": {
           "kind": {
@@ -854,6 +921,16 @@
           "name": {
             "description": "The file stem; the Document's file is `<name>.<extension>` in the Project folder.",
             "type": "string"
+          },
+          "seeded": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/SeededBoard"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "title": {
             "description": "What the user typed as the Document's title, such as \"Sheet 1\".",
@@ -870,7 +947,7 @@
           "name",
           "title"
         ],
-        "title": "DocumentEntry",
+        "title": "AddedDocument",
         "type": "object"
       },
       "title": "Add Document"
@@ -57767,6 +57844,14 @@
               "$ref": "#/$defs/ClassProblem"
             },
             "type": "array"
+          },
+          "created_rules": {
+            "additionalProperties": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "description": "New inner-Layer records by kind, for later edits and Journal replay.",
+            "type": "object"
           }
         },
         "required": [
@@ -58241,6 +58326,14 @@
               "$ref": "#/$defs/ClassProblem"
             },
             "type": "array"
+          },
+          "created_rules": {
+            "additionalProperties": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "description": "New inner-Layer records by kind, for later edits and Journal replay.",
+            "type": "object"
           }
         },
         "required": [
@@ -68393,6 +68486,74 @@
               "name"
             ],
             "type": "object"
+          },
+          "SeededBoard": {
+            "description": "The objects seeded by board creation, including children of the Layer and Stackup tables.\nPhysical rows follow board order. Rule rows follow kind and scope, independent of UUIDs.",
+            "properties": {
+              "board": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "dielectrics": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "layer_set": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "layers": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "outline": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "preset": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "rules": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "stackup": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "via_types": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "preset",
+              "board",
+              "layer_set",
+              "stackup",
+              "outline",
+              "layers",
+              "dielectrics",
+              "via_types",
+              "rules"
+            ],
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -68425,6 +68586,17 @@
           "path": {
             "description": "The Project file.",
             "type": "string"
+          },
+          "seeded": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/SeededBoard"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Initial board identities, included when the Project was just created."
           },
           "uuid": {
             "format": "uuid",
@@ -68518,6 +68690,74 @@
               "name"
             ],
             "type": "object"
+          },
+          "SeededBoard": {
+            "description": "The objects seeded by board creation, including children of the Layer and Stackup tables.\nPhysical rows follow board order. Rule rows follow kind and scope, independent of UUIDs.",
+            "properties": {
+              "board": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "dielectrics": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "layer_set": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "layers": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "outline": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "preset": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "rules": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "stackup": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "via_types": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "preset",
+              "board",
+              "layer_set",
+              "stackup",
+              "outline",
+              "layers",
+              "dielectrics",
+              "via_types",
+              "rules"
+            ],
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -68550,6 +68790,17 @@
           "path": {
             "description": "The Project file.",
             "type": "string"
+          },
+          "seeded": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/SeededBoard"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Initial board identities, included when the Project was just created."
           },
           "uuid": {
             "format": "uuid",

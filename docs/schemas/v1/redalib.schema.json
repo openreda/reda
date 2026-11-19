@@ -1,0 +1,45 @@
+{
+  "$defs": {
+    "LibraryInfo": {
+      "additionalProperties": false,
+      "description": "A Library's own description, stored in `<name>.redalib` at the root of its folder.",
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uuid",
+        "name"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A REDA Library file (`.redalib`), which marks its folder as a Library.",
+  "properties": {
+    "format": {
+      "const": 1,
+      "description": "The file-format version. REDA writes only the current one.",
+      "type": "integer"
+    },
+    "library": {
+      "$ref": "#/$defs/LibraryInfo",
+      "description": "The Library's identity and description."
+    }
+  },
+  "required": [
+    "format",
+    "library"
+  ],
+  "title": "REDA Library file",
+  "type": "object"
+}

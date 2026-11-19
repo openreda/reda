@@ -31,6 +31,7 @@ pub fn register_with_layouts(registry: &mut Registry, dirs: Option<UserDirs>) {
     registry.add(ShowPanel);
     registry.add(OpenDocument);
     registry.add(OpenStackup);
+    crate::stackup_editor::commands::register(registry);
     registry.add(SaveLayout);
     registry.add(ApplyLayout { dirs });
     registry.add(super::focus::CycleFocus);
