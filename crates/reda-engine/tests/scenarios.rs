@@ -88,7 +88,54 @@ fn via_types_reopen_with_their_drilling_direction_and_independent_sizes() {
             (2, 3, Some("Micro 2:3".into()), 120_000, 320_000, None, None),
             (1, 6, Some("Through".into()), 300_000, 700_000, None, None),
             (4, 5, None, 300_000, 700_000, Some(800_000), Some(900_000)),
+            (
+                1,
+                4,
+                Some("Inner laser".into()),
+                200_000,
+                500_000,
+                None,
+                None
+            ),
         ]
+    );
+}
+
+#[test]
+fn via_types_reopen_with_the_broken_spans_sizes_and_stack_in_the_drc_report() {
+    use reda_testkit::{TempDir, assert_golden, test_engine};
+    use serde_json::json;
+
+    let scenarios = repo().join("tests/scenarios");
+    let work = TempDir::new("via-types-report");
+    for (name, bytes) in read_tree(&scenarios.join("via_types")) {
+        std::fs::write(work.path().join(name), bytes).unwrap();
+    }
+    let mut engine = test_engine();
+    engine.run_ok(
+        "project.open",
+        json!({"path":work.path().join("ViaTypes.reda")}),
+    );
+    let checks = ["via_span", "microvia_size", "aspect_ratio", "max_stack"];
+    let mut report = engine.run_ok("drc.run", json!({"checks":checks}));
+    let violations = report["violations"].as_array().unwrap();
+    for check in checks {
+        assert!(
+            violations.iter().any(|v| v["check"] == check),
+            "missing {check}"
+        );
+    }
+    for reason in ["no_type", "micro_too_long", "not_allowed"] {
+        assert!(
+            violations.iter().any(|v| v["args"]["reason"] == reason),
+            "missing {reason}"
+        );
+    }
+    report.as_object_mut().unwrap().remove("design");
+    let text = serde_json::to_string_pretty(&report).unwrap() + "\n";
+    assert_golden(
+        scenarios.join("goldens/via_types/drc.json"),
+        text.as_bytes(),
     );
 }
 

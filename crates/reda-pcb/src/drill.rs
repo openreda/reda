@@ -14,13 +14,20 @@ pub(crate) struct DrillHole {
     pub size: Hole,
     /// Its Net, which picks its rules.
     pub net: Option<Uuid>,
-    /// Whether it is a Via's, which `via_size` limits rather than `hole_size`.
-    pub via: bool,
+    /// A Via bore follows its drilling span. Other holes run through the board.
+    via: Option<ViaBore>,
     pub item: Item,
     pub own: Option<ZoneConnection>,
     /// The copper ring around a plated hole; `None` for a bare (non-plated) hole.
     pub(crate) ring: Option<Rings>,
     pub shape: Shape,
+}
+
+#[derive(Clone, Copy)]
+struct ViaBore {
+    at: Point,
+    first: usize,
+    last: usize,
 }
 
 /// A Via follows its drilling span. Pad rings are measured in board-side order.
@@ -35,11 +42,19 @@ pub(crate) fn holes(pcb: &PcbDocument) -> Vec<DrillHole> {
     let mut out = Vec::new();
     for via in pcb.vias() {
         let size = Hole::new(via.hole, via.hole);
+        let from = pcb
+            .copper_number(via.span.from)
+            .expect("Via starts on copper");
+        let to = pcb.copper_number(via.span.to).expect("Via ends on copper");
         out.push(DrillHole {
             objects: vec![via.uuid],
             size,
             net: via.net,
-            via: true,
+            via: Some(ViaBore {
+                at: via.at,
+                first: from.min(to),
+                last: from.max(to),
+            }),
             item: Item::Via { uuid: via.uuid },
             own: via.zone_connection,
             ring: Some(Rings::Via),
@@ -60,7 +75,7 @@ pub(crate) fn holes(pcb: &PcbDocument) -> Vec<DrillHole> {
             objects,
             size,
             net: pad.net,
-            via: false,
+            via: None,
             item,
             own: pad.zone_connection,
             ring,
@@ -110,6 +125,26 @@ fn hole_shape(ends: (Point, Point), size: Hole) -> Shape {
 }
 
 impl DrillHole {
+    pub fn is_via(&self) -> bool {
+        self.via.is_some()
+    }
+
+    /// The inclusive copper positions where hole spacing applies. Two Vias of one
+    /// Net can meet end to end at the same centre without a spacing violation.
+    pub fn spacing_span(&self, other: &Self, layer_count: usize) -> Option<(usize, usize)> {
+        match (self.via, other.via) {
+            (Some(a), Some(b)) => {
+                let first = a.first.max(b.first);
+                let last = a.last.min(b.last);
+                let stacked =
+                    first == last && a.at == b.at && self.net.is_some() && self.net == other.net;
+                (first <= last && !stacked).then_some((first, last))
+            }
+            (Some(via), None) | (None, Some(via)) => Some((via.first, via.last)),
+            (None, None) => Some((1, layer_count)),
+        }
+    }
+
     pub fn layers(&self, pcb: &PcbDocument) -> Vec<Uuid> {
         if let Item::Via { uuid } = self.item {
             pcb.span_layers(pcb.via(uuid).expect("Via hole").span)
@@ -119,7 +154,7 @@ impl DrillHole {
     }
 
     pub fn field(&self) -> RuleField {
-        if self.via {
+        if self.is_via() {
             RuleField::HoleVia
         } else {
             RuleField::HolePad
@@ -127,7 +162,7 @@ impl DrillHole {
     }
 
     pub fn connection(&self, pcb: &PcbDocument, layer: Uuid) -> crate::rules::Connection {
-        let target = if self.via {
+        let target = if self.is_via() {
             ConnectionTarget::Via
         } else {
             ConnectionTarget::ThroughHole

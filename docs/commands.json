@@ -229,7 +229,7 @@
               },
               {
                 "const": "via_span",
-                "description": "A Via span with no matching type, or one outside the Net Class’s allowed list.",
+                "description": "An unmatched Via span, a disallowed type, or a micro span longer than two copper intervals.",
                 "type": "string"
               },
               {
@@ -1486,7 +1486,7 @@
               },
               {
                 "const": "via_span",
-                "description": "A Via span with no matching type, or one outside the Net Class’s allowed list.",
+                "description": "An unmatched Via span, a disallowed type, or a micro span longer than two copper intervals.",
                 "type": "string"
               },
               {
@@ -1749,7 +1749,7 @@
               },
               {
                 "const": "via_span",
-                "description": "A Via span with no matching type, or one outside the Net Class’s allowed list.",
+                "description": "An unmatched Via span, a disallowed type, or a micro span longer than two copper intervals.",
                 "type": "string"
               },
               {
@@ -2051,6 +2051,35 @@
                   "area"
                 ],
                 "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Dimensionless depth-to-hole ratio in millionths.",
+                "properties": {
+                  "ratio_millionths": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "ratio_millionths"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "count": {
+                    "format": "uint8",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "count"
+                ],
+                "type": "object"
               }
             ]
           },
@@ -2316,7 +2345,7 @@
               },
               {
                 "const": "via_span",
-                "description": "A Via span with no matching type, or one outside the Net Class’s allowed list.",
+                "description": "An unmatched Via span, a disallowed type, or a micro span longer than two copper intervals.",
                 "type": "string"
               },
               {
@@ -2634,7 +2663,7 @@
               },
               {
                 "const": "via_span",
-                "description": "A Via span with no matching type, or one outside the Net Class’s allowed list.",
+                "description": "An unmatched Via span, a disallowed type, or a micro span longer than two copper intervals.",
                 "type": "string"
               },
               {
@@ -3168,6 +3197,35 @@
                 },
                 "required": [
                   "area"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Dimensionless depth-to-hole ratio in millionths.",
+                "properties": {
+                  "ratio_millionths": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "ratio_millionths"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "count": {
+                    "format": "uint8",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "count"
                 ],
                 "type": "object"
               }
@@ -4026,6 +4084,21 @@
       "presets": [],
       "result": {
         "$defs": {
+          "AspectRatioLimit": {
+            "additionalProperties": false,
+            "description": "Optional depth-to-hole ratio, in thousandths, for one drilling method.",
+            "properties": {
+              "max": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          },
           "Available": {
             "description": "A preset that can be picked, with where it comes from.",
             "properties": {
@@ -4671,6 +4744,16 @@
                 "$ref": "#/$defs/MaskExpansion",
                 "description": "The Solder Mask expansion and Via tenting a new board starts with."
               },
+              "microvia_size": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MicroviaLimits"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "paste_expansion": {
                 "$ref": "#/$defs/PasteExpansion",
                 "description": "The paste expansion a new board starts with."
@@ -4683,6 +4766,16 @@
                 "description": "Minimum Track width.",
                 "format": "int64",
                 "type": "integer"
+              },
+              "via_aspect_ratio": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/AspectRatioLimit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "via_diameter": {
                 "description": "Minimum Via diameter.",
@@ -4710,6 +4803,29 @@
               "mask_expansion",
               "paste_expansion"
             ],
+            "type": "object"
+          },
+          "FabSizeLimits": {
+            "additionalProperties": false,
+            "description": "Published minimum and maximum dimensions for a laser-drilled hole or its land.",
+            "properties": {
+              "max": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "min": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
             "type": "object"
           },
           "FileNameOverrides": {
@@ -4948,6 +5064,53 @@
               "tent_vias_top",
               "tent_vias_bottom"
             ],
+            "type": "object"
+          },
+          "MicroviaLimits": {
+            "additionalProperties": false,
+            "description": "A Fab Preset's optional limits for laser drilling. Omitted values seed no limit.",
+            "properties": {
+              "aspect_ratio": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/AspectRatioLimit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "diameter": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/FabSizeLimits"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "hole": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/FabSizeLimits"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "max_stack": {
+                "description": "Maximum number of micro Vias meeting end to end in one Via Stack.",
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
             "type": "object"
           },
           "MountValues": {
@@ -5892,6 +6055,35 @@
                 },
                 "required": [
                   "area"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Dimensionless depth-to-hole ratio in millionths.",
+                "properties": {
+                  "ratio_millionths": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "ratio_millionths"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "count": {
+                    "format": "uint8",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "count"
                 ],
                 "type": "object"
               }
@@ -7469,6 +7661,35 @@
                   "area"
                 ],
                 "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Dimensionless depth-to-hole ratio in millionths.",
+                "properties": {
+                  "ratio_millionths": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "ratio_millionths"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "count": {
+                    "format": "uint8",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "count"
+                ],
+                "type": "object"
               }
             ]
           },
@@ -8440,6 +8661,35 @@
                   "area"
                 ],
                 "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Dimensionless depth-to-hole ratio in millionths.",
+                "properties": {
+                  "ratio_millionths": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "ratio_millionths"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "count": {
+                    "format": "uint8",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "count"
+                ],
+                "type": "object"
               }
             ]
           },
@@ -8917,6 +9167,35 @@
                 },
                 "required": [
                   "area"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Dimensionless depth-to-hole ratio in millionths.",
+                "properties": {
+                  "ratio_millionths": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "ratio_millionths"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "count": {
+                    "format": "uint8",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "count"
                 ],
                 "type": "object"
               }
@@ -9421,6 +9700,35 @@
                 },
                 "required": [
                   "area"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Dimensionless depth-to-hole ratio in millionths.",
+                "properties": {
+                  "ratio_millionths": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "ratio_millionths"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "count": {
+                    "format": "uint8",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "count"
                 ],
                 "type": "object"
               }
@@ -10380,6 +10688,35 @@
                 },
                 "required": [
                   "area"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Dimensionless depth-to-hole ratio in millionths.",
+                "properties": {
+                  "ratio_millionths": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "ratio_millionths"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "count": {
+                    "format": "uint8",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "count"
                 ],
                 "type": "object"
               }
@@ -11353,6 +11690,35 @@
                   "area"
                 ],
                 "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Dimensionless depth-to-hole ratio in millionths.",
+                "properties": {
+                  "ratio_millionths": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "ratio_millionths"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "count": {
+                    "format": "uint8",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "count"
+                ],
+                "type": "object"
               }
             ]
           },
@@ -12302,6 +12668,35 @@
                 },
                 "required": [
                   "area"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Dimensionless depth-to-hole ratio in millionths.",
+                "properties": {
+                  "ratio_millionths": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "ratio_millionths"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "count": {
+                    "format": "uint8",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "count"
                 ],
                 "type": "object"
               }
@@ -13265,6 +13660,35 @@
                   "area"
                 ],
                 "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Dimensionless depth-to-hole ratio in millionths.",
+                "properties": {
+                  "ratio_millionths": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "ratio_millionths"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "count": {
+                    "format": "uint8",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "count"
+                ],
+                "type": "object"
               }
             ]
           },
@@ -14128,6 +14552,35 @@
                 },
                 "required": [
                   "area"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Dimensionless depth-to-hole ratio in millionths.",
+                "properties": {
+                  "ratio_millionths": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "ratio_millionths"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "count": {
+                    "format": "uint8",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "count"
                 ],
                 "type": "object"
               }
@@ -15086,6 +15539,35 @@
                   "area"
                 ],
                 "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Dimensionless depth-to-hole ratio in millionths.",
+                "properties": {
+                  "ratio_millionths": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "ratio_millionths"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "count": {
+                    "format": "uint8",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "count"
+                ],
+                "type": "object"
               }
             ]
           },
@@ -16040,6 +16522,35 @@
                 },
                 "required": [
                   "area"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Dimensionless depth-to-hole ratio in millionths.",
+                "properties": {
+                  "ratio_millionths": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "ratio_millionths"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "count": {
+                    "format": "uint8",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "count"
                 ],
                 "type": "object"
               }
@@ -19507,6 +20018,35 @@
                   "area"
                 ],
                 "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Dimensionless depth-to-hole ratio in millionths.",
+                "properties": {
+                  "ratio_millionths": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "ratio_millionths"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "count": {
+                    "format": "uint8",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "count"
+                ],
+                "type": "object"
               }
             ]
           },
@@ -22513,6 +23053,21 @@
               }
             ]
           },
+          "AspectRatioLimit": {
+            "additionalProperties": false,
+            "description": "Optional depth-to-hole ratio, in thousandths, for one drilling method.",
+            "properties": {
+              "max": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          },
           "BomGroup": {
             "description": "Sources shared by Components on a grouped BOM row.",
             "oneOf": [
@@ -23599,7 +24154,7 @@
               "via_span": {
                 "$ref": "#/$defs/Severity",
                 "default": "error",
-                "description": "A Via span with no matching type, or one outside the Net Class’s allowed list."
+                "description": "An unmatched Via span, a disallowed type, or a micro span longer than two copper intervals."
               },
               "via_under_smd": {
                 "$ref": "#/$defs/Severity",
@@ -23860,6 +24415,16 @@
                 "$ref": "#/$defs/MaskExpansion",
                 "description": "The Solder Mask expansion and Via tenting a new board starts with."
               },
+              "microvia_size": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MicroviaLimits"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "paste_expansion": {
                 "$ref": "#/$defs/PasteExpansion",
                 "description": "The paste expansion a new board starts with."
@@ -23872,6 +24437,16 @@
                 "description": "Minimum Track width.",
                 "format": "int64",
                 "type": "integer"
+              },
+              "via_aspect_ratio": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/AspectRatioLimit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "via_diameter": {
                 "description": "Minimum Via diameter.",
@@ -23899,6 +24474,29 @@
               "mask_expansion",
               "paste_expansion"
             ],
+            "type": "object"
+          },
+          "FabSizeLimits": {
+            "additionalProperties": false,
+            "description": "Published minimum and maximum dimensions for a laser-drilled hole or its land.",
+            "properties": {
+              "max": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "min": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
             "type": "object"
           },
           "Field": {
@@ -26542,6 +27140,53 @@
                 "$ref": "#/$defs/Tenting"
               }
             ]
+          },
+          "MicroviaLimits": {
+            "additionalProperties": false,
+            "description": "A Fab Preset's optional limits for laser drilling. Omitted values seed no limit.",
+            "properties": {
+              "aspect_ratio": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/AspectRatioLimit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "diameter": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/FabSizeLimits"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "hole": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/FabSizeLimits"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "max_stack": {
+                "description": "Maximum number of micro Vias meeting end to end in one Via Stack.",
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
           },
           "Mode": {
             "description": "What Re-annotate renumbers.",
@@ -29088,6 +29733,16 @@
                   "null"
                 ]
               },
+              "aspect_ratio": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/AspectRatioLimit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "bottom": {
                 "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
@@ -29150,6 +29805,16 @@
               "max_length": {
                 "description": "`micro_segment` only: Tracks up to this long are micro-segments.",
                 "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "max_stack": {
+                "description": "Maximum number of micro Vias meeting end to end in one Via Stack.",
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
                 "type": [
                   "integer",
                   "null"
@@ -30844,6 +31509,21 @@
               }
             ]
           },
+          "AspectRatioLimit": {
+            "additionalProperties": false,
+            "description": "Optional depth-to-hole ratio, in thousandths, for one drilling method.",
+            "properties": {
+              "max": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          },
           "BomGroup": {
             "description": "Sources shared by Components on a grouped BOM row.",
             "oneOf": [
@@ -31930,7 +32610,7 @@
               "via_span": {
                 "$ref": "#/$defs/Severity",
                 "default": "error",
-                "description": "A Via span with no matching type, or one outside the Net Class’s allowed list."
+                "description": "An unmatched Via span, a disallowed type, or a micro span longer than two copper intervals."
               },
               "via_under_smd": {
                 "$ref": "#/$defs/Severity",
@@ -32191,6 +32871,16 @@
                 "$ref": "#/$defs/MaskExpansion",
                 "description": "The Solder Mask expansion and Via tenting a new board starts with."
               },
+              "microvia_size": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MicroviaLimits"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "paste_expansion": {
                 "$ref": "#/$defs/PasteExpansion",
                 "description": "The paste expansion a new board starts with."
@@ -32203,6 +32893,16 @@
                 "description": "Minimum Track width.",
                 "format": "int64",
                 "type": "integer"
+              },
+              "via_aspect_ratio": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/AspectRatioLimit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "via_diameter": {
                 "description": "Minimum Via diameter.",
@@ -32230,6 +32930,29 @@
               "mask_expansion",
               "paste_expansion"
             ],
+            "type": "object"
+          },
+          "FabSizeLimits": {
+            "additionalProperties": false,
+            "description": "Published minimum and maximum dimensions for a laser-drilled hole or its land.",
+            "properties": {
+              "max": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "min": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
             "type": "object"
           },
           "Field": {
@@ -34873,6 +35596,53 @@
                 "$ref": "#/$defs/Tenting"
               }
             ]
+          },
+          "MicroviaLimits": {
+            "additionalProperties": false,
+            "description": "A Fab Preset's optional limits for laser drilling. Omitted values seed no limit.",
+            "properties": {
+              "aspect_ratio": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/AspectRatioLimit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "diameter": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/FabSizeLimits"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "hole": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/FabSizeLimits"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "max_stack": {
+                "description": "Maximum number of micro Vias meeting end to end in one Via Stack.",
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
           },
           "Mode": {
             "description": "What Re-annotate renumbers.",
@@ -37440,6 +38210,16 @@
                   "null"
                 ]
               },
+              "aspect_ratio": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/AspectRatioLimit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "bottom": {
                 "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
@@ -37502,6 +38282,16 @@
               "max_length": {
                 "description": "`micro_segment` only: Tracks up to this long are micro-segments.",
                 "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "max_stack": {
+                "description": "Maximum number of micro Vias meeting end to end in one Via Stack.",
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
                 "type": [
                   "integer",
                   "null"
@@ -39138,6 +39928,35 @@
                   "area"
                 ],
                 "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Dimensionless depth-to-hole ratio in millionths.",
+                "properties": {
+                  "ratio_millionths": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "ratio_millionths"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "count": {
+                    "format": "uint8",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "count"
+                ],
+                "type": "object"
               }
             ]
           },
@@ -39564,6 +40383,35 @@
                 },
                 "required": [
                   "area"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Dimensionless depth-to-hole ratio in millionths.",
+                "properties": {
+                  "ratio_millionths": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "ratio_millionths"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "count": {
+                    "format": "uint8",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "count"
                 ],
                 "type": "object"
               }
@@ -50862,6 +51710,22 @@
               }
             ]
           },
+          "AspectRatioParam": {
+            "additionalProperties": false,
+            "description": "Depth-to-hole maximum in thousandths (8000 is 8:1); null clears the maximum.",
+            "properties": {
+              "max": {
+                "default": null,
+                "format": "uint32",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          },
           "BoundsParam": {
             "additionalProperties": false,
             "description": "A range's values to change; `null` clears one.",
@@ -51220,6 +52084,16 @@
                   "null"
                 ]
               },
+              "aspect_ratio": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/AspectRatioParam"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "bottom": {
                 "anyOf": [
                   {
@@ -51297,6 +52171,17 @@
                   }
                 ],
                 "default": null
+              },
+              "max_stack": {
+                "default": null,
+                "description": "Maximum number of micro Vias meeting end to end in one Via Stack.",
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
               },
               "min": {
                 "anyOf": [
@@ -55609,6 +56494,12 @@
                 "type": "integer"
               },
               {
+                "description": "Depth-to-diameter ratio in thousandths (8000 is 8:1).",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
                 "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
                 "format": "int64",
                 "type": "integer"
@@ -55772,6 +56663,8 @@
               "hole_min",
               "hole_preferred",
               "hole_max",
+              "aspect_ratio_max",
+              "max_stack",
               "top",
               "bottom",
               "from_hole_edge",
@@ -56061,6 +56954,8 @@
               "hole_min",
               "hole_preferred",
               "hole_max",
+              "aspect_ratio_max",
+              "max_stack",
               "top",
               "bottom",
               "from_hole_edge",
@@ -56214,6 +57109,12 @@
                 "description": "A spoke count.",
                 "format": "uint8",
                 "maximum": 255,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "description": "Depth-to-diameter ratio in thousandths (8000 is 8:1).",
+                "format": "uint32",
                 "minimum": 0,
                 "type": "integer"
               },
@@ -56474,6 +57375,8 @@
               "hole_min",
               "hole_preferred",
               "hole_max",
+              "aspect_ratio_max",
+              "max_stack",
               "top",
               "bottom",
               "from_hole_edge",
@@ -56627,6 +57530,12 @@
                 "description": "A spoke count.",
                 "format": "uint8",
                 "maximum": 255,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "description": "Depth-to-diameter ratio in thousandths (8000 is 8:1).",
+                "format": "uint32",
                 "minimum": 0,
                 "type": "integer"
               },
@@ -56822,6 +57731,21 @@
       "presets": [],
       "result": {
         "$defs": {
+          "AspectRatioLimit": {
+            "additionalProperties": false,
+            "description": "Optional depth-to-hole ratio, in thousandths, for one drilling method.",
+            "properties": {
+              "max": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          },
           "Bounds": {
             "additionalProperties": false,
             "description": "A range of sizes: `min` and `max` are limits, `preferred` is what Tools start with.",
@@ -56908,7 +57832,7 @@
               },
               {
                 "const": "via_span",
-                "description": "A Via span with no matching type, or one outside the Net Class’s allowed list.",
+                "description": "An unmatched Via span, a disallowed type, or a micro span longer than two copper intervals.",
                 "type": "string"
               },
               {
@@ -57268,6 +58192,16 @@
                   "null"
                 ]
               },
+              "aspect_ratio": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/AspectRatioLimit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "bottom": {
                 "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
@@ -57330,6 +58264,16 @@
               "max_length": {
                 "description": "`micro_segment` only: Tracks up to this long are micro-segments.",
                 "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "max_stack": {
+                "description": "Maximum number of micro Vias meeting end to end in one Via Stack.",
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
                 "type": [
                   "integer",
                   "null"
@@ -57765,6 +58709,22 @@
               }
             ]
           },
+          "AspectRatioParam": {
+            "additionalProperties": false,
+            "description": "Depth-to-hole maximum in thousandths (8000 is 8:1); null clears the maximum.",
+            "properties": {
+              "max": {
+                "default": null,
+                "format": "uint32",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          },
           "BoundsParam": {
             "additionalProperties": false,
             "description": "A range's values to change; `null` clears one.",
@@ -58152,6 +59112,16 @@
                   "null"
                 ]
               },
+              "aspect_ratio": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/AspectRatioParam"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "bottom": {
                 "anyOf": [
                   {
@@ -58229,6 +59199,17 @@
                   }
                 ],
                 "default": null
+              },
+              "max_stack": {
+                "default": null,
+                "description": "Maximum number of micro Vias meeting end to end in one Via Stack.",
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
               },
               "min": {
                 "anyOf": [
@@ -58410,6 +59391,21 @@
       "presets": [],
       "result": {
         "$defs": {
+          "AspectRatioLimit": {
+            "additionalProperties": false,
+            "description": "Optional depth-to-hole ratio, in thousandths, for one drilling method.",
+            "properties": {
+              "max": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          },
           "Bounds": {
             "additionalProperties": false,
             "description": "A range of sizes: `min` and `max` are limits, `preferred` is what Tools start with.",
@@ -58715,6 +59711,16 @@
                   "null"
                 ]
               },
+              "aspect_ratio": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/AspectRatioLimit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "bottom": {
                 "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
@@ -58777,6 +59783,16 @@
               "max_length": {
                 "description": "`micro_segment` only: Tracks up to this long are micro-segments.",
                 "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "max_stack": {
+                "description": "Maximum number of micro Vias meeting end to end in one Via Stack.",
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
                 "type": [
                   "integer",
                   "null"

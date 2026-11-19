@@ -1089,6 +1089,8 @@ fn fab_rules(lengths: [Nm; 7]) -> FabRules {
     let preferred_diameter = Nm(preferred_hole.0 + via_diameter.0.abs() + 1);
     FabRules {
         inner: None,
+        microvia_size: None,
+        via_aspect_ratio: None,
         clearance_hole: reda_model::HoleClearance::GENERIC,
         mask_expansion: Default::default(),
         paste_expansion: Default::default(),
