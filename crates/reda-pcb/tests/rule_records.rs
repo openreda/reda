@@ -515,8 +515,9 @@ fn applying_a_fab_preset_takes_the_chosen_rows_and_flags_class_records_it_breaks
     );
     assert_eq!(board.rule(narrow).unwrap().values.max, Some(um(150)));
     assert_eq!(board.stackup().through_type().diameter.start, um(660));
+    // The Command keeps the type's size, outside the new limits, for DRC to flag.
     let via = uuid(&engine.run_ok("pcb.via.add", json!({"at": {"x": 0, "y": 0}})));
-    assert_eq!(pcb(&engine).via(via).unwrap().diameter.start, um(700));
+    assert_eq!(pcb(&engine).via(via).unwrap().diameter.start, um(660));
 }
 
 #[test]
