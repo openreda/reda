@@ -216,18 +216,15 @@ fn rules_set_changes_only_the_values_given_and_null_clears_one() {
     );
     assert_eq!(
         rule["values"],
-        json!({"diameter": {"min": 700000, "preferred": 700000, "max": 2000000},
-               "hole": {"min": 300000, "preferred": 300000}})
+        json!({"diameter": {"min": 700000, "max": 2000000},
+               "hole": {"min": 300000}})
     );
     assert_eq!(rule["comment"], "fab");
     let rule = set(
         &mut engine,
         json!({"kind": "via_size", "values": {"diameter": {"max": null}}, "comment": null}),
     );
-    assert_eq!(
-        rule["values"]["diameter"],
-        json!({"min": 700000, "preferred": 700000})
-    );
+    assert_eq!(rule["values"]["diameter"], json!({"min": 700000}));
     assert!(rule.get("comment").is_none());
 }
 
@@ -408,13 +405,16 @@ fn mask_and_paste_preset_seeds_match_the_specification_table() {
     }
 }
 
-/// A JLCPCB board with the Generic preset copied into the Project: Generic raises the
-/// limits (Track 0.10 to 0.20 mm, Via diameter 0.51 to 0.70 mm).
+/// A JLCPCB board whose preferred Track width falls below Generic's 0.20 mm minimum.
 fn jlcpcb_board(dir: &TempDir) -> (TestEngine, Uuid) {
     let mut engine = probe_engine();
     engine.run_ok(
         "project.new",
         json!({"path": dir.path(), "name": "Demo", "fab_preset": "JLCPCB"}),
+    );
+    set(
+        &mut engine,
+        json!({"kind": "track_width", "values": {"preferred": "0.15mm"}}),
     );
     let generic = uuid(&engine.run_ok("fab_preset.add", json!({"name": "Generic"})));
     (engine, generic)
@@ -450,11 +450,10 @@ fn the_preview_ticks_limits_and_only_preferred_sizes_that_fall_outside() {
     };
     assert_eq!(row("track_width", "min"), Some((true, true)), "{diff:#}");
     assert_eq!(row("via_size", "diameter_min"), Some((true, true)));
-    // 0.66 mm falls below the new 0.70 mm minimum.
-    assert_eq!(row("via_size", "diameter_preferred"), Some((false, true)));
-    // The board's 0.30 mm hole stays inside the new range... and is already Generic's.
+    assert_eq!(row("track_width", "preferred"), Some((false, true)));
+    // Via starting sizes belong to the through type in the Stackup.
+    assert_eq!(row("via_size", "diameter_preferred"), None);
     assert_eq!(row("via_size", "hole_preferred"), None);
-    assert_eq!(row("track_width", "preferred"), None);
 }
 
 #[test]
@@ -497,7 +496,7 @@ fn applying_a_fab_preset_takes_the_chosen_rows_and_flags_class_records_it_breaks
     // A row that would leave the board's own record blocking is refused.
     let err = engine.run_err(
         "pcb.rules.apply_fab_preset",
-        json!({"preset": generic, "rows": [{"kind": "via_size", "field": "diameter_min"}]}),
+        json!({"preset": generic, "rows": [{"kind": "track_width", "field": "min"}]}),
     );
     assert_eq!(err.code, ErrorCode::InvalidParams, "{}", err.message);
 
@@ -510,6 +509,9 @@ fn applying_a_fab_preset_takes_the_chosen_rows_and_flags_class_records_it_breaks
         Some(um(200))
     );
     assert_eq!(board.rule(narrow).unwrap().values.max, Some(um(150)));
+    assert_eq!(board.stackup().through_type().diameter.start, um(660));
+    let via = uuid(&engine.run_ok("pcb.via.add", json!({"at": {"x": 0, "y": 0}})));
+    assert_eq!(pcb(&engine).via(via).unwrap().diameter.start, um(700));
 }
 
 #[test]

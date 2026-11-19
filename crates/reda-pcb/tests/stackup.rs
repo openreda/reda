@@ -36,7 +36,7 @@ fn ids(engine: &TestEngine) -> (Uuid, Uuid, Uuid) {
 }
 
 #[test]
-fn a_new_board_is_1_6_mm_with_1_oz_copper_and_one_blank_dielectric() {
+fn a_new_board_is_1_6_mm_with_1_oz_copper_and_one_core_of_unspecified_thickness() {
     let dir = TempDir::new("stackup-new");
     let engine = engine(&dir);
     let (top, bottom, dielectric) = ids(&engine);
@@ -46,7 +46,7 @@ fn a_new_board_is_1_6_mm_with_1_oz_copper_and_one_blank_dielectric() {
         serde_json::to_value(&stackup.entries).unwrap(),
         json!([
             {"layer": top, "thickness": 35_000},
-            {"uuid": dielectric},
+            {"uuid": dielectric, "kind": "core"},
             {"layer": bottom, "thickness": 35_000},
         ])
     );
