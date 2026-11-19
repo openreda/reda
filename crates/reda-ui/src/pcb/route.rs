@@ -1,11 +1,10 @@
-//! The routing Tool (T) and the Via Tool (V): manual single Tracks with 45° or 90°
+//! The routing Tool (T) and the stitching Via Tool: manual single Tracks with 45° or 90°
 //! corners, and Vias placed mid-route or on their own for stitching.
 //!
-//! - A click starts a route on the active copper Layer (else the top copper), on the Net
-//!   of the copper under it, as wide as that Net's Class says. Each further click places
+//! - A click starts a route on copper under the pointer, preferring the active Layer, as wide as that Net's Class says. Each further click places
 //!   the corner path to the cursor; `/` cycles the corner mode, `pcb.route.width` changes
-//!   the width mid-route, Backspace takes back the last corner, `pcb.route.add_via` (V)
-//!   drops a Via at the cursor and carries on on the other side.
+//!   the width mid-route, Backspace takes back the last corner, and V places the
+//!   proposed Via or stack and continues on the Previous Layer.
 //! - The preview comes from [`route::propose`] in `reda-pcb`, a pure function of the
 //!   Copper index: in `stop` (the default `pcb.route.obstacle_mode`) the path ahead is
 //!   clipped at its last clear point, and a click places only up to there; nothing
@@ -25,8 +24,7 @@ use reda_engine::model::{LayerKind, PcbDocument, Project, RuleKind, Side, Uuid};
 use reda_engine::pcb::route::{
     self, CornerMode, Posture, Proposed, Request, Status, Step, ViaChoice, ViaSize, WidthChoice,
 };
-use reda_engine::pcb::rules::net_rules;
-use reda_engine::pcb::{ClearanceHit, Copper, Halo, Proposal, keepout};
+use reda_engine::pcb::{ClearanceHit, Copper, Halo, keepout};
 use reda_engine::preferences::ClearanceDisplay;
 use serde_json::json;
 
@@ -36,7 +34,11 @@ use crate::snap::Snapped;
 use crate::tools::Tool;
 use crate::tr;
 
+mod vias;
 pub use route::Leg;
+use route::RouteVia;
+pub(crate) use vias::PAGE_SIZE;
+use vias::PairCandidates;
 
 #[derive(Clone, Debug)]
 struct Route {
@@ -56,6 +58,23 @@ struct Route {
 impl Route {
     fn last(&self) -> Point {
         *self.leg.points.last().expect("a leg has its start")
+    }
+
+    /// Every vertex that will become a Track endpoint, including the path to a proposed Via.
+    fn track_ends(&self, ahead: &[Point]) -> Vec<(Uuid, Point)> {
+        self.steps
+            .iter()
+            .filter_map(|step| match step {
+                Step::Leg(leg) => Some((leg.layer, leg.points.as_slice())),
+                Step::Via(..) => None,
+            })
+            .chain([
+                (self.leg.layer, self.leg.points.as_slice()),
+                (self.leg.layer, ahead),
+            ])
+            .filter(|(_, points)| points.len() > 1)
+            .flat_map(|(layer, points)| points.iter().map(move |&point| (layer, point)))
+            .collect()
     }
 
     fn segments(&self) -> usize {
@@ -92,6 +111,22 @@ pub struct Preview {
     pub legs: Vec<Leg>,
     /// The Vias placed.
     pub vias: Vec<Point>,
+    /// The geometry of all stack members at each placed centre, in route order.
+    pub via_stacks: Vec<(Point, Vec<RouteVia>)>,
+    /// The complete single Via or stack available at the snapped cursor.
+    pub via_candidate: Option<ViaPreview>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ViaPreview {
+    pub at: Point,
+    pub target: Uuid,
+    pub members: Vec<RouteVia>,
+    /// The plated bores and physically retained land diameters at the cursor.
+    pub rings: Vec<Nm>,
+    pub label: String,
+    /// What would prevent placement in Stop mode.
+    pub blocked: Option<String>,
 }
 
 /// The Via the Via Tool would place at the cursor.
@@ -109,6 +144,12 @@ pub enum Chooser {
     Width(Vec<WidthChoice>),
     /// Shift+V: the Via sizes.
     Via(Vec<ViaChoice>),
+    Candidates {
+        target: Uuid,
+        selected: usize,
+        page: usize,
+        count: usize,
+    },
 }
 
 /// How far from the cursor the clearance display reaches in `near`.
@@ -134,7 +175,13 @@ pub struct Router {
     user_width: Option<Nm>,
     /// The Via size chosen with Shift+V; `None` is the Net's.
     via_size: Option<ViaSize>,
+    via_mode: route::WidthMode,
     chooser: Option<Chooser>,
+    candidates: Option<PairCandidates>,
+    via_candidate: Option<ViaPreview>,
+    stack_rings: Vec<(Point, std::collections::BTreeSet<Nm>)>,
+    hovered_layer: Option<Uuid>,
+    picked_target: Option<Uuid>,
     /// What the clearance display shades.
     halos: Vec<Halo>,
     /// The Tool's note, shown above the Routing Bar.
@@ -155,7 +202,13 @@ impl Default for Router {
             lookahead: true,
             user_width: None,
             via_size: None,
+            via_mode: route::WidthMode::Preferred,
             chooser: None,
+            candidates: None,
+            via_candidate: None,
+            stack_rings: Vec::new(),
+            hovered_layer: None,
+            picked_target: None,
             halos: Vec::new(),
             note: None,
         }
@@ -228,6 +281,14 @@ impl Router {
             }
             None => vec![route.last()],
         };
+        let via_stacks: Vec<_> = route
+            .steps
+            .iter()
+            .filter_map(|s| match s {
+                Step::Via(at, members) => Some((*at, members.clone())),
+                Step::Leg(_) => None,
+            })
+            .collect();
         Some(Preview {
             layer: route.leg.layer,
             net: route.net,
@@ -249,14 +310,9 @@ impl Router {
                     Step::Via(..) => None,
                 })
                 .collect(),
-            vias: route
-                .steps
-                .iter()
-                .filter_map(|s| match s {
-                    Step::Via(at, _) => Some(*at),
-                    Step::Leg(_) => None,
-                })
-                .collect(),
+            via_candidate: self.via_candidate.clone(),
+            vias: via_stacks.iter().map(|(at, _)| *at).collect(),
+            via_stacks,
         })
     }
 
@@ -309,81 +365,6 @@ impl Router {
         }
     }
 
-    /// V while routing: places the path to the cursor, drops a Via there and carries on on
-    /// the other side.
-    pub fn add_via(&mut self, shell: &mut Shell) {
-        self.place_via_here(shell);
-    }
-
-    /// E: places the path to the cursor and a Via there, and ends the route.
-    pub fn via_end(&mut self, shell: &mut Shell) {
-        if self.place_via_here(shell) {
-            self.finish(shell);
-        }
-    }
-
-    /// The Via the route places next: the size chosen with Shift+V, else the Net's.
-    fn via_diameter(&self, pcb: &PcbDocument, net: Option<Uuid>) -> Nm {
-        self.via_size.map_or_else(
-            || net_rules(pcb, net).via_diameter.default_size(),
-            |s| s.diameter,
-        )
-    }
-
-    /// Places the path to the cursor and a Via there; `false` when nothing is in flight or
-    /// the Via is refused (the status bar says why).
-    fn place_via_here(&mut self, shell: &mut Shell) -> bool {
-        self.notice_cancel(shell);
-        let (Some(route), Some(Snapped { at, .. })) = (&self.route, self.cursor) else {
-            return false;
-        };
-        let net = route.net;
-        self.check(shell, at);
-        if let Some(why) = self.why_blocked(shell) {
-            shell.report(why);
-            return false;
-        }
-        let Some((project, _)) = board(shell) else {
-            return false;
-        };
-        let pcb = project.pcb().expect("a board");
-        let diameter = self.via_diameter(pcb, net);
-        let proposal = Proposal::Via {
-            at,
-            diameter,
-            net,
-            span: pcb.stackup().through_type().span(),
-        };
-        if let Some(why) = self.blocked_by(shell, &proposal) {
-            shell.report(why);
-            return false;
-        }
-        let other = other_side(pcb, self.route.as_ref().expect("routing").leg.layer);
-        let via_size = self.via_size;
-        let (corner, posture) = (self.corner, self.posture);
-        let route = self.route.as_mut().expect("routing");
-        let path = route::corner_path(route.last(), at, corner, posture);
-        route.leg.points.extend_from_slice(&path[1..]);
-        let next = Leg {
-            layer: other,
-            width: route::width::changed_layer(
-                pcb,
-                net,
-                other,
-                (!route.follows_preferred_width).then_some(route.leg.width),
-            ),
-            points: vec![at],
-        };
-        let done = std::mem::replace(&mut route.leg, next);
-        // Keep even a one-point leg so undo restores its Layer and original width.
-        route.steps.push(Step::Leg(done));
-        route.steps.push(Step::Via(at, via_size));
-        self.depend_on(shell, at);
-        let _ = shell.run_reporting("pcb.layer.activate", json!({ "layer": other }));
-        self.check(shell, at);
-        true
-    }
-
     /// Backspace: takes back the last corner (or Via); with nothing left, drops the route.
     pub fn undo_segment(&mut self, shell: &mut Shell) {
         self.notice_cancel(shell);
@@ -399,7 +380,7 @@ impl Router {
             };
             route.leg = leg;
             let layer = route.leg.layer;
-            let _ = shell.run_reporting("pcb.layer.activate", json!({ "layer": layer }));
+            vias::activate(shell, layer);
         } else if route.steps.is_empty() {
             self.cancel(shell);
             return;
@@ -450,6 +431,7 @@ impl Router {
                 "clearance_display",
                 json!(prefs.clearance_display.next()),
             ),
+            RouteMode::ViaSize => self.cycle_via_size(shell),
             RouteMode::WidthMode => {
                 let Some((project, _)) = board(shell) else {
                     return;
@@ -506,7 +488,14 @@ impl Router {
                     .or_else(|| shell.board_view().active_layer(project)),
                 &shell.preferences().pcb.route.favourites(),
             )),
-            ChooserKind::Via => Chooser::Via(route::width::via_choices(pcb, net)),
+            ChooserKind::Via => {
+                let types = self
+                    .via_candidate
+                    .iter()
+                    .flat_map(|p| &p.members)
+                    .filter_map(|v| pcb.stackup().type_for_span(v.span));
+                Chooser::Via(route::width::via_choices_for(pcb, net, types))
+            }
         });
     }
 
@@ -514,25 +503,22 @@ impl Router {
     /// here on.
     pub fn set_via_size(&mut self, shell: &mut Shell, diameter: Nm, hole: Nm) {
         self.chooser = None;
-        let Some((project, _)) = board(shell) else {
-            return;
-        };
-        let net = self.route.as_ref().and_then(|r| r.net);
-        let rules = net_rules(project.pcb().expect("a board"), net);
-        let size = ViaSize {
-            diameter: rules.via_diameter.clip(diameter),
-            hole: rules.via_hole.clip(hole),
-        };
-        if size.diameter != diameter || size.hole != hole {
+        self.via_size = Some(ViaSize { diameter, hole });
+        self.via_mode = route::WidthMode::User;
+        self.recheck(shell);
+        if let Some(clipped) = self
+            .via_candidate
+            .iter()
+            .flat_map(|c| &c.members)
+            .find(|m| m.diameter.start != diameter || m.hole != hole)
+        {
             let units = shell.board_view().units;
             shell.report(tr!(
                 "route-via-clipped",
-                diameter = super::view::format_length(size.diameter, units),
-                hole = super::view::format_length(size.hole, units)
+                diameter = super::view::format_length(clipped.diameter.start, units),
+                hole = super::view::format_length(clipped.hole, units)
             ));
         }
-        self.via_size = Some(size);
-        self.recheck(shell);
     }
 
     /// Changes the width from here on: `width`, or with `step` the board's next or
@@ -660,6 +646,9 @@ impl Router {
         self.proposed = None;
         self.chooser = None;
         self.halos.clear();
+        self.hovered_layer = None;
+        self.picked_target = None;
+        self.via_candidate = None;
         self.note = None;
     }
 
@@ -670,6 +659,10 @@ impl Router {
             self.hits.clear();
             self.keepouts.clear();
             self.proposed = None;
+            self.chooser = None;
+            self.via_candidate = None;
+            self.halos.clear();
+            self.note = None;
         }
     }
 
@@ -688,6 +681,12 @@ impl Router {
 
     /// Checks the path ahead to `at` (or, with the Via Tool, a Via at `at`).
     fn check(&mut self, shell: &Shell, at: Point) {
+        let to = self.candidate_target(shell);
+        self.check_to(shell, at, to);
+    }
+
+    fn check_to(&mut self, shell: &Shell, at: Point, target: Option<Uuid>) {
+        self.via_candidate = None;
         self.hits.clear();
         self.keepouts.clear();
         if shell.tool() == Tool::Via && self.route.is_none() {
@@ -697,26 +696,41 @@ impl Router {
             let pcb = project.pcb().expect("a board");
             let kind = shell.board_view().stitching_type(pcb);
             let span = kind.span();
-            let net = self.copper(shell).and_then(|c| {
-                pcb.span_layers(span)
-                    .into_iter()
-                    .find_map(|l| c.net_at(l, at))
-            });
-            let diameter = reda_engine::pcb::rules::via_starting_size(pcb, net, kind)
-                .0
-                .start;
-            let allowed = reda_engine::pcb::rules::via_type_allowed(pcb, net, kind.uuid);
-            let proposal = Proposal::Via {
-                at,
-                diameter,
-                net,
-                span,
+            let Some(copper) = self.copper(shell) else {
+                return;
             };
+            let net = pcb
+                .span_layers(span)
+                .into_iter()
+                .find_map(|l| copper.net_at(l, at));
+            let (diameter, hole) = reda_engine::pcb::rules::via_starting_size(pcb, net, kind);
+            let allowed = reda_engine::pcb::rules::via_type_allowed(pcb, net, kind.uuid);
+            let proposal = copper.propose_via(
+                pcb,
+                at,
+                net,
+                RouteVia {
+                    span,
+                    diameter,
+                    hole,
+                    unused_layers: kind.unused_layers,
+                },
+                &[],
+            );
             self.note = (!allowed).then(|| tr!("via-type-disallowed"));
-            let (hits, keepouts) = self.query(shell, &proposal, &[]);
+            let hits = copper.clearance(pcb, &proposal, &[]);
+            let keepouts = keepout::keepouts_hit(pcb, &proposal);
+            let active = shell
+                .board_view()
+                .active_layer(project)
+                .unwrap_or(span.from);
             self.via = Some(ViaCursor {
                 at,
-                diameter,
+                diameter: if proposal.has_land(active) {
+                    diameter.on(span, active)
+                } else {
+                    hole
+                },
                 blocked: !allowed || !hits.is_empty() || !keepouts.is_empty(),
             });
             self.hits = hits;
@@ -776,35 +790,43 @@ impl Router {
             )
         };
         let pcb = project.pcb().expect("a board");
-        let proposed = route::propose(&copper, pcb, &request);
-        self.halos = match prefs.clearance_display {
-            ClearanceDisplay::Off => Vec::new(),
-            ClearanceDisplay::Near => {
-                copper.halos(pcb, route.leg.layer, route.net, Some((at, CLEARANCE_NEAR)))
+        let ends = route.track_ends(&[]);
+        let proposed = route::propose_with_vias(&copper, pcb, &request, &route.steps, &ends);
+        self.stack_rings.clear();
+        for step in &route.steps {
+            let Step::Via(at, members) = step else {
+                continue;
+            };
+            let mut rings = std::collections::BTreeSet::new();
+            for &via in members {
+                let proposal = copper.propose_via(pcb, *at, route.net, via, &ends);
+                rings.insert(via.hole);
+                rings.extend(
+                    proposal
+                        .via_layers(pcb)
+                        .into_iter()
+                        .filter_map(|(_, diameter)| diameter),
+                );
             }
-            ClearanceDisplay::All => copper.halos(pcb, route.leg.layer, route.net, None),
-        };
+            self.stack_rings.push((*at, rings));
+        }
+        let display = prefs.clearance_display;
+        let layer = route.leg.layer;
+        let net = route.net;
         self.note = proposed.note.map(note_text);
         self.hits = proposed.obstacles.copper.clone();
         self.keepouts = proposed.obstacles.keepouts.clone();
         self.proposed = Some(proposed);
-    }
-
-    fn query(
-        &mut self,
-        shell: &Shell,
-        proposal: &Proposal,
-        ignore: &[Uuid],
-    ) -> (Vec<ClearanceHit>, Vec<Uuid>) {
-        let Some(pcb) = board(shell).and_then(|(p, _)| p.pcb()) else {
-            return (Vec::new(), Vec::new());
-        };
-        let keepouts = keepout::keepouts_hit(pcb, proposal);
-        let hits = self
-            .copper(shell)
-            .map(|c| c.clearance(pcb, proposal, ignore))
-            .unwrap_or_default();
-        (hits, keepouts)
+        self.via_candidate = target.and_then(|to| self.preview_vias(shell, &copper, at, to));
+        let near = (display == ClearanceDisplay::Near).then_some((at, CLEARANCE_NEAR));
+        if display != ClearanceDisplay::Off
+            && self
+                .via_candidate
+                .as_ref()
+                .is_none_or(|c| c.members.is_empty())
+        {
+            self.halos = copper.halos(pcb, layer, net, near);
+        }
     }
 
     /// Why the last check refused, for the status bar.
@@ -830,13 +852,6 @@ impl Router {
         None
     }
 
-    fn blocked_by(&mut self, shell: &Shell, proposal: &Proposal) -> Option<String> {
-        let (hits, keepouts) = self.query(shell, proposal, &[]);
-        self.hits = hits;
-        self.keepouts = keepouts;
-        self.why_blocked(shell)
-    }
-
     /// Starts a route at `at` on the active copper Layer.
     fn start(&mut self, shell: &mut Shell, at: Point) {
         let Some((project, _)) = board(shell) else {
@@ -848,7 +863,7 @@ impl Router {
                 .layer(*l)
                 .is_some_and(|x| x.kind == LayerKind::Copper)
         });
-        let Some(layer) = active.or_else(|| {
+        let Some(default_layer) = active.or_else(|| {
             pcb.layers()
                 .find(LayerKind::Copper, Some(Side::Top))
                 .map(|l| l.uuid)
@@ -858,13 +873,26 @@ impl Router {
         let Some(copper) = self.copper(shell) else {
             return;
         };
-        let items = copper.items_at(layer, at);
-        let net = copper.net_at(layer, at);
-        let start_objects = items
-            .iter()
-            .filter(|i| !i.is_artwork())
-            .map(|i| i.object())
-            .collect();
+        let pickups = |layer| {
+            copper
+                .items_at(layer, at)
+                .into_iter()
+                .filter(|i| !i.is_artwork() && !matches!(i, reda_engine::pcb::Item::Zone { .. }))
+                .collect::<Vec<_>>()
+        };
+        let (layer, items) = std::iter::once(default_layer)
+            .chain(
+                pcb.copper_layers()
+                    .map(|l| l.uuid)
+                    .filter(|&l| l != default_layer),
+            )
+            .find_map(|layer| {
+                let items = pickups(layer);
+                (!items.is_empty()).then_some((layer, items))
+            })
+            .unwrap_or((default_layer, Vec::new()));
+        let net = items.iter().find_map(|&i| copper.net(i));
+        let start_objects: Vec<_> = items.iter().map(|i| i.object()).collect();
         let prefs = &shell.preferences().pcb.route;
         let width = route::width::start_width(
             pcb,
@@ -880,6 +908,8 @@ impl Router {
         let follows_preferred_width = (prefs.width_mode == route::WidthMode::Preferred
             || mode.is_none())
             && width == route::width::changed_layer(pcb, net, layer, None);
+        self.picked_target = None;
+        self.hovered_layer = None;
         self.route = Some(Route {
             net,
             follows_preferred_width,
@@ -889,9 +919,16 @@ impl Router {
                 width,
                 points: vec![at],
             },
-            objects: items.iter().map(|i| i.object()).collect(),
+            objects: start_objects
+                .iter()
+                .copied()
+                .chain([pcb.stackup().uuid, pcb.layers().uuid])
+                .collect(),
             start_objects,
         });
+        if shell.board_view().active_layer(project) != Some(layer) {
+            let _ = shell.run_reporting("pcb.layer.activate", json!({"layer":layer}));
+        }
         shell.begin_tool(ToolPreview::new(title(), self.objects()));
         self.check(shell, at);
     }
@@ -974,22 +1011,6 @@ fn widths(pcb: &PcbDocument) -> Vec<Nm> {
     out.sort();
     out.dedup();
     out
-}
-
-/// The copper Layer a Via switches to from `layer`: the other outer copper from an outer
-/// Layer, and the next copper Layer down from inner copper. It walks the copper Layers, so
-/// inner copper is never skipped as a route's next Layer.
-fn other_side(pcb: &PcbDocument, layer: Uuid) -> Uuid {
-    let copper: Vec<Uuid> = pcb.copper_layers().map(|l| l.uuid).collect();
-    let (Some(&first), Some(&last)) = (copper.first(), copper.last()) else {
-        return layer;
-    };
-    match copper.iter().position(|l| *l == layer) {
-        Some(0) => last,
-        Some(i) if i + 1 == copper.len() => first,
-        Some(i) => copper[i + 1],
-        None => first,
-    }
 }
 
 /// The open Project and its PCB Document's UUID.
@@ -1158,13 +1179,29 @@ pub fn draw(ui: &egui::Ui, shell: &Shell, input: &crate::canvas::CanvasInputs) {
                 painter.line_segment([c + egui::vec2(-d, d), c + egui::vec2(d, -d)], x);
             }
         }
-        let diameter = board(shell)
-            .and_then(|(project, _)| project.pcb())
-            .map_or(Nm::from_um(600), |pcb| {
-                net_rules(pcb, p.net).via_diameter.default_size()
-            });
-        for at in p.vias {
-            via(at, diameter, placed);
+        for (at, rings) in &router.stack_rings {
+            for &ring in rings {
+                via(*at, ring, placed);
+            }
+        }
+        if let Some(candidate) = p.via_candidate {
+            let color = if candidate.blocked.is_some() {
+                refused
+            } else {
+                accent
+            };
+            for ring in candidate.rings {
+                via(candidate.at, ring, color);
+            }
+            if !candidate.label.is_empty() {
+                painter.text(
+                    screen(candidate.at) + egui::vec2(12., -10.),
+                    egui::Align2::LEFT_BOTTOM,
+                    candidate.label,
+                    egui::TextStyle::Body.resolve(ui.style()),
+                    color,
+                );
+            }
         }
     } else if shell.tool() == Tool::Via
         && let Some(v) = router.via_cursor()

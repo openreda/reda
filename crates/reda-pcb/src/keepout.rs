@@ -11,7 +11,7 @@ use reda_model::{
     Keepout, KeepoutShape, PadKind, PcbDocument, Restriction, RuleField, RuleKind, Uuid,
 };
 
-use crate::copper::shape::{BoardShape as _, Shape, arc_points};
+use crate::copper::shape::{Shape, arc_points};
 use crate::copper::{Item, Proposal};
 use crate::rules::resolve_pair_on;
 use crate::zone::poly::{self, Area, Contour};
@@ -250,31 +250,16 @@ pub(crate) fn entered(
 /// Track where one restricts `tracks` on its Layer, a Via where one restricts `vias` on
 /// any copper Layer.
 pub fn keepouts_hit(pcb: &PcbDocument, proposal: &Proposal) -> Vec<Uuid> {
-    let (shape, layers, kind, net) = match *proposal {
-        Proposal::Track {
-            layer,
-            geometry,
-            width,
-            net,
-        } => (
-            Shape::track(&geometry, width),
-            vec![layer],
-            Restriction::Tracks,
-            net,
-        ),
-        Proposal::Via {
-            at,
-            diameter,
-            net,
-            span,
-        } => (
-            Shape::disc(at, diameter),
-            pcb.span_layers(span),
-            Restriction::Vias,
-            net,
-        ),
+    let (shapes, net) = proposal.pieces(pcb);
+    let kind = match proposal {
+        Proposal::Track { .. } => Restriction::Tracks,
+        Proposal::Via { .. } => Restriction::Vias,
     };
-    let pieces: Vec<(Uuid, &Shape)> = layers.into_iter().map(|l| (l, &shape)).collect();
+    let pieces: Vec<_> = shapes
+        .iter()
+        .filter(|(layer, _)| proposal.has_land(*layer))
+        .map(|(layer, shape)| (*layer, shape))
+        .collect();
     entered(pcb, &pieces, kind, net)
         .into_iter()
         .map(|h| h.keepout)
