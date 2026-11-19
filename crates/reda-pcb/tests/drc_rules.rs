@@ -279,3 +279,65 @@ fn plated_hole_clearance_is_measured_from_the_drill_on_the_rule_layer() {
     assert_eq!(found[0]["measured"]["length"], 400000);
     assert_eq!(found[0]["required"]["length"], 600000);
 }
+
+#[test]
+fn plated_hole_clearance_respects_the_footprints_pad_clearance_setting() {
+    let dir = TempDir::new("plated-hole-pad-exemption");
+    let mut e = engine(&dir);
+    e.run_ok(
+        "test.footprint.add",
+        json!({"at":{"x":"10mm","y":"10mm"},"pads":[
+            {"at":{"x":0,"y":0},"width":"1mm","height":"1mm","kind":"plated_through_hole",
+             "hole":{"width":500000,"height":500000}},
+            {"at":{"x":"1.4mm","y":0},"width":"1mm","height":"1mm"}
+        ]}),
+    );
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"clearance","values":{"hole":{"pad":"0.9mm"}}}),
+    );
+    let found = of(&drc(&mut e), "clearance");
+    assert_eq!(found.len(), 1);
+    assert_eq!(found[0]["args"]["part"], "hole.pad");
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"clearance","values":{"ignore_pad_to_pad":true}}),
+    );
+    assert!(of(&drc(&mut e), "clearance").is_empty());
+}
+
+#[test]
+fn a_short_replaces_the_hole_clearance_only_on_the_touching_layer() {
+    let dir = TempDir::new("hole-clearance-shorted-layer");
+    let mut e = engine(&dir);
+    for (name, x, start) in [("A", "10mm", "1.4mm"), ("B", "11mm", "0.7mm")] {
+        let net = e.run_ok("test.net.add", json!({"name":name}))["result"]["uuid"].clone();
+        e.run_ok(
+            "pcb.via.add",
+            json!({"net":net,"at":{"x":x,"y":"10mm"},"hole":"0.4mm",
+                   "diameter":{"start":start,"end":"0.7mm"}}),
+        );
+    }
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"clearance","values":{"hole":{"via":"0.7mm"}}}),
+    );
+    let layers: Vec<_> = e
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .map(|l| l.uuid)
+        .collect();
+    let run = drc(&mut e);
+    let shorts = of(&run, "short_circuit");
+    assert_eq!(shorts.len(), 1);
+    assert_eq!(shorts[0]["layers"], json!([layers[0]]));
+    let clearances = of(&run, "clearance");
+    assert_eq!(clearances.len(), 2);
+    for v in clearances {
+        assert_eq!(v["args"]["part"], "hole.via");
+        assert_eq!(v["layers"], json!([layers[1]]));
+    }
+}

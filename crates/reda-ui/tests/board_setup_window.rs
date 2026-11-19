@@ -663,106 +663,6 @@ fn the_stackup_editor_shows_a_modified_construction_and_saves_the_board_as_a_new
 }
 
 #[test]
-fn via_types_table_marks_a_drill_below_the_minimum_and_a_land_above_the_maximum() {
-    let (home, work) = (
-        TempDir::new("via-limits-home"),
-        TempDir::new("via-limits-project"),
-    );
-    let mut h = harness(home.path(), work.path(), "ViaLimits");
-    let old = pcb(&h).uuid;
-    let shell = h.state_mut().shell_mut();
-    shell
-        .run("document.delete", json!({"document":old}))
-        .unwrap();
-    shell
-        .run("document.add", json!({"kind":"pcb","layers":4}))
-        .unwrap();
-    let board = pcb(&h);
-    let document = board.uuid;
-    let layers: Vec<_> = board.copper_layers().map(|l| l.uuid).collect();
-    let shell = h.state_mut().shell_mut();
-    shell
-        .run(
-            "pcb.via_type.add",
-            json!({"document":document, "name":"Laser", "micro":true,
-        "from":layers[2], "to":layers[0], "diameter":{"start":"0.5mm","middle":"0.8mm"}}),
-        )
-        .unwrap();
-    shell
-        .run(
-            "pcb.rules.set",
-            json!({"kind":"via_size","values":{"hole":{"min":"0.4mm"}}}),
-        )
-        .unwrap();
-    shell
-        .run(
-            "pcb.rules.set",
-            json!({"kind":"microvia_size","values":{"diameter":{"max":"0.7mm"}}}),
-        )
-        .unwrap();
-    shell
-        .run("pcb.stackup.open", json!({"document":document}))
-        .unwrap();
-    h.run();
-    let warning = |name| format!("{name} has a drill or pad outside the board’s size limits.");
-    h.get_by_label(&warning("Through"));
-    h.get_by_label(&warning("Laser"));
-    h.state_mut()
-        .shell_mut()
-        .run(
-            "pcb.rules.set",
-            json!({"kind":"microvia_size","enabled":false}),
-        )
-        .unwrap();
-    h.run();
-    h.get_by_label(&warning("Through"));
-    assert!(h.query_by_label(&warning("Laser")).is_none());
-}
-
-#[test]
-fn a_plane_role_offers_an_outline_zone_only_until_one_is_created() {
-    let (home, work) = (TempDir::new("plane-ui-home"), TempDir::new("plane-ui-work"));
-    let mut h = harness(home.path(), work.path(), "First");
-    let shell = h.state_mut().shell_mut();
-    shell.run("project.new",json!({"name":"Planes","path":work.path(),"layers":4,"board":{"width":"20mm","height":"20mm"}})).unwrap();
-    let gnd = shell.run("test.net.add", json!({"name":"GND"})).unwrap()["result"]["uuid"].clone();
-    let board = pcb(&h);
-    let layer = board.copper_layers().nth(1).unwrap().uuid;
-    h.state_mut()
-        .shell_mut()
-        .run("pcb.stackup.open", json!({"document":board.uuid}))
-        .unwrap();
-    h.run();
-    choose(&mut h, "L2 kind", "Plane");
-    assert_eq!(pcb(&h).zones().count(), 0);
-    h.get_by_role_and_label(Role::Button, "Fill Layer with plane…")
-        .click();
-    h.run();
-    choose(&mut h, "Plane Net", "GND");
-    h.get_by_role_and_label(Role::Button, "Create Zone").click();
-    h.run();
-    let board = pcb(&h);
-    let zone = board.zones().next().unwrap();
-    assert!(zone.follows_outline);
-    assert_eq!(zone.layer, layer);
-    assert_eq!(json!(zone.net), gnd);
-    choose(&mut h, "L2 kind", "Signal");
-    choose(&mut h, "L2 kind", "Plane");
-    assert_eq!(pcb(&h).zones().count(), 1);
-    assert!(
-        h.query_by_role_and_label(Role::Button, "Fill Layer with plane…")
-            .is_none()
-    );
-    h.get_by_role_and_label(Role::Row, "L2").click_secondary();
-    h.run();
-    h.get_by_label("Fill Layer with plane…").click();
-    h.run();
-    h.get_by_label("Cancel").click();
-    h.run();
-    assert_eq!(pcb(&h).zones().count(), 1);
-}
-
-#[test]
 fn apply_construction_preselects_empty_middle_layers_and_revert_restores_the_named_build() {
     let home = TempDir::new("apply-editor-home");
     let work = TempDir::new("apply-editor-work");
@@ -916,4 +816,104 @@ fn choosing_construction_via_types_shows_the_unmatched_vias_before_replacing_the
     h.get_by_role_and_label(Role::Button, "Apply").click();
     h.run();
     assert_eq!(pcb(&h).stackup().via_types.len(), 1);
+}
+
+#[test]
+fn a_plane_role_offers_an_outline_zone_only_until_one_is_created() {
+    let (home, work) = (TempDir::new("plane-ui-home"), TempDir::new("plane-ui-work"));
+    let mut h = harness(home.path(), work.path(), "First");
+    let shell = h.state_mut().shell_mut();
+    shell.run("project.new",json!({"name":"Planes","path":work.path(),"layers":4,"board":{"width":"20mm","height":"20mm"}})).unwrap();
+    let gnd = shell.run("test.net.add", json!({"name":"GND"})).unwrap()["result"]["uuid"].clone();
+    let board = pcb(&h);
+    let layer = board.copper_layers().nth(1).unwrap().uuid;
+    h.state_mut()
+        .shell_mut()
+        .run("pcb.stackup.open", json!({"document":board.uuid}))
+        .unwrap();
+    h.run();
+    choose(&mut h, "L2 kind", "Plane");
+    assert_eq!(pcb(&h).zones().count(), 0);
+    h.get_by_role_and_label(Role::Button, "Fill Layer with plane…")
+        .click();
+    h.run();
+    choose(&mut h, "Plane Net", "GND");
+    h.get_by_role_and_label(Role::Button, "Create Zone").click();
+    h.run();
+    let board = pcb(&h);
+    let zone = board.zones().next().unwrap();
+    assert!(zone.follows_outline);
+    assert_eq!(zone.layer, layer);
+    assert_eq!(json!(zone.net), gnd);
+    choose(&mut h, "L2 kind", "Signal");
+    choose(&mut h, "L2 kind", "Plane");
+    assert_eq!(pcb(&h).zones().count(), 1);
+    assert!(
+        h.query_by_role_and_label(Role::Button, "Fill Layer with plane…")
+            .is_none()
+    );
+    h.get_by_role_and_label(Role::Row, "L2").click_secondary();
+    h.run();
+    h.get_by_label("Fill Layer with plane…").click();
+    h.run();
+    h.get_by_label("Cancel").click();
+    h.run();
+    assert_eq!(pcb(&h).zones().count(), 1);
+}
+
+#[test]
+fn via_types_table_marks_a_drill_below_the_minimum_and_a_land_above_the_maximum() {
+    let (home, work) = (
+        TempDir::new("via-limits-home"),
+        TempDir::new("via-limits-project"),
+    );
+    let mut h = harness(home.path(), work.path(), "ViaLimits");
+    let old = pcb(&h).uuid;
+    let shell = h.state_mut().shell_mut();
+    shell
+        .run("document.delete", json!({"document":old}))
+        .unwrap();
+    shell
+        .run("document.add", json!({"kind":"pcb","layers":4}))
+        .unwrap();
+    let board = pcb(&h);
+    let document = board.uuid;
+    let layers: Vec<_> = board.copper_layers().map(|l| l.uuid).collect();
+    let shell = h.state_mut().shell_mut();
+    shell
+        .run(
+            "pcb.via_type.add",
+            json!({"document":document, "name":"Laser", "micro":true,
+        "from":layers[2], "to":layers[0], "diameter":{"start":"0.5mm","middle":"0.8mm"}}),
+        )
+        .unwrap();
+    shell
+        .run(
+            "pcb.rules.set",
+            json!({"kind":"via_size","values":{"hole":{"min":"0.4mm"}}}),
+        )
+        .unwrap();
+    shell
+        .run(
+            "pcb.rules.set",
+            json!({"kind":"microvia_size","values":{"diameter":{"max":"0.7mm"}}}),
+        )
+        .unwrap();
+    shell
+        .run("pcb.stackup.open", json!({"document":document}))
+        .unwrap();
+    h.run();
+    let warning = |name| format!("{name} has a drill or pad outside the board’s size limits.");
+    h.get_by_label(&warning("Through"));
+    h.get_by_label(&warning("Laser"));
+    h.state_mut()
+        .shell_mut()
+        .run(
+            "pcb.rules.set",
+            json!({"kind":"microvia_size","enabled":false}),
+        )
+        .unwrap();
+    h.run();
+    h.get_by_label(&warning("Through"));
+    assert!(h.query_by_label(&warning("Laser")).is_none());
 }

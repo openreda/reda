@@ -218,9 +218,7 @@ impl Copper {
                     if na.is_some() && na == nb {
                         continue;
                     }
-                    if piece.shape.touches(&other.shape)
-                        || ties.no_clearance((piece.item, na), (other.item, nb))
-                    {
+                    if piece.shape.touches(&other.shape) {
                         continue;
                     }
                     let Some(source) = resolve_pair_on(
@@ -234,13 +232,10 @@ impl Copper {
                         continue;
                     };
                     let required = source.value.length().expect("clearance is a length");
-                    if same_footprint_pads(piece.item, other.item)
-                        && ignores_pad_to_pad(pcb, na, nb)
-                    {
-                        continue;
-                    }
                     let gap = piece.shape.distance(&other.shape);
-                    if gap >= required.0 as f64 {
+                    if gap >= required.0 as f64
+                        || exempt_pair(pcb, &ties, (piece.item, na), (other.item, nb))
+                    {
                         continue;
                     }
                     let actual = Nm(gap.max(0.0).floor() as i64);
@@ -273,16 +268,16 @@ fn max_clearance(pcb: &PcbDocument) -> Nm {
     largest(pcb, RuleKind::Clearance, RuleField::Value)
 }
 
-/// Whether `a` and `b` are two Pads of one placed Footprint.
-fn same_footprint_pads(a: Item, b: Item) -> bool {
-    matches!(
-        (a, b),
-        (Item::Pad { footprint: fa, .. }, Item::Pad { footprint: fb, .. }) if fa == fb
-    )
-}
-
-/// Whether the clearance rule of either Net lets Pads within one Footprint sit closer.
-fn ignores_pad_to_pad(pcb: &PcbDocument, a: Option<Uuid>, b: Option<Uuid>) -> bool {
+/// Net Ties and the within-Footprint exception apply to both land and hole clearance.
+pub(crate) fn exempt_pair(
+    pcb: &PcbDocument,
+    ties: &super::ties::Ties,
+    a: (Item, Option<Uuid>),
+    b: (Item, Option<Uuid>),
+) -> bool {
     use crate::rules::net_rules;
-    net_rules(pcb, a).ignore_pad_to_pad || net_rules(pcb, b).ignore_pad_to_pad
+    ties.no_clearance(a, b)
+        || (matches!((a.0, b.0),
+            (Item::Pad { footprint: fa, .. }, Item::Pad { footprint: fb, .. }) if fa == fb)
+            && (net_rules(pcb, a.1).ignore_pad_to_pad || net_rules(pcb, b.1).ignore_pad_to_pad))
 }
