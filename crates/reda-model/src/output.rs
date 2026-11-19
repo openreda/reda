@@ -232,6 +232,7 @@ pub struct ProjectFabPreset {
 #[serde(deny_unknown_fields)]
 pub struct Construction {
     pub name: String,
+    #[serde(default)]
     pub default: bool,
     pub thickness: Nm,
     pub entries: Vec<ConstructionEntry>,
@@ -251,6 +252,14 @@ pub enum ConstructionEntry {
 }
 
 impl Construction {
+    /// The number of copper Layers, independent of the number of dielectric sheets.
+    pub fn layer_count(&self) -> usize {
+        self.entries
+            .iter()
+            .filter(|entry| matches!(entry, ConstructionEntry::Copper { .. }))
+            .count()
+    }
+
     pub fn two_layer(seeds: StackupSeeds) -> Self {
         let copper = ConstructionEntry::Copper {
             copper: seeds.copper.unwrap_or(crate::DEFAULT_COPPER),
@@ -272,18 +281,22 @@ impl Construction {
 }
 
 impl FabPreset {
-    /// The default two-Layer Construction's thickness and outer copper.
-    pub fn stackup_seeds(&self) -> StackupSeeds {
+    /// Construction identity is local to a Fab Preset and ignores case.
+    pub fn construction(&self, name: &str) -> Option<&Construction> {
         self.constructions
             .iter()
-            .find(|c| {
-                c.default
-                    && c.entries
-                        .iter()
-                        .filter(|e| matches!(e, ConstructionEntry::Copper { .. }))
-                        .count()
-                        == 2
-            })
+            .find(|build| build.name.eq_ignore_ascii_case(name))
+    }
+
+    pub fn default_construction(&self, layers: usize) -> Option<&Construction> {
+        self.constructions
+            .iter()
+            .find(|build| build.default && build.layer_count() == layers)
+    }
+
+    /// The default two-Layer Construction's thickness and outer copper.
+    pub fn stackup_seeds(&self) -> StackupSeeds {
+        self.default_construction(2)
             .map(|c| StackupSeeds {
                 thickness: Some(c.thickness),
                 copper: c.entries.iter().find_map(|e| match e {

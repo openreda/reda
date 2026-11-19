@@ -884,3 +884,38 @@ fn placement_edits_accept_unit_strings_and_require_one_match_kind() {
         assert_eq!(err.code, ErrorCode::InvalidParams);
     }
 }
+
+#[test]
+fn construction_patches_are_case_insensitive_ordered_and_atomic() {
+    let dir = TempDir::new("construction-patches");
+    let mut engine = test_engine();
+    new_project(&mut engine, &dir, json!({}));
+    let baseline = only_preset(&engine);
+    let uuid = baseline.uuid;
+    let patch = |values| json!({"preset":uuid,"values":{"constructions":values}});
+    let build = json!({"default":false,"thickness":1800000,
+        "entries":[{"copper":35000},{"kind":"core","thickness":1730000},{"copper":35000}]});
+    engine.run_ok("fab_preset.set", patch(json!({"Custom":build})));
+    let preset = only_preset(&engine);
+    assert_eq!(preset.constructions.len(), 2);
+    assert_eq!(preset.constructions[0], baseline.constructions[0]);
+    assert_eq!(preset.constructions[1].name, "Custom");
+    let mut updated = build.clone();
+    updated["thickness"] = json!(1600000);
+    engine.run_ok("fab_preset.set", patch(json!({"CUSTOM":updated})));
+    let preset = only_preset(&engine);
+    assert_eq!(preset.constructions.len(), 2);
+    assert_eq!(preset.constructions[1].thickness, Nm(1_600_000));
+    for bad in [
+        json!({"custom":null,"Broken":{"entries":[]}}),
+        json!({"Dupe":build,"dupe":build}),
+    ] {
+        assert_eq!(
+            engine.run_err("fab_preset.set", patch(bad)).code,
+            ErrorCode::InvalidParams
+        );
+        assert_eq!(only_preset(&engine), preset);
+    }
+    engine.run_ok("fab_preset.set", patch(json!({"custom":null})));
+    assert_eq!(only_preset(&engine), baseline);
+}
