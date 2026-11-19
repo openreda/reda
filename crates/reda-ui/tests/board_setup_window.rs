@@ -661,3 +661,159 @@ fn the_stackup_editor_shows_a_modified_construction_and_saves_the_board_as_a_new
         .preset();
     assert_eq!(preset.construction("Bench").unwrap().thickness.0, 1_500_000);
 }
+
+#[test]
+fn apply_construction_preselects_empty_middle_layers_and_revert_restores_the_named_build() {
+    let home = TempDir::new("apply-editor-home");
+    let work = TempDir::new("apply-editor-work");
+    let mut h = harness(home.path(), work.path(), "Board");
+    let board = pcb(&h);
+    let document = board.uuid;
+    h.state_mut()
+        .shell_mut()
+        .run("pcb.stackup.open", json!({"document":document}))
+        .unwrap();
+    let preset = h
+        .state()
+        .shell()
+        .engine()
+        .project()
+        .unwrap()
+        .fab_presets()
+        .next()
+        .unwrap()
+        .uuid;
+    h.state_mut()
+        .shell_mut()
+        .run(
+            "pcb.stackup.apply_construction",
+            json!({"document":document,"preset":preset,"construction":"6 Layer"}),
+        )
+        .unwrap();
+    let l: Vec<_> = pcb(&h).copper_layers().map(|v| v.uuid).collect();
+    h.state_mut()
+        .shell_mut()
+        .run(
+            "pcb.text.add",
+            json!({"layer":l[2],"text":"GND","x":0,"y":0}),
+        )
+        .unwrap();
+    h.run();
+    h.get_by_role_and_label(Role::Button, "Apply Construction…")
+        .scroll_to_me();
+    h.run();
+    h.get_by_role_and_label(Role::Button, "Apply Construction…")
+        .click();
+    h.run();
+    choose(&mut h, "Construction", "Generic · 4 Layer (4 Layers)");
+    h.get_by_label("L3 · 1 object");
+    h.get_by_role_and_label(Role::Button, "Apply").click();
+    h.run();
+    assert_eq!(
+        pcb(&h).copper_layers().map(|l| l.uuid).collect::<Vec<_>>(),
+        [l[0], l[2], l[4], l[5]]
+    );
+    assert_eq!(pcb(&h).texts().count(), 1);
+    h.state_mut()
+        .shell_mut()
+        .run("pcb.stackup.set", json!({"thickness":"1.55mm"}))
+        .unwrap();
+    h.run();
+    h.get_by_role_and_label(Role::Button, "Revert")
+        .scroll_to_me();
+    h.run();
+    h.get_by_role_and_label(Role::Button, "Revert").click();
+    h.run();
+    assert_eq!(pcb(&h).stackup().thickness.0, 1_600_000);
+
+    let recording = reda_ui::engine::journal::export(h.state().shell().engine().journal());
+    let mut steps = reda_ui::engine::journal::parse(&recording).unwrap();
+    let into = TempDir::new("apply-editor-replay");
+    reda_ui::engine::journal::relocate_new_projects(&mut steps, into.path());
+    let mut replay = Shell::new(Engine::builder().headless(false).user_dirs(None).build());
+    reda_ui::engine::journal::replay_with(|id, params| replay.run(id, params), &steps).unwrap();
+    let restored = replay.engine().project().unwrap().pcb().unwrap();
+    assert_eq!(restored.copper_layers().count(), 4);
+    assert_eq!(
+        restored.copper_number(restored.texts().next().unwrap().layer),
+        Some(2)
+    );
+    assert_eq!(restored.stackup().thickness.0, 1_600_000);
+}
+
+#[test]
+fn choosing_construction_via_types_shows_the_unmatched_vias_before_replacing_the_table() {
+    let home = TempDir::new("apply-types-ui-home");
+    let work = TempDir::new("apply-types-ui-work");
+    let mut h = harness(home.path(), work.path(), "Board");
+    let document = pcb(&h).uuid;
+    let preset = h
+        .state()
+        .shell()
+        .engine()
+        .project()
+        .unwrap()
+        .fab_presets()
+        .next()
+        .unwrap()
+        .uuid;
+    let shell = h.state_mut().shell_mut();
+    shell
+        .run(
+            "pcb.stackup.apply_construction",
+            json!({"document":document,"preset":preset,"construction":"4 Layer"}),
+        )
+        .unwrap();
+    shell
+        .run(
+            "pcb.stackup.save_as_construction",
+            json!({"document":document,"preset":preset,"name":"Through only"}),
+        )
+        .unwrap();
+    let l: Vec<_> = shell
+        .engine()
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .map(|l| l.uuid)
+        .collect();
+    shell
+        .run(
+            "pcb.via_type.add",
+            json!({"document":document,"from":l[0],"to":l[1]}),
+        )
+        .unwrap();
+    shell
+        .run(
+            "pcb.via.add",
+            json!({"from":l[0],"to":l[1],"at":{"x":0,"y":0}}),
+        )
+        .unwrap();
+    shell
+        .run("pcb.stackup.open", json!({"document":document}))
+        .unwrap();
+    h.run();
+    h.get_by_role_and_label(Role::Button, "Apply Construction…")
+        .scroll_to_me();
+    h.run();
+    h.get_by_role_and_label(Role::Button, "Apply Construction…")
+        .click();
+    h.run();
+    choose(&mut h, "Construction", "Generic · Through only (4 Layers)");
+    let checkbox = h.get_by_label("Apply Via types");
+    assert_eq!(
+        checkbox.accesskit_node().toggled(),
+        Some(egui::accesskit::Toggled::False)
+    );
+    checkbox.click();
+    h.run();
+    h.get_by_role_and_label(Role::Button, "Apply").click();
+    h.run();
+    h.get_by_label("Vias left without a type: 1");
+    assert_eq!(pcb(&h).stackup().via_types.len(), 2);
+    h.get_by_role_and_label(Role::Button, "Apply").click();
+    h.run();
+    assert_eq!(pcb(&h).stackup().via_types.len(), 1);
+}

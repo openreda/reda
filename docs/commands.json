@@ -59392,6 +59392,86 @@
     },
     {
       "category": "pcb",
+      "description": "Applies a named Construction to an existing board, retaining surviving copper Layers.",
+      "icon": "layers",
+      "id": "pcb.stackup.apply_construction",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "construction": {
+            "type": "string"
+          },
+          "document": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "preset": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "remove": {
+            "description": "Inner copper Layers to delete. Required when shrinking, one per removed Layer.",
+            "items": {
+              "description": "A Layer: its UUID, its kind followed by _top or _bottom for sided kinds, such as \"silkscreen_top\", \"copper_bottom\" or \"mechanical\", or a copper Layer by its copper number, such as \"copper_l1\" for the top copper.",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "via_types": {
+            "default": false,
+            "description": "Replace the board's Via types when this Construction supplies a list.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "document",
+          "preset",
+          "construction"
+        ],
+        "title": "Params",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "Board identities, in table order, for subsequent edits and Journal replay.",
+        "properties": {
+          "dielectrics": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "layers": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "via_types": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "layers",
+          "dielectrics",
+          "via_types"
+        ],
+        "title": "Applied",
+        "type": "object"
+      },
+      "title": "Apply Construction"
+    },
+    {
+      "category": "pcb",
       "description": "Counts the objects and rules affected by a proposed Stackup edit.",
       "icon": "layers",
       "id": "pcb.stackup.change_preview",
@@ -59429,6 +59509,23 @@
           },
           "Change": {
             "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "const": "pcb.stackup.apply_construction",
+                    "type": "string"
+                  },
+                  "params": {
+                    "$ref": "#/$defs/Params"
+                  }
+                },
+                "required": [
+                  "id",
+                  "params"
+                ],
+                "type": "object"
+              },
               {
                 "additionalProperties": false,
                 "properties": {
@@ -59593,6 +59690,41 @@
             "required": [
               "layer",
               "direction"
+            ],
+            "type": "object"
+          },
+          "Params": {
+            "additionalProperties": false,
+            "properties": {
+              "construction": {
+                "type": "string"
+              },
+              "document": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "preset": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "remove": {
+                "description": "Inner copper Layers to delete. Required when shrinking, one per removed Layer.",
+                "items": {
+                  "description": "A Layer: its UUID, its kind followed by _top or _bottom for sided kinds, such as \"silkscreen_top\", \"copper_bottom\" or \"mechanical\", or a copper Layer by its copper number, such as \"copper_l1\" for the top copper.",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "via_types": {
+                "default": false,
+                "description": "Replace the board's Via types when this Construction supplies a list.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "document",
+              "preset",
+              "construction"
             ],
             "type": "object"
           },

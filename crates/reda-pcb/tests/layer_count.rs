@@ -263,7 +263,7 @@ proptest! {
     #![proptest_config(ProptestConfig {cases:16,..Default::default()})]
     #[test]
     fn random_layer_edits_preserve_identities_and_undo_to_the_original_file(
-        steps in prop::collection::vec((0u8..3,any::<u8>()),6..24)
+        steps in prop::collection::vec((0u8..4,any::<u8>()),6..24)
     ){
         let dir=TempDir::new("random-layers");
         let mut e=board(&dir,6);
@@ -288,6 +288,24 @@ proptest! {
                     let i=1+pos%(len-3);
                     e.run_ok("pcb.layer.move",json!({"layer":expected[i],"direction":"down"}));
                     expected.swap(i,i+1);
+                }
+                3=>{
+                    let target=[2,4,6,8][pos%4];
+                    let mut params=apply_params(&e,&format!("{target} Layer"));
+                    let mut remove=Vec::new();
+                    while expected.len()>target {
+                        remove.push(expected.remove(1+pos%(expected.len()-2)));
+                    }
+                    params["remove"]=json!(remove);
+                    let ids=e.run_ok(APPLY,params)["result"]["layers"].clone();
+                    if target>len {
+                        let middle=len.div_ceil(2);
+                        let new:Vec<Uuid>=serde_json::from_value(ids).unwrap();
+                        for (i,id) in new[middle..middle+target-len].iter().enumerate() {
+                            prop_assert!(!expected.contains(id));
+                            expected.insert(middle+i,*id);
+                        }
+                    }
                 }
                 _=>{
                     let gap=pos%(len-1);
@@ -397,4 +415,113 @@ fn an_added_layer_inherits_the_nearest_inner_copper_across_a_multi_sheet_gap() {
         pcb(&e).stackup().copper_of(added).unwrap().thickness.0,
         70000
     );
+}
+
+const APPLY: &str = "pcb.stackup.apply_construction";
+
+fn apply_params(e: &TestEngine, name: &str) -> Value {
+    json!({"document":pcb(e).uuid,"preset":e.project().unwrap().fab_presets().next().unwrap().uuid,"construction":name})
+}
+
+#[test]
+fn growing_an_odd_board_splits_survivors_around_new_middle_layers_and_counts_each_span_once() {
+    let dir = TempDir::new("construction-growth");
+    let mut e = board(&dir, 5);
+    let old = copper(&e);
+    let doc = pcb(&e).uuid;
+    e.run_ok(
+        "pcb.via_type.add",
+        json!({"document":doc,"from":old[2],"to":old[3]}),
+    );
+    e.run_ok(
+        "pcb.via.add",
+        json!({"from":old[3],"to":old[2],"at":{"x":0,"y":0}}),
+    );
+    let before = saved(&mut e, &dir);
+    let p = apply_params(&e, "8 Layer");
+    let counts = preview(&mut e, APPLY, p.clone());
+    assert_eq!(counts["vias_stretched"], 1);
+    assert_eq!(counts["via_types_changed"], 2);
+    assert_eq!(copper(&e), old);
+    e.run_ok(APPLY, p);
+    let new = copper(&e);
+    assert_eq!(new.len(), 8);
+    assert_eq!(new[..3], old[..3]);
+    assert_eq!(new[6..], old[3..]);
+    assert!(new[3..6].iter().all(|id| !old.contains(id)));
+    let pcb = pcb(&e);
+    assert!(pcb.stackup().copper().map(|c| c.layer).eq(new));
+    e.run_ok("edit.undo", json!({"document":doc}));
+    assert_eq!(saved(&mut e, &dir), before);
+}
+
+#[test]
+fn shrink_requires_exact_distinct_inner_layers_and_counts_each_deleted_or_shortened_object_once() {
+    let dir = TempDir::new("construction-shrink");
+    let mut e = board(&dir, 6);
+    let l = copper(&e);
+    let doc = pcb(&e).uuid;
+    let (keep, gone) = (l[1], l[4]);
+    e.run_ok(
+        "pcb.layer.set",
+        json!({"layer":keep,"name":"Ground","role":"plane"}),
+    );
+    for layer in [keep, l[2], gone] {
+        e.run_ok(
+            "pcb.text.add",
+            json!({"layer":layer,"x":0,"y":0,"text":"Copper"}),
+        );
+    }
+    let via = created(e.run_ok(
+        "pcb.via.add",
+        json!({"from":l[2],"to":l[5],"at":{"x":0,"y":0}}),
+    ));
+    e.run_ok(
+        "pcb.via.add",
+        json!({"from":l[2],"to":gone,"at":{"x":1000,"y":0}}),
+    );
+    let before = saved(&mut e, &dir);
+    let mut p = apply_params(&e, "4 Layer");
+    for choices in [
+        Value::Null,
+        json!([l[2]]),
+        json!([l[2], l[2]]),
+        json!([l[2], l[0]]),
+        json!([l[2], l[3], gone]),
+    ] {
+        if !choices.is_null() {
+            p["remove"] = choices
+        }
+        assert!(e.run(APPLY, p.clone()).is_err());
+        assert!(
+            e.run(
+                "pcb.stackup.change_preview",
+                json!({"change":{"id":APPLY,"params":p}})
+            )
+            .is_err()
+        );
+    }
+    p["remove"] = json!(["copper_l5", "copper_l3"]);
+    let counts = preview(&mut e, APPLY, p.clone());
+    assert_eq!(counts["objects_deleted"], json!({"text":2}));
+    assert_eq!(
+        (
+            counts["vias_shortened"].as_u64(),
+            counts["vias_deleted"].as_u64()
+        ),
+        (Some(1), Some(1))
+    );
+    assert_eq!(saved(&mut e, &dir), before);
+    e.run_ok(APPLY, p);
+    assert_eq!(copper(&e), [l[0], keep, l[3], l[5]]);
+    let board = pcb(&e);
+    assert_eq!(board.via(via).unwrap().span.from, l[3]);
+    assert_eq!(board.texts().count(), 1);
+    assert_eq!(board.vias().count(), 1);
+    assert_eq!(
+        board.layers().layer(keep).unwrap().name.as_deref(),
+        Some("Ground")
+    );
+    e.run_ok("edit.undo", json!({"document":doc}));
+    assert_eq!(saved(&mut e, &dir), before);
 }

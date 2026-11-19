@@ -3154,3 +3154,19 @@ board-rule-layers = Layer rules
 board-rule-named = Pick Layers
 board-rule-add = Add
 board-rule-pair-lower = Below a class's own clearance
+construction-apply-action = Apply Construction…
+construction-apply-title = Apply Construction
+construction-revert = Revert
+construction-choice = { $preset } · { $name } ({ $layers } Layers)
+construction-unavailable = This Construction is no longer in the Project preset.
+construction-choose-removals = { $count ->
+    [one] Choose 1 inner Layer to remove.
+   *[other] Choose { $count } inner Layers to remove.
+    }
+construction-layer-objects = { $layer } · { $count ->
+    [one] 1 object
+   *[other] { $count } objects
+    }
+construction-apply-types = Apply Via types
+construction-types-changed = Via types changed: { $count }
+construction-vias-unmatched = Vias left without a type: { $count }

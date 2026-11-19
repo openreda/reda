@@ -21,6 +21,7 @@ pub(super) fn register_all(registry: &mut Registry) {
     registry.add(StackupSet);
     registry.add(Info);
     registry.add(construction::Save);
+    registry.add(super::layer_count::construction::Apply);
     registry.add(preview::Preview);
     registry.add(sheets::SheetAdd);
     registry.add(sheets::SheetRemove);
