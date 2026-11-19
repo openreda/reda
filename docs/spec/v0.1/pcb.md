@@ -407,7 +407,7 @@ How a fill joins a Pad or Via of its own Net comes from the [`zone_connection` r
 
 ### Creating Zones
 
-- **Drawing:** the Zone Tool's options appear in Properties. It pre-fills them with the last-used values, kept in a Preference, as in the leading suite. The general object defaults page is v0.2.
+- **Drawing:** the Zone Tool's options appear in Properties. It pre-fills them with the last-used values, kept in a Preference, as in the leading suite. The general object defaults page is v0.3.
 - **`pcb.zone.add`:** a parameter left out takes a fixed value (`zones_only`, `remove_unconnected` on, `min_island_area` 0, `clearance` and `min_width` left out), never the Preference. So the same Command gives the same result on any machine, and every value is stored on the Zone, so a Preference can't change an output.
 - **From the Board Outline:** `pcb.zone.add_from_board_outline {net, layers}` makes one Zone per Layer with `follows_outline`.
   - The fill follows later outline edits and keeps `edge_clearance`, so there is no inset value.
