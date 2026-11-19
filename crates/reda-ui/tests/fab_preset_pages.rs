@@ -126,6 +126,11 @@ fn reset_page_to_source_puts_back_only_that_pages_keys() {
 fn typed_values_are_parsed_and_bad_ones_flagged_on_their_page() {
     let generic = reda_ui::engine::output::shipped().remove(0);
     let mut editor = PresetEditor::new(generic);
+    assert_eq!(editor.text(Field::SilkWidth), "0.15");
+    editor.set_text(Field::SilkWidth, "0.125");
+    editor.set_text(Field::SilkTextHeight, "");
+    assert_eq!(editor.value().rules.silk_width, Some(Nm::from_um(125)));
+    assert_eq!(editor.value().rules.silk_text_height, None);
     editor.set_text(Field::Clearance, "0.2");
     assert_eq!(editor.value().rules.clearance, Nm::from_um(200));
     editor.set_text(Field::SeedCopper, "2oz");

@@ -334,15 +334,47 @@ pub struct Affected {
     /// The Nets it supplies a value to, in Net order.
     pub nets: Vec<Uuid>,
     /// The Tracks, Vias, Free Pads and Zones on them, in that order; for a board-wide
-    /// record also those on no Net.
+    /// record also those on no Net. Then the placed objects with applicable silkscreen artwork.
     pub objects: Vec<Uuid>,
     /// The Pads of Footprint instances on them.
     pub pads: Vec<PadRef>,
 }
 
-/// The copper whose resolved values of some field come from one of `records`: objects
-/// another record overrides in every value are left out.
+/// The objects whose resolved values come from one of `records`, using the built-in fonts.
 pub fn affected(pcb: &PcbDocument, records: &[&DesignRule]) -> Affected {
+    affected_with_fonts(pcb, records, &reda_command::Fonts::default())
+}
+
+/// Includes the placed artwork measured with the fonts supplied by the front end.
+pub fn affected_with_fonts(
+    pcb: &PcbDocument,
+    records: &[&DesignRule],
+    fonts: &reda_command::Fonts,
+) -> Affected {
+    let (silk, copper): (Vec<_>, Vec<_>) = records
+        .iter()
+        .copied()
+        .partition(|r| matches!(r.kind, RuleKind::SilkWidth | RuleKind::SilkTextHeight));
+    let mut result = if copper.is_empty() {
+        Affected::default()
+    } else {
+        affected_copper(pcb, &copper)
+    };
+    let kinds: Vec<_> = silk
+        .into_iter()
+        .filter(|r| r.enabled)
+        .map(|r| r.kind)
+        .collect();
+    if !kinds.is_empty() {
+        result
+            .objects
+            .extend(crate::drc::silkscreen::affected(pcb, fonts, &kinds));
+    }
+    result
+}
+
+/// Copper another record overrides in every value is left out.
+fn affected_copper(pcb: &PcbDocument, records: &[&DesignRule]) -> Affected {
     let mut cache = std::collections::BTreeMap::new();
     let mut supplies = |net: Option<Uuid>, layer: Uuid| {
         *cache.entry((net, layer)).or_insert_with(|| {

@@ -250,3 +250,30 @@ fn teardrops_reopen_as_filled_vector_paths_on_each_affected_board_scene_layer() 
         }
     }
 }
+
+#[test]
+fn layer_rules_reopens_with_a_narrow_top_stroke_and_short_bottom_outline_text() {
+    use reda_testkit::{assert_golden, open_reference_copy};
+    use serde_json::json;
+
+    let scenarios = repo().join("tests/scenarios");
+    let (_work, mut engine) =
+        open_reference_copy(&scenarios.join("layer_rules"), "LayerRules.reda");
+    let mut report = engine.run_ok(
+        "drc.run",
+        json!({"checks":["silk_width", "silk_text_height"]}),
+    );
+    let rows = report["violations"].as_array().unwrap();
+    assert_eq!(rows.len(), 2);
+    assert_eq!(rows[0]["check"], "silk_width");
+    assert_eq!(rows[0]["measured"]["length"], 100_000);
+    assert_eq!(rows[1]["check"], "silk_text_height");
+    assert_eq!(rows[1]["measured"]["length"], 700_000);
+
+    report.as_object_mut().unwrap().remove("design");
+    let text = serde_json::to_string_pretty(&report).unwrap() + "\n";
+    assert_golden(
+        scenarios.join("goldens/layer_rules/drc.json"),
+        text.as_bytes(),
+    );
+}
