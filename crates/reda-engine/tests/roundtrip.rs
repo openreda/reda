@@ -499,6 +499,7 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
         objects.push(Object::Track(InDocument::new(
             doc,
             Track {
+                teardrop: true,
                 locked: false,
                 uuid: id(),
                 layer,

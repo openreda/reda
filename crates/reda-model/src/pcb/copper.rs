@@ -14,6 +14,9 @@ pub struct Track {
     /// Locked against geometry changes; left out when false.
     #[serde(default, skip_serializing_if = "is_false")]
     pub locked: bool,
+    /// False opts both ends out of derived Teardrops.
+    #[serde(default = "super::yes", skip_serializing_if = "super::is_true")]
+    pub teardrop: bool,
     /// The copper Layer it is on.
     pub layer: Uuid,
     /// Its PCB Net; left out for copper on no Net.
