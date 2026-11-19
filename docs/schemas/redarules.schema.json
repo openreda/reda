@@ -305,6 +305,14 @@
       },
       "type": "object"
     },
+    "LayerGroup": {
+      "enum": [
+        "outer",
+        "inner",
+        "plane"
+      ],
+      "type": "string"
+    },
     "PortableClass": {
       "additionalProperties": false,
       "description": "A Net Class as a [`RuleSet`] names it: by name only, since its Nets differ per board.",
@@ -317,6 +325,23 @@
         "name"
       ],
       "type": "object"
+    },
+    "PortableLayers": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LayerGroup"
+        },
+        {
+          "items": {
+            "format": "uint8",
+            "maximum": 255,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": "array"
+        }
+      ],
+      "description": "An explicit Layer filter in a Rules File counts copper positions from the top."
     },
     "PortableRule": {
       "additionalProperties": false,
@@ -335,10 +360,31 @@
         "kind": {
           "$ref": "#/$defs/RuleKind"
         },
+        "layers": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PortableLayers"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "net_class": {
           "description": "The Net Class it applies to, by name; left out for a board-wide record.",
           "type": [
             "string",
+            "null"
+          ]
+        },
+        "net_class_pair": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": [
+            "array",
             "null"
           ]
         },
@@ -349,6 +395,33 @@
       "required": [
         "kind",
         "values"
+      ],
+      "type": "object"
+    },
+    "PortableSpan": {
+      "additionalProperties": false,
+      "description": "A Via permission in a Rules File, identified by physical span and drilling process.",
+      "properties": {
+        "from": {
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "micro": {
+          "type": "boolean"
+        },
+        "to": {
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "from",
+        "to",
+        "micro"
       ],
       "type": "object"
     },
@@ -454,8 +527,7 @@
         "allowed": {
           "description": "The ordered permissions of a Via Span Net Class record. An explicit empty list allows all types.",
           "items": {
-            "format": "uuid",
-            "type": "string"
+            "$ref": "#/$defs/PortableSpan"
           },
           "type": [
             "array",
@@ -839,6 +911,13 @@
   "additionalProperties": false,
   "description": "A REDA rules file (`.redarules`).",
   "properties": {
+    "copper_layers": {
+      "description": "Source copper count. Required for a record with Layer positions or allowed Via spans.\nA migrated file with position-independent rules can omit it.",
+      "format": "uint8",
+      "maximum": 32,
+      "minimum": 2,
+      "type": "integer"
+    },
     "format": {
       "const": 2,
       "description": "The file-format version. REDA writes only the current one.",

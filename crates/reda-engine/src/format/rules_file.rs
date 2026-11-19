@@ -3,6 +3,7 @@
 //! ```text
 //! {
 //!   "format": 2,
+//!   "copper_layers": 4,
 //!   "net_classes": [{"name":"Power"}],
 //!   "rules": [
 //!     {"kind":"clearance","values":{"value":160000}},
@@ -34,6 +35,15 @@ pub(crate) struct RulesFile {
     #[allow(dead_code, reason = "checked by the migration chain")]
     #[schemars(schema_with = "super::schema::format_version")]
     format: u32,
+    /// Source copper count. Required for a record with Layer positions or allowed Via spans.
+    /// A migrated file with position-independent rules can omit it.
+    #[serde(
+        default,
+        deserialize_with = "source_count",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[schemars(with = "u8", range(min = 2, max = 32))]
+    copper_layers: Option<u8>,
     /// The Net Classes the rules name, by name, highest rank first.
     net_classes: Vec<PortableClass>,
     /// The rule records: board-wide ones, then each class's, which name it.
@@ -42,9 +52,25 @@ pub(crate) struct RulesFile {
     severities: DrcSeverities,
 }
 
+// Missing is distinct from a supplied count of the wrong type.
+fn source_count<'de, D: serde::Deserializer<'de>>(de: D) -> Result<Option<u8>, D::Error> {
+    u8::deserialize(de).map(Some)
+}
+
 pub(crate) fn read_rules_file(path: &Path, bytes: &[u8]) -> Result<RuleSet, LoadError> {
     let file: RulesFile = parse(FileKind::Rules, path, bytes)?;
+    let copper_layers = match file.copper_layers {
+        Some(count) => count,
+        None if file.rules.iter().any(PortableRule::uses_copper_positions) => {
+            return Err(LoadError::Invalid(
+                path.to_owned(),
+                "position-dependent rules require copper_layers".into(),
+            ));
+        }
+        None => 2, // Format 1 had no position-dependent rules.
+    };
     let set = RuleSet {
+        copper_layers,
         net_classes: file.net_classes,
         rules: file.rules,
         severities: file.severities,
@@ -57,6 +83,7 @@ pub(crate) fn read_rules_file(path: &Path, bytes: &[u8]) -> Result<RuleSet, Load
 
 pub(crate) fn write_rules_file(set: &RuleSet) -> Result<Vec<u8>, CanonicalError> {
     let mut w = CanonicalWriter::new(FORMAT);
+    w.field("copper_layers", &set.copper_layers)?;
     w.field("net_classes", &set.net_classes)?;
     w.list("rules", &set.rules)?;
     w.field("severities", &set.severities)?;
