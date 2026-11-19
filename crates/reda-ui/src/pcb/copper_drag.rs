@@ -144,7 +144,7 @@ impl CopperDrag {
     ) -> Option<CopperDrag> {
         let project = shell.engine().project()?;
         let pcb = project.pcb()?;
-        let copper = Copper::of(project)?;
+        let copper = Copper::of_with_fonts(project, shell.engine().fonts())?;
         let (anchor, normal) = match grab {
             Grab::Slide => {
                 let geometry = pcb.track(target)?.geometry;

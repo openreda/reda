@@ -115,11 +115,15 @@ impl crate::PlacedText {
                 radius: self.stroke_width.0 / 2,
             })
             .collect();
-        for tri in self.fill.indices.chunks(3) {
-            let corner = |i: u32| p(self.fill.points[i as usize]);
-            if let [a, b, c] = *tri {
+        for triangle in self.fill.indices.chunks_exact(3) {
+            let [a, b, c] = [0, 1, 2].map(|i| p(self.fill.points[triangle[i] as usize]));
+            // Rounding rotated corners to the board grid can collapse a triangle.
+            // A filled triangle with zero area contributes no etched copper.
+            let cross = i128::from(b[0] - a[0]) * i128::from(c[1] - a[1])
+                - i128::from(b[1] - a[1]) * i128::from(c[0] - a[0]);
+            if cross != 0 {
                 prims.push(Prim {
-                    core: Core::Poly(vec![corner(a), corner(b), corner(c)]),
+                    core: Core::Poly(vec![a, b, c]),
                     radius: 0,
                 });
             }

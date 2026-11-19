@@ -916,3 +916,38 @@ fn supplied_zone_copper_touching_a_graphic_is_a_clearance_violation() {
     assert!(!filled(shapes(&fresh, z), at(6., 2.)));
     assert!(filled(shapes(&fresh, z), at(6., 5.)));
 }
+
+#[test]
+fn a_zero_clearance_zone_does_not_touch_netless_artwork() {
+    let dir = TempDir::new("zone-artwork-contact");
+    let mut engine = engine_with_pcb(&dir);
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"clearance","values":{"value":0}}),
+    );
+    let z = zone(
+        &mut engine,
+        None,
+        rect(0., 0., 12., 12.),
+        json!({
+            "clearance":0, "min_width":1, "remove_unconnected":false
+        }),
+    );
+    engine.run_ok(
+        "pcb.graphic.add_rect",
+        json!({
+            "layer":"copper_top","from":{"x":"4mm","y":"4mm"},"to":{"x":"8mm","y":"8mm"},
+            "filled":true, "width":0
+        }),
+    );
+    let fills = fill(&engine);
+    assert!(filled(shapes(&fills, z), at(3.99, 6.)));
+    assert!(!filled(shapes(&fills, z), at(6., 6.)));
+    let hits = reda_pcb::drc::check_only(
+        pcb(&engine),
+        &fills,
+        engine.fonts(),
+        Some(&[reda_model::DrcCheck::Clearance]),
+    );
+    assert!(hits.is_empty(), "{hits:?}");
+}
