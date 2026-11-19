@@ -290,6 +290,106 @@ proptest::proptest! {
     }
 }
 
+proptest::proptest! {
+    // Each case opens and saves a whole Project twice.
+    #![proptest_config(proptest::prelude::ProptestConfig::with_cases(64))]
+
+    /// A v1 Project with varied Vias, dielectric, preferences and preset seeds opens with
+    /// every v0.2 field at its migrated value, and save → load → save of the result is
+    /// byte-identical.
+    #[test]
+    fn a_migrated_v1_project_gains_the_v2_fields_and_saves_back_identically(
+        vias in proptest::collection::vec((510_000i64..5_000_000, 150_000i64..500_000), 1..4),
+        dielectric in proptest::option::of(100_000i64..1_500_000),
+        start in 510_000i64..5_000_000,
+        hole in 150_000i64..500_001,
+        seeds in (proptest::option::of(400_000i64..3_000_000), proptest::option::of(10_000i64..210_000)),
+    ) {
+        let mut files = read_tree(&Path::new(V1).join("blinky_555"));
+        let mut pcb: Value = serde_json::from_slice(&files["Blinky.redapcb"]).unwrap();
+        for (via, (d, h)) in pcb["vias"].as_array_mut().unwrap().iter_mut().zip(vias.iter().cycle()) {
+            via["diameter"] = json!(d);
+            via["hole"] = json!(h);
+        }
+        let sheet = &mut pcb["stackups"][0]["entries"][1];
+        match dielectric {
+            Some(t) => sheet["thickness"] = json!(t),
+            None => { sheet.as_object_mut().unwrap().remove("thickness"); }
+        }
+        let rules = pcb["rules"].as_array_mut().unwrap();
+        let board = rules.iter_mut().find(|r| r["kind"] == "via_size" && r["scope"] == json!({})).unwrap();
+        board["values"]["diameter"]["preferred"] = json!(start);
+        board["values"]["hole"]["preferred"] = json!(hole);
+        let original = pcb.clone();
+        files.insert("Blinky.redapcb".into(), serde_json::to_vec(&pcb).unwrap());
+        let mut project: Value = serde_json::from_slice(&files["Blinky.reda"]).unwrap();
+        let mut stackup = json!({});
+        if let Some(n) = seeds.0 { stackup["thickness"] = json!(n); }
+        if let Some(n) = seeds.1 { stackup["copper"] = json!(n); }
+        project["fab_presets"][0]["stackup"] = stackup;
+        files.insert("Blinky.reda".into(), serde_json::to_vec(&project).unwrap());
+
+        type Files = std::collections::BTreeMap<String, Vec<u8>>;
+        let load = |files: &Files| {
+            let folder = PathBuf::from("Demo");
+            reda_engine::store::load_from(&folder.join("Blinky.reda"), |path: &Path| {
+                let rel = path.strip_prefix(&folder).unwrap().to_str().unwrap();
+                files.get(rel).cloned().ok_or_else(|| reda_engine::format::LoadError::Missing(path.to_owned()))
+            }).unwrap().0
+        };
+        let save = |project: &reda_engine::model::Project| -> Files {
+            reda_engine::store::encode(project).unwrap().into_iter().collect()
+        };
+        let first = save(&load(&files));
+        proptest::prop_assert_eq!(&save(&load(&first)), &first);
+
+        let saved: Value = serde_json::from_slice(&first["Blinky.redapcb"]).unwrap();
+        let (before, after) = (original["vias"].as_array().unwrap(), saved["vias"].as_array().unwrap());
+        proptest::prop_assert_eq!(before.len(), after.len());
+        for before in before {
+            let after = after.iter().find(|v| v["uuid"] == before["uuid"]).unwrap();
+            proptest::prop_assert_eq!(&after["diameter"], &json!({"start": before["diameter"]}));
+            proptest::prop_assert_eq!(&after["hole"], &before["hole"]);
+            for key in ["unused_layers", "zone_connection", "teardrop"] {
+                proptest::prop_assert!(after.get(key).is_none(), "{}", key);
+            }
+        }
+        for layer in saved["layers"]["layers"].as_array().unwrap() {
+            proptest::prop_assert!(layer.get("name").is_none() && layer.get("role").is_none());
+        }
+        let stack = &saved["stackups"][0];
+        let types = stack["via_types"].as_array().unwrap();
+        proptest::prop_assert_eq!(types.len(), 1);
+        proptest::prop_assert_eq!(&types[0]["diameter"], &json!({"start": start}));
+        proptest::prop_assert_eq!(&types[0]["hole"], &json!(hole));
+        for key in ["micro", "name", "unused_layers"] {
+            proptest::prop_assert!(types[0].get(key).is_none(), "{}", key);
+        }
+        let sheet = &stack["entries"][1];
+        proptest::prop_assert_eq!(&sheet["kind"], "core");
+        proptest::prop_assert_eq!(sheet.get("thickness").cloned(), dielectric.map(|t| json!(t)));
+        let rules = saved["rules"].as_array().unwrap();
+        for added in reda_engine::pcb::multilayer_rules(|_| reda_engine::model::Uuid::NIL) {
+            let kind = json!(added.kind);
+            let record = rules.iter().find(|r| r["kind"] == kind && r["scope"] == json!({}));
+            proptest::prop_assert!(record.is_some(), "no board-wide {}", kind);
+            proptest::prop_assert_eq!(&record.unwrap()["values"], &json!(added.values));
+        }
+        proptest::prop_assert!(rules.iter().all(|r| r["scope"].get("layers").is_none() && r["scope"].get("net_class_pair").is_none()));
+
+        let project: Value = serde_json::from_slice(&first["Blinky.reda"]).unwrap();
+        let preset = &project["fab_presets"][0];
+        proptest::prop_assert_eq!(&preset["placement_corrections"], &json!([]));
+        proptest::prop_assert_eq!(&preset["rules"]["clearance_hole"], &json!(reda_engine::model::HoleClearance::GENERIC));
+        let construction = &preset["constructions"].as_array().unwrap()[0];
+        proptest::prop_assert_eq!(&construction["thickness"], &json!(seeds.0.unwrap_or(1_600_000)));
+        let entries = construction["entries"].as_array().unwrap();
+        proptest::prop_assert_eq!(entries.len(), 3);
+        proptest::prop_assert_eq!(&entries[0]["copper"], &json!(seeds.1.unwrap_or(35_000)));
+        proptest::prop_assert_eq!(&entries[1], &json!({"kind": "core"}));
+    }
+}
+
 #[test]
 fn a_released_via_keeps_its_own_size_after_save_and_reopen() {
     let dir = TempDir::new("released-via");
