@@ -331,7 +331,7 @@ fn optional_fab_hdi_limits_apply_and_save_back_to_a_portable_preset() {
         .parse()
         .unwrap();
     let project = e.project().unwrap();
-    let stored = serde_json::to_value(&project.fab_preset(saved).unwrap().rules).unwrap();
+    let stored = serde_json::to_value(project.fab_preset(saved).unwrap().rules).unwrap();
     assert_eq!(stored["microvia_size"], micro);
     assert_eq!(stored["via_aspect_ratio"]["max"], 8500);
 
