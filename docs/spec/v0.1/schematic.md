@@ -17,7 +17,7 @@ Source: [Which features make up the v0.1 schematic editor?](https://github.com/o
   - **Border Zones**, on by default, can be switched off per sheet. They are about 50 mm, derived from the sheet size, with numbered columns and lettered rows, so a location reads `B3`. The leading suite sets counts per sheet. REDA derives them, so a location means the same on every sheet of a size.
   - One built-in title block (title, revision, date, author, sheet n of m), filled from Project and sheet properties, which can be switched off per sheet.
   - Each sheet has an optional drawing number and revision. An empty revision shows the Project's, greyed in the editor. Empty title fields are tinted on the canvas, never in the PDF.
-  - **Reserved names:** a frame `style` for v0.2 templates and a sheet `default_font`.
+  - **Reserved names:** a frame `style` for v0.7 templates and a sheet `default_font`.
   - The Projects panel shows each sheet's number beside its name. ([What schematic depth does v0.1 specify beyond the editing contracts?](https://github.com/openreda/reda/issues/133))
 
 ## Connectivity

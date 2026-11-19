@@ -380,7 +380,7 @@ Source: [What schematic depth does v0.1 specify beyond the editing contracts?](h
 - **Colour modes:** colour and mono. The leading suite also has greyscale. REDA leaves it out because any printer can already print colour as grey.
 - **Outline:** the Project title, then a bookmark per sheet ("2 Power"), then a bookmark per Component in natural sort ("R12 10k"), with the [Unit Suffix](schematic.md#units) where it applies.
 - **Links:** each [cross-reference](schematic.md#port-cross-references) entry links to its page.
-- **v0.2:** Net bookmarks, Component field pop-ups, hyperlinks and fit-to-paper.
+- **v0.7:** Net bookmarks, Component field pop-ups, hyperlinks and fit-to-paper.
 
 ## Panelization
 

@@ -222,7 +222,7 @@ Leaving out `components` extracts the whole Project, which the Library panel's N
 - **Search:**
   - A substring search over name, Description, Keywords, Value, MPN and field values, with filters for Library and Component Type.
   - `field:value` tokens such as `mpn:` and `lcsc:`, and `*` wildcards. A token naming a field a Part doesn't have doesn't match that Part.
-  - Unit-aware values come in v0.2.
+  - Unit-aware values come in v0.6.
 - **Preview** shows the Symbol (Units as tabs) and the Footprint, with a picker for the alternates, a datasheet link and "Used in Project: N".
 - **Placing:**
   - Click, double-click or Enter starts placement, which repeats subject to the repeat placement Preference. A drag places exactly one.
@@ -233,7 +233,7 @@ Leaving out `components` extracts the whole Project, which the Library panel's N
 
 Symbol, Footprint and Part editors open as Document tabs in the same window. Each has its own undo stack. They take Recovery Snapshots ([app](app.md#crash-recovery)). Starter Library elements are read-only.
 
-Deferred: De Morgan body styles, Pins that swap between Units, bus Pins, custom polygon Pads, custom mask and paste shapes, 3D models, Pad stacks that differ per Layer, and Graphical Parts. A table of Pads and a list of primitives come in v0.2.
+Deferred: De Morgan body styles, Pins that swap between Units, bus Pins, custom polygon Pads, custom mask and paste shapes, 3D models, Pad stacks that differ per Layer, and Graphical Parts. A table of Pads and a list of primitives come in v0.6.
 
 ### Symbol editor
 
@@ -262,7 +262,7 @@ Deferred: De Morgan body styles, Pins that swap between Units, bus Pins, custom 
 
 - **Auto-increment:** Pin and Pad placement follows the [schematic's rules](schematic.md#auto-increment). Numbers use `primary` and Pin names use `secondary`.
 - **Letters:** a Pin or Pad number made only of letters also steps, A → B → Z → AA, as in the leading suite. Names and Designators keep the trailing-number rule.
-- **Paste Array:** a dialog in the Symbol and Footprint editors, for Pins and Pads, with count, number step, name step, dx and dy, and Remove Leading Zeroes. It runs a `batch` of the add Commands, as one undo step. Sheets get a paste array in v0.2.
+- **Paste Array:** a dialog in the Symbol and Footprint editors, for Pins and Pads, with count, number step, name step, dx and dy, and Remove Leading Zeroes. It runs a `batch` of the add Commands, as one undo step. Sheets get a paste array in v0.5.
 
 ### Symbol Wizard
 
@@ -367,7 +367,7 @@ Each family is its own Command, `library.footprint.generate.<family>`, which kee
 - QFP and DIP
 - 1×N and 2×N headers and sockets at 2.54 and 1.27 mm
 
-SOT-89, DPAK, MELF, PLCC, axial and radial parts, TO-92, TO-220 and generating from a CSV come in v0.2. BGA comes in v0.6. SOT-23 pin orders are [Part pin-map overrides](#elements), not a generator option.
+SOT-89, DPAK, MELF, PLCC, axial and radial parts, TO-92, TO-220 and generating from a CSV come in v0.6. BGA comes in v0.6. SOT-23 pin orders are [Part pin-map overrides](#elements), not a generator option.
 
 ### Parameters
 

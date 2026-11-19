@@ -161,7 +161,7 @@ Numeric fields in Properties accept:
 
 On a multi-selection an expression runs per object and commits as one batch with one undo entry. Any failure flags inline and commits nothing. The GUI resolves the expression first, so the Journal records the resulting values.
 
-Functions such as `sqrt` differ from the leading suite: they are [reserved](architecture.md#reserved-names), because no workflow here needs them yet. String substitution (`{old=new}`) is v0.2.
+Functions such as `sqrt` differ from the leading suite: they are [reserved](architecture.md#reserved-names), because no workflow here needs them yet. String substitution (`{old=new}`) is v0.5.
 
 ## Highlighting
 
@@ -202,7 +202,7 @@ It runs on every canvas because Wire and Symbol work benefit from the same delta
   - Shift+Z then a drag zooms to an area, because the Keymap has no multi-key sequences and Z is the Zone Tool.
   - Alt+← goes to the previous view.
   - Home re-centres on the cursor.
-- **Wheel:** REDA's plain wheel zooms, where the leading suite's scrolls and Ctrl+wheel zooms, because zooming is by far the most common wheel action on a canvas and right-drag already pans. A mapping page is v0.2, under [reserved names](architecture.md#reserved-names).
+- **Wheel:** REDA's plain wheel zooms, where the leading suite's scrolls and Ctrl+wheel zooms, because zooming is by far the most common wheel action on a canvas and right-drag already pans. A mapping page is v0.3, under [reserved names](architecture.md#reserved-names).
 - **Go To:** J opens a dialog for an X/Y, absolute or as a delta, and the origin. `view.jump_to` does the same. `Mod`+Home jumps to design zero and `Mod`+End to the Output Origin.
 - **Find** is the same Panel on every Document type ([schematic](schematic.md#editing)), on `Mod`+F. On a board it also matches `U1-6` for a Pad, and `pcb.find` returns the same list. With no options set, results rank exact, then contains, then ignoring case.
 - **Violations:** `Mod`+Shift+F4 and `Mod`+Shift+F3 go to the next and previous Violation, from any focus.
@@ -212,4 +212,4 @@ It runs on every canvas because Wire and Symbol work benefit from the same delta
 
 ## Later
 
-Arrow keys moving the cursor, grid X ≠ Y, and axis alignment guides are v0.2. Guides, polar grids and Component-only grids are v0.3.
+Arrow keys moving the cursor, grid X ≠ Y, axis alignment guides, guides, polar grids and Component-only grids are v0.3.

@@ -43,11 +43,15 @@ Each milestone after v0.1 is a themed release that gives hobbyists a usable step
 - Blind, buried and micro Vias, using the layer span that every Via stores from v0.1.
 - Teardrops, generated and cached the way Zone fills are.
 - CPL rotation corrections per Fab Preset.
+- Free text and graphics on copper join the Copper index and DRC ([#121](https://github.com/openreda/reda/issues/121)).
+- The two UI refactors still open from the v0.1 review, done before the multilayer work ([#122](https://github.com/openreda/reda/issues/122)).
+- What else was once marked v0.2 and where it went: [`v0.2/scope.md`](v0.2/scope.md).
 
 ### Mechanical & 3D (v0.3)
 - A **3D view** in a new `reda-3d` crate. It builds its scene from the model, and `reda-render`'s wgpu backend draws it.
 - 3D models on Footprints. (Import part ignores 3D models until then.)
 - STEP and DXF export in `reda-output`. DXF import in a new `reda-import-dxf`.
+- **Canvas extras:** a wheel mapping page (`canvas.wheel.*`), arrow keys that move the cursor, grid X ≠ Y, axis alignment guides, and the general object defaults page.
 
 ### Interactive routing (v0.4), in `reda-pcb`
 - Push-and-shove, differential pairs and length tuning.
@@ -72,6 +76,8 @@ Each milestone after v0.1 is a themed release that gives hobbyists a usable step
   - Each Output Job picks one Variant, and the canvas shows the active one.
   - Variants generalise v0.1's Not Fitted flag.
 - **Pin and gate swaps** back-annotated from the PCB, in `reda-pcb`, built as write-through Commands like the rest of [ADR-0006](../adr/0006-one-way-sync-with-write-through-edits.md).
+- **Sync extras:** the `relink_component` change kind and the live pending-changes Panel, designed against the new Component identity.
+- **Editing at scale:** string substitution (`{old=new}`) in expressions, and a paste array for sheets.
 
 ### Libraries & import (v0.6)
 - **KiCad import:**
@@ -81,9 +87,13 @@ Each milestone after v0.1 is a themed release that gives hobbyists a usable step
   - It shows stock and price.
   - It can only deep-link to a vendor's part page and pass the downloaded zip to Import part. The vendors' terms forbid automated fetching ([research](https://github.com/openreda/reda/issues/19)).
 - **Library extras:** BGA generators, De Morgan bodies, custom polygon Pads, custom mask and paste shapes, Footprint copper graphics (usable as Net Tie copper), Graphical Parts, and similar.
+- **More Library work:** the Jumper Component Type and `jumper_id`; Footprint `keepouts`; `through_hole_paste`, decided together with the custom mask and paste shapes; the SOT-89, DPAK, MELF, PLCC, axial, radial, TO-92 and TO-220 generators and generating from a CSV; unit-aware values; a table of Pads and a list of primitives in the Footprint editor.
+- **Supplier fields and ordering BOMs** ([#120](https://github.com/openreda/reda/issues/120)): known supplier fields on a Part, and ordering BOM Presets beside the Fab Presets. Supplier part search builds on the same fields.
 
 ### Outputs (v0.7), in `reda-output`
 - Assembly PDFs, IPC-D-356 and ODB++.
+- Schematic PDF extras: Net bookmarks, Component field pop-ups, hyperlinks and fit-to-paper.
+- Sheet frame templates (`style`, `default_font`) and `project.new {template?}`.
 - The Output Job editor may move from a dialog to a Document tab as outputs grow ([Projects and board setup](https://github.com/openreda/reda/issues/38)).
 - A **Gerber Document** backed by a new `reda-gerber-read` crate. The Gerber read-back test shares that crate.
 

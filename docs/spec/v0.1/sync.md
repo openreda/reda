@@ -61,7 +61,7 @@ A tree grid in a [non-modal window](app.md#settings-windows), opened from Update
 - **Show** reuses [Show on board](app.md#settings-windows): the main window comes up on the row's Document and the Change List keeps its ticks, the row's objects are highlighted, the canvas is view-only, and a banner offers **Back to Change List**.
   - The banner also switches between the board and the sheet.
   - A row with nothing on one side, such as Add Component on the board, opens the side that has it.
-  - The leading suite keeps its modal dialog on screen while cross-probing. REDA's stays open too, and doesn't block. The live pending-changes Panel reserved for v0.2 is a different surface.
+  - The leading suite keeps its modal dialog on screen while cross-probing. REDA's stays open too, and doesn't block. The live pending-changes Panel reserved for v0.5 is a different surface.
 - **Export** writes the Change List through [`checks.report`](checks.md#report-files), in the same formats as an Output Job's `reports/`.
 - **After Apply:**
   - The window stays open. Applied rows stay visible, greyed, with ✓ Applied until Close, as in the leading suite.
@@ -73,7 +73,7 @@ A tree grid in a [non-modal window](app.md#settings-windows), opened from Update
 Every [paste](schematic.md#cut-copy-and-paste) gives new UUIDs, so cut and paste shows up as a removal and an addition, losing placement and routing.
 
 - **v0.1:** when a Remove Component and an Add Component row have the same Designator and Footprint, both get a Note saying that placement and routing will be lost, and that undoing and using [Move to Sheet](schematic.md#move-to-sheet) keeps them.
-- **Reserved for v0.2:** the change kind `relink_component`. It replaces that pair of rows with its own row, which moves the Component link and keeps the Footprint, its placement and its copper. Unticking it falls back to the removal and the addition.
+- **Reserved for v0.5:** the change kind `relink_component`. It replaces that pair of rows with its own row, which moves the Component link and keeps the Footprint, its placement and its copper. Unticking it falls back to the removal and the addition.
 
 [Move to Sheet](schematic.md#move-to-sheet) needs nothing from Sync. UUIDs stay, so it makes no Component rows, only any Net renames that follow from the move.
 
