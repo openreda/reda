@@ -151,35 +151,36 @@ pub fn gerber_files(plot: &Plot<'_>) -> Result<Gerbers, GerberError> {
         return Ok(out);
     };
     let project = &plot.project.props().name;
-    let mut add = |file: FileName, function, rendered: Rendered, optional: bool| {
-        let name = file
-            .name(project, plot.gerber)
-            .map_err(GerberError::InvalidFileName)?;
-        if let Some(at) = rendered.out_of_range {
-            return Err(GerberError::CoordinateOutOfRange(CoordinateOutOfRange {
-                file: name,
-                at,
-            }));
-        }
-        let plotted = !optional || !rendered.empty;
-        out.layers.push(GerberLayer {
-            name: name.clone(),
-            layer: file.label(),
-            function,
-            plotted,
-        });
-        if !plotted {
-            out.skipped.push(SkippedFile { name, function });
-        } else {
-            out.files.push(OutputFile {
-                name,
+    let mut add =
+        |file: FileName, label: Option<String>, function, rendered: Rendered, optional: bool| {
+            let name = file
+                .name(project, plot.gerber)
+                .map_err(GerberError::InvalidFileName)?;
+            if let Some(at) = rendered.out_of_range {
+                return Err(GerberError::CoordinateOutOfRange(CoordinateOutOfRange {
+                    file: name,
+                    at,
+                }));
+            }
+            let plotted = !optional || !rendered.empty;
+            out.layers.push(GerberLayer {
+                name: name.clone(),
+                layer: label.unwrap_or(file.layer),
                 function,
-                bytes: rendered.bytes,
-                attributes: Some(rendered.attributes),
+                plotted,
             });
-        }
-        Ok(())
-    };
+            if !plotted {
+                out.skipped.push(SkippedFile { name, function });
+            } else {
+                out.files.push(OutputFile {
+                    name,
+                    function,
+                    bytes: rendered.bytes,
+                    attributes: Some(rendered.attributes),
+                });
+            }
+            Ok(())
+        };
     for (i, layer) in first.pcb.copper_layers().enumerate() {
         let number = i + 1;
         let file = FileName::copper(number, layer.side, layer.name.as_deref());
@@ -203,7 +204,13 @@ pub fn gerber_files(plot: &Plot<'_>) -> Result<Gerbers, GerberError> {
                 }
             },
         );
-        add(file, function, rendered, false)?;
+        add(
+            file,
+            first.pcb.inner_layer_label(layer.uuid),
+            function,
+            rendered,
+            false,
+        )?;
     }
     for (extension, function, side) in [
         ("gts", "solder_mask_top", Side::Top),
@@ -217,6 +224,7 @@ pub fn gerber_files(plot: &Plot<'_>) -> Result<Gerbers, GerberError> {
         );
         add(
             FileName::sided(extension, side, "Solder Mask"),
+            None,
             function,
             rendered,
             false,
@@ -234,6 +242,7 @@ pub fn gerber_files(plot: &Plot<'_>) -> Result<Gerbers, GerberError> {
         );
         add(
             FileName::sided(extension, side, "Paste"),
+            None,
             function,
             rendered,
             true,
@@ -255,6 +264,7 @@ pub fn gerber_files(plot: &Plot<'_>) -> Result<Gerbers, GerberError> {
         );
         add(
             FileName::sided(extension, side, "Silkscreen"),
+            None,
             function,
             rendered,
             true,
@@ -263,6 +273,7 @@ pub fn gerber_files(plot: &Plot<'_>) -> Result<Gerbers, GerberError> {
     let rendered = render(plot, "Profile,NP".into(), "Positive", profile);
     add(
         FileName::new("gm1", "Board Outline"),
+        None,
         "profile",
         rendered,
         false,
@@ -307,7 +318,9 @@ impl FileName {
             Some(Side::Bottom) => Self::new("gbl", "Bottom Copper"),
             None => Self {
                 extension: format!("g{position}l"),
-                layer: layer_name.unwrap_or_default().into(),
+                layer: layer_name
+                    .filter(|name| !name.is_empty())
+                    .map_or_else(|| format!("L{position}"), str::to_owned),
                 inner_position: Some(position),
             },
         }
@@ -321,24 +334,16 @@ impl FileName {
         Self::new(extension, &format!("{side} {kind}"))
     }
 
-    fn label(&self) -> String {
-        match self.inner_position {
-            Some(p) if self.layer.is_empty() => format!("L{p}"),
-            Some(p) => format!("L{p} {}", self.layer),
-            None => self.layer.clone(),
-        }
-    }
-
     /// The file's name under `settings`: a `file_names` entry for its Layer, else
     /// `<project>.<ext>` (`classic`) or `<project>-<Layer>.gbr` with spaces as
     /// underscores (`descriptive`).
     fn name(&self, project: &str, settings: &GerberSettings) -> Result<String, String> {
-        let layer = if self.layer.is_empty() {
-            self.label()
-        } else {
-            self.layer.clone()
-        };
-        if let Some(own) = settings.file_names.layers.iter().find(|f| f.layer == layer) {
+        if let Some(own) = settings
+            .file_names
+            .layers
+            .iter()
+            .find(|f| f.layer == self.layer)
+        {
             return Ok(own.name.clone());
         }
         if let Some(position) = self.inner_position
@@ -348,7 +353,7 @@ impl FileName {
         }
         Ok(match settings.naming {
             FileNaming::Classic => format!("{project}.{}", self.extension),
-            FileNaming::Descriptive => format!("{project}-{}.gbr", layer.replace(' ', "_")),
+            FileNaming::Descriptive => format!("{project}-{}.gbr", self.layer.replace(' ', "_")),
         })
     }
 }
