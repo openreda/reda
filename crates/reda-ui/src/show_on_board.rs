@@ -161,6 +161,24 @@ impl Shell {
         }
     }
 
+    /// Opens the board from the Teardrops page at the affected Track end on its Layer.
+    pub fn show_teardrop(
+        &mut self,
+        document: Uuid,
+        track: Uuid,
+        layer: Uuid,
+        at: reda_engine::model::geom::Point,
+    ) {
+        if self.show_document(document, &[track]) {
+            let _ = self.run_reporting("pcb.layer.activate", json!({"layer":layer}));
+            self.jump(document, crate::navigation::Jump::To(at));
+            let state = self.show_state();
+            state.count = Some(1);
+            state.from = Some(SettingsWindow::BoardSetup);
+            state.sides = None;
+        }
+    }
+
     /// The Change List's Show: the board side when the row has objects there, the sheet
     /// otherwise; nothing when it has neither.
     pub fn show_change(&mut self, sides: Sides) {
