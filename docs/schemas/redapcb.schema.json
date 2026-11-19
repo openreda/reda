@@ -2855,6 +2855,13 @@
       "additionalProperties": false,
       "description": "The board's physical build, top to bottom. v0.1 boards hold one; the table leaves room\nfor more stacks later, such as rigid-flex substacks.",
       "properties": {
+        "construction": {
+          "description": "The original named Construction, including while the board differs from it.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "entries": {
           "description": "The copper Layers in physical order, with one or more dielectric sheets in every gap.",
           "items": {

@@ -2,10 +2,9 @@
 //! board-wide rule records and the Stackup, seeded from a Fab Preset.
 
 use reda_model::{
-    BoardSetup, Bounds, CopperEntry, DEFAULT_BOARD_THICKNESS, DEFAULT_COPPER, DesignRule,
-    DielectricEntry, DrcSeverities, FabRules, InDocument, Layer, LayerKind, LayerSet, Object,
-    PcbDocument, PreferredSeeds, RuleField, RuleKind, RuleScope, RuleValues, Side, Stackup,
-    StackupEntry, StackupSeeds, Uuid, ZoneNameScheme,
+    BoardSetup, Bounds, Construction, DesignRule, DrcSeverities, FabPreset, FabRules, InDocument,
+    Layer, LayerKind, LayerSet, Object, PcbDocument, PreferredSeeds, RuleField, RuleKind,
+    RuleScope, RuleValues, Side, Stackup, StackupSeeds, Uuid, ZoneNameScheme,
 };
 
 /// The v0.1 Layers, top to bottom.
@@ -283,6 +282,52 @@ pub fn new_board_with_layers(
     rules: &FabRules,
     stackup: StackupSeeds,
     layers: u8,
+    new_id: impl FnMut() -> Uuid,
+) -> Result<Vec<Object>, reda_command::CommandError> {
+    build_board(document, rules, stackup, layers, None, new_id)
+}
+
+/// Seed the rules and select the physical build for a new PCB Document.
+pub fn new_board_from_preset(
+    document: Uuid,
+    preset: &FabPreset,
+    layers: u8,
+    name: Option<&str>,
+    new_id: impl FnMut() -> Uuid,
+) -> Result<Vec<Object>, reda_command::CommandError> {
+    let construction = if let Some(name) = name {
+        let build = preset
+            .construction(name)
+            .filter(|c| c.layer_count() == usize::from(layers))
+            .ok_or_else(|| {
+                reda_command::CommandError::invalid_params(
+                    "/construction",
+                    format!(
+                        "{} has no {layers}-Layer Construction named {name:?}",
+                        preset.name
+                    ),
+                )
+            })?;
+        Some(build)
+    } else {
+        preset.default_construction(usize::from(layers))
+    };
+    build_board(
+        document,
+        &preset.rules,
+        StackupSeeds::default(),
+        layers,
+        construction,
+        new_id,
+    )
+}
+
+fn build_board(
+    document: Uuid,
+    rules: &FabRules,
+    stackup: StackupSeeds,
+    layers: u8,
+    construction: Option<&Construction>,
     mut new_id: impl FnMut() -> Uuid,
 ) -> Result<Vec<Object>, reda_command::CommandError> {
     if !(2..=32).contains(&layers) {
@@ -345,7 +390,8 @@ pub fn new_board_with_layers(
             .into_iter()
             .map(|rule| Object::DesignRule(InDocument::new(document, rule))),
     );
-    let stackup = seeded_stackup(&layers, stackup, rules.preferred, &mut new_id);
+    let stackup = seeded_stackup(&layers, stackup, rules.preferred, construction, &mut new_id)
+        .map_err(|why| reda_command::CommandError::invalid_params("/construction", why))?;
     objects.push(Object::Stackup(InDocument::new(document, stackup)));
     Ok(objects)
 }
@@ -357,44 +403,25 @@ fn seeded_stackup(
     layers: &LayerSet,
     seeds: StackupSeeds,
     preferred: PreferredSeeds,
+    construction: Option<&Construction>,
     new_id: &mut impl FnMut() -> Uuid,
-) -> Stackup {
-    let copper = seeds.copper.unwrap_or(DEFAULT_COPPER);
-    let mut entries = Vec::new();
-    for layer in layers.layers.iter().filter(|l| l.kind == LayerKind::Copper) {
-        if !entries.is_empty() {
-            entries.push(StackupEntry::Dielectric(DielectricEntry::new(
-                new_id(),
-                reda_model::DielectricKind::Core,
-            )));
+) -> Result<Stackup, String> {
+    let copper: Vec<_> = layers
+        .layers
+        .iter()
+        .filter(|l| l.kind == LayerKind::Copper)
+        .map(|l| l.uuid)
+        .collect();
+    let fallback;
+    let build = match construction {
+        Some(build) => build,
+        None => {
+            fallback = Construction::evenly_spaced(copper.len() as u8, seeds);
+            &fallback
         }
-        entries.push(StackupEntry::Copper(CopperEntry {
-            layer: layer.uuid,
-            thickness: copper,
-        }));
-    }
-    let uuid = new_id();
-    let from = layers
-        .find(LayerKind::Copper, Some(Side::Top))
-        .unwrap()
-        .uuid;
-    let to = layers
-        .find(LayerKind::Copper, Some(Side::Bottom))
-        .unwrap()
-        .uuid;
-    Stackup {
-        uuid,
-        via_types: vec![reda_model::ViaType::through(
-            uuid,
-            from,
-            to,
-            preferred.via_hole,
-            preferred.via_diameter,
-        )],
-        thickness: seeds.thickness.unwrap_or(DEFAULT_BOARD_THICKNESS),
-        entries,
-        finish: None,
-        mask_color: None,
-        silk_color: None,
-    }
+    };
+    let mut stack =
+        build.board_stackup(&copper, preferred.via_hole, preferred.via_diameter, new_id)?;
+    stack.construction = construction.map(|c| c.name.clone());
+    Ok(stack)
 }

@@ -44,6 +44,8 @@ pub(crate) struct FabPresetFile {
     /// board's rules.
     rules: FabRules,
     /// Named physical builds offered by the preset.
+    #[serde(deserialize_with = "Construction::read_list")]
+    #[schemars(with = "Vec<Construction>")]
     constructions: Vec<Construction>,
     /// The Gerber and drill switches.
     gerber: GerberSettings,
