@@ -287,6 +287,26 @@ fn overlapping_named_layers_and_invalid_scope_combinations_are_refused() {
         );
         assert_eq!(err.code, reda_command::ErrorCode::InvalidParams, "{err:?}");
     }
+    // A class pair outside clearance, or with a single class, is the pair's fault.
+    for (kind, scope, pointer) in [
+        (
+            "clearance",
+            json!({"net_class":class,"net_class_pair":["Default","Power"]}),
+            "/scope/net_class_pair",
+        ),
+        (
+            "track_width",
+            json!({"net_class_pair":["Default","Power"]}),
+            "/scope/net_class_pair",
+        ),
+        ("clearance", json!({"layers":[layers[0]]}), "/scope/layers"),
+    ] {
+        let err = e.run_err(
+            "pcb.rules.set",
+            json!({"kind":kind,"scope":scope,"values":{"min":"0.2mm","value":"0.2mm"}}),
+        );
+        assert_eq!(err.details.unwrap()["pointer"], pointer, "{kind} {scope}");
+    }
     // Same class, same list in reverse order edits the original record.
     e.run_ok("pcb.rules.set",json!({"kind":"clearance","scope":{"layers":[layers[1],layers[0]]},"values":{"value":"0.55mm"}}));
     assert_eq!(

@@ -416,7 +416,8 @@ pub fn plan(
             layers,
         };
         let existing = pcb.scoped_rule(rule.kind, &scope);
-        if let Some(why) = pcb.rule_layer_problem(rule.kind, &scope, existing.map(|r| r.uuid)) {
+        if let Some((_, why)) = pcb.rule_scope_problem(rule.kind, &scope, existing.map(|r| r.uuid))
+        {
             return Err(format!("source rule {index}: {why}"));
         }
         if let Some(RuleLayers::Named(ids)) = &scope.layers {

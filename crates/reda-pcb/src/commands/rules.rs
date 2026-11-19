@@ -613,9 +613,13 @@ impl Command for RulesSet {
             )));
         }
         let existing = pcb.scoped_rule(p.kind, &scope).cloned();
-        if let Some(why) = pcb.rule_layer_problem(p.kind, &scope, existing.as_ref().map(|r| r.uuid))
+        if let Some((field, why)) =
+            pcb.rule_scope_problem(p.kind, &scope, existing.as_ref().map(|r| r.uuid))
         {
-            return Err(CommandError::invalid_params("/scope/layers", why));
+            return Err(CommandError::invalid_params(
+                &format!("/scope/{field}"),
+                why,
+            ));
         }
         let found = existing.is_some();
         let base = match existing {
