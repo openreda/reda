@@ -24,9 +24,8 @@ impl Command for FillStatusQuery {
     const META: Meta = Meta {
         id: "pcb.zone.fill_status",
         title: "Zone Fill Status",
-        description: "Whether the Zones need refilling (some Zone is unfilled, or the board \
-                      changed since the last fill) and each Zone's state: `filled`, `stale` \
-                      or `unfilled`.",
+        description: "Reports whether copper needs refilling, the number of stale Teardrops, \
+                      and each Zone’s state (`filled`, `stale`, `unfilled` or `shelved`).",
         category: "pcb",
         icon: "zone_fill",
         kind: Kind::Query,

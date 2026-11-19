@@ -545,6 +545,7 @@ properties-track-layer = Layer
 properties-track-net = Net
 properties-track-no-net = No Net
 properties-track-pick-net = Pick
+properties-track-allow-teardrops = Allow Teardrops
 properties-track-pick-net-hint = Click copper on the board to give these Tracks its Net (Esc cancels)
 properties-pick-net-none = No copper with a Net there: the Tracks keep their Net.
 properties-net-name = Net

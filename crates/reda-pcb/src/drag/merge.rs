@@ -77,7 +77,7 @@ fn next(
             let TrackGeometry::Line { from: p, to: q } = o.geometry else {
                 continue;
             };
-            if o.locked || o.width != t.width || o.net != t.net {
+            if o.locked || o.width != t.width || o.net != t.net || o.teardrop != t.teardrop {
                 continue;
             }
             let beyond = if p == at { q } else { p };
