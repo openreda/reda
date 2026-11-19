@@ -27,7 +27,7 @@ pub(crate) use fill::shape_copper;
 pub use merge::{LayerFill, layer_fills};
 pub use names::{NO_NET, name, names};
 
-use crate::copper::Copper;
+use crate::copper::{Copper, UnusedLands};
 
 /// Bumped whenever the fill algorithm changes, so fills made by an older REDA are stale.
 const FILL_VERSION: u32 = 3;
@@ -127,7 +127,8 @@ pub fn refill_with_fonts(
     fonts: &Fonts,
     step: &mut dyn FnMut(usize, usize) -> bool,
 ) -> Option<ZoneFills> {
-    let hashes = input_hashes_with_fonts(pcb, fonts);
+    let unused = UnusedLands::of(pcb);
+    let hashes = hash_inputs(pcb, fonts, &unused);
     let forced = only.map(|only| dependents(pcb, only));
     let current = |zone: &Zone| {
         let kept = stored.and_then(|s| s.zones.get(&zone.uuid));
@@ -138,7 +139,7 @@ pub fn refill_with_fonts(
     };
     let zones = fill_order(pcb);
     let total = zones.iter().filter(|z| current(z).is_none()).count();
-    let copper = (total > 0).then(|| Copper::build_with_fonts(pcb, fonts));
+    let copper = (total > 0).then(|| Copper::with_lands(pcb, fonts, unused));
     let holes = if total > 0 {
         crate::drill::holes(pcb)
     } else {
@@ -195,6 +196,10 @@ pub fn input_hashes(pcb: &PcbDocument) -> BTreeMap<Uuid, String> {
 }
 
 fn input_hashes_with_fonts(pcb: &PcbDocument, fonts: &Fonts) -> BTreeMap<Uuid, String> {
+    hash_inputs(pcb, fonts, &UnusedLands::of(pcb))
+}
+
+fn hash_inputs(pcb: &PcbDocument, fonts: &Fonts, unused: &UnusedLands) -> BTreeMap<Uuid, String> {
     let nets: Vec<_> = pcb.nets().map(|n| (n.uuid, &n.classes)).collect();
     let classes: Vec<_> = pcb.net_classes().map(|c| (c.uuid, c.rank)).collect();
     let rules: Vec<_> = pcb.rules().collect();
@@ -244,6 +249,12 @@ fn input_hashes_with_fonts(pcb: &PcbDocument, fonts: &Fonts) -> BTreeMap<Uuid, S
             f.add(&tracks);
             f.add(&vias);
             f.add(&keepouts);
+            // Even a lower-priority Zone can restore copper under this fill.
+            for (item, layer) in unused.iter() {
+                if layer == zone.layer {
+                    f.add(&item);
+                }
+            }
             for text in pcb.texts().filter(|t| t.layer == zone.layer) {
                 f.add(text);
                 if let Some(face) = crate::text::installed_fingerprint(&text.font, fonts) {

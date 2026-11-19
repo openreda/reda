@@ -378,3 +378,27 @@ fn stubs_up_to_the_dangling_tolerance_pass() {
     let run = drc(&mut engine);
     assert_eq!(dangling(&run), [long[1]], "{run:#}");
 }
+
+#[test]
+fn silkscreen_at_an_omitted_outer_via_land_only_meets_the_mask_opening() {
+    let dir = TempDir::new("drc-silk-missing-land");
+    let mut engine = engine(&dir);
+    let via = uuid(
+        &engine.run_ok(
+            "pcb.via.add",
+            json!({"at":{"x":"5mm","y":"5mm"}, "diameter":"2mm", "hole":"0.3mm",
+               "unused_layers":"remove", "mask":{"top":{"expansion":0}}}),
+        )["result"]["uuid"],
+    );
+    let line = silk_line(
+        &mut engine,
+        ("5.7mm", "4.9mm"),
+        ("5.7mm", "5.1mm"),
+        "0.15mm",
+    );
+    assert!(of(&drc(&mut engine), "silk_to_mask").is_empty());
+    set_rule(&mut engine, "silk_to_mask", json!({"mode":"mask_opening"}));
+    let found = of(&drc(&mut engine), "silk_to_mask");
+    assert_eq!(found.len(), 1);
+    assert_eq!(objects(&found[0]), [line, via]);
+}

@@ -140,6 +140,8 @@ fn duplicates(pcb: &PcbDocument) -> Vec<Finding> {
                 .map(|l| via.diameter_on(l))
                 .collect::<Vec<_>>(),
             via.hole,
+            via.unused_layers,
+            via.zone_connection,
             (via.span.from, via.span.to),
         );
         match vias.get(&key) {

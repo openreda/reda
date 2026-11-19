@@ -98,7 +98,8 @@
         { "id": "tools.measure", "command": "tool.activate:measure" },
         { "id": "tools.measure_length", "command": "pcb.measure.length", "params": { "objects": "$selection" } },
         "separator",
-        { "id": "tools.silkscreen_prepare", "command": "pcb.silkscreen.prepare" }
+        { "id": "tools.silkscreen_prepare", "command": "pcb.silkscreen.prepare" },
+        { "id": "tools.unused_layers", "command": "pcb.unused_layers.set", "title": "unused-lands-title" }
       ]
     }
   ],
