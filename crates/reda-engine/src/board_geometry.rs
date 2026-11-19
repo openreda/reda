@@ -149,6 +149,8 @@ fn board_pad(object: Uuid, p: PlacedPad) -> BoardPad {
         at: p.at,
         rotation: p.rotation,
         outline: p.outline,
+        middle: p.middle.map(|(_, outline)| outline),
+        bottom: p.bottom.map(|(_, outline)| outline),
         hole: p.hole,
         side: p.side,
         net: p.net,

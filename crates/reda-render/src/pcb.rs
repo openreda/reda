@@ -158,6 +158,9 @@ pub struct BoardPad {
     pub rotation: Millideg,
     /// The copper outline in the Pad's frame on the board, about `at`.
     pub outline: CornerRect,
+    /// Physical inner and bottom outlines when different from the top.
+    pub middle: Option<CornerRect>,
+    pub bottom: Option<CornerRect>,
     /// The hole, its slot turned in the Pad's frame.
     pub hole: Option<Hole>,
     /// The copper side of an SMD Pad; `None` for a Pad with a hole.
@@ -166,6 +169,15 @@ pub struct BoardPad {
 }
 
 impl BoardPad {
+    fn outline_on(&self, side: Option<Side>) -> &CornerRect {
+        match side {
+            Some(Side::Top) => None,
+            Some(Side::Bottom) => self.bottom.as_ref(),
+            None => self.middle.as_ref(),
+        }
+        .unwrap_or(&self.outline)
+    }
+
     /// The centre of the copper on the board.
     pub fn copper_center(&self) -> Point {
         (self.outline.center + self.at).rotated_about(self.at, self.rotation)

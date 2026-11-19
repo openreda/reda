@@ -114,6 +114,16 @@ fn free_pads_with_a_bad_shape_or_net_are_refused() {
                    "hole": {"width": "2mm"}, "net": sig}),
             "/net",
         ),
+        (
+            json!({"kind":"smd","at":at,"width":"1mm",
+                   "middle":{"shape":"rect","width":"2mm","height":"1mm"}}),
+            "/middle",
+        ),
+        (
+            json!({"kind":"non_plated","at":at,"width":"1mm","hole":{"width":"1mm"},
+                   "bottom":{"shape":"rect","width":"2mm","height":"1mm"}}),
+            "/bottom",
+        ),
         (json!({"kind": "smd", "at": at, "width": 0}), "/width"),
         (
             json!({"kind": "smd", "at": at, "width": "1mm", "net": PCB}),

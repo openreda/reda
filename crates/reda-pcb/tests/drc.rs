@@ -908,3 +908,28 @@ fn a_keepout_marker_names_only_the_layer_where_a_via_enters_it() {
     let top = pcb.copper_layers().next().unwrap().uuid;
     assert_eq!(of(&drc(&mut e), "keepout")[0]["layers"], json!([top]));
 }
+
+#[test]
+fn annular_ring_measures_each_inner_land_against_the_shared_hole() {
+    let dir = TempDir::new("pad-stack-ring");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"name":"Demo","path":dir.path(),"layers":4}),
+    );
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let inner: Vec<_> = pcb
+        .copper_layers()
+        .filter(|l| l.side.is_none())
+        .map(|l| l.uuid)
+        .collect();
+    engine.run_ok(
+        "pcb.free_pad.add",
+        json!({"kind":"plated_through_hole","width":"3mm","at":{"x":"5mm","y":"5mm"},
+        "hole":{"width":"1mm"},"middle":{"shape":"rect","width":"1.1mm","height":"3mm"}}),
+    );
+    let violations = of(&drc(&mut engine), "annular_ring");
+    assert_eq!(violations.len(), 1, "{violations:?}");
+    assert_eq!(violations[0]["measured"]["length"], 50000);
+    assert_eq!(violations[0]["layers"], json!(inner));
+}

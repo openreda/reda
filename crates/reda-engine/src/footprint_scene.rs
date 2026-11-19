@@ -7,7 +7,7 @@
 
 use reda_command::Fonts;
 use reda_model::{
-    DocumentEntry, DocumentKind, Footprint, Layer, Project, ProjectProps, Shape, Uuid,
+    DocumentEntry, DocumentKind, Footprint, Layer, Project, ProjectProps, Shape, Side, Uuid,
 };
 use reda_pcb::{board_layer, element_texts, new_board, text_geometry};
 use reda_render::{
@@ -44,6 +44,10 @@ pub fn footprint_scene(footprint: &Footprint, fonts: &Fonts) -> FootprintScene {
             at: pad.at,
             rotation: pad.rotation,
             outline: pad.outline(),
+            middle: pad.middle.map(|_| pad.form_on(None).outline()),
+            bottom: pad
+                .bottom
+                .map(|_| pad.form_on(Some(Side::Bottom)).outline()),
             hole: pad.hole,
             side: pad.copper_side(),
             net: None,

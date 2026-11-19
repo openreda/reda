@@ -18,8 +18,9 @@
 use shape::BoardShape as _;
 use std::collections::{BTreeMap, BTreeSet};
 
+use crate::placed::{PlacedPad, placed_free_pad, placed_pads};
 use reda_model::geom::Point;
-use reda_model::{ChangeSet, Object, PadKind, PcbDocument, Side, Uuid, ZoneFills};
+use reda_model::{ChangeSet, Object, PadKind, PcbDocument, Uuid, ZoneFills};
 use rstar::{AABB, RTree, RTreeObject};
 use schemars::JsonSchema;
 use serde::Serialize;
@@ -435,50 +436,46 @@ impl Copper {
         let Some(instance) = pcb.footprint(uuid) else {
             return;
         };
-        let Some(copy) = pcb.footprint_copy(instance.footprint) else {
-            return;
-        };
         let mut items = Vec::new();
-        for pad in &copy.footprint.pads {
-            let side = pad.copper_side().map_or(instance.side, |s| {
-                crate::placed::Frame::of(instance).side(s)
-            });
-            let layers = pad_layers(pcb, pad.kind, side);
-            if layers.is_empty() {
-                continue;
-            }
+        for pad in placed_pads(pcb, instance) {
             let item = Item::Pad {
                 footprint: uuid,
-                pad: pad.uuid,
+                pad: pad.pad,
             };
-            let shape = Shape::pad(instance, pad);
-            let centre = shape::board_point(instance, [pad.at.x.0, pad.at.y.0]);
-            let info = Info {
-                net: instance.pad_net(pad.uuid),
-                anchors: vec![Point::new(
-                    reda_model::geom::Nm(centre[0]),
-                    reda_model::geom::Nm(centre[1]),
-                )],
-            };
-            self.insert(item, info, layers, shape);
-            items.push(item);
+            if pad.kind != PadKind::NonPlated {
+                self.add_pad(pcb, item, &pad);
+                items.push(item);
+            }
         }
         self.pads.insert(uuid, items);
     }
 
     fn add_free_pad(&mut self, pcb: &PcbDocument, uuid: Uuid) {
-        let Some(pad) = pcb.free_pad(uuid) else {
-            return;
-        };
-        let layers = pad_layers(pcb, pad.kind, pad.form().copper_side().unwrap_or(Side::Top));
-        if layers.is_empty() {
-            return;
+        if let Some(pad) = pcb.free_pad(uuid).filter(|p| p.kind != PadKind::NonPlated) {
+            self.add_pad(pcb, Item::FreePad { uuid }, &placed_free_pad(pad));
         }
+    }
+
+    fn add_pad(&mut self, pcb: &PcbDocument, item: Item, pad: &PlacedPad) {
         let info = Info {
             net: pad.net,
             anchors: vec![pad.at],
         };
-        self.insert(Item::FreePad { uuid }, info, layers, Shape::free_pad(pad));
+        let pieces = pcb
+            .copper_layers()
+            .filter(|l| pad.side.is_none() || pad.side == l.side)
+            .map(|l| {
+                let (_, outline) = pad.copper_on(l.side);
+                let shape = Shape::outline(&outline, |p| {
+                    let q = pad.point(Point::new(
+                        reda_model::geom::Nm(p[0]),
+                        reda_model::geom::Nm(p[1]),
+                    ));
+                    [q.x.0, q.y.0]
+                });
+                (l.uuid, shape)
+            });
+        self.insert(item, info, pieces);
     }
 
     fn add_track(&mut self, pcb: &PcbDocument, uuid: Uuid) {
@@ -491,7 +488,7 @@ impl Copper {
             anchors: vec![from, to],
         };
         let shape = Shape::track(&track.geometry, track.width);
-        self.insert(Item::Track { uuid }, info, vec![track.layer], shape);
+        self.insert(Item::Track { uuid }, info, [(track.layer, shape)]);
     }
 
     fn add_via(&mut self, pcb: &PcbDocument, uuid: Uuid) {
@@ -502,8 +499,11 @@ impl Copper {
             net: via.net,
             anchors: vec![via.at],
         };
-        let shape = Shape::disc(via.at, via.diameter.start);
-        self.insert(Item::Via { uuid }, info, pcb.span_layers(via.span), shape);
+        let pieces = pcb
+            .span_layers(via.span)
+            .into_iter()
+            .map(|l| (l, Shape::disc(via.at, via.diameter_on(l))));
+        self.insert(Item::Via { uuid }, info, pieces);
     }
 
     fn add_zone(&mut self, pcb: &PcbDocument, uuid: Uuid) {
@@ -535,7 +535,7 @@ impl Copper {
                 zone: uuid,
                 island: island as u32,
             };
-            self.insert(item, info, vec![layer], shape);
+            self.insert(item, info, [(layer, shape)]);
         }
     }
 
@@ -558,21 +558,17 @@ impl Copper {
         }
     }
 
-    fn insert(&mut self, item: Item, info: Info, layers: Vec<Uuid>, shape: Shape) {
-        let envelope = shape.envelope();
+    fn insert(&mut self, item: Item, info: Info, pieces: impl IntoIterator<Item = (Uuid, Shape)>) {
         let mut touching = BTreeSet::new();
         let mut slots = Vec::new();
-        for layer in layers {
+        for (layer, shape) in pieces {
+            let envelope = shape.envelope();
             touching.extend(
                 self.candidates(layer, envelope)
                     .filter(|other| other.item != item && other.shape.touches(&shape))
                     .map(|other| other.item),
             );
-            let piece = Piece {
-                item,
-                layer,
-                shape: shape.clone(),
-            };
+            let piece = Piece { item, layer, shape };
             let slot = match self.free.pop() {
                 Some(slot) => {
                     self.pieces[slot] = Some(piece);
@@ -615,21 +611,6 @@ impl Copper {
             }
         }
         self.info.remove(&item);
-    }
-}
-
-/// The copper Layers a Pad of this kind has copper on: an SMD Pad the outer Layer of its
-/// side, a plated through-hole Pad every copper Layer, a non-plated Pad none.
-fn pad_layers(pcb: &PcbDocument, kind: PadKind, side: Side) -> Vec<Uuid> {
-    match kind {
-        PadKind::NonPlated => Vec::new(),
-        PadKind::PlatedThroughHole => pcb.copper_layers().map(|l| l.uuid).collect(),
-        PadKind::Smd => pcb
-            .copper_layers()
-            .find(|l| l.side == Some(side))
-            .map(|l| l.uuid)
-            .into_iter()
-            .collect(),
     }
 }
 
