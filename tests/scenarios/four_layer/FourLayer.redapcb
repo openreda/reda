@@ -119,7 +119,7 @@
     {"uuid":"00000000-0000-4000-8000-00000000004c","at":{"x":14000000,"y":9000000},"net":"00000000-0000-4000-8000-000000000044","diameter":{"start":700000},"hole":300000,"span":{"from":"00000000-0000-4000-8000-00000000000a","to":"00000000-0000-4000-8000-00000000000d"},"unused_layers":"remove"}
   ],
   "free_pads": [
-    {"uuid":"00000000-0000-4000-8000-00000000004d","kind":"plated_through_hole","shape":"oval","middle":{"shape":"rect","width":1400000,"height":1400000},"bottom":{"shape":"circle","width":1800000,"height":1800000},"at":{"x":10000000,"y":4000000},"rotation":0,"width":2400000,"height":1600000,"hole":{"width":800000,"height":800000},"net":"00000000-0000-4000-8000-000000000043"},
+    {"uuid":"00000000-0000-4000-8000-00000000004d","kind":"plated_through_hole","shape":"oval","middle":{"shape":"rect","width":1400000,"height":1400000},"bottom":{"shape":"circle","width":1800000,"height":1800000},"unused_layers":"remove","at":{"x":10000000,"y":4000000},"rotation":0,"width":2400000,"height":1600000,"hole":{"width":800000,"height":800000},"net":"00000000-0000-4000-8000-000000000043"},
     {"uuid":"00000000-0000-4000-8000-000000000059","kind":"non_plated","shape":"circle","at":{"x":2000000,"y":2000000},"rotation":0,"width":1200000,"height":1200000,"hole":{"width":1200000,"height":1200000}}
   ]
 }
