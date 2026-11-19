@@ -232,6 +232,7 @@ pub(super) fn run(
                 let to = point(*p);
                 if to != j.at {
                     plan.created.push(Track {
+                        teardrop: t.teardrop,
                         uuid: new_id(),
                         locked: false,
                         layer: t.layer,

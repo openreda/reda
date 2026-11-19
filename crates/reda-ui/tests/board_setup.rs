@@ -68,6 +68,7 @@ fn board_setup_has_a_page_per_rule_then_net_classes_and_drc() {
             "Mask & Paste",
             "Silkscreen",
             "Zone Connections",
+            "Teardrops",
             "Stackup",
             "Net Classes",
             "DRC"
@@ -505,6 +506,18 @@ fn each_rule_page_holds_its_checks_with_their_board_wide_values() {
                 ]
                 .map(|t| (None, RuleField::connection(t).to_vec()))
                 .to_vec()
+            ),
+            (
+                Rule::Teardrops,
+                reda_engine::model::TeardropKind::ALL
+                    .into_iter()
+                    .map(|kind| (
+                        None,
+                        reda_engine::model::TeardropField::ALL
+                            .map(|f| F::Teardrop(kind, f))
+                            .to_vec()
+                    ))
+                    .collect()
             ),
         ]
     );
