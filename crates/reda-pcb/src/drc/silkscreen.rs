@@ -32,6 +32,22 @@ pub(super) struct Silk {
     pub objects: Vec<Uuid>,
     pub side: Side,
     pub area: Area,
+    width: Option<Nm>,
+    height: Option<Nm>,
+}
+
+impl Silk {
+    fn text(owner: Uuid, side: Side, text: &reda_model::PcbText, fonts: &Fonts) -> Self {
+        let laid_out = text_geometry(text, fonts);
+        let width = (!laid_out.strokes.is_empty()).then_some(laid_out.stroke_width);
+        Self {
+            objects: vec![owner],
+            side,
+            area: text_area(&laid_out),
+            width,
+            height: Some(text.height),
+        }
+    }
 }
 
 /// What silkscreen keeps clear of on one side: the objects that name it and its area.
@@ -42,10 +58,52 @@ pub(crate) struct Target {
 }
 
 pub(super) fn check(board: &Board<'_>, fonts: &Fonts, report: &mut Report) {
-    if report.is_off(DrcCheck::SilkToMask) && report.is_off(DrcCheck::SilkToEdge) {
+    if [
+        DrcCheck::SilkToMask,
+        DrcCheck::SilkToEdge,
+        DrcCheck::SilkWidth,
+        DrcCheck::SilkTextHeight,
+    ]
+    .into_iter()
+    .all(|check| report.is_off(check))
+    {
         return;
     }
     let silk = silkscreen(board.pcb, fonts);
+    for (check, kind) in [
+        (DrcCheck::SilkWidth, RuleKind::SilkWidth),
+        (DrcCheck::SilkTextHeight, RuleKind::SilkTextHeight),
+    ] {
+        if report.is_off(check) {
+            continue;
+        }
+        let Some(rule) = resolve(board.pcb, None, kind, RuleField::Min) else {
+            continue;
+        };
+        let required = rule.value.length().expect("silkscreen minimum is a length");
+        for piece in &silk {
+            let value = if check == DrcCheck::SilkWidth {
+                piece.width
+            } else {
+                piece.height
+            };
+            let Some(actual) = value.filter(|v| *v < required) else {
+                continue;
+            };
+            let Some((lo, hi)) = poly::bounds(&piece.area) else {
+                continue;
+            };
+            let at = Point::new(Nm(lo[0]), Nm(lo[1])).midpoint(Point::new(Nm(hi[0]), Nm(hi[1])));
+            report.add(check, |v| {
+                v.length(actual, required, Limit::Min, rule.rule)
+                    .located(board.pcb.uuid, at)
+                    .on_layers([silk_layer(board.pcb, piece.side)])
+                    .arg("actual", actual)
+                    .arg("required", required)
+                    .objects(piece.objects.iter().copied())
+            });
+        }
+    }
     if !report.is_off(DrcCheck::SilkToMask) {
         silk_to_mask(board, &silk, report);
     }
@@ -222,17 +280,15 @@ pub(super) fn silkscreen(pcb: &PcbDocument, fonts: &Fonts) -> Vec<Silk> {
                 objects: vec![instance.uuid],
                 side,
                 area: drawing_area(&graphic.shape, graphic.width.0, graphic.fill),
+                width: Some(graphic.width),
+                height: None,
             });
         }
         for text in footprint_texts(pcb, instance, fonts) {
             let Some(side) = side_of(text.layer) else {
                 continue;
             };
-            out.push(Silk {
-                objects: vec![instance.uuid],
-                side,
-                area: text_area(&text_geometry(&text, fonts)),
-            });
+            out.push(Silk::text(instance.uuid, side, &text, fonts));
         }
     }
     for graphic in pcb.graphics() {
@@ -257,6 +313,8 @@ pub(super) fn silkscreen(pcb: &PcbDocument, fonts: &Fonts) -> Vec<Silk> {
         out.push(Silk {
             objects: vec![graphic.uuid],
             side,
+            width: Some(graphic.width),
+            height: None,
             area,
         });
     }
@@ -264,11 +322,7 @@ pub(super) fn silkscreen(pcb: &PcbDocument, fonts: &Fonts) -> Vec<Silk> {
         let Some(side) = side_of(text.layer) else {
             continue;
         };
-        out.push(Silk {
-            objects: vec![text.uuid],
-            side,
-            area: text_area(&text_geometry(text, fonts)),
-        });
+        out.push(Silk::text(text.uuid, side, text, fonts));
     }
     // A Dimension is checked as the lines and text it plots as.
     for dimension in pcb.dimensions() {
@@ -281,14 +335,12 @@ pub(super) fn silkscreen(pcb: &PcbDocument, fonts: &Fonts) -> Vec<Silk> {
                 objects: vec![dimension.uuid],
                 side,
                 area: strokes_area(&[vec![line.from, line.to]], line.width.0),
+                width: Some(line.width),
+                height: None,
             });
         }
         if let Some(text) = &drawn.text {
-            out.push(Silk {
-                objects: vec![dimension.uuid],
-                side,
-                area: text_area(&text_geometry(text, fonts)),
-            });
+            out.push(Silk::text(dimension.uuid, side, text, fonts));
         }
     }
     out

@@ -742,6 +742,9 @@ impl BoardSetupDraft {
     }
 
     pub fn class_override_mut(&mut self, key: ClassKey, rule: RuleField) -> Option<&mut String> {
+        if !rule.rule().0.accepts_net_class() {
+            return None;
+        }
         self.class_row_mut(key)
             .and_then(|r| r.overrides.get_mut(&rule))
             .map(|d| d.value_mut())

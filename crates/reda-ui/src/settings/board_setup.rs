@@ -157,7 +157,11 @@ impl Rule {
             ),
             Section::plain(None, &[F::PasteExpansion, F::PastePercent]),
         ];
-        const SILKSCREEN: &[Section] = &[Section::check(DrcCheck::SilkToMask, &[F::SilkToMask])];
+        const SILKSCREEN: &[Section] = &[
+            Section::check(DrcCheck::SilkToMask, &[F::SilkToMask]),
+            Section::check(DrcCheck::SilkWidth, &[F::SilkWidth]),
+            Section::check(DrcCheck::SilkTextHeight, &[F::SilkTextHeight]),
+        ];
         const ZONE_CONNECTIONS: &[Section] = &[
             Section::plain(Some(T::ThroughHole), &TH),
             Section::plain(Some(T::Smd), &SMD),

@@ -48,6 +48,8 @@ pub fn generic() -> FabPreset {
     FabPreset {
         name: GENERIC_NAME.into(),
         rules: FabRules {
+            silk_width: Some(Nm(150000)),
+            silk_text_height: Some(Nm(1000000)),
             inner: None,
             clearance_hole: reda_model::HoleClearance::GENERIC,
             mask_expansion: reda_model::MaskExpansion {
@@ -123,6 +125,8 @@ fn jlcpcb() -> FabPreset {
     let mut preset = FabPreset {
         name: "JLCPCB".into(),
         rules: FabRules {
+            silk_width: Some(Nm(150000)),
+            silk_text_height: Some(Nm(1000000)),
             inner: None,
             clearance_hole: reda_model::HoleClearance {
                 via: Nm(200_000),
@@ -197,6 +201,8 @@ fn pcbway() -> FabPreset {
     let mut preset = FabPreset {
         name: "PCBWay".into(),
         rules: FabRules {
+            silk_width: Some(Nm(150000)),
+            silk_text_height: Some(Nm(800000)),
             inner: None,
             clearance_hole: reda_model::HoleClearance {
                 via: Nm(200_000),
@@ -284,6 +290,8 @@ fn osh_park() -> FabPreset {
         constructions: serde_json::from_str(include_str!("../data/constructions/osh-park.json"))
             .expect("shipped OSH Park Construction catalogue"),
         rules: FabRules {
+            silk_width: Some(Nm(127000)),
+            silk_text_height: None,
             track_width: Nm(152_400),
             clearance: Nm(152_400),
             annular_ring: Nm(127_000),

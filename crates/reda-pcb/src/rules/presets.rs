@@ -9,9 +9,9 @@ use reda_model::{
 
 /// The limits a preset sets on rule values: kind, value, which way the value may not go,
 /// and the preset's limit.
-pub fn preset_limits(rules: &FabRules) -> [(RuleKind, RuleField, Limit, Nm); 9] {
+pub fn preset_limits(rules: &FabRules) -> Vec<(RuleKind, RuleField, Limit, Nm)> {
     use RuleField::*;
-    [
+    let mut limits = vec![
         (RuleKind::Clearance, Value, Limit::Min, rules.clearance),
         (RuleKind::TrackWidth, Min, Limit::Min, rules.track_width),
         (
@@ -31,7 +31,16 @@ pub fn preset_limits(rules: &FabRules) -> [(RuleKind, RuleField, Limit, Nm); 9] 
             Limit::Min,
             rules.edge_clearance,
         ),
-    ]
+    ];
+    for (kind, value) in [
+        (RuleKind::SilkWidth, rules.silk_width),
+        (RuleKind::SilkTextHeight, rules.silk_text_height),
+    ] {
+        if let Some(min) = value {
+            limits.push((kind, Min, Limit::Min, min));
+        }
+    }
+    limits
 }
 
 /// A Fab Preset the rules are compared with: its name and its limits.

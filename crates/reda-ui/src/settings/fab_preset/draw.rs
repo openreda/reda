@@ -124,6 +124,8 @@ fn rules(ui: &mut Ui, editor: &mut PresetEditor) {
             (Field::AnnularRing, tr!("preset-annular-ring")),
             (Field::HoleToHole, tr!("preset-hole-to-hole")),
             (Field::EdgeClearance, tr!("preset-edge-clearance")),
+            (Field::SilkWidth, tr!("board-setup-silk-width")),
+            (Field::SilkTextHeight, tr!("board-setup-silk-text-height")),
         ] {
             typed(ui, editor, f, label);
         }
@@ -225,7 +227,10 @@ fn gerber(ui: &mut Ui, editor: &mut PresetEditor) {
         );
         typed(ui, editor, Field::InnerCopper, tr!("preset-inner-copper"));
         ui.label("");
-        layout::muted(ui, tr!("preset-inner-copper-tokens"));
+        ui.vertical(|ui| {
+            layout::muted(ui, tr!("preset-inner-copper-tokens"));
+            layout::muted(ui, tr!("preset-inner-copper-empty"));
+        });
         ui.end_row();
     });
     let t = ui.tokens();

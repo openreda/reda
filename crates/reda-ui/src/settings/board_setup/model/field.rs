@@ -33,6 +33,8 @@ pub enum RuleField {
     AnnularRing,
     HoleToHole,
     EdgeClearance,
+    SilkWidth,
+    SilkTextHeight,
     SilkToEdge,
     SilkToMask,
     CourtyardClearance,
@@ -138,7 +140,7 @@ pub fn style_name(style: &str) -> String {
 }
 
 impl RuleField {
-    pub const ALL: [RuleField; 42] = {
+    pub const ALL: [RuleField; 44] = {
         use ConnectionTarget as T;
         use ConnectionValue as V;
         use RuleField as R;
@@ -158,6 +160,8 @@ impl RuleField {
             R::AnnularRing,
             R::HoleToHole,
             R::EdgeClearance,
+            R::SilkWidth,
+            R::SilkTextHeight,
             R::SilkToEdge,
             R::SilkToMask,
             R::CourtyardClearance,
@@ -252,6 +256,8 @@ impl RuleField {
             RuleField::AnnularRing => (RuleKind::AnnularRing, F::Min),
             RuleField::HoleToHole => (RuleKind::HoleToHole, F::Min),
             RuleField::EdgeClearance => (RuleKind::EdgeClearance, F::Value),
+            RuleField::SilkWidth => (RuleKind::SilkWidth, F::Min),
+            RuleField::SilkTextHeight => (RuleKind::SilkTextHeight, F::Min),
             RuleField::SilkToEdge => (RuleKind::SilkToEdge, F::Value),
             RuleField::SilkToMask => (RuleKind::SilkToMask, F::Value),
             RuleField::CourtyardClearance => (RuleKind::CourtyardClearance, F::Value),
@@ -325,6 +331,7 @@ impl RuleField {
         let kind = self.rule().0;
         reda_engine::pcb::seed_rules(rules)
             .into_iter()
+            .chain(reda_engine::pcb::silk_rules(rules))
             .find(|(k, _)| *k == kind)
             .map(|(_, v)| v)
     }
@@ -413,6 +420,8 @@ impl RuleField {
             RuleField::AnnularRing => tr!("board-setup-annular-ring"),
             RuleField::HoleToHole => tr!("board-setup-hole-to-hole"),
             RuleField::EdgeClearance => tr!("board-setup-edge-clearance"),
+            RuleField::SilkWidth => tr!("board-setup-silk-width"),
+            RuleField::SilkTextHeight => tr!("board-setup-silk-text-height"),
             RuleField::SilkToEdge => tr!("board-setup-silk-to-edge"),
             RuleField::SilkToMask => tr!("board-setup-silk-to-mask"),
             RuleField::CourtyardClearance => tr!("board-setup-courtyard-clearance"),

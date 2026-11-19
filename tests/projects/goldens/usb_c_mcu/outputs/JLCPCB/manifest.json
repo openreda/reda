@@ -2,7 +2,7 @@
   "format": 1,
   "reda": "0.0.0-test",
   "job": {"uuid":"00000000-0000-4000-8000-000000000028","name":"JLCPCB"},
-  "fab_preset": {"name":"JLCPCB","sha256":"c1c7a00fdf04529c62ad98d35adce82143ecde88100474afdf2af28bf9d092a6"},
+  "fab_preset": {"name":"JLCPCB","sha256":"453c737c9ae96fbc0213a6adbf797fcd472c55dfb002a5b8f0159541a8eee23e"},
   "pcb": "00000000-0000-4000-8000-000000000003",
   "revision": "A",
   "date": "2026-01-01T00:00:00Z",
@@ -27,7 +27,7 @@
     {"path":"UsbMcu-JLCPCB-CPL.csv","size":449,"sha256":"d3cbb46a6c32453ea9a72c69f78a71275ee4f6e4c0fad878760e8a3ae3bf8561","kind":"cpl"},
     {"path":"UsbMcu-JLCPCB-schematic.pdf","size":895716,"sha256":"6ea40b801d97fc3b63ff92f936706e6df500133376d8cf5289aee41f7191eabb","kind":"schematic_pdf"},
     {"path":"reports/UsbMcu-erc.json","size":195,"sha256":"080f7911291cffc5d4666ebfb358a87a764066049d44b74a525e03f3cadb9906","kind":"erc_report"},
-    {"path":"reports/UsbMcu-drc.json","size":338,"sha256":"3f6cd8d19fa9ea6a7e6ed146b78d60b6eac85815784c2e944abed5b8c9e4d4fc","kind":"drc_report"},
+    {"path":"reports/UsbMcu-drc.json","size":8333,"sha256":"26ef898e2dbc2b058c2d36880e55efe3e1129fe3d01611db756d98cad6cab2b6","kind":"drc_report"},
     {"path":"reports/UsbMcu-change-list.json","size":179,"sha256":"1e3e25eef6c7780727f8660d90863669d1022d89770730bd2023eb90b74165bb","kind":"change_list_report"}
   ],
   "warnings": [

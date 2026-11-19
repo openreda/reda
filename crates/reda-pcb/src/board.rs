@@ -108,6 +108,24 @@ pub fn seed_rules(rules: &FabRules) -> Vec<(RuleKind, RuleValues)> {
     ]
 }
 
+/// Silk rules have deterministic format-2 identities. Unspecified fabrication
+/// limits produce the zero minimum used when migrating an existing board.
+pub fn silk_rules(rules: &FabRules) -> [(RuleKind, RuleValues); 2] {
+    [
+        (RuleKind::SilkWidth, rules.silk_width),
+        (RuleKind::SilkTextHeight, rules.silk_text_height),
+    ]
+    .map(|(kind, limit)| {
+        (
+            kind,
+            RuleValues {
+                min: Some(limit.unwrap_or_default()),
+                ..Default::default()
+            },
+        )
+    })
+}
+
 /// The board-wide values of the rule kinds no Fab Preset seeds, which start at fixed
 /// defaults: silkscreen 0.254 mm from the edge and 0.10 mm from exposed copper, courtyards
 /// and the dangling tolerance at 0, micro-segments up to 0.01 mm, dead copper above
@@ -242,6 +260,16 @@ pub fn board_fab_rules(pcb: &PcbDocument) -> FabRules {
     FabRules {
         inner: (inner != Default::default()).then_some(inner),
         clearance_hole: reda_model::HoleClearance::GENERIC,
+        silk_width: pcb
+            .board_rule(RuleKind::SilkWidth)
+            .values
+            .min
+            .filter(|v| v.0 > 0),
+        silk_text_height: pcb
+            .board_rule(RuleKind::SilkTextHeight)
+            .values
+            .min
+            .filter(|v| v.0 > 0),
         clearance: length(RuleKind::Clearance, Value),
         track_width: length(RuleKind::TrackWidth, Min),
         via_diameter: length(RuleKind::ViaSize, DiameterMin),
@@ -395,11 +423,15 @@ fn build_board(
         };
         objects.push(Object::DesignRule(InDocument::new(document, rule)));
     }
-    objects.extend(
-        multilayer_rules(document)
+    objects.extend(multilayer_rules(document).into_iter().map(|mut rule| {
+        if let Some((_, values)) = silk_rules(rules)
             .into_iter()
-            .map(|rule| Object::DesignRule(InDocument::new(document, rule))),
-    );
+            .find(|(kind, _)| *kind == rule.kind)
+        {
+            rule.values = values;
+        }
+        Object::DesignRule(InDocument::new(document, rule))
+    }));
     for (kind, field, min) in rules.inner.unwrap_or_default().limits() {
         if let Some(value) = min {
             let mut values = RuleValues::default();

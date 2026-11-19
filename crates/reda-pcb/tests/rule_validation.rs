@@ -300,3 +300,19 @@ fn overlapping_named_layers_and_invalid_scope_combinations_are_refused() {
         1
     );
 }
+
+#[test]
+fn silkscreen_size_rules_are_board_wide_on_both_sides() {
+    let dir = TempDir::new("unscoped-silk-minima");
+    let mut e = engine(&dir);
+    let class = class(&mut e, "Signal", &[]);
+    for kind in ["silk_width", "silk_text_height"] {
+        for scope in [json!({"net_class":class}), json!({"layers":"outer"})] {
+            let error = e.run_err(
+                "pcb.rules.set",
+                json!({"kind":kind,"scope":scope,"values":{"min":"0.1mm"}}),
+            );
+            assert_eq!(error.code, reda_command::ErrorCode::InvalidParams);
+        }
+    }
+}
