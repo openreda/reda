@@ -1,13 +1,16 @@
 //! Tool Command ids at the boundary between the public registry and the window.
 
-macro_rules! tool_commands {
-    ($($command:ident => $id:literal),+ $(,)?) => {
+/// A typed enum of view Command ids the window acts on after they run, with `id` and
+/// `from_id`, so the Shell parses an id once and dispatches on the variant.
+macro_rules! typed_commands {
+    ($(#[$meta:meta])* $name:ident { $($command:ident => $id:literal),+ $(,)? }) => {
+        $(#[$meta])*
         #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-        pub(crate) enum ToolCommand {
+        pub(crate) enum $name {
             $($command),+
         }
 
-        impl ToolCommand {
+        impl $name {
             /// The public id used by the Command's metadata.
             pub(crate) const fn id(self) -> &'static str {
                 match self {
@@ -25,8 +28,11 @@ macro_rules! tool_commands {
         }
     };
 }
+pub(crate) use typed_commands;
 
-tool_commands! {
+typed_commands! {
+    /// The `tool.*` Commands.
+    ToolCommand {
     Activate => "tool.activate",
     RotateAbout => "tool.rotate_about",
     Rotate => "tool.rotate",
@@ -49,6 +55,7 @@ tool_commands! {
     Place => "tool.place",
     SetPlacement => "tool.place.set",
     PlaceUnit => "tool.place_unit",
+    }
 }
 
 #[cfg(test)]

@@ -7,7 +7,7 @@
 
 mod command;
 
-pub(crate) use command::ToolCommand;
+pub(crate) use command::{ToolCommand, typed_commands};
 
 use reda_engine::command::{
     Angle, Command, CommandError, Context, Kind, Meta, NoParams, Preset, Registry,

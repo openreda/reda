@@ -3,6 +3,7 @@
 //! the Journal export.
 
 use super::*;
+use crate::pcb::route_commands::RouteCommand;
 
 impl Shell {
     /// Runs a Command an agent sent over the bridge, as [`Shell::run`] does, with its
@@ -23,7 +24,7 @@ impl Shell {
         let base = id.split(':').next().unwrap_or(id);
         self.prepare_route_command();
         let mut out = self.engine.run_from(source, id, params, signals)?;
-        self.apply_route_command(base, &mut out);
+        self.apply_route_command(RouteCommand::from_id(base), &mut out);
         self.after_run(id, &out);
         if let Some(tool) = &self.tool
             && tool.touched_by(&out)
@@ -117,7 +118,7 @@ impl Shell {
             self.loop_retry = crate::pcb::board_shapes::retry_for(id, &params, e);
         }
         let mut out = out?;
-        self.apply_route_command(base, &mut out);
+        self.apply_route_command(RouteCommand::from_id(base), &mut out);
         if base == "pcb.route.unroute" {
             pcb::placing::ask_about_locked_unroute(self, &params, &out);
         }
