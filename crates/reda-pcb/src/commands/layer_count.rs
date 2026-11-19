@@ -1,0 +1,353 @@
+//! Structural copper edits. The preview and edit construct the same transaction plan.
+use reda_command::{AvailabilityContext, Command, CommandError, Context, Kind, Meta, Unavailable};
+use reda_model::geom::Nm;
+use reda_model::{
+    CopperEntry, CopperRole, InDocument, Layer, LayerKind, LayerSet, Object, PcbDocument, Project,
+    Stackup, StackupEntry, Transaction, Uuid,
+};
+use schemars::JsonSchema;
+use serde::Deserialize;
+
+use super::{Created, needs_pcb, stackup::preview::Counts};
+
+pub(crate) struct Plan {
+    document: Uuid,
+    layers: LayerSet,
+    stack: Stackup,
+    pub counts: Counts,
+    deleted: Vec<Uuid>,
+    changed: Vec<Object>,
+}
+
+impl Plan {
+    fn new(pcb: &PcbDocument) -> Self {
+        Self {
+            document: pcb.uuid,
+            layers: pcb.layers().clone(),
+            stack: pcb.stackup().clone(),
+            deleted: Vec::new(),
+            changed: Vec::new(),
+            counts: Counts::default(),
+        }
+    }
+
+    fn delete_objects(&mut self, kind: &str, ids: impl Iterator<Item = Uuid>) {
+        let before = self.deleted.len();
+        self.deleted.extend(ids);
+        let count = self.deleted.len() - before;
+        if count != 0 {
+            self.counts.objects_deleted.insert(kind.into(), count);
+        }
+    }
+
+    pub fn apply(self, tx: &mut Transaction<'_>) -> Result<(), CommandError> {
+        tx.replace(Object::LayerSet(InDocument::new(
+            self.document,
+            self.layers,
+        )))?;
+        tx.replace(Object::Stackup(InDocument::new(self.document, self.stack)))?;
+        for uuid in self.deleted {
+            tx.remove(uuid)?;
+        }
+        for obj in self.changed {
+            tx.replace(obj)?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AddParams {
+    pub document: Uuid,
+    /// Split this dielectric, or the middle gap when omitted.
+    pub split: Option<Uuid>,
+    /// The new copper Layer's UUID.
+    pub uuid: Option<Uuid>,
+}
+
+pub(super) struct Add;
+impl Command for Add {
+    const META: Meta = Meta {
+        id: "pcb.layer.add",
+        title: "Add Copper Layer",
+        description: "Adds an inner copper Layer by splitting a dielectric sheet.",
+        category: "pcb",
+        icon: "layers",
+        kind: Kind::Edit,
+    };
+    type Params = AddParams;
+    type Output = Created;
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+    fn run(&self, cx: &mut Context<'_>, p: AddParams) -> Result<Created, CommandError> {
+        let uuid = p.uuid.unwrap_or_else(|| cx.new_id());
+        add_plan(cx.project()?, p.document, p.split, uuid)?.apply(cx.tx()?)?;
+        Ok(Created { uuid })
+    }
+}
+
+pub(crate) fn add_plan(
+    project: &Project,
+    document: Uuid,
+    split: Option<Uuid>,
+    uuid: Uuid,
+) -> Result<Plan, CommandError> {
+    let pcb = project
+        .pcb_document(document)
+        .ok_or_else(|| CommandError::not_found("no such PCB Document"))?;
+    let mut plan = Plan::new(pcb);
+    let stack = &mut plan.stack;
+    let copper: Vec<_> = stack.copper().copied().collect();
+    if copper.len() >= 32 {
+        return Err(CommandError::rejected(
+            "the board already has 32 copper Layers",
+        ));
+    }
+    let lower = uuid.child("dielectric");
+    for id in [uuid, lower] {
+        if project.object(id).is_some()
+            || pcb.layers().layer(id).is_some()
+            || stack.entries.iter().any(|e| e.uuid() == id)
+            || stack.via_types.iter().any(|t| t.uuid == id)
+        {
+            return Err(CommandError::invalid_params(
+                "/uuid",
+                "that UUID is already in use",
+            ));
+        }
+    }
+    let index = match split {
+        Some(id) => stack
+            .entries
+            .iter()
+            .position(|e| matches!(e,StackupEntry::Dielectric(d) if d.uuid==id))
+            .ok_or_else(|| {
+                CommandError::invalid_params("/split", "choose a dielectric in this Stackup")
+            })?,
+        None => {
+            let middle = copper[copper.len().div_ceil(2)].layer;
+            stack
+                .entries
+                .iter()
+                .position(|e| e.uuid() == middle)
+                .unwrap()
+                - 1
+        }
+    };
+    let before = stack.entries[..index]
+        .iter()
+        .filter(|e| matches!(e, StackupEntry::Copper(_)))
+        .count();
+    let thickness = copper[if copper.len() == 2 {
+        0
+    } else {
+        (before - 1).clamp(1, copper.len() - 2)
+    }]
+    .thickness;
+    let stretches = |a, b| {
+        let a = pcb.copper_number(a).unwrap();
+        let b = pcb.copper_number(b).unwrap();
+        a.min(b) <= before && before < a.max(b)
+    };
+    plan.counts.vias_stretched = pcb
+        .vias()
+        .filter(|v| stretches(v.span.from, v.span.to))
+        .count();
+    plan.counts.via_types_changed = stack
+        .via_types
+        .iter()
+        .filter(|t| stretches(t.from, t.to))
+        .count();
+
+    // Capture the physical sizes before adding copper. Otherwise the target thickness
+    // would silently absorb the new copper by shrinking the remaining blank sheets.
+    resolve_blanks(stack)?;
+    let StackupEntry::Dielectric(upper) = &mut stack.entries[index] else {
+        unreachable!()
+    };
+    let total = upper.thickness.unwrap().0;
+    if total < 2 {
+        return Err(CommandError::rejected(
+            "the dielectric must be at least two nanometres thick to split",
+        ));
+    }
+    let mut bottom = upper.clone();
+    upper.thickness = Some(Nm(total / 2));
+    bottom.uuid = lower;
+    bottom.thickness = Some(Nm(total - total / 2));
+    stack.entries.splice(
+        index + 1..index + 1,
+        [
+            StackupEntry::Copper(CopperEntry {
+                layer: uuid,
+                thickness,
+            }),
+            StackupEntry::Dielectric(bottom),
+        ],
+    );
+    if stack.checked_totals().is_none() {
+        return Err(CommandError::rejected(
+            "the Stackup would exceed the supported thickness",
+        ));
+    }
+    let at = plan
+        .layers
+        .layers
+        .iter()
+        .position(|l| l.uuid == copper[before].layer)
+        .unwrap();
+    plan.layers.layers.insert(
+        at,
+        Layer {
+            uuid,
+            kind: LayerKind::Copper,
+            side: None,
+            name: None,
+            role: CopperRole::Signal,
+        },
+    );
+    Ok(plan)
+}
+
+/// Store equal shares to whole nanometres, distributing the remainder from the top.
+fn resolve_blanks(stack: &mut Stackup) -> Result<(), CommandError> {
+    let Some(total) = stack.totals().remainder else {
+        return Ok(());
+    };
+    let blanks = stack
+        .dielectrics()
+        .filter(|d| d.thickness.is_none())
+        .count() as i64;
+    let share = total.0 / blanks;
+    if share == 0 {
+        return Err(CommandError::rejected(
+            "give the blank dielectric sheets a positive physical thickness first",
+        ));
+    }
+    let mut extra = total.0 % blanks;
+    for e in &mut stack.entries {
+        if let StackupEntry::Dielectric(d) = e
+            && d.thickness.is_none()
+        {
+            d.thickness = Some(Nm(share + i64::from(extra > 0)));
+            extra -= 1;
+        }
+    }
+    Ok(())
+}
+
+mod removal;
+pub(crate) use removal::remove_plan;
+
+fn inner(pcb: &PcbDocument, layer: Uuid) -> Result<usize, CommandError> {
+    let row = pcb
+        .layers()
+        .layer(layer)
+        .ok_or_else(|| CommandError::not_found("no such Layer"))?;
+    if row.kind != LayerKind::Copper || row.side.is_some() {
+        return Err(CommandError::rejected(
+            "only inner copper Layers can be removed or moved",
+        ));
+    }
+    Ok(pcb.copper_number(layer).unwrap() - 1)
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RemoveParams {
+    pub layer: super::layer::LayerRef,
+}
+
+pub(super) struct Remove;
+impl Command for Remove {
+    const META: Meta = Meta {
+        id: "pcb.layer.remove",
+        title: "Remove Copper Layer",
+        description: "Removes an inner copper Layer, its objects and empty spans, shortening surviving spans and updating rules.",
+        category: "pcb",
+        icon: "layers",
+        kind: Kind::Edit,
+    };
+    type Params = RemoveParams;
+    type Output = ();
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+    fn run(&self, cx: &mut Context<'_>, p: RemoveParams) -> Result<(), CommandError> {
+        let pcb = super::pcb(cx)?;
+        remove_plan(pcb, p.layer.resolve(pcb, "/layer")?.uuid)?.apply(cx.tx()?)
+    }
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Direction {
+    Up,
+    Down,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct MoveParams {
+    pub layer: super::layer::LayerRef,
+    pub direction: Direction,
+}
+
+pub(super) fn move_plan(pcb: &PcbDocument, p: MoveParams) -> Result<Plan, CommandError> {
+    let layer = p.layer.resolve(pcb, "/layer")?.uuid;
+    let at = inner(pcb, layer)?;
+    let next = match p.direction {
+        Direction::Up => at - 1,
+        Direction::Down => at + 1,
+    };
+    let other = pcb.copper_layers().nth(next).unwrap();
+    if other.side.is_some() {
+        return Err(CommandError::rejected(
+            "the outer copper Layers must stay in place",
+        ));
+    }
+    let other = other.uuid;
+    let mut plan = Plan::new(pcb);
+    let crosses = |span: reda_model::LayerSpan| {
+        let moves = |id| id == layer || id == other;
+        moves(span.from) != moves(span.to)
+    };
+    plan.counts.vias_using_span = pcb.vias().filter(|v| crosses(v.span)).count();
+    plan.counts.via_types_changed = plan
+        .stack
+        .via_types
+        .iter()
+        .filter(|k| crosses(k.span()))
+        .count();
+    let layers = &mut plan.layers.layers;
+    let a = layers.iter().position(|l| l.uuid == layer).unwrap();
+    let b = layers.iter().position(|l| l.uuid == other).unwrap();
+    layers.swap(a, b);
+    let entries = &mut plan.stack.entries;
+    let a = entries.iter().position(|e| e.uuid() == layer).unwrap();
+    let b = entries.iter().position(|e| e.uuid() == other).unwrap();
+    entries.swap(a, b);
+    Ok(plan)
+}
+
+pub(super) struct Move;
+impl Command for Move {
+    const META: Meta = Meta {
+        id: "pcb.layer.move",
+        title: "Move Copper Layer",
+        description: "Swaps an inner copper Layer with its inner neighbour. Objects and span ends keep their Layer identities.",
+        category: "pcb",
+        icon: "layers",
+        kind: Kind::Edit,
+    };
+    type Params = MoveParams;
+    type Output = ();
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+    fn run(&self, cx: &mut Context<'_>, p: MoveParams) -> Result<(), CommandError> {
+        move_plan(super::pcb(cx)?, p)?.apply(cx.tx()?)
+    }
+}
