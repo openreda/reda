@@ -366,7 +366,7 @@ fn gerber_and_drill_pages_list_each_file_and_whether_it_is_plotted() {
     h.get_by_label("Edit preset copy…");
     page(&mut h, "Drill");
     h.get_by_label("Routed (G00, M15, G01, M16, G05)");
-    h.get_by_label("Split: plated and non-plated files");
+    h.get_by_label("Plated and non-plated through holes use separate files");
     h.get_by_label("Span");
     h.get_by_label("Jobs-PTH.drl");
     h.get_by_label("Jobs-NPTH.drl");

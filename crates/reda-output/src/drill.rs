@@ -45,9 +45,9 @@ pub fn drill_file_names(name: &str) -> [String; 3] {
     ]
 }
 
-/// The drill files of `plot`: the plated holes, then the non-plated ones, or with the Fab
-/// Preset's `merge_drill` one file holding both. A file with no holes is left out and
-/// listed in `skipped`.
+/// Drill files in physical order. Through holes come first, split by plating or
+/// combined with `merge_drill`. Each occupied blind or buried span follows in its
+/// own file. Empty through files are listed in `skipped`.
 pub fn drill_files(plot: &Plot<'_>) -> Drills {
     let mut drills = Drills {
         files: Vec::new(),

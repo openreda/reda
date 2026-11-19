@@ -109,10 +109,12 @@ fn the_gerber_page_sets_the_file_origin_and_the_drill_and_cpl_pages_show_it() {
             .is_none()
     );
     choose(&mut h, "Slot command", "Canned slot (G85)");
-    h.get_by_label("Merge plated and non-plated holes into one file")
+    h.get_by_label("Merge plated and non-plated through holes")
         .click();
     h.run();
-    h.get_by_label("Writes one drill file, <project>.drl.");
+    h.get_by_label(
+        "Through holes share <project>.drl. Each occupied blind or buried span has its own file.",
+    );
 
     page(&mut h, "CPL");
     h.get_by_label("Output Origin, else the board's lower-left corner");

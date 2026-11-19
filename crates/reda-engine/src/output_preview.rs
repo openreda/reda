@@ -24,7 +24,7 @@ pub enum FileState {
 /// One Gerber or drill file a run plans.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PlannedFile {
-    /// The Layer it plots, such as "Top Copper"; empty for a drill file.
+    /// The Gerber Layer or drill span, such as "Top Copper" or "L2-L3, buried".
     pub layer: String,
     /// Its name in the zip, such as `Demo.gtl`.
     pub name: String,
