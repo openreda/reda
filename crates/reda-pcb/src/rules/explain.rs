@@ -47,6 +47,8 @@ pub struct Winner {
     /// The record's Net Class; left out for the board-wide record.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub net_class: Option<Uuid>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub layers: Option<reda_model::RuleLayers>,
 }
 
 /// A record that sets values another record wins, or a disabled record.
@@ -55,6 +57,8 @@ pub struct Loser {
     pub rule: Uuid,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub net_class: Option<Uuid>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub layers: Option<reda_model::RuleLayers>,
     /// The values it sets that lost; empty for a disabled record.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub fields: Vec<String>,
@@ -82,6 +86,8 @@ pub struct Between {
     pub object: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub net_class_pair: Option<[Uuid; 2]>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub layers: Option<reda_model::RuleLayers>,
 }
 
 /// One kind of rule as it applies to the objects.
@@ -223,6 +229,7 @@ fn applicable_on(
                             rule: s.rule,
                             object: pair.is_none().then_some(usize::from(first != Some(s))),
                             net_class_pair: pair,
+                            layers: pcb.rule(s.rule).and_then(|r| r.scope.layers.clone()),
                         }
                     })
                 }
@@ -260,6 +267,7 @@ fn object_rules(
                 value: w.value,
                 rule: w.rule,
                 net_class: pcb.rule(w.rule).and_then(|r| r.scope.net_class),
+                layers: pcb.rule(w.rule).and_then(|r| r.scope.layers.clone()),
             });
         }
         for record in records.iter().filter(|r| r.enabled) {
@@ -271,6 +279,7 @@ fn object_rules(
                 None => losers.push(Loser {
                     rule: record.uuid,
                     net_class: record.scope.net_class,
+                    layers: record.scope.layers.clone(),
                     fields: vec![field.path().to_owned()],
                 }),
             }
@@ -282,6 +291,7 @@ fn object_rules(
         .map(|r| Loser {
             rule: r.uuid,
             net_class: r.scope.net_class,
+            layers: r.scope.layers.clone(),
             fields: Vec::new(),
         })
         .collect();

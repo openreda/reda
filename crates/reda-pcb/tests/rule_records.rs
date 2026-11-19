@@ -621,3 +621,36 @@ fn drc_measures_other_net_clearance_on_the_tracks_layer() {
             .contains(record["uuid"].as_str().unwrap())
     );
 }
+
+#[test]
+fn applying_and_saving_inner_fab_limits_preserves_an_independent_layer_override() {
+    let dir = TempDir::new("inner-fab");
+    let mut e = engine(&dir);
+    let preset = e.project().unwrap().fab_presets().next().unwrap().uuid;
+    e.run_ok(
+        "fab_preset.set",
+        json!({"preset":preset,"values":{"rules":{"inner":{"clearance":125000}}}}),
+    );
+    let diff = e.run_ok("pcb.rules.fab_preset_diff", json!({"preset":preset}));
+    let changes = diff["changes"].as_array().unwrap();
+    assert_eq!(changes.len(), 1, "{diff}");
+    assert_eq!(changes[0]["layers"], "inner");
+    e.run_ok("pcb.rules.apply_fab_preset", json!({"preset":preset}));
+    set(
+        &mut e,
+        json!({"kind":"clearance","scope":{"layers":"outer"},"values":{"value":"0.45mm"}}),
+    );
+    let saved = uuid(&e.run_ok("pcb.rules.save_as_preset", json!({"name":"My process"})));
+    let data = serde_json::to_value(e.project().unwrap().fab_preset(saved).unwrap()).unwrap();
+    assert_eq!(data["rules"]["inner"], json!({"clearance":125000}));
+    e.run_ok(
+        "fab_preset.set",
+        json!({"preset":preset,"values":{"rules":{"inner":null}}}),
+    );
+    e.run_ok("pcb.rules.apply_fab_preset", json!({"preset":preset}));
+    let records: Vec<_> = pcb(&e)
+        .rules()
+        .filter(|r| r.kind == RuleKind::Clearance)
+        .collect();
+    assert_eq!(records.len(), 2);
+}

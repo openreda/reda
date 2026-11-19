@@ -949,14 +949,18 @@ impl PcbDocument {
         Ok(())
     }
 
-    /// Exactly one board-wide record per kind, at most one record per class and kind,
-    /// scopes naming classes that exist, and values that fit their kind.
+    /// Refuses scopes that could never identify a unique record on this board.
     pub fn rule_layer_problem(
         &self,
         kind: RuleKind,
         scope: &RuleScope,
         except: Option<Uuid>,
     ) -> Option<String> {
+        if scope.net_class_pair.is_some()
+            && (kind != RuleKind::Clearance || scope.net_class.is_some())
+        {
+            return Some("a class pair scopes only clearance, without a single class".into());
+        }
         if scope.layers.is_some() && !kind.accepts_layers() {
             return Some(format!("{} does not accept a Layer scope", kind.id()));
         }

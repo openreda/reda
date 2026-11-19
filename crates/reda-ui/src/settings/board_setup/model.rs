@@ -17,6 +17,8 @@ use serde_json::{Map, Value, json};
 mod actions;
 mod field;
 mod grid;
+mod scoped;
+type ScopedRows = BTreeMap<(m::RuleScope, RuleKind), BTreeMap<RuleField, Draft<String>>>;
 use super::Rule;
 use crate::settings::{Draft, Problem, Step};
 use crate::show_on_board::Shown;
@@ -151,6 +153,7 @@ impl NetRow {
 /// One rule a Fab Preset would change.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RuleChange {
+    pub inner: bool,
     pub rule: RuleField,
     /// The value in the dialog now, as typed.
     pub board: String,
@@ -178,6 +181,7 @@ pub struct BoardSetupDraft {
     /// The PCB Document, while there is one.
     pcb: Option<Uuid>,
     rules: BTreeMap<RuleField, Draft<String>>,
+    scoped: ScopedRows,
     severities: Vec<(DrcCheck, Draft<Severity>)>,
     /// The board-wide records' `enabled` and comment, by kind.
     board_meta: BTreeMap<RuleKind, Meta>,
@@ -231,6 +235,7 @@ pub struct BoardSetupDraft {
 #[derive(Clone, Debug, PartialEq)]
 struct Edits {
     rules: BTreeMap<RuleField, Draft<String>>,
+    scoped: ScopedRows,
     severities: Vec<(DrcCheck, Draft<Severity>)>,
     board_meta: BTreeMap<RuleKind, Meta>,
     silk_mode: Draft<SilkMaskMode>,
@@ -311,8 +316,10 @@ impl BoardSetupDraft {
             self.follow.clear();
         }
         let setup = pcb.setup();
+        self.load_scoped(pcb, reset);
         self.records = pcb
             .rules()
+            .filter(|r| r.scope.layers.is_none() && r.scope.net_class_pair.is_none())
             .filter_map(|r| {
                 let class = match r.scope.net_class {
                     None if r.scope.is_board_wide() => None,
@@ -358,6 +365,7 @@ impl BoardSetupDraft {
     fn edits(&self) -> Edits {
         Edits {
             rules: self.rules.clone(),
+            scoped: self.scoped.clone(),
             severities: self.severities.clone(),
             board_meta: self.board_meta.clone(),
             silk_mode: self.silk_mode.clone(),
@@ -373,6 +381,7 @@ impl BoardSetupDraft {
 
     fn restore(&mut self, edits: Edits) {
         self.rules = edits.rules;
+        self.scoped = edits.scoped;
         self.severities = edits.severities;
         self.board_meta = edits.board_meta;
         self.silk_mode = edits.silk_mode;
@@ -796,6 +805,7 @@ impl BoardSetupDraft {
                 let typed = self.rule(rule);
                 (rule.parse(typed).ok().flatten() != rule.parse(&to).ok().flatten()).then(|| {
                     RuleChange {
+                        inner: false,
                         rule,
                         board: typed.to_owned(),
                         preset: to,
@@ -804,6 +814,29 @@ impl BoardSetupDraft {
                 })
             })
             .collect();
+        for (field, to) in [
+            (
+                RuleField::TrackWidth,
+                rules.inner.and_then(|r| r.track_width_min),
+            ),
+            (RuleField::Clearance, rules.inner.and_then(|r| r.clearance)),
+            (
+                RuleField::AnnularRing,
+                rules.inner.and_then(|r| r.annular_ring_min),
+            ),
+        ] {
+            let board = self.scoped_value(&m::RuleScope::INNER, field);
+            let preset = to.map(super::length::mm).unwrap_or_default();
+            if on_page(field) && field.changed(&preset, board).is_some() {
+                changes.push(RuleChange {
+                    inner: true,
+                    rule: field,
+                    board: board.into(),
+                    preset,
+                    ticked: true,
+                });
+            }
+        }
         // A preferred row is ticked when the dialog's value would fall outside the range
         // the ticked limits make.
         let outside: Vec<bool> = changes
@@ -827,7 +860,7 @@ impl BoardSetupDraft {
         let value = |f: RuleField| {
             let text = changes
                 .iter()
-                .find(|c| c.rule == f && c.ticked)
+                .find(|c| !c.inner && c.rule == f && c.ticked)
                 .map_or(self.rule(f), |c| c.preset.as_str());
             super::length::optional(text).ok().flatten()
         };
@@ -854,6 +887,10 @@ impl BoardSetupDraft {
     pub fn accept_fab_preview(&mut self) {
         if let Some(preview) = self.preview.take() {
             for change in preview.changes.into_iter().filter(|c| c.ticked) {
+                if change.inner {
+                    self.set_scoped(&m::RuleScope::INNER, change.rule, &change.preset);
+                    continue;
+                }
                 // The paste opening is sized one way or the other.
                 match change.rule {
                     RuleField::PasteExpansion => self.set_rule(RuleField::PastePercent, ""),
@@ -871,7 +908,7 @@ impl BoardSetupDraft {
 
     /// Every invalid value, by problem field.
     pub fn problems(&self) -> Vec<Problem> {
-        let mut problems = Vec::new();
+        let mut problems = self.scoped_problems();
         for (rule, draft) in &self.rules {
             // The paste opening needs one of its two values.
             let required = match rule {
@@ -1127,6 +1164,7 @@ impl BoardSetupDraft {
                 json!({"nets": nets, "class": class}),
             ));
         }
+        steps.extend(self.scoped_steps());
         steps
     }
 

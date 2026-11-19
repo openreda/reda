@@ -192,3 +192,98 @@ fn validation_explains_an_empty_layer_group_and_a_relaxed_pair() {
         "{out}"
     );
 }
+
+#[test]
+fn an_inner_fab_limit_is_compared_only_where_the_record_supplies_it() {
+    let dir = TempDir::new("layer-preset-limits");
+    let mut e = probe_engine();
+    e.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Four","layers":4}),
+    );
+    let preset = e.project().unwrap().fab_presets().next().unwrap().uuid;
+    e.run_ok(
+        "fab_preset.set",
+        json!({"preset":preset,"values":{"rules":{"inner":{"clearance":300000}}}}),
+    );
+    let outside = |e: &mut TestEngine| {
+        e.run_ok("pcb.rules.validate", json!({}))["notes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|n| n["note"] == "outside_preset")
+            .count()
+    };
+    assert_eq!(outside(&mut e), 1);
+    e.run_ok("pcb.rules.apply_fab_preset", json!({"preset":preset}));
+    assert_eq!(outside(&mut e), 0);
+}
+
+#[test]
+fn overlapping_named_layers_and_invalid_scope_combinations_are_refused() {
+    let dir = TempDir::new("layer-scope-validation");
+    let mut e = engine(&dir);
+    let layers: Vec<_> = e
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .map(|l| l.uuid)
+        .collect();
+    let class = class(&mut e, "Power", &[]);
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"clearance","scope":{"layers":layers},"values":{"value":"0.2mm"}}),
+    );
+    for (kind, scope, values) in [
+        (
+            "clearance",
+            json!({"layers":[layers[0]]}),
+            json!({"value":"0.5mm"}),
+        ),
+        (
+            "clearance",
+            json!({"layers":[class]}),
+            json!({"value":"0.5mm"}),
+        ),
+        (
+            "clearance",
+            json!({"net_class":class,"net_class_pair":["Default","Power"]}),
+            json!({"value":"0.2mm"}),
+        ),
+        (
+            "clearance",
+            json!({"net_class_pair":["Default","Power"]}),
+            json!({"ignore_pad_to_pad":true}),
+        ),
+        (
+            "track_width",
+            json!({"net_class_pair":["Default","Power"]}),
+            json!({"min":"0.2mm"}),
+        ),
+        (
+            "hole_size",
+            json!({"layers":"outer"}),
+            json!({"min":"0.2mm"}),
+        ),
+    ] {
+        let err = e.run_err(
+            "pcb.rules.set",
+            json!({"kind":kind,"scope":scope,"values":values}),
+        );
+        assert_eq!(err.code, reda_command::ErrorCode::InvalidParams, "{err:?}");
+    }
+    // Same class, same list in reverse order edits the original record.
+    e.run_ok("pcb.rules.set",json!({"kind":"clearance","scope":{"layers":[layers[1],layers[0]]},"values":{"value":"0.55mm"}}));
+    assert_eq!(
+        e.project()
+            .unwrap()
+            .pcb()
+            .unwrap()
+            .rules()
+            .filter(|r| r.scope.layers.is_some())
+            .count(),
+        1
+    );
+}

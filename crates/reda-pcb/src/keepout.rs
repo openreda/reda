@@ -13,7 +13,7 @@ use reda_model::{
 
 use crate::copper::shape::{BoardShape as _, Shape, arc_points};
 use crate::copper::{Item, Proposal};
-use crate::rules::{clearance_between, resolve_pair};
+use crate::rules::resolve_pair_on;
 use crate::zone::poly::{self, Area, Contour};
 use reda_model::geom::grown::TOUCH;
 
@@ -65,14 +65,18 @@ pub fn zero_clearance(pcb: &PcbDocument) -> bool {
 /// The clearance copper on `net` keeps from a Keepout, and the rule record it comes from:
 /// the clearance between `net` and no Net, or 0 under `zero_keepout_clearance`.
 pub fn clearance(pcb: &PcbDocument, net: Option<Uuid>) -> (Nm, Uuid) {
+    clearance_on(pcb, net, None)
+}
+
+fn clearance_on(pcb: &PcbDocument, net: Option<Uuid>, layer: Option<Uuid>) -> (Nm, Uuid) {
     let board = pcb.board_rule(RuleKind::Clearance).uuid;
     if zero_clearance(pcb) {
         return (Nm::ZERO, board);
     }
-    let required = clearance_between(pcb, net, None).unwrap_or(Nm::ZERO);
-    let rule = resolve_pair(pcb, net, None, RuleKind::Clearance, RuleField::Value)
-        .map_or(board, |s| s.rule);
-    (required, rule)
+    resolve_pair_on(pcb, net, None, layer, RuleKind::Clearance, RuleField::Value)
+        .map_or((Nm::ZERO, board), |s| {
+            (s.value.length().expect("clearance is a length"), s.rule)
+        })
 }
 
 /// The kind of object a piece of copper is, as Keepouts restrict it; `None` for Zone
@@ -194,7 +198,7 @@ pub(crate) fn entered(
     net: Option<Uuid>,
 ) -> Vec<KeepoutHit> {
     let mut out = Vec::new();
-    let mut need = None;
+    let mut limits = std::collections::BTreeMap::new();
     for keepout in pcb.keepouts().filter(|k| k.restricts(kind)) {
         let on: Vec<&(Uuid, &Shape)> = pieces
             .iter()
@@ -203,33 +207,41 @@ pub(crate) fn entered(
         if on.is_empty() {
             continue;
         }
-        let (required, rule) = *need.get_or_insert_with(|| clearance(pcb, net));
         let measure = Measure::of(keepout);
         let bounds = measure.bounds();
-        let mut layers = Vec::new();
-        let mut closest: Option<(f64, [Point; 2])> = None;
+        let mut hits: Vec<KeepoutHit> = Vec::new();
         for (layer, shape) in on {
+            let (required, rule) = *limits
+                .entry(*layer)
+                .or_insert_with(|| clearance_on(pcb, net, Some(*layer)));
             if !poly::boxes_within(bounds, shape.bounds(), required.0) {
                 continue;
             }
             let (gap, points) = measure.gap(shape);
-            if gap + TOUCH < required.0 as f64 {
-                layers.push(*layer);
-                if closest.is_none_or(|(g, _)| gap < g) {
-                    closest = Some((gap, points));
+            if gap + TOUCH >= required.0 as f64 {
+                continue;
+            }
+            let actual = Nm(gap.max(0.0).floor() as i64);
+            if let Some(hit) = hits.iter_mut().find(|h| h.rule == rule) {
+                if !hit.layers.contains(layer) {
+                    hit.layers.push(*layer);
                 }
+                if actual < hit.actual {
+                    hit.actual = actual;
+                    hit.points = points;
+                }
+            } else {
+                hits.push(KeepoutHit {
+                    keepout: keepout.uuid,
+                    layers: vec![*layer],
+                    required,
+                    actual,
+                    points,
+                    rule,
+                });
             }
         }
-        if let Some((gap, points)) = closest {
-            out.push(KeepoutHit {
-                keepout: keepout.uuid,
-                layers,
-                required,
-                actual: Nm(gap.max(0.0).floor() as i64),
-                points,
-                rule,
-            });
-        }
+        out.extend(hits);
     }
     out
 }
@@ -261,5 +273,7 @@ pub fn keepouts_hit(pcb: &PcbDocument, proposal: &Proposal) -> Vec<Uuid> {
     entered(pcb, &pieces, kind, net)
         .into_iter()
         .map(|h| h.keepout)
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
         .collect()
 }

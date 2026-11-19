@@ -8,7 +8,7 @@ use schemars::JsonSchema;
 use serde::Serialize;
 
 use super::presets::{PresetRules, outside_presets};
-use super::{ProblemKind, blocking_problems, net_rules, range_problems, triples};
+use super::{ProblemKind, blocking_problems, range_problems, triples};
 
 /// A rule record that cannot be used as it stands.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, JsonSchema)]
@@ -387,48 +387,38 @@ pub fn validate(pcb: &PcbDocument, presets: &[PresetRules]) -> Validation {
             );
         }
     }
-    notes.extend(net_range_notes(pcb));
-    Validation {
-        problems: problems(pcb),
-        notes,
-    }
+    let problems = problems(pcb);
+    notes.extend(net_range_notes(pcb, &problems));
+    Validation { problems, notes }
 }
 
 /// Nets in Net Classes whose resolved ranges are invalid, where no single record of the
 /// kind on the Net has a blocking problem of its own.
-fn net_range_notes(pcb: &PcbDocument) -> Vec<Note> {
+fn net_range_notes(pcb: &PcbDocument, problems: &[Problem]) -> Vec<Note> {
     let mut notes = Vec::new();
     for net in pcb.nets().filter(|n| !n.classes.is_empty()) {
-        let rules = net_rules(pcb, Some(net.uuid));
         for kind in [RuleKind::TrackWidth, RuleKind::ViaSize, RuleKind::HoleSize] {
-            let own_problem = pcb
-                .rules()
-                .filter(|r| r.kind == kind)
-                .filter(|r| r.scope.net_class.is_none_or(|c| net.classes.contains(&c)))
-                .any(|r| !blocking_problems(pcb.board_rule(kind), r).is_empty());
-            if own_problem {
+            if problems
+                .iter()
+                .any(|p| p.kind == kind && p.net_class.is_none_or(|c| net.classes.contains(&c)))
+            {
                 continue;
             }
-            for &triple in triples(kind) {
-                let get = |field: RuleField| -> Option<Nm> {
-                    use RuleField::*;
-                    match field {
-                        Min if kind == RuleKind::TrackWidth => rules.track_width.min,
-                        Preferred => Some(rules.track_width.preferred),
-                        Max if kind == RuleKind::TrackWidth => rules.track_width.max,
-                        Min => rules.hole_min,
-                        Max => rules.hole_max,
-                        DiameterMin => rules.via_diameter.min,
-                        DiameterPreferred => Some(rules.via_diameter.preferred),
-                        DiameterMax => rules.via_diameter.max,
-                        HoleMin => rules.via_hole.min,
-                        HolePreferred => Some(rules.via_hole.preferred),
-                        HoleMax => rules.via_hole.max,
-                        _ => None,
-                    }
-                };
-                for p in range_problems(triple, get) {
-                    let mut note = Note::new(
+            for layer in pcb.copper_layers() {
+                for &triple in triples(kind) {
+                    let get = |field: RuleField| {
+                        super::resolve_on(pcb, Some(net.uuid), Some(layer.uuid), kind, field)
+                            .and_then(|s| s.value.length())
+                            .or_else(|| match field {
+                                RuleField::DiameterPreferred => {
+                                    Some(pcb.stackup().through_type().diameter.start)
+                                }
+                                RuleField::HolePreferred => Some(pcb.stackup().through_type().hole),
+                                _ => None,
+                            })
+                    };
+                    for p in range_problems(triple, get) {
+                        let mut note = Note::new(
                         NoteKind::NetRangeInvalid,
                         format!(
                             "the classes of Net {:?} combine into an invalid `{}` range: `{}` {}",
@@ -442,9 +432,12 @@ fn net_range_notes(pcb: &PcbDocument) -> Vec<Note> {
                         ),
                     )
                     .value(p.field);
-                    note.kind = Some(kind);
-                    note.net = Some(net.uuid);
-                    notes.push(note);
+                        note.kind = Some(kind);
+                        note.net = Some(net.uuid);
+                        if !notes.contains(&note) {
+                            notes.push(note);
+                        }
+                    }
                 }
             }
         }

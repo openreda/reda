@@ -127,6 +127,14 @@ fn rules(ui: &mut Ui, editor: &mut PresetEditor) {
         ] {
             typed(ui, editor, f, label);
         }
+        subheading(ui, tr!("board-layer-inner"));
+        for (field, label) in [
+            (Field::InnerTrackWidth, tr!("preset-track-width")),
+            (Field::InnerClearance, tr!("preset-clearance")),
+            (Field::InnerAnnularRing, tr!("preset-annular-ring")),
+        ] {
+            typed(ui, editor, field, label);
+        }
         subheading(ui, tr!("preset-preferred"));
         for (f, label) in [
             (Field::PreferredTrackWidth, tr!("preset-preferred-track")),

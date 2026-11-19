@@ -796,7 +796,17 @@ const ALL_FIELDS: [RuleField; 38] = [
 #[serde(untagged)]
 pub enum RuleLayers {
     Group(LayerGroup),
-    Named(Vec<Uuid>),
+    Named(
+        #[serde(deserialize_with = "named_layers")]
+        #[schemars(with = "Vec<Uuid>")]
+        Vec<Uuid>,
+    ),
+}
+
+fn named_layers<'de, D: serde::Deserializer<'de>>(de: D) -> Result<Vec<Uuid>, D::Error> {
+    let mut ids = Vec::<Uuid>::deserialize(de)?;
+    ids.sort();
+    Ok(ids)
 }
 
 #[derive(
@@ -841,6 +851,11 @@ pub struct RuleScope {
 }
 
 impl RuleScope {
+    pub const INNER: RuleScope = RuleScope {
+        layers: Some(RuleLayers::Group(LayerGroup::Inner)),
+        ..Self::BOARD
+    };
+
     pub const BOARD: RuleScope = RuleScope {
         net_class: None,
         layers: None,

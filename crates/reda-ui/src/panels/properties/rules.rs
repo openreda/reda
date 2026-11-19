@@ -68,6 +68,10 @@ pub(super) fn show(ui: &mut Ui, shell: &Shell, rules: &Rules, units: Units, out:
                     .class
                     .clone()
                     .unwrap_or_else(|| tr!("properties-rules-board"));
+                let source = row
+                    .layers
+                    .as_ref()
+                    .map_or_else(|| source.clone(), |l| format!("{source} · {l}"));
                 let mut text = match (&row.value, row.standing) {
                     (Some(value), _) => format!(
                         "{} = {}  ({source})",

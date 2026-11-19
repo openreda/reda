@@ -15,7 +15,6 @@ use serde::{Deserialize, Serialize};
 
 use super::{needs_pcb, nullable, pcb};
 use crate::board::seed_rules;
-use crate::rules::blocking_problems;
 
 pub(super) fn register_all(registry: &mut Registry) {
     registry.add(RulesSet);
@@ -281,7 +280,7 @@ pub struct RulesSet;
 #[serde(deny_unknown_fields)]
 pub struct RulesSetParams {
     pub kind: RuleKind,
-    /// Left out, the board-wide record; `{net_class}` names a Net Class's.
+    /// Filter the record by Net Class UUID or class-name pair, and by copper Layers.
     #[serde(default)]
     pub scope: ScopeParam,
     #[serde(default)]
@@ -426,12 +425,11 @@ impl Command for RulesSet {
     const META: Meta = Meta {
         id: "pcb.rules.set",
         title: "Set Design Rule",
-        description: "Sets values of one design rule record: the board-wide record of \
-                      `kind`, or with `scope: {net_class}` that Net Class's, created when \
-                      missing. Values left out keep theirs, and `null` clears one; a Net \
-                      Class record with nothing left is deleted. Nothing is filled in, and a \
-                      negative limit, `min` above `max` or `preferred` outside the range is \
-                      refused. Returns the record, or `null` once deleted.",
+        description: "Edits a rule record identified by kind and scope. The scope may name a \
+                      Net Class by UUID, or an unordered clearance pair by class names, and \
+                      copper Layers by group or UUID list. Omitted fields retain their values. \
+                      A null clears an override and an empty scoped record is deleted. \
+                      Invalid effective ranges are refused. Returns the record or null.",
         category: "pcb",
         icon: "rules",
         kind: Kind::Edit,
@@ -474,7 +472,7 @@ impl Command for RulesSet {
         let uuid = base.uuid;
         let edit = RecordEdit {
             kind: p.kind,
-            scope: scope,
+            scope,
             values: &p.values,
             enabled: p.enabled,
             comment: p.comment,
@@ -508,12 +506,14 @@ pub struct PresetRef {
 /// One board-wide value the preset would change.
 #[derive(Debug, PartialEq, Serialize, JsonSchema)]
 pub struct RuleChange {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub layers: Option<reda_model::LayerGroup>,
     pub kind: RuleKind,
     pub field: RuleField,
     /// The board's value now.
     pub board: Option<RuleValue>,
     /// The preset's value.
-    pub preset: RuleValue,
+    pub preset: Option<RuleValue>,
     /// Whether it is a limit the preset sets, rather than a preferred size or an output
     /// seed.
     pub limit: bool,
@@ -560,24 +560,42 @@ fn rule_changes(pcb: &PcbDocument, preset: &FabRules) -> Vec<RuleChange> {
                     kind,
                     field,
                     board: now,
-                    preset: to,
+                    preset: Some(to),
+                    layers: None,
                     limit: limits.iter().any(|l| l.0 == kind && l.1 == field),
                     ticked: !field.is_preferred(),
                 });
             }
         }
     }
+    for (kind, field, to) in preset.inner.unwrap_or_default().limits() {
+        let board = pcb
+            .scoped_rule(kind, &RuleScope::INNER)
+            .and_then(|r| r.values.get(field));
+        let to = to.map(RuleValue::Length);
+        if board != to {
+            out.push(RuleChange {
+                kind,
+                field,
+                layers: Some(reda_model::LayerGroup::Inner),
+                board,
+                preset: to,
+                limit: true,
+                ticked: true,
+            });
+        }
+    }
     // A preferred row is ticked when the board's value falls outside the new range.
-    let ticked: Vec<(RuleKind, RuleField)> = out
+    let ticked: Vec<(RuleKind, RuleField, Option<reda_model::LayerGroup>)> = out
         .iter()
         .filter(|c| c.ticked)
-        .map(|c| (c.kind, c.field))
+        .map(|c| (c.kind, c.field, c.layers))
         .collect();
     let applied = reseeded(pcb, &out, &ticked);
     for change in out.iter_mut().filter(|c| c.field.is_preferred()) {
         let record = applied
             .iter()
-            .find(|r| r.kind == change.kind)
+            .find(|r| r.kind == change.kind && r.scope.is_board_wide())
             .unwrap_or_else(|| pcb.board_rule(change.kind));
         change.ticked = crate::rules::blocking_problems(record, record)
             .iter()
@@ -590,14 +608,35 @@ fn rule_changes(pcb: &PcbDocument, preset: &FabRules) -> Vec<RuleChange> {
 fn reseeded(
     pcb: &PcbDocument,
     changes: &[RuleChange],
-    rows: &[(RuleKind, RuleField)],
+    rows: &[(RuleKind, RuleField, Option<reda_model::LayerGroup>)],
 ) -> Vec<DesignRule> {
     let mut changed: Vec<DesignRule> = Vec::new();
-    for change in changes.iter().filter(|c| rows.contains(&(c.kind, c.field))) {
-        let rule = match changed.iter().position(|r| r.kind == change.kind) {
+    for change in changes
+        .iter()
+        .filter(|c| rows.contains(&(c.kind, c.field, c.layers)))
+    {
+        let scope = RuleScope {
+            layers: change.layers.map(reda_model::RuleLayers::Group),
+            ..RuleScope::BOARD
+        };
+        let rule = match changed
+            .iter()
+            .position(|r| r.kind == change.kind && r.scope == scope)
+        {
             Some(i) => &mut changed[i],
             None => {
-                changed.push(pcb.board_rule(change.kind).clone());
+                changed.push(
+                    pcb.scoped_rule(change.kind, &scope)
+                        .cloned()
+                        .unwrap_or_else(|| DesignRule {
+                            uuid: pcb.uuid.child(&format!("inner.{}", change.kind.id())),
+                            kind: change.kind,
+                            scope,
+                            values: Default::default(),
+                            enabled: true,
+                            comment: None,
+                        }),
+                );
                 changed.last_mut().expect("just pushed")
             }
         };
@@ -606,7 +645,7 @@ fn reseeded(
             rule.values.percent = None;
         }
         rule.values
-            .set(change.field, Some(change.preset))
+            .set(change.field, change.preset)
             .expect("a seeded field holds the correct type");
     }
     changed
@@ -614,28 +653,41 @@ fn reseeded(
 
 /// The class records that judging over `boards` (new board-wide records) breaks.
 fn class_problems(pcb: &PcbDocument, boards: &[DesignRule]) -> Vec<ClassProblem> {
-    let mut out = Vec::new();
-    for board in boards {
-        let old = pcb.board_rule(board.kind);
-        for record in pcb
-            .rules()
-            .filter(|r| r.kind == board.kind && !r.scope.is_board_wide())
-        {
-            if !blocking_problems(old, record).is_empty() {
-                continue;
-            }
-            if let Some(p) = blocking_problems(board, record).into_iter().next() {
-                out.push(ClassProblem {
-                    rule: record.uuid,
-                    net_class: record.scope.net_class.expect("a class record"),
-                    kind: record.kind,
-                    value: p.field.path().to_owned(),
-                    message: p.message(),
-                });
-            }
-        }
-    }
-    out
+    let mut seen = std::collections::BTreeSet::new();
+    preset_problems(pcb, boards)
+        .into_iter()
+        .filter(|p| seen.insert(p.rule))
+        .filter_map(|p| {
+            Some(ClassProblem {
+                rule: p.rule,
+                net_class: p.net_class?,
+                kind: p.kind,
+                value: p.value,
+                message: p.message,
+            })
+        })
+        .collect()
+}
+
+fn preset_problems(
+    pcb: &PcbDocument,
+    boards: &[DesignRule],
+) -> Vec<crate::rules::validation::Problem> {
+    let old: Vec<_> = pcb.rules().collect();
+    let before = crate::rules::validation::problems_for(pcb, &old);
+    let records: Vec<_> = old
+        .into_iter()
+        .filter(|r| !boards.iter().any(|b| b.uuid == r.uuid))
+        .chain(
+            boards
+                .iter()
+                .filter(|r| r.scope.is_board_wide() || !r.values.is_empty()),
+        )
+        .collect();
+    crate::rules::validation::problems_for(pcb, &records)
+        .into_iter()
+        .filter(|p| !before.contains(p))
+        .collect()
 }
 
 fn preset_rules(project: &Project, uuid: Uuid) -> Result<FabRules, CommandError> {
@@ -676,7 +728,7 @@ impl Command for FabPresetDiff {
         let ticked: Vec<_> = changes
             .iter()
             .filter(|c| c.ticked)
-            .map(|c| (c.kind, c.field))
+            .map(|c| (c.kind, c.field, c.layers))
             .collect();
         let class_problems = class_problems(pcb, &reseeded(pcb, &changes, &ticked));
         Ok(RuleChanges {
@@ -690,6 +742,8 @@ impl Command for FabPresetDiff {
 #[derive(Clone, Copy, Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct RowRef {
+    #[serde(default)]
+    pub layers: Option<reda_model::LayerGroup>,
     pub kind: RuleKind,
     pub field: RuleField,
 }
@@ -732,35 +786,50 @@ impl Command for FabPresetApply {
         let pcb = pcb(cx)?;
         let document = pcb.uuid;
         let all = rule_changes(pcb, &preset);
-        let rows: Vec<(RuleKind, RuleField)> = match &p.rows {
-            Some(rows) => rows.iter().map(|r| (r.kind, r.field)).collect(),
+        let rows: Vec<(RuleKind, RuleField, Option<reda_model::LayerGroup>)> = match &p.rows {
+            Some(rows) => rows.iter().map(|r| (r.kind, r.field, r.layers)).collect(),
             None => all
                 .iter()
                 .filter(|c| c.ticked)
-                .map(|c| (c.kind, c.field))
+                .map(|c| (c.kind, c.field, c.layers))
                 .collect(),
         };
         let changed = reseeded(pcb, &all, &rows);
-        for rule in &changed {
-            if let Some(problem) = blocking_problems(rule, rule).into_iter().next() {
-                return Err(CommandError::invalid_params(
-                    "/rows",
-                    format!(
-                        "{} for the board's `{}` rule; choose its other rows too",
-                        problem.message(),
-                        rule.kind.id()
-                    ),
-                ));
-            }
+        if let Some(problem) = preset_problems(pcb, &changed)
+            .into_iter()
+            .find(|p| p.net_class.is_none())
+        {
+            return Err(CommandError::invalid_params(
+                "/rows",
+                format!(
+                    "{} for the board's {} rule",
+                    problem.message,
+                    problem.kind.id()
+                ),
+            ));
         }
+        let existing: std::collections::BTreeSet<_> = changed
+            .iter()
+            .filter(|r| pcb.rule(r.uuid).is_some())
+            .map(|r| r.uuid)
+            .collect();
         let class_problems = class_problems(pcb, &changed);
         let changes = all
             .into_iter()
-            .filter(|c| rows.contains(&(c.kind, c.field)))
+            .filter(|c| rows.contains(&(c.kind, c.field, c.layers)))
             .collect();
         let tx = cx.tx()?;
         for rule in changed {
-            tx.replace(Object::DesignRule(InDocument::new(document, rule)))?;
+            let id = rule.uuid;
+            let empty = !rule.scope.is_board_wide() && rule.values.is_empty();
+            let object = Object::DesignRule(InDocument::new(document, rule));
+            if empty {
+                tx.remove(id)?;
+            } else if existing.contains(&id) {
+                tx.replace(object)?;
+            } else {
+                tx.insert(object)?;
+            }
         }
         Ok(RuleChanges {
             changes,
@@ -857,12 +926,10 @@ impl Command for RulesApplicable {
     const META: Meta = Meta {
         id: "pcb.rules.applicable",
         title: "Applicable Rules",
-        description: "Explains the design rules for one or two copper objects (Tracks, Vias, \
-                      Free Pads, Zones, Pads as `{footprint, pad}`, or Nets). Per kind: the \
-                      winning values and the record each comes from, the records that lost, \
-                      the disabled ones, and the DRC check's severity; for two objects, \
-                      each one's `clearance` and `hole_to_hole` and which applied \
-                      (`between`).",
+        description: "Explains each field on one or two Tracks, Vias, Free Pads, Zones, \
+                      placed Pads or Nets. Distinct Layer results list their copper Layer UUIDs. \
+                      Each kind names its winners, overridden and disabled records, and severity. \
+                      For two objects, between names the winning clearance pair or object.",
         category: "pcb",
         icon: "rules",
         kind: Kind::Query,
@@ -932,12 +999,9 @@ impl Command for RulesAffected {
     const META: Meta = Meta {
         id: "pcb.rules.affected",
         title: "Objects a Rule Affects",
-        description: "Lists the copper a rule record (`rule`) or a Net Class's records \
-                      (`net_class`) affect: the Nets they supply a value to, their Tracks, \
-                      Vias, Free Pads and Zones (`objects`) and Pads (`pads`, as \
-                      `selection.set` takes them). Objects whose every value another record \
-                      overrides are left out. A board-wide record also affects copper on \
-                      no Net.",
+        description: "Lists the Nets, objects and placed Pads a rule supplies values to on \
+                      their copper Layers. Select a record by rule UUID or by kind and scope, \
+                      or select all records of a Net Class by net_class UUID.",
         category: "pcb",
         icon: "rules",
         kind: Kind::Query,
@@ -1013,7 +1077,7 @@ impl Command for RulesSaveAsPreset {
         title: "Save Rules as Fab Preset",
         description: "Adds a Fab Preset copy to the Project whose rules are the board-wide \
                       design rule values: limits, preferred sizes and mask and paste seeds. \
-                      Net Class records are left out, because presets have no scope, and so \
+                      The Inner limits are included. Other Layer and class records are omitted, as \
                       are Track and Via maximums. Its other settings come from `from`. \
                       `fab_preset.save_user` then keeps it for new Projects.",
         category: "pcb",

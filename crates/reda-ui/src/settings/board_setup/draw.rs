@@ -19,6 +19,7 @@ use crate::widgets::{self, Column};
 
 mod actions;
 mod grid;
+mod scoped;
 mod stackup;
 
 pub use grid::net_classes_page;
@@ -141,6 +142,14 @@ pub fn rule_page(ui: &mut Ui, cx: &mut PageCx<'_>, rule: Rule, board: &mut Board
         }
         ui.add_space(t.space.stack);
         section_ui(ui, cx, section, board);
+        let kind = section.fields[0].rule().0;
+        if kind.accepts_layers()
+            && let Some(pcb) = cx.shell.engine().project().and_then(|p| p.pcb())
+        {
+            ui.push_id(("layer-rules", i), |ui| {
+                scoped::rule_section(ui, pcb, board, kind, section.fields)
+            });
+        }
     }
     ui.add_space(t.space.section);
     layout::muted(ui, tr!("board-setup-units"));

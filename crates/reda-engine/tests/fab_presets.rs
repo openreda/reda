@@ -884,3 +884,42 @@ fn placement_edits_accept_unit_strings_and_require_one_match_kind() {
         assert_eq!(err.code, ErrorCode::InvalidParams);
     }
 }
+
+#[test]
+fn a_user_fab_seeds_inner_limits_on_a_new_multilayer_board() {
+    let home = TempDir::new("inner-process-home");
+    let dir = TempDir::new("inner-process-source");
+    let mut e = test_engine_in(home.path());
+    new_project(&mut e, &dir, json!({}));
+    let preset = only_preset(&e).uuid;
+    e.run_ok("fab_preset.set",json!({"preset":preset,"values":{"rules":{"inner":{"track_width_min":125000,"annular_ring_min":110000}}}}));
+    e.run_ok(
+        "fab_preset.save_user",
+        json!({"preset":preset,"name":"Inner process"}),
+    );
+    let dir = TempDir::new("inner-process-board");
+    new_project(
+        &mut e,
+        &dir,
+        json!({"layers":4,"fab_preset":"Inner process"}),
+    );
+    let board = e.project().unwrap().pcb().unwrap();
+    for (kind, want) in [
+        (RuleKind::TrackWidth, 125000),
+        (RuleKind::AnnularRing, 110000),
+    ] {
+        assert_eq!(
+            board
+                .scoped_rule(kind, &reda_model::RuleScope::INNER)
+                .unwrap()
+                .values
+                .min,
+            Some(Nm(want))
+        );
+    }
+    assert!(
+        board
+            .scoped_rule(RuleKind::Clearance, &reda_model::RuleScope::INNER)
+            .is_none()
+    );
+}

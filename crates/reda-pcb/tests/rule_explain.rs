@@ -199,6 +199,7 @@ fn a_pair_can_relax_both_classes_on_the_measured_layer() {
     let out = engine.run_ok("pcb.rules.applicable", json!({"objects":[tb,ta]}));
     let between = &kind(&out, "clearance")["between"];
     assert_eq!(between["rule"], json!(pair));
+    assert_eq!(between["layers"], "outer");
     assert_eq!(between["value"], 200_000);
     assert_eq!(between["net_class_pair"], json!([hv, hv]));
     assert!(between.get("object").is_none());
@@ -238,4 +239,42 @@ fn affected_limits_a_class_pairs_tracks_to_its_named_layer() {
     );
     assert_eq!(out["objects"], json!([first, second]));
     assert_eq!(out, engine.run_ok("pcb.rules.affected", json!({"rule":id})));
+}
+
+#[test]
+fn a_through_via_lists_each_distinct_layer_result_once() {
+    let dir = TempDir::new("via-layer-explanation");
+    let mut e = probe_engine();
+    e.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Via","layers":4}),
+    );
+    let layers: Vec<_> = e
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .map(|l| l.uuid)
+        .collect();
+    let inner = set(
+        &mut e,
+        json!({"kind":"annular_ring","scope":{"layers":"inner"},"values":{"min":"0.35mm"}}),
+    );
+    let via = uuid(&e.run_ok("pcb.via.add", json!({"at":{"x":0,"y":0}}))["result"]["uuid"]);
+    let out = e.run_ok("pcb.rules.applicable", json!({"objects":[via]}));
+    let groups = out["kinds"].as_array().unwrap();
+    let rings: Vec<_> = groups
+        .iter()
+        .filter(|k| k["kind"] == "annular_ring")
+        .collect();
+    assert_eq!(rings.len(), 2);
+    assert_eq!(rings[0]["layers"], json!([layers[0], layers[3]]));
+    assert_eq!(rings[1]["layers"], json!([layers[1], layers[2]]));
+    assert_eq!(rings[1]["objects"][0]["values"][0]["rule"], json!(inner));
+    assert_eq!(
+        groups.iter().filter(|k| k["kind"] == "track_width").count(),
+        1
+    );
+    assert!(kind(&out, "track_width").get("layers").is_none());
 }

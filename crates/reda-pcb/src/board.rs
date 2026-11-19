@@ -231,7 +231,17 @@ pub fn board_fab_rules(pcb: &PcbDocument) -> FabRules {
     };
     let mask = pcb.board_rule(RuleKind::MaskExpansion).values;
     let paste = pcb.board_rule(RuleKind::PasteExpansion).values;
+    let inner_limit = |kind, field| {
+        pcb.scoped_rule(kind, &RuleScope::INNER)
+            .and_then(|r| r.values.length(field))
+    };
+    let inner = reda_model::InnerFabRules {
+        track_width_min: inner_limit(RuleKind::TrackWidth, Min),
+        clearance: inner_limit(RuleKind::Clearance, Value),
+        annular_ring_min: inner_limit(RuleKind::AnnularRing, Min),
+    };
     FabRules {
+        inner: (inner != Default::default()).then_some(inner),
         clearance_hole: reda_model::HoleClearance::GENERIC,
         clearance: length(RuleKind::Clearance, Value),
         track_width: length(RuleKind::TrackWidth, Min),
@@ -345,6 +355,23 @@ pub fn new_board_with_layers(
             .into_iter()
             .map(|rule| Object::DesignRule(InDocument::new(document, rule))),
     );
+    for (kind, field, min) in rules.inner.unwrap_or_default().limits() {
+        if let Some(value) = min {
+            let mut values = RuleValues::default();
+            values
+                .set(field, Some(reda_model::RuleValue::Length(value)))
+                .expect("inner limit is a length");
+            let rule = DesignRule {
+                uuid: new_id(),
+                kind,
+                scope: RuleScope::INNER,
+                values,
+                enabled: true,
+                comment: None,
+            };
+            objects.push(Object::DesignRule(InDocument::new(document, rule)));
+        }
+    }
     let stackup = seeded_stackup(&layers, stackup, rules.preferred, &mut new_id);
     objects.push(Object::Stackup(InDocument::new(document, stackup)));
     Ok(objects)

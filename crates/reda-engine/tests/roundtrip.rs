@@ -1078,6 +1078,7 @@ fn fab_rules(lengths: [Nm; 7]) -> FabRules {
         edge_clearance,
     ] = lengths;
     FabRules {
+        inner: None,
         clearance_hole: reda_model::HoleClearance::GENERIC,
         mask_expansion: Default::default(),
         paste_expansion: Default::default(),

@@ -8,6 +8,30 @@ use reda_engine::model::{PcbDocument, Project, RuleKind, RuleValue, Severity, Uu
 use reda_engine::pcb::rules::explain::{self, KindRules};
 
 use crate::selection::Selection;
+use crate::tr;
+use reda_engine::model::{LayerGroup, RuleLayers};
+
+pub(crate) fn layer_name(pcb: &PcbDocument, id: Uuid) -> String {
+    let position = pcb.copper_number(id).unwrap_or_default();
+    match pcb.layers().layer(id).and_then(|l| l.name.as_deref()) {
+        Some(name) => format!("L{position} · {name}"),
+        None => format!("L{position}"),
+    }
+}
+
+pub(crate) fn layer_scope_label(pcb: &PcbDocument, layers: &RuleLayers) -> String {
+    match layers {
+        RuleLayers::Group(LayerGroup::Outer) => tr!("board-layer-outer"),
+        RuleLayers::Group(LayerGroup::Inner) => tr!("board-layer-inner"),
+        RuleLayers::Group(LayerGroup::Plane) => tr!("board-layer-plane"),
+        RuleLayers::Named(ids) => pcb
+            .copper_layers()
+            .filter(|l| ids.contains(&l.uuid))
+            .map(|l| layer_name(pcb, l.uuid))
+            .collect::<Vec<_>>()
+            .join(", "),
+    }
+}
 
 /// Whether a record applies.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -30,6 +54,7 @@ pub struct RuleRow {
     pub rule: Uuid,
     /// Its Net Class's name, or `None` for the board-wide record.
     pub class: Option<String>,
+    pub layers: Option<String>,
     /// The values it sets, such as `min` or `diameter.min`: the one won, or those lost.
     pub fields: Vec<String>,
     /// The value it supplies, for a record that won.
@@ -98,6 +123,7 @@ fn rows(pcb: &PcbDocument, kind: KindRules) -> KindRows {
                 object,
                 rule: winner.rule,
                 class: class(winner.net_class),
+                layers: winner.layers.as_ref().map(|l| layer_scope_label(pcb, l)),
                 fields: vec![winner.field],
                 value: Some(winner.value),
             });
@@ -112,6 +138,7 @@ fn rows(pcb: &PcbDocument, kind: KindRules) -> KindRows {
                     object,
                     rule: loser.rule,
                     class: class(loser.net_class),
+                    layers: loser.layers.as_ref().map(|l| layer_scope_label(pcb, l)),
                     fields: loser.fields,
                     value: None,
                 });
@@ -130,11 +157,16 @@ fn rows(pcb: &PcbDocument, kind: KindRules) -> KindRows {
             .as_ref()
             .and_then(|b| b.net_class_pair)
             .map(|ids| {
-                ids.map(|id| {
-                    pcb.net_class(id)
-                        .map_or(reda_engine::pcb::DEFAULT_NET_CLASS, |c| c.name.as_str())
-                })
-                .join(" / ")
+                let names = ids
+                    .map(|id| {
+                        pcb.net_class(id)
+                            .map_or(reda_engine::pcb::DEFAULT_NET_CLASS, |c| c.name.as_str())
+                    })
+                    .join(" / ");
+                match kind.between.as_ref().and_then(|b| b.layers.as_ref()) {
+                    Some(layers) => format!("{names} · {}", layer_scope_label(pcb, layers)),
+                    None => names,
+                }
             }),
         severity: kind.severity,
         rows,
