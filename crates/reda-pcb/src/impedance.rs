@@ -21,20 +21,11 @@ pub enum Model {
 pub struct Estimate {
     pub ohms: f64,
     pub model: Model,
+    pub approximate: bool,
     /// Reference Layer UUIDs, in physical order.
     pub references: Vec<Uuid>,
     /// At least one sheet in the field region used the 4.5 fallback.
     pub missing_dk: bool,
-}
-
-impl Estimate {
-    pub fn approximate(&self) -> bool {
-        self.missing_dk
-            || matches!(
-                self.model,
-                Model::OffsetStripline | Model::EmbeddedMicrostrip
-            )
-    }
 }
 
 #[derive(Clone, Debug, PartialEq, JsonSchema, Serialize)]
@@ -148,6 +139,8 @@ fn estimate(
     (ohms.is_finite() && ohms > 0.0).then_some(Estimate {
         ohms,
         model,
+        approximate: missing_dk
+            || matches!(model, Model::OffsetStripline | Model::EmbeddedMicrostrip),
         references: refs,
         missing_dk,
     })

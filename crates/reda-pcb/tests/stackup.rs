@@ -483,3 +483,38 @@ fn impedance_uses_physical_references_and_the_width_on_each_layer() {
         EmbeddedMicrostrip
     );
 }
+
+#[test]
+fn stackup_query_reports_the_weighted_dk_of_fractional_blank_sheets() {
+    let dir = TempDir::new("stackup-impedance-query");
+    let mut engine = engine(&dir);
+    let (top, bottom, first) = ids(&engine);
+    let document = pcb(&engine).uuid;
+    let second =
+        engine.run_ok("pcb.stackup.dielectric.add", json!({"beside":first}))["result"]["uuid"]
+            .clone();
+    engine.run_ok("pcb.layer.set", json!({"layer":bottom,"role":"plane"}));
+    engine.run_ok("pcb.stackup.set",json!({"thickness":270001,"dielectrics":[{"uuid":first,"dk":4000},{"uuid":second,"dk":4800}]}));
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"track_width","values":{"preferred":350000}}),
+    );
+    let info = engine.run_ok("pcb.stackup.info", json!({"document":document}));
+    assert_eq!(info["entries"][1]["thickness"], 100000.5);
+    let signal = &info["impedance"][0];
+    let estimate = &signal["estimate"];
+    assert_eq!(signal["layer"], json!(top));
+    assert_eq!(signal["width"], 350000);
+    assert_eq!(estimate["model"], "surface_microstrip");
+    assert_eq!(estimate["approximate"], false);
+    assert_eq!(estimate["references"], json!([bottom]));
+    assert!((estimate["ohms"].as_f64().unwrap() - 50.20).abs() < 0.01);
+    assert!(info["impedance"][1].get("estimate").is_none());
+    engine.run_ok(
+        "pcb.stackup.set",
+        json!({"dielectrics":[{"uuid":first,"dk":null}]}),
+    );
+    let info = engine.run_ok("pcb.stackup.info", json!({"document":document}));
+    assert_eq!(info["impedance"][0]["estimate"]["approximate"], true);
+    assert_eq!(info["impedance"][0]["estimate"]["missing_dk"], true);
+}

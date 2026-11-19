@@ -252,9 +252,9 @@ fn layers(ui: &mut Ui, pcb: &PcbDocument, info: &StackupInfo, view: &mut View, e
                             .find(|r| r.layer == uuid)
                             .and_then(|r| r.estimate.as_ref())
                         {
-                            let prefix = if estimate.approximate() { "≈" } else { "" };
+                            let prefix = if estimate.approximate { "≈" } else { "" };
                             let response = row.text(format!("{prefix}{:.1} Ω", estimate.ohms));
-                            if estimate.approximate() {
+                            if estimate.approximate {
                                 use reda_engine::pcb::impedance::Model;
                                 let mut why = Vec::new();
                                 match estimate.model {

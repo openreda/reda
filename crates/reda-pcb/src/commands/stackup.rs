@@ -270,6 +270,8 @@ pub struct InfoParams {
 pub struct InfoOutput {
     #[serde(flatten)]
     physical: reda_model::StackupInfo,
+    /// Bare Track impedance and the Default Net Class width on each copper Layer.
+    impedance: Vec<crate::impedance::LayerImpedance>,
     /// Original Construction name, including while the Stackup is modified.
     construction: Option<String>,
     /// Whether a Project copy still offers the named physical build.
@@ -280,7 +282,7 @@ impl Command for Info {
     const META: Meta = Meta {
         id: "pcb.stackup.info",
         title: "Stackup Information",
-        description: "Resolves each entry's physical thickness and reports the symmetry and ordered-thickness checks.",
+        description: "Reports physical thickness, symmetry, the ordered-thickness check, Construction match and Track impedance without solder mask per copper Layer.",
         category: "pcb",
         icon: "inspect",
         kind: Kind::Query,
@@ -297,8 +299,10 @@ impl Command for Info {
             CommandError::not_found(format!("no PCB Document has UUID {}", p.document))
         })?;
         let stack = pcb.stackup();
+        let physical = stack.info();
         Ok(InfoOutput {
-            physical: stack.info(),
+            impedance: crate::impedance::layers(pcb, &physical),
+            physical,
             construction: stack.construction.clone(),
             construction_matches: cx.project()?.construction_matches(stack),
         })
