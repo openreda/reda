@@ -5,9 +5,12 @@
 use std::path::{Path, PathBuf};
 
 use reda_engine::command::CommandError;
-use reda_engine::model::Uuid;
-use serde_json::{Value, json};
+use reda_engine::model::{LayerGroup, PortableLayers, PortableSpan, RuleKind, Uuid};
+use reda_engine::pcb::rules::transfer::{ImportPreview as Changes, PositionRecord};
+use serde_json::json;
+use std::collections::BTreeSet;
 
+use super::super::draw::{check_name, severity_name};
 use super::{BoardSetupDraft, kind_name};
 use crate::settings::FileRequest;
 use crate::shell::Shell;
@@ -19,35 +22,146 @@ pub struct ImportPreview {
     pub path: PathBuf,
     /// One line per record overwritten, class created and severity changed.
     pub rows: Vec<String>,
+    pub positions: Vec<PositionRecord>,
+}
+
+fn positions(numbers: &[u8]) -> String {
+    numbers
+        .iter()
+        .map(|n| format!("L{n}"))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn span_names(spans: &[PortableSpan]) -> String {
+    spans
+        .iter()
+        .map(|s| {
+            let span = format!("L{}–L{}", s.from, s.to);
+            if s.micro {
+                tr!("board-setup-import-laser-span", span = span)
+            } else {
+                span
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn record_label(
+    kind: RuleKind,
+    class: Option<&str>,
+    pair: Option<&[String; 2]>,
+    layers: Option<&PortableLayers>,
+) -> String {
+    let rule = capitalised(&kind_name(kind));
+    let mut text = if let Some([first, second]) = pair {
+        tr!(
+            "board-setup-import-pair-record",
+            rule = rule,
+            first = first.as_str(),
+            second = second.as_str()
+        )
+    } else if let Some(class) = class {
+        tr!(
+            "board-setup-import-class-record",
+            rule = rule,
+            class = class
+        )
+    } else if layers.is_some() {
+        rule
+    } else {
+        tr!("board-setup-import-board-record", rule = rule)
+    };
+    if let Some(layers) = layers {
+        let layer = match layers {
+            PortableLayers::Group(LayerGroup::Inner) => tr!("board-layer-inner"),
+            PortableLayers::Group(LayerGroup::Outer) => tr!("board-layer-outer"),
+            PortableLayers::Group(LayerGroup::Plane) => tr!("board-layer-plane"),
+            PortableLayers::Positions(set) => positions(set),
+        };
+        text = tr!(
+            "board-setup-import-layer-record",
+            rule = text,
+            layer = layer
+        );
+    }
+    text
+}
+
+impl ImportPreview {
+    pub fn label(record: &PositionRecord) -> String {
+        let text = record_label(
+            record.kind,
+            record.net_class.as_deref(),
+            record.net_class_pair.as_ref(),
+            record.layers.as_ref(),
+        );
+        match &record.allowed {
+            Some(spans) if !spans.is_empty() => tr!(
+                "board-setup-import-allowed",
+                rule = text,
+                spans = span_names(spans)
+            ),
+            Some(_) => tr!("board-setup-import-unrestricted", rule = text),
+            None => text,
+        }
+    }
+
+    pub fn warnings(record: &PositionRecord) -> Vec<String> {
+        let mut warnings = Vec::new();
+        if record.different_copper_count {
+            warnings.push(tr!("board-setup-import-count-mismatch"));
+        }
+        if !record.missing_layers.is_empty() {
+            warnings.push(tr!(
+                "board-setup-import-missing-layers",
+                layers = positions(&record.missing_layers)
+            ));
+        }
+        if !record.missing_types.is_empty() {
+            warnings.push(tr!(
+                "board-setup-import-missing-types",
+                spans = span_names(&record.missing_types)
+            ));
+        }
+        if !record.available {
+            warnings.push(tr!("board-setup-import-skipped"));
+        }
+        warnings
+    }
+
+    fn selected(&self) -> BTreeSet<usize> {
+        self.positions
+            .iter()
+            .filter(|r| r.selected)
+            .map(|r| r.index)
+            .collect()
+    }
 }
 
 /// The lines of a `pcb.rules.import` preview.
-fn preview_rows(result: &Value) -> Vec<String> {
+fn preview_rows(result: &Changes) -> Vec<String> {
     let mut rows = Vec::new();
-    for o in result["overwrites"].as_array().into_iter().flatten() {
-        let kind = serde_json::from_value(o["kind"].clone())
-            .map(kind_name)
-            .unwrap_or_default();
-        let kind = capitalised(&kind);
-        rows.push(match o["net_class"].as_str() {
-            Some(class) => tr!(
-                "board-setup-import-class-record",
-                rule = kind,
-                class = class
-            ),
-            None => tr!("board-setup-import-board-record", rule = kind),
-        });
+    for o in &result.overwrites {
+        if !result.position_records.iter().any(|r| r.index == o.index) {
+            rows.push(record_label(
+                o.kind,
+                o.net_class.as_deref(),
+                o.net_class_pair.as_ref(),
+                o.layers.as_ref(),
+            ));
+        }
     }
-    for class in result["new_classes"].as_array().into_iter().flatten() {
-        let name = class.as_str().unwrap_or_default();
-        rows.push(tr!("board-setup-import-new-class", class = name));
+    for class in &result.new_classes {
+        rows.push(tr!("board-setup-import-new-class", class = class.as_str()));
     }
-    for s in result["severities"].as_array().into_iter().flatten() {
+    for s in &result.severities {
         rows.push(tr!(
             "board-setup-import-severity",
-            check = s["check"].as_str().unwrap_or_default(),
-            before = s["before"].as_str().unwrap_or_default(),
-            after = s["after"].as_str().unwrap_or_default()
+            check = check_name(s.check),
+            before = severity_name(s.before),
+            after = severity_name(s.after)
         ));
     }
     rows
@@ -94,20 +208,50 @@ impl BoardSetupDraft {
                 );
             }
             FileRequest::ImportRules => {
-                let params = json!({ "path": path, "preview": true });
-                match shell.run("pcb.rules.import", params) {
-                    Ok(out) => {
-                        self.notice = None;
-                        self.import = Some(ImportPreview {
-                            path: path.to_owned(),
-                            rows: preview_rows(out.get("result").unwrap_or(&out)),
-                        });
-                    }
-                    Err(e) => self.notice = Some(tr!("error-command", error = e.message)),
-                }
+                self.import = None;
+                self.preview_import(shell, path, None);
             }
             FileRequest::ExportChangeList => {}
         }
+    }
+
+    fn preview_import(
+        &mut self,
+        shell: &mut Shell,
+        path: &Path,
+        selected: Option<BTreeSet<usize>>,
+    ) {
+        let mut params = json!({ "path": path, "preview": true });
+        if let Some(selected) = selected {
+            params["position_records"] = json!(selected);
+        }
+        let result = shell.run("pcb.rules.import", params).and_then(|out| {
+            serde_json::from_value::<Changes>(out.get("result").unwrap_or(&out).clone())
+                .map_err(|err| CommandError::internal(err.to_string()))
+        });
+        match result {
+            Ok(changes) => {
+                self.notice = None;
+                self.import = Some(ImportPreview {
+                    path: path.to_owned(),
+                    rows: preview_rows(&changes),
+                    positions: changes.position_records,
+                });
+            }
+            Err(e) => self.notice = Some(tr!("error-command", error = e.message)),
+        }
+    }
+
+    /// Refreshes the complete preview, including classes and conflicts introduced by this choice.
+    pub fn select_import_position(&mut self, shell: &mut Shell, index: usize, ticked: bool) {
+        let Some(preview) = &self.import else { return };
+        let mut selected = preview.selected();
+        if ticked {
+            selected.insert(index);
+        } else {
+            selected.remove(&index);
+        }
+        self.preview_import(shell, &preview.path.clone(), Some(selected));
     }
 
     /// Imports the previewed file into the board, as one undo step.
@@ -116,7 +260,10 @@ impl BoardSetupDraft {
             return;
         };
         self.notice = Some(
-            match shell.run("pcb.rules.import", json!({ "path": import.path })) {
+            match shell.run(
+                "pcb.rules.import",
+                json!({ "path": import.path, "position_records": import.selected() }),
+            ) {
                 Ok(_) => tr!(
                     "board-setup-imported",
                     path = import.path.display().to_string()

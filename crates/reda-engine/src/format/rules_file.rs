@@ -34,6 +34,9 @@ pub(crate) struct RulesFile {
     #[allow(dead_code, reason = "checked by the migration chain")]
     #[schemars(schema_with = "super::schema::format_version")]
     format: u32,
+    /// Source copper count. Older Rules Files were written on two-Layer boards.
+    #[serde(default = "two_layers")]
+    copper_layers: u8,
     /// The Net Classes the rules name, by name, highest rank first.
     net_classes: Vec<PortableClass>,
     /// The rule records: board-wide ones, then each class's, which name it.
@@ -42,9 +45,14 @@ pub(crate) struct RulesFile {
     severities: DrcSeverities,
 }
 
+fn two_layers() -> u8 {
+    2
+}
+
 pub(crate) fn read_rules_file(path: &Path, bytes: &[u8]) -> Result<RuleSet, LoadError> {
     let file: RulesFile = parse(FileKind::Rules, path, bytes)?;
     let set = RuleSet {
+        copper_layers: file.copper_layers,
         net_classes: file.net_classes,
         rules: file.rules,
         severities: file.severities,
@@ -57,6 +65,7 @@ pub(crate) fn read_rules_file(path: &Path, bytes: &[u8]) -> Result<RuleSet, Load
 
 pub(crate) fn write_rules_file(set: &RuleSet) -> Result<Vec<u8>, CanonicalError> {
     let mut w = CanonicalWriter::new(FORMAT);
+    w.field("copper_layers", &set.copper_layers)?;
     w.field("net_classes", &set.net_classes)?;
     w.list("rules", &set.rules)?;
     w.field("severities", &set.severities)?;
