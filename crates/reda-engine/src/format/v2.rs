@@ -10,7 +10,6 @@ pub(super) fn migrate(kind: FileKind, mut file: Value) -> Result<Value, String> 
         FileKind::Pcb => board(&mut file)?,
         FileKind::FabPreset => preset(&mut file)?,
         FileKind::Rules => {
-            file["copper_layers"] = json!(2);
             let rules = file["rules"].as_array_mut().ok_or("missing rules")?;
             for rule in rules
                 .iter_mut()

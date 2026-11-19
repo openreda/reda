@@ -310,12 +310,9 @@ pub fn plan(
     mut new_id: impl FnMut() -> Uuid,
 ) -> Result<ImportPlan, String> {
     if let Some(rows) = position_records
-        && let Some(index) = rows.iter().find(|&&i| {
-            set.rules.get(i).is_none_or(|r| {
-                !matches!(r.layers, Some(PortableLayers::Positions(_)))
-                    && r.values.allowed.is_none()
-            })
-        })
+        && let Some(index) = rows
+            .iter()
+            .find(|&&i| set.rules.get(i).is_none_or(|r| !r.uses_copper_positions()))
     {
         return Err(format!(
             "no position-dependent source record at index {index}"
@@ -338,8 +335,7 @@ pub fn plan(
         .enumerate()
         .filter(|(_, r)| kinds.is_none_or(|k| k.contains(&r.kind)))
     {
-        let sensitive = matches!(&rule.layers, Some(PortableLayers::Positions(_)))
-            || rule.values.allowed.is_some();
+        let sensitive = rule.uses_copper_positions();
         let different = copper.len() != usize::from(set.copper_layers);
         let mut mapping = PositionRecord {
             index,

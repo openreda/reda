@@ -1178,6 +1178,13 @@ pub struct PortableRule {
     pub comment: Option<String>,
 }
 
+impl PortableRule {
+    /// Whether importing this record depends on the source board's copper positions.
+    pub fn uses_copper_positions(&self) -> bool {
+        matches!(self.layers, Some(PortableLayers::Positions(_))) || self.values.allowed.is_some()
+    }
+}
+
 /// A board's rules made portable between boards (a `.redarules` file): the rule records,
 /// the Net Class names they need, in rank order, and the DRC severities. It holds no Net
 /// membership, because Net names differ per board.
