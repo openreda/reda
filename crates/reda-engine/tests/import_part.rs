@@ -22,8 +22,15 @@ fn fixture(name: &str) -> PathBuf {
 /// A Project in `dir/Demo` with the empty Project Library `dir/Demo/lib`, and per-user
 /// folders under `dir/home`.
 fn engine(dir: &TempDir) -> TestEngine {
+    engine_with_layers(dir, 2)
+}
+
+fn engine_with_layers(dir: &TempDir, layers: u8) -> TestEngine {
     let mut e = test_engine_in(&dir.path().join("home"));
-    e.run_ok("project.new", json!({"path": dir.path(), "name": "Demo"}));
+    e.run_ok(
+        "project.new",
+        json!({"path": dir.path(), "name": "Demo", "layers": layers}),
+    );
     let lib = dir.path().join("Demo/lib");
     std::fs::create_dir_all(&lib).unwrap();
     let info = LibraryInfo {
@@ -278,4 +285,89 @@ fn placed_copies_keep_their_provenance() {
         std::fs::read_to_string(folder.join("Demo.redasch")).unwrap(),
         text
     );
+}
+
+#[test]
+fn imported_and_authored_pad_stacks_survive_placement_flipping_and_save_open() {
+    use reda_engine::format::library::{read_footprint, write_footprint};
+    use reda_engine::model::{
+        PadShape, Side, UnusedLayers,
+        geom::{CornerCut, Nm, Point},
+    };
+    use reda_engine::pcb::placed::placed_pads;
+
+    let dir = TempDir::new("import-stack-place");
+    let mut e = engine_with_layers(&dir, 4);
+    let folder = dir.path().join("Demo");
+    let fp_path = folder.join("lib/footprints/Stacked_Header.redafp");
+    let imported = e.run_ok(
+        "library.import_part",
+        params(
+            &fixture("divider.kicad_sym"),
+            &fixture("stacked_pads.kicad_mod"),
+        ),
+    );
+    let fp_bytes = std::fs::read(&fp_path).unwrap();
+    let fp = read_footprint(&fp_path, &fp_bytes).unwrap();
+    assert_eq!(write_footprint(&fp).unwrap(), fp_bytes);
+    // Give the second imported Pad an authored inner diameter before placing it.
+    e.run_ok("library.element.open", json!({"element":fp.uuid}));
+    let pad2 = fp.pads.iter().find(|p| p.number == "2").unwrap();
+    e.run_ok(
+        "library.footprint.pad.edit",
+        json!({"footprint":fp.uuid,"pad":pad2.uuid,
+        "middle":{"shape":"circle","width":"1.25mm","height":"1.25mm"}}),
+    );
+    e.run_ok("library.element.save", json!({"element":fp.uuid}));
+    let sheet = e.run_ok("project.overview", json!({}))["documents"][0]["uuid"].clone();
+    e.run_ok(
+        "schematic.component.place",
+        json!({"document":sheet,"part":imported["part"],"at":{"x":0,"y":0}}),
+    );
+    let plan = e.run_ok("sync.preview", json!({}));
+    e.run_ok("sync.apply", json!({"hash":plan["hash"]}));
+    let pads = |e: &TestEngine| {
+        let board = e.project().unwrap().pcb().unwrap();
+        assert_eq!(board.copper_layers().count(), 4);
+        let instance = board.footprints().next().unwrap();
+        (instance.uuid, placed_pads(board, instance))
+    };
+    let (instance, top) = pads(&e);
+    let p = top.iter().find(|p| p.number == "1").unwrap();
+    // A 0.6 × 0.4 mm slot has a 0.2 mm centre line, turned by the Pad's 30°.
+    let half_slot = Point::new(Nm(86_603), Nm(50_000));
+    assert_eq!(p.hole_ends(), Some((p.at - half_slot, p.at + half_slot)));
+    assert_eq!(
+        (p.shape, p.outline.width, p.unused_layers),
+        (PadShape::Rect, Nm(2_000_000), UnusedLayers::Remove)
+    );
+    assert_eq!(p.copper_on(None).1.width, Nm(1_200_000));
+    assert_eq!(
+        p.copper_on(Some(Side::Bottom)).1.corners[0],
+        CornerCut::Chamfer(Nm(200_000))
+    );
+    let p2 = top.iter().find(|p| p.number == "2").unwrap();
+    assert_eq!(p2.copper_on(None).0, PadShape::Circle);
+    assert_eq!(p2.copper_on(None).1.width, Nm(1_250_000));
+
+    e.run_ok("pcb.flip", json!({"objects":[instance]}));
+    let (_, bottom) = pads(&e);
+    let p = bottom.iter().find(|p| p.number == "1").unwrap();
+    let mirrored_axis = Point::new(half_slot.x, -half_slot.y);
+    assert_eq!(
+        p.hole_ends(),
+        Some((p.at - mirrored_axis, p.at + mirrored_axis))
+    );
+    assert_eq!(p.shape, PadShape::ChamferedRect);
+    assert_eq!(p.outline.corners[1], CornerCut::Chamfer(Nm(200_000)));
+    assert_eq!(p.copper_on(Some(Side::Bottom)).1.width, Nm(2_000_000));
+    assert_eq!(p.copper_on(None).1.width, Nm(1_200_000));
+    e.run_ok("project.save", json!({}));
+    let board_file = folder.join("Demo.redapcb");
+    let before = std::fs::read(&board_file).unwrap();
+    let mut reopened = test_engine_in(&dir.path().join("home"));
+    reopened.run_ok("project.open", json!({"path":folder}));
+    assert_eq!(pads(&reopened), (instance, bottom));
+    reopened.run_ok("project.save", json!({}));
+    assert_eq!(std::fs::read(&board_file).unwrap(), before);
 }

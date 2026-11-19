@@ -97,6 +97,30 @@ fn moving_pads_graphics_and_texts_is_one_undo_step() {
 }
 
 #[test]
+fn an_authored_middle_land_can_fit_the_rounded_ends_of_a_rotated_slot() {
+    let (home, work) = (TempDir::new("fp-slot-home"), TempDir::new("fp-slot-work"));
+    let (mut e, fp) = new_footprint(&home, &work);
+    // The 0.4 mm centre line projects to 0.283 mm on each axis. The cutter adds
+    // 0.4 mm to each extent, leaving copper inside a 0.75 mm square land.
+    let added = e.run_ok(
+        "library.footprint.pad.add",
+        json!({"footprint": fp, "number":"1", "kind":"plated_through_hole", "shape":"rect",
+            "at":{"x":0,"y":0}, "width":"1.2mm", "height":"1.2mm",
+            "hole":{"width":"0.8mm","height":"0.4mm","rotation":"45deg"},
+            "middle":{"shape":"rect","width":"0.75mm","height":"0.75mm"}}),
+    );
+    let p = &footprint(&e, &fp).pads[0];
+    assert!(p.form_on(None).annular_ring().unwrap() > Nm::ZERO);
+    let err = e.run_err(
+        "library.footprint.pad.edit",
+        json!({"footprint":fp,"pad":added["result"]["pad"],
+            "middle":{"shape":"rect","width":"0.65mm","height":"0.75mm"}}),
+    );
+    assert_eq!(err.code, ErrorCode::InvalidParams);
+    assert_eq!(err.details.unwrap()["pointer"], "/middle/hole");
+}
+
+#[test]
 fn deleting_removes_pads_graphics_and_texts() {
     let (home, work) = (TempDir::new("fpd-home"), TempDir::new("fpd-work"));
     let (mut e, fp) = new_footprint(&home, &work);

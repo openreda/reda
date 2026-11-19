@@ -271,10 +271,13 @@ fn check_footprint(footprint: &Footprint, r: &mut Report<'_>) {
         }
 
         let outside = pad.kind == PadKind::PlatedThroughHole
-            && pad
-                .form()
-                .annular_ring()
-                .is_some_and(|ring| ring < Nm::ZERO);
+            && [Some(Side::Top), None, Some(Side::Bottom)]
+                .into_iter()
+                .any(|side| {
+                    pad.form_on(side)
+                        .annular_ring()
+                        .is_some_and(|ring| ring < Nm::ZERO)
+                });
         if outside {
             r.add(LibraryCheck::HoleOutsideCopper, |v| {
                 v.arg("pad", pad.number.as_str())
