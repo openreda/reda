@@ -123,6 +123,24 @@ pub fn seed_rules(rules: &FabRules) -> Vec<(RuleKind, RuleValues)> {
     ]
 }
 
+/// Silk rules have deterministic format-2 identities. Unspecified fabrication
+/// limits produce the zero minimum used when migrating an existing board.
+pub fn silk_rules(rules: &FabRules) -> [(RuleKind, RuleValues); 2] {
+    [
+        (RuleKind::SilkWidth, rules.silk_width),
+        (RuleKind::SilkTextHeight, rules.silk_text_height),
+    ]
+    .map(|(kind, limit)| {
+        (
+            kind,
+            RuleValues {
+                min: Some(limit.unwrap_or_default()),
+                ..Default::default()
+            },
+        )
+    })
+}
+
 pub(crate) fn microvia_seeds(rules: &FabRules) -> RuleValues {
     let micro = rules.microvia_size.unwrap_or_default();
     let bounds = |v: reda_model::FabSizeLimits| Bounds {
@@ -287,6 +305,16 @@ pub fn board_fab_rules(pcb: &PcbDocument) -> FabRules {
     };
     FabRules {
         inner: (inner != Default::default()).then_some(inner),
+        silk_width: pcb
+            .board_rule(RuleKind::SilkWidth)
+            .values
+            .min
+            .filter(|v| v.0 > 0),
+        silk_text_height: pcb
+            .board_rule(RuleKind::SilkTextHeight)
+            .values
+            .min
+            .filter(|v| v.0 > 0),
         microvia_size: (micro != Default::default()).then_some(micro),
         via_aspect_ratio: pcb.board_rule(RuleKind::ViaSize).values.aspect_ratio,
         clearance_hole: reda_model::HoleClearance {
@@ -455,7 +483,12 @@ fn build_board(
         objects.push(Object::DesignRule(InDocument::new(document, rule)));
     }
     objects.extend(multilayer_rules(document).into_iter().map(|mut rule| {
-        if rule.kind == RuleKind::MicroviaSize {
+        if let Some((_, values)) = silk_rules(rules)
+            .into_iter()
+            .find(|(kind, _)| *kind == rule.kind)
+        {
+            rule.values = values;
+        } else if rule.kind == RuleKind::MicroviaSize {
             rule.values = microvia_seeds(rules);
         }
         Object::DesignRule(InDocument::new(document, rule))

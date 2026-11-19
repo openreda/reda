@@ -48,6 +48,14 @@ pub fn preset_limits(rules: &FabRules) -> Vec<(RuleKind, RuleField, Limit, Measu
     .into_iter()
     .map(|(kind, field, limit, bound)| (kind, field, limit, Measurement::Length(bound)))
     .collect();
+    for (kind, value) in [
+        (RuleKind::SilkWidth, rules.silk_width),
+        (RuleKind::SilkTextHeight, rules.silk_text_height),
+    ] {
+        if let Some(min) = value {
+            limits.push((kind, Min, Limit::Min, Measurement::Length(min)));
+        }
+    }
     let laser = crate::board::microvia_seeds(rules);
     for (field, limit) in [
         (DiameterMin, Limit::Min),

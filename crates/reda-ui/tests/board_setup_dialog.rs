@@ -281,6 +281,15 @@ fn rule_pages_hold_each_check_with_values_preset_limits_overrides_and_severity()
     h.get_by_label("Silkscreen to Edge: Warning");
     h.get_by_role_and_label(Role::TextInput, "Power: Silkscreen to edge");
     page(&mut h, "Silkscreen");
+    for minimum in [
+        "Minimum silkscreen stroke width",
+        "Minimum silkscreen text height",
+    ] {
+        assert!(
+            h.query_by_role_and_label(Role::TextInput, &format!("Power: {minimum}"))
+                .is_none()
+        );
+    }
     h.get_by_label("Silkscreen to Mask: Warning").click();
     h.run();
     h.get_by_role_and_label(Role::ComboBox, "Measure silkscreen to");

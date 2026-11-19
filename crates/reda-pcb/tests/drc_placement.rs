@@ -344,3 +344,52 @@ fn a_dimension_on_the_silkscreen_is_checked_like_its_lines_and_text() {
         "{run:#}"
     );
 }
+
+#[test]
+fn silk_minimums_measure_lines_and_stroke_text_on_both_sides_and_skip_outline_strokes() {
+    let dir = TempDir::new("silk-limits");
+    let mut e = reda_testkit::probe_engine();
+    e.run_ok("project.new", json!({"name":"Silk","path":dir.path()}));
+    for (kind, min) in [("silk_width", "0.15mm"), ("silk_text_height", "1mm")] {
+        e.run_ok("pcb.rules.set", json!({"kind":kind,"values":{"min":min}}));
+    }
+    let mut text = |layer: &str, font: &str, x: i32| {
+        created(&e.run_ok(
+            "pcb.text.add",
+            json!({
+                "layer":layer,"text":"X","font":font,"x":x*1_000_000,"y":"4mm",
+                "height":"0.8mm","thickness":"0.10mm"
+            }),
+        ))
+    };
+    let stroke = text("silkscreen_bottom", reda_model::HERSHEY_FONT, 1);
+    let outline = text("silkscreen_top", reda_model::NOTO_SANS_FONT, 3);
+    let copper = text("copper_top", reda_model::HERSHEY_FONT, 5);
+    let line = created(&e.run_ok(
+        "pcb.graphic.add_line",
+        json!({
+            "layer":"silkscreen_top","from":{"x":0,"y":0},"to":{"x":"1mm","y":0},"width":"0.14mm"
+        }),
+    ));
+    let fp = uuid(&e.run_ok("test.footprint.add",json!({
+        "at":{"x":"10mm","y":"10mm"},"pads":[],"graphics":[{"layer":"silkscreen_bottom","width":"0.12mm",
+        "shape":{"kind":"line","start":{"x":0,"y":0},"end":{"x":1000000,"y":1000000}}}]
+    }))["result"]["footprint"]);
+    let checks = drc(&mut e);
+    let widths = objects_of(&checks, "silk_width");
+    assert!(widths.contains(&vec![line]));
+    assert!(widths.contains(&vec![fp]));
+    assert!(widths.contains(&vec![stroke]));
+    assert!(!widths.contains(&vec![outline]));
+    assert!(!widths.contains(&vec![copper]));
+    let heights = objects_of(&checks, "silk_text_height");
+    assert!(heights.contains(&vec![stroke]));
+    assert!(heights.contains(&vec![outline]));
+    assert!(!heights.contains(&vec![copper]));
+    for check in ["silk_width", "silk_text_height"] {
+        for row in of(&checks, check) {
+            assert_eq!(row["severity"], "warning");
+            assert_eq!(row["layers"].as_array().unwrap().len(), 1);
+        }
+    }
+}

@@ -615,7 +615,10 @@ pub struct RuleChanges {
 fn rule_changes(pcb: &PcbDocument, preset: &FabRules) -> Vec<RuleChange> {
     let limits = crate::rules::presets::preset_limits(preset);
     let mut out = Vec::new();
-    for (kind, seeds) in seed_rules(preset) {
+    for (kind, seeds) in seed_rules(preset)
+        .into_iter()
+        .chain(crate::silk_rules(preset))
+    {
         let board = &pcb.board_rule(kind).values;
         for field in seeds.set_fields() {
             if field == RuleField::AspectRatioMax {

@@ -34,7 +34,7 @@ pub mod zone;
 pub use board::{
     DEAD_COPPER_MIN_AREA, DEFAULT_NET_CLASS, PAD_CONNECTION_SEED, V01_LAYERS, VIA_CONNECTION_SEED,
     board_fab_rules, default_rules, multilayer_rules, new_board, new_board_from_preset,
-    new_board_with_layers, seed_rules,
+    new_board_with_layers, seed_rules, silk_rules,
 };
 pub use commands::layer::LayerRef;
 pub use commands::placement::arrange::natural_cmp;

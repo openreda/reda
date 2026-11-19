@@ -2,7 +2,7 @@
   "format": 1,
   "reda": "0.0.0-test",
   "job": {"uuid":"00000000-0000-4000-8000-000000000030","name":"HDI"},
-  "fab_preset": {"name":"Generic","sha256":"15f90f00d110dfaa221cfb65d89852109fb5ddbd0f94bce8f441fa6bc6464145"},
+  "fab_preset": {"name":"Generic","sha256":"eff7d954e555b25da8efd53a1cf85339a07944ce3094db8fa8048f28b3208cfe"},
   "pcb": "00000000-0000-4000-8000-000000000003",
   "revision": "A",
   "date": "2026-01-01T00:00:00Z",

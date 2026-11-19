@@ -213,6 +213,26 @@ fn section_ui(ui: &mut Ui, cx: &mut PageCx<'_>, section: &Section, board: &mut B
         board.shown(kind, ClassKey::Default).into_iter().collect(),
     );
     ui.add_space(t.space.section);
+    if kind.accepts_net_class() {
+        class_overrides(ui, cx, section, board);
+    }
+    if let Some(check) = section.check {
+        ui.add_space(t.space.stack);
+        ui.horizontal(|ui| {
+            layout::text(ui, tr!("board-setup-severity", check = check_name(check)));
+            severity_choice(ui, board, check);
+        });
+    }
+}
+
+fn class_overrides(
+    ui: &mut Ui,
+    cx: &mut PageCx<'_>,
+    section: &Section,
+    board: &mut BoardSetupDraft,
+) {
+    let salt = section.fields[0];
+    let kind = salt.rule().0;
     let overrides = section.fields;
     let classes: Vec<(ClassKey, String)> = board
         .live_classes()
@@ -271,13 +291,6 @@ fn section_ui(ui: &mut Ui, cx: &mut PageCx<'_>, section: &Section, board: &mut B
         tr!("board-setup-overrides-note")
     };
     layout::muted(ui, note);
-    if let Some(check) = section.check {
-        ui.add_space(t.space.stack);
-        ui.horizontal(|ui| {
-            layout::text(ui, tr!("board-setup-severity", check = check_name(check)));
-            severity_choice(ui, board, check);
-        });
-    }
 }
 
 /// Show on board for one row, announced as "Show <what> on board"; disabled for a

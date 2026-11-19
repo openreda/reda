@@ -6,8 +6,151 @@
   "project": "Minimal",
   "refilled": false,
   "stale_waivers": [],
-  "summary": [],
+  "summary": [
+    {
+      "check": "silk_width",
+      "count": 5,
+      "severity": "warning",
+      "waived": 0
+    }
+  ],
   "unmatched_waivers": [],
-  "violations": [],
+  "violations": [
+    {
+      "args": {
+        "actual": 120000,
+        "required": 150000
+      },
+      "at": {
+        "x": 13490000,
+        "y": 7000000
+      },
+      "check": "silk_width",
+      "document": "00000000-0000-4000-8000-000000000003",
+      "layers": [
+        "00000000-0000-4000-8000-000000000007"
+      ],
+      "limit": "min",
+      "measured": {
+        "length": 120000
+      },
+      "objects": [
+        "00000000-0000-4000-8000-00000000004d"
+      ],
+      "required": {
+        "length": 150000
+      },
+      "rule": "f0795c00-2af6-8b6f-a29c-1e9c117f1a6e",
+      "severity": "warning"
+    },
+    {
+      "args": {
+        "actual": 120000,
+        "required": 150000
+      },
+      "at": {
+        "x": 5000000,
+        "y": 12600000
+      },
+      "check": "silk_width",
+      "document": "00000000-0000-4000-8000-000000000003",
+      "layers": [
+        "00000000-0000-4000-8000-000000000007"
+      ],
+      "limit": "min",
+      "measured": {
+        "length": 120000
+      },
+      "objects": [
+        "00000000-0000-4000-8000-00000000004f"
+      ],
+      "required": {
+        "length": 150000
+      },
+      "rule": "f0795c00-2af6-8b6f-a29c-1e9c117f1a6e",
+      "severity": "warning"
+    },
+    {
+      "args": {
+        "actual": 120000,
+        "required": 150000
+      },
+      "at": {
+        "x": 3670000,
+        "y": 10000000
+      },
+      "check": "silk_width",
+      "document": "00000000-0000-4000-8000-000000000003",
+      "layers": [
+        "00000000-0000-4000-8000-000000000007"
+      ],
+      "limit": "min",
+      "measured": {
+        "length": 120000
+      },
+      "objects": [
+        "00000000-0000-4000-8000-00000000004f"
+      ],
+      "required": {
+        "length": 150000
+      },
+      "rule": "f0795c00-2af6-8b6f-a29c-1e9c117f1a6e",
+      "severity": "warning"
+    },
+    {
+      "args": {
+        "actual": 120000,
+        "required": 150000
+      },
+      "at": {
+        "x": 5000000,
+        "y": 7400000
+      },
+      "check": "silk_width",
+      "document": "00000000-0000-4000-8000-000000000003",
+      "layers": [
+        "00000000-0000-4000-8000-000000000007"
+      ],
+      "limit": "min",
+      "measured": {
+        "length": 120000
+      },
+      "objects": [
+        "00000000-0000-4000-8000-00000000004f"
+      ],
+      "required": {
+        "length": 150000
+      },
+      "rule": "f0795c00-2af6-8b6f-a29c-1e9c117f1a6e",
+      "severity": "warning"
+    },
+    {
+      "args": {
+        "actual": 120000,
+        "required": 150000
+      },
+      "at": {
+        "x": 6330000,
+        "y": 10000000
+      },
+      "check": "silk_width",
+      "document": "00000000-0000-4000-8000-000000000003",
+      "layers": [
+        "00000000-0000-4000-8000-000000000007"
+      ],
+      "limit": "min",
+      "measured": {
+        "length": 120000
+      },
+      "objects": [
+        "00000000-0000-4000-8000-00000000004f"
+      ],
+      "required": {
+        "length": 150000
+      },
+      "rule": "f0795c00-2af6-8b6f-a29c-1e9c117f1a6e",
+      "severity": "warning"
+    }
+  ],
   "waived": 0
 }

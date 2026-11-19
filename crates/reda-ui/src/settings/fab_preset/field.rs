@@ -22,6 +22,8 @@ pub enum Field {
     AnnularRing,
     HoleToHole,
     EdgeClearance,
+    SilkWidth,
+    SilkTextHeight,
     InnerTrackWidth,
     InnerClearance,
     InnerAnnularRing,
@@ -62,6 +64,8 @@ impl Field {
         Field::AnnularRing,
         Field::HoleToHole,
         Field::EdgeClearance,
+        Field::SilkWidth,
+        Field::SilkTextHeight,
         Field::InnerTrackWidth,
         Field::InnerClearance,
         Field::InnerAnnularRing,
@@ -102,6 +106,8 @@ impl Field {
             Field::AnnularRing => "rules.annular_ring",
             Field::HoleToHole => "rules.hole_to_hole",
             Field::EdgeClearance => "rules.edge_clearance",
+            Field::SilkWidth => "rules.silk_width",
+            Field::SilkTextHeight => "rules.silk_text_height",
             Field::InnerTrackWidth => "rules.inner.track_width_min",
             Field::InnerClearance => "rules.inner.clearance",
             Field::InnerAnnularRing => "rules.inner.annular_ring_min",
@@ -154,6 +160,8 @@ impl Field {
             Field::AnnularRing => format_mm(r.annular_ring),
             Field::HoleToHole => format_mm(r.hole_to_hole),
             Field::EdgeClearance => format_mm(r.edge_clearance),
+            Field::SilkWidth => r.silk_width.map(format_mm).unwrap_or_default(),
+            Field::SilkTextHeight => r.silk_text_height.map(format_mm).unwrap_or_default(),
             Field::InnerTrackWidth => r
                 .inner
                 .and_then(|inner| inner.track_width_min)
@@ -244,6 +252,8 @@ impl Field {
             Field::AnnularRing => r.annular_ring = size(text)?,
             Field::HoleToHole => r.hole_to_hole = size(text)?,
             Field::EdgeClearance => r.edge_clearance = size(text)?,
+            Field::SilkWidth => r.silk_width = optional(text, size)?,
+            Field::SilkTextHeight => r.silk_text_height = optional(text, size)?,
             Field::InnerClearance | Field::InnerTrackWidth | Field::InnerAnnularRing => {
                 let mut inner = r.inner.unwrap_or_default();
                 let value = optional(text, size)?;
