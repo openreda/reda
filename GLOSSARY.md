@@ -195,7 +195,7 @@ An edge of the Board Outline or of a Board Cutout that the fab plates with coppe
 _Avoid_: Edge plating (that is the process), castellation, metallised edge
 
 **Board Template**:
-A named, reusable starting point for a new PCB Document's mechanical frame, such as a Raspberry Pi HAT+ or a PCIe x4 card: its Board Outline, Board Cutouts, mounting holes, Keepouts and connectors, a suggested layer count, and drawings such as the host board's outline and the key Dimensions. It lives in a Library and may offer choices and lengths, such as lane count or board width, that shape what it creates. A board made from one keeps no link to it.
+A named, reusable starting point for a new PCB Document's mechanical frame, such as an add-on board for a Raspberry Pi or a PCIe x4 card: its Board Outline, Board Cutouts, mounting holes, Keepouts and connectors, a suggested layer count, and drawings such as the host board's outline and the key Dimensions. It lives in a Library and may offer choices and lengths, such as lane count or board width, that shape what it creates. A board made from one keeps no link to it.
 _Avoid_: Board preset, form factor (alone), project template, sheet template
 
 **Layer**:

@@ -27,6 +27,7 @@ Each milestone after v0.1 is a themed release that gives hobbyists a usable step
 |---|---|---|
 | **v0.1 Schematic to fab** | multiple flat sheets, a 2-layer PCB, manual routing, Zones, ERC/DRC, Gerber/Excellon/BOM/CPL, library editors and generators, Import part, MCP/CLI | see [`v0.1/`](v0.1/README.md) |
 | **v0.2 Multilayer** | 4 or more copper Layers; Stackup editor; blind, buried and micro Vias; teardrops; CPL rotation corrections per Fab Preset | the N-layer model and Vias with a layer span; Fab Presets |
+| **v0.2.5 Board Templates** | new boards from Board Templates with a live preview; a built-in catalogue (Pi, Pico, Arduino, Feather, Eurocard, M.2, PCIe); Save Board as Template; Edge Connector Pads, Castellated Pads and Plated Edges | Library elements; the numeric-expression evaluator ([ADR-0016](../adr/0016-board-templates-are-parametric-library-elements.md)) |
 | **v0.3 Mechanical & 3D** | 3D view of the board; 3D models on Footprints; STEP export; DXF import and export (Board Outline, mechanical Layers) | Scene + wgpu backend ([ADR-0010](../adr/0010-canvas-drawn-by-own-wgpu-renderer.md)); Footprint/Part elements ([ADR-0008](../adr/0008-parts-bind-symbols-and-footprints.md)) |
 | **v0.4 Interactive routing** | push-and-shove; differential pairs; length tuning | the v0.1 router that stops at clearance; Net Classes |
 | **v0.5 Design scale** | hierarchical sheets with Sheet Instances, plus buses; multi-board Projects; Panel Documents; Variants; pin and gate swaps | [ADR-0004](../adr/0004-connectivity-derived-from-schematic-documents-own-their-data.md), [ADR-0006](../adr/0006-one-way-sync-with-write-through-edits.md) |
@@ -46,6 +47,11 @@ Each milestone after v0.1 is a themed release that gives hobbyists a usable step
 - Free text and graphics on copper join the Copper index and DRC ([#121](https://github.com/openreda/reda/issues/121)).
 - The two UI refactors still open from the v0.1 review, done before the multilayer work ([#122](https://github.com/openreda/reda/issues/122)).
 - What else was once marked v0.2 and where it went: [`v0.2/scope.md`](v0.2/scope.md).
+
+### Board Templates (v0.2.5), in `reda-library`, `reda-engine` and `reda-ui`
+- Board Templates as parametric `.redaboard` Library elements, with built-ins in the Starter Library ([v0.2.5 scope](v0.2.5/scope.md)).
+- The Browser picker and live 2D preview in New Project and Add PCB Document; Save Board as Template.
+- Edge Connector Pads, Castellated Pads and Plated Edges, with their fab outputs.
 
 ### Mechanical & 3D (v0.3)
 - A **3D view** in a new `reda-3d` crate. It builds its scene from the model, and `reda-render`'s wgpu backend draws it.
