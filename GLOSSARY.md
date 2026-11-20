@@ -190,6 +190,10 @@ _Avoid_: Board shape, edge cuts, outline layer
 A closed shape inside the Board Outline where the board material is removed.
 _Avoid_: Slot (a slot is a hole), hole, void
 
+**Board Template**:
+A named, reusable starting point for a new PCB Document's mechanical frame, such as a Raspberry Pi HAT+ or a PCIe x4 card: its Board Outline, Board Cutouts, mounting holes, Keepouts and connectors, and a suggested layer count. It lives in a Library and may offer choices and lengths, such as lane count or board width, that shape what it creates. A board made from one keeps no link to it.
+_Avoid_: Board preset, form factor (alone), project template, sheet template
+
 **Layer**:
 One plane of the PCB Document on which objects sit, such as Top Copper, Bottom Silkscreen or Board Outline.
 _Avoid_: Plane (alone), sheet, level
@@ -225,6 +229,14 @@ _Avoid_: Padstack (as a library object), layer stack
 **Free Pad**:
 A Pad placed directly on the board without belonging to any Footprint, such as a mounting hole.
 _Avoid_: Standalone pad, hole object
+
+**Edge Connector Pad**:
+A surface Pad that is meant to reach the Board Outline, such as a gold finger on a PCIe or M.2 card, so the card can plug into a slot.
+_Avoid_: Gold finger (as the term), connector pad, edge pad
+
+**Castellated Pad**:
+A plated through-hole Pad that the Board Outline cuts through, leaving a plated half-hole on the board's edge, as on a module soldered flat onto another board.
+_Avoid_: Castellation (as the term), half-hole, edge via
 
 **Locally Edited Footprint**:
 A placed Footprint whose Pads or graphics were changed on the PCB, so that it differs from the copy it came from.
