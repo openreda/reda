@@ -38,6 +38,8 @@ pub mod messages;
 pub mod modal;
 pub mod navigation;
 mod new_project;
+/// PROTOTYPE (#398): exposed for the screenshot test only.
+pub use new_project::prototype_board_templates;
 mod os;
 pub mod pad_form;
 pub mod palette;

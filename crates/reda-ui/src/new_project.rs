@@ -10,6 +10,9 @@ use crate::theme::TokensExt as _;
 use crate::tr;
 use crate::widgets;
 
+/// PROTOTYPE (#398): the Board Template picker variants.
+pub mod prototype_board_templates;
+
 /// The board a new Project starts with.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Board {
@@ -87,6 +90,9 @@ impl NewProjectForm {
 
     /// Shows the dialog as a modal.
     pub fn show(&mut self, ctx: &egui::Context) -> FormAction {
+        if prototype_board_templates::active(ctx) {
+            return prototype_board_templates::show(ctx, self);
+        }
         let mut action = FormAction::None;
         let modal =
             crate::modal::Dialog::new(Id::NULL.with("new-project"), tr!("new-project-title"))
