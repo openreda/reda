@@ -43,6 +43,7 @@ pub fn drill_report_file(plot: &Plot<'_>) -> OutputFile {
             let kind = match tool.function {
                 "ViaDrill" => "via",
                 "ComponentDrill" => "component",
+                "CastellatedDrill" => "castellated",
                 _ => "mechanical",
             };
             let plating = if tool.plated() {

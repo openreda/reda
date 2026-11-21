@@ -530,6 +530,10 @@
           ],
           "description": "Optional bottom copper, in the Pad's frame. Omitted groups inherit the top."
         },
+        "castellated": {
+          "description": "A plated through-hole Pad the Board Outline cuts through, leaving a plated\nhalf-hole on the edge.",
+          "type": "boolean"
+        },
         "chamfer_ratio": {
           "description": "How deep the chamfers of a `chamfered_rect` are.",
           "maximum": 100000,
@@ -624,6 +628,17 @@
             }
           ],
           "description": "An SMD Pad's paste opening; omitted, it inherits the board's rule."
+        },
+        "role": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PadRole"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "What the Pad is for beyond its copper: `edge_connector` marks an SMD Pad that\nreaches the Board Outline, such as a card-edge finger."
         },
         "rotation": {
           "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
@@ -745,6 +760,16 @@
         "non_plated"
       ],
       "type": "string"
+    },
+    "PadRole": {
+      "description": "A Pad's role: what it is for beyond carrying a Net.",
+      "oneOf": [
+        {
+          "const": "edge_connector",
+          "description": "An Edge Connector Pad: an SMD Pad meant to reach the Board Outline, exempt from\n`edge_clearance` against it, and plotted as a connector Pad.",
+          "type": "string"
+        }
+      ]
     },
     "PadShape": {
       "oneOf": [
@@ -1914,6 +1939,10 @@
               "type": "null"
             }
           ]
+        },
+        "castellated": {
+          "description": "A plated through-hole Pad the Board Outline cuts through: a Castellated Pad.",
+          "type": "boolean"
         },
         "chamfer_ratio": {
           "description": "Thousandths of a percent of half the shorter side: 100000 is fully round.",

@@ -1,13 +1,17 @@
 //! The board-edge check: copper closer to the Board Outline, a Board Cutout or the edge of
-//! a non-plated hole than the edge clearance, or outside the board altogether.
+//! a non-plated hole than the edge clearance, or outside the board altogether. Against the
+//! outline only, an Edge Connector Pad may touch but not cross, and a Castellated Pad is
+//! spared altogether.
 
-use reda_model::geom::{Millideg, Nm, Vertex};
-use reda_model::{DrcCheck, Limit, RuleField, RuleKind, Uuid};
+use reda_model::geom::grown::ARC_TOLERANCE;
+use reda_model::geom::{Millideg, Nm, Point, Vertex};
+use reda_model::{DrcCheck, Limit, PadRole, RuleField, RuleKind, Uuid};
 
 use super::{Board, Report, item_objects};
 use crate::copper::Item;
 use crate::copper::shape::{Core, P, Prim, Shape, arc_points};
 use crate::rules::{net_rules, resolve};
+use crate::zone::poly;
 
 /// One edge of the board: the outline or a cutout, as a closed chain of corners (arcs as
 /// chords within 1 µm).
@@ -85,12 +89,63 @@ impl Edge {
     }
 }
 
+/// How a Pad is spared `edge_clearance` against the Board Outline (edge-connectors.md).
+#[derive(Clone, Copy)]
+enum OutlineExemption {
+    /// An Edge Connector Pad: it may touch the outline but not cross it.
+    Touch,
+    /// A Castellated Pad: the outline cuts through it.
+    Whole,
+}
+
+fn outline_exemption(pcb: &reda_model::PcbDocument, item: Item) -> Option<OutlineExemption> {
+    let (role, castellated) = match item {
+        Item::Pad { footprint, pad } => {
+            let instance = pcb.footprint(footprint)?;
+            let copy = pcb.footprint_copy(instance.footprint)?;
+            let pad = copy.footprint.pads.iter().find(|p| p.uuid == pad)?;
+            (pad.role, pad.castellated)
+        }
+        Item::FreePad { uuid } => (None, pcb.free_pad(uuid)?.castellated),
+        _ => return None,
+    };
+    if castellated {
+        Some(OutlineExemption::Whole)
+    } else {
+        (role == Some(PadRole::EdgeConnector)).then_some(OutlineExemption::Touch)
+    }
+}
+
+/// How far copper may stray past the outline and still only touch it: the outline's arcs
+/// and the copper's round ends are each flattened to within [`ARC_TOLERANCE`].
+const TOUCH_SLACK: f64 = 2.0 * ARC_TOLERANCE.0 as f64 + 2.0;
+
+/// Where copper crosses the Board Outline `edge`, whose inside is `inside`: the copper
+/// point furthest outside and the nearest point of the edge. `None` when it stays inside,
+/// touching at most.
+fn crossing(shape: &Shape, edge: &Edge, inside: Option<&poly::Area>) -> Option<[Point; 2]> {
+    let copper = poly::union(poly::grown(shape, 0));
+    let outside = poly::difference(&copper, inside?);
+    outside
+        .iter()
+        .flatten()
+        .flatten()
+        .map(|p| edge.gap(&Shape::disc(poly::point(*p), Nm::ZERO)))
+        .filter(|(gap, _)| *gap > TOUCH_SLACK)
+        .max_by(|a, b| a.0.total_cmp(&b.0))
+        .map(|(_, points)| points)
+}
+
 pub(super) fn check(board: &Board<'_>, report: &mut Report) {
     if report.is_off(DrcCheck::EdgeClearance) {
         return;
     }
     let pcb = board.pcb;
     let edges = Edge::all(pcb);
+    let outline_area = pcb
+        .outline()
+        .filter(|o| o.vertices.len() >= 3)
+        .map(|o| poly::polygon(poly::contour(&o.vertices)));
     // Non-plated holes: copper keeps the edge clearance from their edges too.
     let bare: Vec<_> = crate::drill::holes(board.pcb)
         .into_iter()
@@ -114,6 +169,7 @@ pub(super) fn check(board: &Board<'_>, report: &mut Report) {
         let Some(required) = net_rules(pcb, board.copper.net(item)).edge_clearance else {
             continue;
         };
+        let exemption = outline_exemption(pcb, item);
         // Measure one shape once and report the physical Layers that carry it.
         let mut shapes: Vec<(&Shape, Vec<Uuid>)> = Vec::new();
         for (layer, shape) in board.copper.item_pieces(item) {
@@ -145,6 +201,26 @@ pub(super) fn check(board: &Board<'_>, report: &mut Report) {
                 });
             }
             for edge in &edges {
+                if edge.keeps_inside {
+                    match exemption {
+                        Some(OutlineExemption::Whole) => continue,
+                        Some(OutlineExemption::Touch) => {
+                            if let Some([a, b]) = crossing(shape, edge, outline_area.as_ref()) {
+                                report.add(DrcCheck::EdgeClearance, |v| {
+                                    v.length(Nm::ZERO, required, Limit::Min, rule(item))
+                                        .distance_points(a, b)
+                                        .on_layers(layers.iter().copied())
+                                        .arg("required", required)
+                                        .arg("actual", Nm::ZERO)
+                                        .objects(item_objects(item))
+                                        .object(edge.uuid)
+                                });
+                            }
+                            continue;
+                        }
+                        None => {}
+                    }
+                }
                 // A label can have one glyph on the board and another wholly outside,
                 // with no stroke crossing the edge between them.
                 let outside = shape.prims.iter().find(|p| {

@@ -383,6 +383,9 @@ pub struct TemplateHole {
 #[serde(deny_unknown_fields)]
 pub struct TemplatePad {
     pub kind: PadKind,
+    /// A plated through-hole Pad the Board Outline cuts through: a Castellated Pad.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub castellated: bool,
     pub shape: PadShape,
     pub width: TemplateNumber,
     pub height: TemplateNumber,

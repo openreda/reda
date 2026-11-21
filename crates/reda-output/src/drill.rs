@@ -191,7 +191,8 @@ pub(crate) struct DrillHole {
     pub plated: bool,
     /// The drill or routing tool diameter, rounded to 1 µm.
     diameter: Nm,
-    /// The tool's `.AperFunction`: `ViaDrill`, `ComponentDrill` or `MechanicalDrill`.
+    /// The tool's `.AperFunction`: `ViaDrill`, `ComponentDrill`, `CastellatedDrill` or
+    /// `MechanicalDrill`.
     function: &'static str,
     /// The hole's `hole.tolerance`, written as the tool's `.DrillTolerance`.
     tolerance: Option<HoleTolerance>,
@@ -247,6 +248,7 @@ fn pad_hole(pad: &PlacedPad, plated_function: &'static str) -> Option<DrillHole>
         PadKind::NonPlated => false,
     };
     let function = match plated {
+        true if pad.castellated => "CastellatedDrill",
         true => plated_function,
         false => "MechanicalDrill",
     };
@@ -326,7 +328,8 @@ pub(crate) struct Tool {
     pub diameter: Nm,
     /// `false` for plated, so plated tools come first.
     non_plated: bool,
-    /// The `.AperFunction`: `ViaDrill`, `ComponentDrill` or `MechanicalDrill`.
+    /// The `.AperFunction`: `ViaDrill`, `ComponentDrill`, `CastellatedDrill` or
+    /// `MechanicalDrill`.
     pub function: &'static str,
     /// `plus` and `minus`, rounded to 1 µm.
     pub tolerance: Option<(Nm, Nm)>,

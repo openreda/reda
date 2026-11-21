@@ -336,6 +336,10 @@ pub(crate) fn is_true(value: &bool) -> bool {
     *value
 }
 
+pub(crate) fn is_false(value: &bool) -> bool {
+    !*value
+}
+
 /// An object stored in a Document, with the Document it lives in. The Document is not
 /// serialised: object views and files say where an object is in their own way.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, JsonSchema)]
@@ -561,6 +565,24 @@ impl PcbDocument {
 
     pub fn footprint(&self, uuid: Uuid) -> Option<&FootprintInstance> {
         self.footprints.get(&uuid)
+    }
+
+    /// The Pads of every placed Footprint, as their copies hold them.
+    fn placed_pads(&self) -> impl Iterator<Item = &crate::Pad> {
+        self.footprints()
+            .filter_map(|i| self.footprint_copy(i.footprint))
+            .flat_map(|c| &c.footprint.pads)
+    }
+
+    /// Whether any placed Pad is an Edge Connector Pad: the board has an edge connector.
+    pub fn has_edge_connector_pads(&self) -> bool {
+        self.placed_pads()
+            .any(|p| p.role == Some(crate::PadRole::EdgeConnector))
+    }
+
+    /// Whether any placed Pad or Free Pad is a Castellated Pad.
+    pub fn has_castellated_pads(&self) -> bool {
+        self.placed_pads().any(|p| p.castellated) || self.free_pads().any(|p| p.castellated)
     }
 
     /// The stored Pad of one instance, including any local Footprint edits.
@@ -1314,8 +1336,4 @@ impl serde::Serialize for PcbDocument {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.collect_seq(self.objects())
     }
-}
-
-fn is_false(b: &bool) -> bool {
-    !*b
 }

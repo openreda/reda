@@ -24,6 +24,14 @@ pub struct Pad {
     )]
     pub teardrop: bool,
     pub kind: PadKind,
+    /// What the Pad is for beyond its copper: `edge_connector` marks an SMD Pad that
+    /// reaches the Board Outline, such as a card-edge finger.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub role: Option<PadRole>,
+    /// A plated through-hole Pad the Board Outline cuts through, leaving a plated
+    /// half-hole on the edge.
+    #[serde(default, skip_serializing_if = "crate::pcb::is_false")]
+    pub castellated: bool,
     pub shape: PadShape,
     /// Optional copper on all inner Layers, in the Pad's frame.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -85,6 +93,7 @@ impl Pad {
         self.form()
             .stack_kind_problem(self.middle, self.bottom)
             .or_else(|| self.unused_layers.pad_problem(self.kind))
+            .or_else(|| edge_problem(self.kind, self.role, self.castellated))
             .or_else(|| {
                 crate::opening_problem(
                     self.kind,
@@ -147,6 +156,37 @@ pub enum PadKind {
     Smd,
     PlatedThroughHole,
     NonPlated,
+}
+
+/// A Pad's role: what it is for beyond carrying a Net.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum PadRole {
+    /// An Edge Connector Pad: an SMD Pad meant to reach the Board Outline, exempt from
+    /// `edge_clearance` against it, and plotted as a connector Pad.
+    EdgeConnector,
+}
+
+/// A role or castellation the Pad's kind can't have: a JSON pointer and a message. Only
+/// SMD Pads are Edge Connector Pads, and only plated through-hole Pads are castellated.
+pub(crate) fn edge_problem(
+    kind: PadKind,
+    role: Option<PadRole>,
+    castellated: bool,
+) -> Option<(String, String)> {
+    if role == Some(PadRole::EdgeConnector) && kind != PadKind::Smd {
+        return Some((
+            "/role".into(),
+            "only SMD Pads can be Edge Connector Pads".into(),
+        ));
+    }
+    if castellated && kind != PadKind::PlatedThroughHole {
+        return Some((
+            "/castellated".into(),
+            "only plated through-hole Pads can be castellated".into(),
+        ));
+    }
+    None
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]

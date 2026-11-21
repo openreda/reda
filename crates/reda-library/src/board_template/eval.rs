@@ -612,6 +612,7 @@ fn free_pad(
         locked,
         teardrop: pad.teardrop,
         kind: pad.kind,
+        castellated: pad.castellated,
         shape: pad.shape,
         middle: pad.middle,
         bottom: pad.bottom,

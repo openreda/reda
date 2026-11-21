@@ -7,8 +7,8 @@ use reda_command::{
 };
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{
-    Corners, Footprint, FootprintGraphic, FootprintLayer, FootprintText, Pad, PadKind, PadShape,
-    Ratio, Shape, Side, TextJustify, TextKnockout, TextStyle, Uuid, ZoneConnection,
+    Corners, Footprint, FootprintGraphic, FootprintLayer, FootprintText, Pad, PadKind, PadRole,
+    PadShape, Ratio, Shape, Side, TextJustify, TextKnockout, TextStyle, Uuid, ZoneConnection,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -122,6 +122,12 @@ pub struct PadAddParams {
     /// hole.
     pub number: String,
     pub kind: PadKind,
+    /// `edge_connector` makes an SMD Pad an Edge Connector Pad, which may reach the Board
+    /// Outline.
+    pub role: Option<PadRole>,
+    /// Makes a plated through-hole Pad a Castellated Pad, which the Board Outline cuts.
+    #[serde(default)]
+    pub castellated: bool,
     pub shape: PadShape,
     /// The Pad's anchor, relative to the Footprint origin: the hole sits there and Tracks
     /// connect there.
@@ -163,7 +169,8 @@ impl Command for PadAdd {
         "Adds an SMD, plated through-hole or non-plated Pad, shaped as a circle, \
          rectangle, rounded or chamfered rectangle or oval, with its copper optionally \
          offset from its anchor, an optional round hole or slot, its side, per-Pad mask and \
-         paste overrides and its Zone connection.",
+         paste overrides, its Zone connection, and whether it is an Edge Connector Pad (SMD) \
+         or castellated (plated through-hole).",
     );
     type Params = PadAddParams;
     type Output = PadResult;
@@ -183,6 +190,8 @@ impl Command for PadAdd {
             uuid,
             number: p.number,
             kind: p.kind,
+            role: p.role,
+            castellated: p.castellated,
             shape: p.shape,
             at: p.at.point(),
             rotation: p.rotation.map_or(Millideg(0), Angle::millideg),
@@ -269,6 +278,11 @@ pub struct PadEditParams {
     pub pad: Uuid,
     pub number: Option<String>,
     pub kind: Option<PadKind>,
+    /// `edge_connector` on an SMD Pad; `null` clears the role.
+    #[serde(default, deserialize_with = "present")]
+    pub role: Option<Option<PadRole>>,
+    /// Whether a plated through-hole Pad is castellated.
+    pub castellated: Option<bool>,
     pub shape: Option<PadShape>,
     pub at: Option<PointParam>,
     pub rotation: Option<Angle>,
@@ -314,9 +328,9 @@ impl Command for PadEdit {
     const META: Meta = meta(
         "library.footprint.pad.edit",
         "Edit Pad",
-        "Changes any of a Pad's number, kind, shape, position, rotation, size, corner and \
-         chamfer ratios and corners, offset, hole, side, mask and paste overrides and Zone \
-         connection. Omitted fields keep their value; `null` clears an optional one. A \
+        "Changes any of a Pad's number, kind, role, castellation, shape, position, rotation, \
+         size, corner and chamfer ratios and corners, offset, hole, side, mask and paste \
+         overrides and Zone connection. Omitted fields keep their value; `null` clears an optional one. A \
          resized Pad keeps its ratios, and so its look.",
     );
     type Params = PadEditParams;
@@ -329,6 +343,8 @@ impl Command for PadEdit {
     fn run(&self, cx: &mut Context<'_>, p: PadEditParams) -> Result<(), CommandError> {
         let patch = PadPatch {
             kind: p.kind,
+            role: p.role,
+            castellated: p.castellated,
             shape: p.shape,
             at: p.at,
             rotation: p.rotation,
@@ -367,6 +383,8 @@ pub struct PadPatch {
     pub bottom: Option<Option<reda_command::PadCopperParam>>,
     pub unused_layers: Option<reda_model::UnusedLayers>,
     pub kind: Option<PadKind>,
+    pub role: Option<Option<PadRole>>,
+    pub castellated: Option<bool>,
     pub shape: Option<PadShape>,
     pub at: Option<PointParam>,
     pub rotation: Option<Angle>,
@@ -390,6 +408,12 @@ impl PadPatch {
         let p = self;
         if let Some(kind) = p.kind {
             pad.kind = kind;
+        }
+        if let Some(role) = p.role {
+            pad.role = role;
+        }
+        if let Some(castellated) = p.castellated {
+            pad.castellated = castellated;
         }
         if let Some(mode) = p.unused_layers {
             pad.unused_layers = mode;

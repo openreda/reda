@@ -2,7 +2,9 @@
 //! Pad rows and Free Pad Properties asks the engine for, and ratio entry by length.
 
 use reda_ui::engine::model::geom::{Nm, Point};
-use reda_ui::engine::model::{Corner, Mask, MaskSide, Pad, PadKind, PadShape, Ratio, Side};
+use reda_ui::engine::model::{
+    Corner, Mask, MaskSide, Pad, PadKind, PadRole, PadShape, Ratio, Side,
+};
 use reda_ui::pad_form::{MaskChoice, PadEdit, PasteChoice, parse_ratio, patch};
 use serde_json::{Value, json};
 
@@ -41,6 +43,35 @@ fn a_ratio_is_typed_as_a_percentage_or_as_a_length_at_the_pads_size() {
             PadEdit::CornerRatio(parse_ratio("0.25mm", p.width, p.height).unwrap())
         ),
         json!({"corner_ratio": 50000})
+    );
+}
+
+#[test]
+fn role_and_castellation_edits_and_a_kind_change_drops_the_one_it_cannot_keep() {
+    let p = pad();
+    assert_eq!(
+        fields(&p, PadEdit::Role(Some(PadRole::EdgeConnector))),
+        json!({"role": "edge_connector"})
+    );
+    assert!(patch(&p, &PadEdit::Role(None)).is_none());
+    let mut finger = p.clone();
+    finger.role = Some(PadRole::EdgeConnector);
+    assert_eq!(fields(&finger, PadEdit::Role(None)), json!({"role": null}));
+    let turned = fields(&finger, PadEdit::Kind(PadKind::PlatedThroughHole));
+    assert_eq!(turned["role"], Value::Null);
+    assert!(turned.get("role").is_some());
+
+    let mut plated = p.clone();
+    plated.kind = PadKind::PlatedThroughHole;
+    plated.hole = Some(reda_ui::engine::model::Hole::new(Nm(800_000), Nm(800_000)));
+    assert_eq!(
+        fields(&plated, PadEdit::Castellated(true)),
+        json!({"castellated": true})
+    );
+    plated.castellated = true;
+    assert_eq!(
+        fields(&plated, PadEdit::Kind(PadKind::Smd))["castellated"],
+        false
     );
 }
 
