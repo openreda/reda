@@ -1,0 +1,85 @@
+{
+  "connectors": [],
+  "cutouts": [],
+  "drawing_groups": [
+    {
+      "drawings": [
+        {
+          "a": {
+            "point": {
+              "x": 0,
+              "y": 0
+            }
+          },
+          "b": {
+            "point": {
+              "x": 280000000,
+              "y": 0
+            }
+          },
+          "kind": "dimension",
+          "locked": true,
+          "offset": -4000000,
+          "rotation": 0,
+          "suffix": " mm",
+          "uuid": "0c8c3c90-d6bc-44b3-8957-243fb9d49543"
+        },
+        {
+          "a": {
+            "point": {
+              "x": 0,
+              "y": 0
+            }
+          },
+          "b": {
+            "point": {
+              "x": 0,
+              "y": 233350000
+            }
+          },
+          "kind": "dimension",
+          "locked": true,
+          "offset": 4000000,
+          "rotation": 90000,
+          "suffix": " mm",
+          "uuid": "f8eed6b3-3d67-4549-b2c4-9a8f16cd1911"
+        }
+      ],
+      "layer": "mechanical",
+      "name": "Key dimensions",
+      "uuid": "1d8a0461-201f-4b0e-9a9e-d2b9b09778f8"
+    }
+  ],
+  "element": "2e42b4dd-f1bc-4b62-88ec-0cafc1820bef",
+  "holes": [],
+  "keepouts": [],
+  "name": "Eurocard",
+  "outline": {
+    "locked": true,
+    "uuid": "c49f8383-3766-49f1-aede-724d8020d796",
+    "vertices": [
+      {
+        "x": 0,
+        "y": 0
+      },
+      {
+        "x": 280000000,
+        "y": 0
+      },
+      {
+        "x": 280000000,
+        "y": 233350000
+      },
+      {
+        "x": 0,
+        "y": 233350000
+      }
+    ]
+  },
+  "problems": [],
+  "suggested_layers": 2,
+  "values": {
+    "depth": "280",
+    "height": "6u"
+  }
+}
