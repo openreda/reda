@@ -47,7 +47,10 @@ fn the_m2_card_fab_files_read_back_as_its_fingers_half_moon_and_bevel() {
     assert_eq!(specs.hard_gold_area, Some(40.95));
     assert_eq!(specs.castellated, Some(true));
     let notes = specs.notes.as_deref().unwrap();
-    assert!(notes.contains("20°") && notes.contains("1.30 mm"), "{notes}");
+    assert!(
+        notes.contains("20°") && notes.contains("1.30 mm"),
+        "{notes}"
+    );
     let top_copper = (job.files_attributes.iter())
         .find(|f| f.file_function == "Copper,L1,Top,Signal")
         .map(|f| f.path.as_str());
@@ -59,8 +62,12 @@ fn the_m2_card_fab_files_read_back_as_its_fingers_half_moon_and_bevel() {
         .flat_map(|f| &pcb.footprint_copy(f.footprint).unwrap().footprint.pads)
         .filter(|p| p.role == Some(PadRole::EdgeConnector))
         .count();
-    let top = flashes(&gerber_reader::read(&fs::read(fab.join("M2Card.gtl")).unwrap()));
-    let bottom = flashes(&gerber_reader::read(&fs::read(fab.join("M2Card.gbl")).unwrap()));
+    let top = flashes(&gerber_reader::read(
+        &fs::read(fab.join("M2Card.gtl")).unwrap(),
+    ));
+    let bottom = flashes(&gerber_reader::read(
+        &fs::read(fab.join("M2Card.gbl")).unwrap(),
+    ));
     let count = |flashes: &[(String, (i64, i64))], function: &str| {
         flashes.iter().filter(|(f, _)| f == function).count()
     };

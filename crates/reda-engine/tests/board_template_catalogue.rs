@@ -780,7 +780,14 @@ fn the_dimension_measures_catch_a_wrong_number() {
     );
     assert!(measure(&template, &frame, "outline/arc:0/radius").is_err());
     assert!(measure(&template, &frame, "board/bevel_angle").is_err());
-    assert!(measure(&template, &frame, "hole:00000000-0000-4000-8000-000000000001/x").is_err());
+    assert!(
+        measure(
+            &template,
+            &frame,
+            "hole:00000000-0000-4000-8000-000000000001/x"
+        )
+        .is_err()
+    );
     assert_eq!(
         frame.values["width"],
         ResolvedValue::Length(reda_engine::model::geom::Nm(65_000_000))

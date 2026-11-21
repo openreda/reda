@@ -689,7 +689,11 @@ fn top_only_courtyard_from_the_edge(name: &str, footprint: &Value, notches: &[(f
         // One polygon per stretch of the tab between key notches.
         assert_eq!(g["shape"]["kind"], "polygon", "{name}");
         let points = g["shape"]["points"].as_array().unwrap();
-        let min = points.iter().map(|p| p["y"].as_i64().unwrap()).min().unwrap();
+        let min = points
+            .iter()
+            .map(|p| p["y"].as_i64().unwrap())
+            .min()
+            .unwrap();
         assert_eq!(min, 0, "{name}: the courtyard starts at the edge");
         for p in points {
             let x = p["x"].as_f64().unwrap() / 1e6;
