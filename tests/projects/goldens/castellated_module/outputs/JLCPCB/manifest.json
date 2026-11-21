@@ -1,0 +1,32 @@
+{
+  "format": 1,
+  "reda": "0.0.0-test",
+  "job": {"uuid":"00000000-0000-4000-8000-00000000002e","name":"JLCPCB"},
+  "fab_preset": {"name":"JLCPCB","sha256":"453c737c9ae96fbc0213a6adbf797fcd472c55dfb002a5b8f0159541a8eee23e"},
+  "pcb": "00000000-0000-4000-8000-000000000003",
+  "revision": "A",
+  "date": "2026-01-01T00:00:00Z",
+  "zip": {"path":"Castellated-JLCPCB.zip","sha256":"373364bfb31f6d229ff72ed01038aa0f568f95f75723fc88bcc420b652fb78df"},
+  "files": [
+    {"path":"fab/Castellated.gtl","size":18122,"sha256":"2d4ec6c237545aa10ccffc61855454377503331c94ff0b0e30627c54c8a5e7dc","kind":"copper_top"},
+    {"path":"fab/Castellated.gbl","size":8182,"sha256":"bb7a1d5ce84331f3638e83b9a37d87a454291c80d0b40a30c4f64a3e7b899161","kind":"copper_bottom"},
+    {"path":"fab/Castellated.gts","size":792,"sha256":"4db16faed00c100eff45adc598c247b2fef04c1c0aad868d1025461cad208e49","kind":"solder_mask_top"},
+    {"path":"fab/Castellated.gbs","size":433,"sha256":"81dbe450f4cf728247e4676291265d04197d4bad1b84b6585272f3d2a3cc9d6a","kind":"solder_mask_bottom"},
+    {"path":"fab/Castellated.gtp","size":654,"sha256":"4bee1a005e097dcad5fbbc2e0bbb398b0daa79cca5dc51befb6d00cfedae847e","kind":"paste_top"},
+    {"path":"fab/Castellated.gto","size":1786,"sha256":"0a90929a38b6f9442b20bf876c7b01278a82e0ab635639875a41d2cee83c8732","kind":"silkscreen_top"},
+    {"path":"fab/Castellated.gm1","size":447,"sha256":"23b89aa4980b96d96aaa6b45e3ffa0038881abed3e56257ff7bd9018431727f4","kind":"profile"},
+    {"path":"fab/Castellated-plated_edges.gbr","size":425,"sha256":"e562d7d3a0e63e390796281c5c39314ccb76c466a3620f7f53a63a0dd3db80b3","kind":"plated_edges"},
+    {"path":"fab/Castellated-PTH.drl","size":397,"sha256":"7ed58d87c735c9d66e9491b94c4047c8d1cb73df74c9572f4605343985bca45b","kind":"drill_plated"},
+    {"path":"fab/Castellated-fab-notes.txt","size":1291,"sha256":"752289936195a8498bc923ea86f2e653a76e173004649bf8a274abf1cb352b37","kind":"fab_notes"},
+    {"path":"fab/Castellated-drill-report.txt","size":412,"sha256":"083a8c081c145243baef75d05b4d84c73af485bbcb2d857b015e65e023baa3b5","kind":"drill_report"},
+    {"path":"fab/Castellated-job.gbrjob","size":1953,"sha256":"5c50314b99351da3e90b5d18ba3032ea7c7a1f3ce5da31e6ca08c65669f46957","kind":"gerber_job"},
+    {"path":"Castellated-JLCPCB.zip","size":14172,"sha256":"373364bfb31f6d229ff72ed01038aa0f568f95f75723fc88bcc420b652fb78df","kind":"zip"},
+    {"path":"Castellated-JLCPCB-BOM.csv","size":73,"sha256":"f23978c595668ac9796de30b44598097bf1254884adcde9f6bba84e2a622221a","kind":"bom"},
+    {"path":"Castellated-JLCPCB-CPL.csv","size":101,"sha256":"687249c4a62f1dc2067dd4bcc760db5d1bf2c88cfeceefac9a5196c6d4bea0e3","kind":"cpl"},
+    {"path":"Castellated-JLCPCB-schematic.pdf","size":180439,"sha256":"5a21b1a7928b13352acdb1d5a535280e740ba5889c57b89c2c418f79f8066470","kind":"schematic_pdf"},
+    {"path":"reports/Castellated-erc.json","size":200,"sha256":"29061f128ccae70c7b735db1be54bda002f322dd8e1ed089c243f4e171028579","kind":"erc_report"},
+    {"path":"reports/Castellated-drc.json","size":245,"sha256":"63405808dee864dc25611a81b2104ae8ecd4c58d9c6fc7efb8abc5730419e835","kind":"drc_report"},
+    {"path":"reports/Castellated-change-list.json","size":184,"sha256":"661e50928a0bb96e2487759528d873a10781dff9296642c4c4f6fd33bb72d20d","kind":"change_list_report"}
+  ],
+  "warnings": []
+}

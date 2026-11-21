@@ -187,6 +187,14 @@ crate::check::severities! {
     edge_clearance => EdgeClearance = Error,
     /// A bevel or hard gold set in `edge_connector` on a board with no Edge Connector Pads.
     edge_connector_without_pads => EdgeConnectorWithoutPads = Warning,
+    /// Plated Edges that meet at a vertex with different Nets: one piece of metal.
+    plated_edge_nets_differ => PlatedEdgeNetsDiffer = Error,
+    /// An Edge Connector Pad on a Plated Edge: the plating would short the fingers.
+    edge_connector_on_plated_edge => EdgeConnectorOnPlatedEdge = Error,
+    /// A Plated Edge with no Net: floating metal.
+    plated_edge_without_net => PlatedEdgeWithoutNet = Warning,
+    /// A Plated Edge that no copper of its Net touches on the outer Layers.
+    plated_edge_unconnected => PlatedEdgeUnconnected = Warning,
     /// An object inside a Keepout that forbids it.
     keepout => Keepout = Error,
     /// A Footprint outside the Board Outline.

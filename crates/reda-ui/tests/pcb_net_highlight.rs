@@ -171,6 +171,31 @@ fn a_plain_click_still_selects_and_a_mod_drag_still_detaches() {
 }
 
 #[test]
+fn a_net_highlight_lights_the_contour_carrying_a_plated_edge_of_the_net() {
+    let mut b = board(None);
+    let outline: Uuid = run(
+        &mut b.shell,
+        "pcb.board_outline.add_rect",
+        json!({"width": "20mm", "height": "20mm"}),
+    )["result"]["uuid"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let gnd = b.shell.engine().project().unwrap().pcb().unwrap();
+    let gnd = gnd.nets().find(|n| n.name == "GND").unwrap().uuid;
+    run(
+        &mut b.shell,
+        "pcb.contour.edge.set",
+        json!({"contour": outline, "edge": 0, "plated": {"net": gnd}}),
+    );
+    click(&mut b, mm(3.0, 5.0), Modifiers::COMMAND);
+    assert!(highlighted(&b).contains(&outline));
+    click(&mut b, mm(3.0, 0.0), Modifiers::COMMAND);
+    assert!(!highlighted(&b).contains(&outline));
+}
+
+#[test]
 fn the_modifiers_table_rebinds_board_net_highlight() {
     let mut b = board(Some("[modifiers]\nnet_highlight_board = \"Alt\"\n"));
     click(&mut b, mm(3.0, 0.0), Modifiers::COMMAND);

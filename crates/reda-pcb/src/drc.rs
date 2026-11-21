@@ -18,6 +18,7 @@ mod hdi;
 pub mod health;
 mod holes;
 pub(crate) mod placement;
+mod plated;
 mod plated_clearance;
 pub(crate) mod silkscreen;
 mod zones;
@@ -64,6 +65,7 @@ pub fn check_only(
     holes::check(&board, &mut report);
     edge::check(&board, &mut report);
     edge_connector_without_pads(pcb, &mut report);
+    plated::check(&board, &mut report);
     placement::check(&board, &mut report);
     silkscreen::check(&board, fonts, &mut report);
     connections::check(&board, &mut report);

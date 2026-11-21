@@ -40,6 +40,8 @@ pub fn on_layer(pcb: &PcbDocument, copper: &Copper, layer: Uuid) -> Picked {
             Item::Pad { footprint, pad } => {
                 pads.insert((footprint, pad));
             }
+            // The plating belongs to the edge, picked on the Board Outline Layer.
+            Item::PlatedEdge { .. } => {}
             other => {
                 objects.insert(other.object());
             }

@@ -108,7 +108,8 @@ pub(super) fn fill_zone(
                 }
                 continue;
             }
-            if zone.pour_over == PourOver::All {
+            // A Zone fills up to a Plated Edge of its Net and joins it.
+            if zone.pour_over == PourOver::All || item.is_plated_edge() {
                 connectors.push(shape);
                 continue;
             }
@@ -307,17 +308,60 @@ fn within_board(pcb: &PcbDocument, zone: &Zone, mut area: Area) -> Area {
     if let Some(outline) = pcb.outline() {
         let board = poly::polygon(poly::contour(&outline.vertices));
         area = intersection(&area, &board);
-        cut.extend(edge_band(&board, edge));
+        match own_plating(zone, &outline.vertices, &outline.plated) {
+            Some(own) => cut.extend(band_except(&outline.vertices, &own, edge)),
+            None => cut.extend(edge_band(&board, edge)),
+        }
     }
     for cutout in pcb.cutouts() {
         let hole = poly::polygon(poly::contour(&cutout.vertices));
-        cut.extend(dilated(&hole, edge));
+        match own_plating(zone, &cutout.vertices, &cutout.plated) {
+            Some(own) => {
+                cut.extend(hole);
+                cut.extend(band_except(&cutout.vertices, &own, edge));
+            }
+            None => cut.extend(dilated(&hole, edge)),
+        }
     }
     if cut.is_empty() {
         area
     } else {
         difference(&area, &union(cut))
     }
+}
+
+/// The edges of a contour that are Plated Edges of `zone`'s Net, by the vertex that starts
+/// them; `None` when there are none, so the edge band is the contour's own.
+fn own_plating(
+    zone: &Zone,
+    vertices: &[reda_model::geom::Vertex],
+    plated: &reda_model::PlatedEdges,
+) -> Option<Vec<usize>> {
+    let net = zone.net?;
+    let own: Vec<usize> = (plated.iter())
+        .filter(|(i, mark)| **i < vertices.len() && mark.net == Some(net))
+        .map(|(i, _)| *i)
+        .collect();
+    (!own.is_empty()).then_some(own)
+}
+
+/// The band `distance` wide along every edge of a contour but those in `except`, which the
+/// fill may run up to: each edge's chords grown on both sides.
+fn band_except(
+    vertices: &[reda_model::geom::Vertex],
+    except: &[usize],
+    distance: i64,
+) -> Vec<Vec<Contour>> {
+    let n = vertices.len();
+    let mut out = Vec::new();
+    for (i, v) in vertices.iter().enumerate() {
+        if except.contains(&i) {
+            continue;
+        }
+        let points = copper_shape::arc_points(v.point(), vertices[(i + 1) % n].point(), v.sweep);
+        out.extend(grown(&Shape::chain(&points, 0), distance));
+    }
+    out
 }
 
 /// Where a Pad or Via sits on the board: its copper's centre, its turn, its copper's half
