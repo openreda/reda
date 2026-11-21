@@ -843,20 +843,19 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
         objects.push(Object::BoardOutline(InDocument::new(
             doc,
             BoardOutline {
-                locked: false,
-                uuid: id(),
-                vertices,
+                // The first edge plated on some seeds, so the per-vertex mark round-trips.
+                plated: (seed.base & 128 != 0)
+                    .then(|| (0, reda_model::PlatedEdge::default()))
+                    .into_iter()
+                    .collect(),
+                ..BoardOutline::new(id(), vertices)
             },
         )));
     }
     for vertices in seed.cutouts {
         objects.push(Object::BoardCutout(InDocument::new(
             doc,
-            BoardCutout {
-                locked: false,
-                uuid: id(),
-                vertices,
-            },
+            BoardCutout::new(id(), vertices),
         )));
     }
     objects.extend(

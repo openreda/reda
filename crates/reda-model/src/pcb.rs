@@ -20,6 +20,7 @@ mod dimension;
 mod footprint;
 mod graphics;
 mod placement;
+pub mod plated;
 mod rules;
 mod stackup;
 mod zone;
@@ -34,6 +35,7 @@ pub use footprint::{
     FootprintInstance, FootprintTextRef, PadNet, PadRef, TextAutoposition, TextOverride,
 };
 pub use placement::{FreePad, OutputOrigin};
+pub use plated::{PlatedEdge, PlatedEdgeRef, PlatedEdges};
 pub use rules::{
     AspectRatioLimit, Bounds, ConnectionTarget, ConnectionValue, DesignRule, HoleRuleValues,
     LayerGroup, PortableClass, PortableLayers, PortableRule, PortableSpan, RuleField, RuleKind,
@@ -259,29 +261,78 @@ pub struct BoardSetup {
     pub fab_notes: Option<String>,
 }
 
-/// The closed shape of the board's physical edge.
+/// The closed shape of the board's physical edge. The file stores each vertex with the
+/// mark of its Plated Edge, if any ([`plated::ContourRow`]).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
+#[serde(from = "plated::ContourRow", into = "plated::ContourRow")]
 pub struct BoardOutline {
     pub uuid: Uuid,
     /// Locked against geometry changes; left out when false.
-    #[serde(default, skip_serializing_if = "is_false")]
     pub locked: bool,
     /// The contour, counter-clockwise or not; the last vertex joins the first.
     pub vertices: Vec<Vertex>,
+    /// The Plated Edges, by the index of the vertex that starts each.
+    pub plated: PlatedEdges,
 }
 
-/// A closed shape inside the Board Outline where board material is removed.
+/// A closed shape inside the Board Outline where board material is removed. The file
+/// stores each vertex with the mark of its Plated Edge, if any.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
+#[serde(from = "plated::ContourRow", into = "plated::ContourRow")]
 pub struct BoardCutout {
     pub uuid: Uuid,
     /// Locked against geometry changes; left out when false.
-    #[serde(default, skip_serializing_if = "is_false")]
     pub locked: bool,
     /// The contour; the last vertex joins the first.
     pub vertices: Vec<Vertex>,
+    /// The Plated Edges, by the index of the vertex that starts each.
+    pub plated: PlatedEdges,
 }
+
+macro_rules! contour_rows {
+    ($($kind:ident),*) => {$(
+        impl From<plated::ContourRow> for $kind {
+            fn from(row: plated::ContourRow) -> $kind {
+                let (vertices, plated) = plated::split(&row.vertices);
+                $kind {
+                    uuid: row.uuid,
+                    locked: row.locked,
+                    vertices,
+                    plated,
+                }
+            }
+        }
+
+        impl From<$kind> for plated::ContourRow {
+            fn from(contour: $kind) -> plated::ContourRow {
+                plated::ContourRow {
+                    uuid: contour.uuid,
+                    locked: contour.locked,
+                    vertices: plated::join(&contour.vertices, &contour.plated),
+                }
+            }
+        }
+
+        impl $kind {
+            /// A contour along `vertices` with no Plated Edges.
+            pub fn new(uuid: Uuid, vertices: Vec<Vertex>) -> $kind {
+                $kind {
+                    uuid,
+                    locked: false,
+                    vertices,
+                    plated: PlatedEdges::new(),
+                }
+            }
+
+            /// This contour's Plated Edges, in vertex order.
+            pub fn plated_edges(&self) -> Vec<PlatedEdgeRef> {
+                plated::edges_of(self.uuid, &self.vertices, &self.plated)
+            }
+        }
+    )*};
+}
+
+contour_rows!(BoardOutline, BoardCutout);
 
 /// A named, ranked group of Nets that share design rules. Its values are the rule records
 /// scoped to it. The Default Net Class is not stored: it is the board-wide records.
@@ -487,6 +538,14 @@ impl PcbDocument {
 
     pub fn cutout(&self, uuid: Uuid) -> Option<&BoardCutout> {
         self.cutouts.get(&uuid)
+    }
+
+    /// Every Plated Edge on the board: the Board Outline's, then each Board Cutout's.
+    pub fn plated_edges(&self) -> Vec<PlatedEdgeRef> {
+        let mut out: Vec<PlatedEdgeRef> =
+            self.outline().map(|o| o.plated_edges()).unwrap_or_default();
+        out.extend(self.cutouts().flat_map(|c| c.plated_edges()));
+        out
     }
 
     pub fn net_classes(&self) -> impl Iterator<Item = &NetClass> {
@@ -1116,6 +1175,27 @@ impl PcbDocument {
                 .is_some_and(|l| l.kind == LayerKind::Copper)
         };
         let net_exists = |net: Option<Uuid>| net.is_none_or(|n| self.nets.contains_key(&n));
+        let contours = self
+            .outlines
+            .values()
+            .map(|o| (o.uuid, o.vertices.len(), &o.plated))
+            .chain(
+                self.cutouts
+                    .values()
+                    .map(|c| (c.uuid, c.vertices.len(), &c.plated)),
+            );
+        for (uuid, len, plated) in contours {
+            for (edge, mark) in plated {
+                if *edge >= len {
+                    return Err(format!("{uuid} marks edge {edge}, which it does not have"));
+                }
+                if !net_exists(mark.net) {
+                    return Err(format!(
+                        "Plated Edge {edge} of {uuid} is on a Net that does not exist"
+                    ));
+                }
+            }
+        }
         for track in self.tracks.values() {
             let uuid = track.uuid;
             if !is_copper(track.layer) {
@@ -1314,8 +1394,4 @@ impl serde::Serialize for PcbDocument {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.collect_seq(self.objects())
     }
-}
-
-fn is_false(b: &bool) -> bool {
-    !*b
 }

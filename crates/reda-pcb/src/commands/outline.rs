@@ -5,11 +5,14 @@ use reda_command::{
     Unavailable,
 };
 use reda_model::geom::{self, Millideg, Nm, Point, Segment, Vertex};
-use reda_model::{BoardCutout, BoardOutline, InDocument, Object, Uuid};
+use reda_model::{
+    BoardCutout, BoardOutline, InDocument, Object, PcbDocument, PlatedEdge, PlatedEdges, Uuid,
+};
 use schemars::JsonSchema;
 use serde::Deserialize;
 
 use super::from_graphics::FromGraphics;
+use super::track::existing_net;
 use super::{Created, needs_pcb, non_negative, pcb};
 
 pub(super) fn register_all(registry: &mut Registry) {
@@ -49,6 +52,33 @@ pub struct VertexParam {
     pub sweep: Option<Angle>,
 }
 
+/// One vertex of a Board Outline or Board Cutout, the edge that leaves it towards the
+/// next, and whether that edge is a Plated Edge.
+#[derive(Clone, Copy, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct BoardVertexParam {
+    pub x: Length,
+    pub y: Length,
+    /// The edge to the next vertex: left out for a straight edge, otherwise an arc sweeping
+    /// this angle, counter-clockwise when positive.
+    #[serde(default)]
+    pub sweep: Option<Angle>,
+    /// Marks the edge to the next vertex as a Plated Edge, with an optional `net`. Only
+    /// the Board Outline and Board Cutouts take it.
+    #[serde(default)]
+    pub plated: Option<PlatedEdge>,
+}
+
+impl BoardVertexParam {
+    fn vertex(&self) -> VertexParam {
+        VertexParam {
+            x: self.x,
+            y: self.y,
+            sweep: self.sweep,
+        }
+    }
+}
+
 /// Contour params as stored vertices, checked to be one closed contour that does not cross
 /// itself.
 pub(super) fn contour(vertices: &[VertexParam]) -> Result<Vec<Vertex>, CommandError> {
@@ -65,8 +95,43 @@ pub(super) fn contour(vertices: &[VertexParam]) -> Result<Vec<Vertex>, CommandEr
     Ok(vertices)
 }
 
-/// Replaces the Board Outline, if there is one, with a new one along `vertices`.
-fn set_outline(cx: &mut Context<'_>, vertices: Vec<Vertex>) -> Result<Created, CommandError> {
+/// Board contour params as stored vertices and their Plated Edges, checked as
+/// [`contour`] does and with every Net of a mark on the board.
+pub(super) fn board_contour(
+    pcb: &PcbDocument,
+    vertices: &[BoardVertexParam],
+) -> Result<(Vec<Vertex>, PlatedEdges), CommandError> {
+    let plain: Vec<VertexParam> = vertices.iter().map(BoardVertexParam::vertex).collect();
+    let geometry = contour(&plain)?;
+    let mut marks = PlatedEdges::new();
+    for (i, v) in vertices.iter().enumerate() {
+        if let Some(mark) = v.plated {
+            existing_net(pcb, mark.net, &format!("/vertices/{i}/plated/net"))?;
+            marks.insert(i, mark);
+        }
+    }
+    Ok((geometry, marks))
+}
+
+/// Contour params of an object that has no Plated Edges: a mark is refused.
+pub(super) fn unplated_contour(vertices: &[BoardVertexParam]) -> Result<Vec<Vertex>, CommandError> {
+    if let Some(i) = vertices.iter().position(|v| v.plated.is_some()) {
+        return Err(CommandError::invalid_params(
+            &format!("/vertices/{i}/plated"),
+            "only edges of the Board Outline and Board Cutouts can be plated",
+        ));
+    }
+    let plain: Vec<VertexParam> = vertices.iter().map(BoardVertexParam::vertex).collect();
+    contour(&plain)
+}
+
+/// Replaces the Board Outline, if there is one, with a new one along `vertices` with the
+/// Plated Edges `plated`.
+fn set_outline(
+    cx: &mut Context<'_>,
+    vertices: Vec<Vertex>,
+    plated: PlatedEdges,
+) -> Result<Created, CommandError> {
     let pcb = pcb(cx)?;
     let (document, old) = (pcb.uuid, pcb.outline().map(|o| o.uuid));
     let uuid = cx.new_id();
@@ -75,9 +140,8 @@ fn set_outline(cx: &mut Context<'_>, vertices: Vec<Vertex>) -> Result<Created, C
         tx.remove(old)?;
     }
     let outline = BoardOutline {
-        locked: false,
-        uuid,
-        vertices,
+        plated,
+        ..BoardOutline::new(uuid, vertices)
     };
     tx.insert(Object::BoardOutline(InDocument::new(document, outline)))?;
     Ok(Created { uuid })
@@ -89,7 +153,7 @@ pub struct OutlineAdd;
 #[serde(deny_unknown_fields)]
 pub struct OutlineAddParams {
     /// The outline's vertices in order; the last joins the first.
-    pub vertices: Vec<VertexParam>,
+    pub vertices: Vec<BoardVertexParam>,
 }
 
 impl Command for OutlineAdd {
@@ -111,8 +175,8 @@ impl Command for OutlineAdd {
     }
 
     fn run(&self, cx: &mut Context<'_>, p: OutlineAddParams) -> Result<Created, CommandError> {
-        let vertices = contour(&p.vertices)?;
-        set_outline(cx, vertices)
+        let (vertices, plated) = board_contour(pcb(cx)?, &p.vertices)?;
+        set_outline(cx, vertices, plated)
     }
 }
 
@@ -149,7 +213,7 @@ impl Command for OutlineAddRect {
 
     fn run(&self, cx: &mut Context<'_>, p: OutlineAddRectParams) -> Result<Created, CommandError> {
         let vertices = rect_outline("", p.width, p.height, p.corner_radius)?;
-        set_outline(cx, vertices)
+        set_outline(cx, vertices, PlatedEdges::new())
     }
 }
 
@@ -239,7 +303,7 @@ impl Command for OutlineAddFromSegments {
             .collect();
         let vertices = geom::chain(&segments)
             .map_err(|e| CommandError::invalid_params("/segments", e.to_string()))?;
-        set_outline(cx, vertices)
+        set_outline(cx, vertices, PlatedEdges::new())
     }
 }
 
@@ -269,7 +333,7 @@ impl Command for OutlineAddFromGraphics {
     fn run(&self, cx: &mut Context<'_>, p: FromGraphics) -> Result<Created, CommandError> {
         let vertices = p.contour(pcb(cx)?)?;
         p.consume(cx)?;
-        set_outline(cx, vertices)
+        set_outline(cx, vertices, PlatedEdges::new())
     }
 }
 
@@ -298,7 +362,7 @@ impl Command for CutoutAddFromGraphics {
     fn run(&self, cx: &mut Context<'_>, p: FromGraphics) -> Result<Created, CommandError> {
         let vertices = p.contour(pcb(cx)?)?;
         p.consume(cx)?;
-        add_cutout(cx, vertices)
+        add_cutout(cx, vertices, PlatedEdges::new())
     }
 }
 
@@ -347,7 +411,7 @@ pub struct CutoutAdd;
 #[serde(deny_unknown_fields)]
 pub struct CutoutAddParams {
     /// The cutout's vertices in order; the last joins the first.
-    pub vertices: Vec<VertexParam>,
+    pub vertices: Vec<BoardVertexParam>,
 }
 
 impl Command for CutoutAdd {
@@ -368,18 +432,21 @@ impl Command for CutoutAdd {
     }
 
     fn run(&self, cx: &mut Context<'_>, p: CutoutAddParams) -> Result<Created, CommandError> {
-        let vertices = contour(&p.vertices)?;
-        add_cutout(cx, vertices)
+        let (vertices, plated) = board_contour(pcb(cx)?, &p.vertices)?;
+        add_cutout(cx, vertices, plated)
     }
 }
 
-fn add_cutout(cx: &mut Context<'_>, vertices: Vec<Vertex>) -> Result<Created, CommandError> {
+fn add_cutout(
+    cx: &mut Context<'_>,
+    vertices: Vec<Vertex>,
+    plated: PlatedEdges,
+) -> Result<Created, CommandError> {
     let document = pcb(cx)?.uuid;
     let uuid = cx.new_id();
     let cutout = BoardCutout {
-        locked: false,
-        uuid,
-        vertices,
+        plated,
+        ..BoardCutout::new(uuid, vertices)
     };
     cx.tx()?
         .insert(Object::BoardCutout(InDocument::new(document, cutout)))?;

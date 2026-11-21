@@ -276,7 +276,12 @@ pub fn gerber_files(plot: &Plot<'_>) -> Result<Gerbers, GerberError> {
             true,
         )?;
     }
-    let rendered = render(plot, "Profile,NP".into(), "Positive", profile);
+    let plated = plot
+        .instances
+        .iter()
+        .any(|i| !i.pcb.plated_edges().is_empty());
+    let profile_function = if plated { "Profile,P" } else { "Profile,NP" };
+    let rendered = render(plot, profile_function.into(), "Positive", profile);
     add(
         FileName::new("gm1", "Board Outline"),
         None,
@@ -284,7 +289,27 @@ pub fn gerber_files(plot: &Plot<'_>) -> Result<Gerbers, GerberError> {
         rendered,
         false,
     )?;
+    if plated {
+        let rendered = render(
+            plot,
+            "OtherDrawing,Plated edges".into(),
+            "Positive",
+            plated_edges,
+        );
+        add(
+            FileName::fixed(&plated_edges_name(project), "Plated Edges"),
+            None,
+            "plated_edges",
+            rendered,
+            false,
+        )?;
+    }
     Ok(out)
+}
+
+/// The name of the Gerber file holding only the Plated Edges, under every naming scheme.
+pub fn plated_edges_name(project: &str) -> String {
+    format!("{project}-plated_edges.gbr")
 }
 
 /// Resolves the copper Gerber for a Layer without plotting it. The preset editor uses
@@ -307,6 +332,8 @@ struct FileName {
     layer: String,
     /// Physical copper position, counted from one, for an inner Layer.
     inner_position: Option<usize>,
+    /// A name that no naming scheme changes.
+    fixed: Option<String>,
 }
 
 impl FileName {
@@ -315,6 +342,15 @@ impl FileName {
             extension: extension.into(),
             layer: layer.into(),
             inner_position: None,
+            fixed: None,
+        }
+    }
+
+    /// A file named `name` under every naming scheme.
+    fn fixed(name: &str, layer: &str) -> FileName {
+        FileName {
+            fixed: Some(name.into()),
+            ..Self::new("gbr", layer)
         }
     }
 
@@ -328,6 +364,7 @@ impl FileName {
                     .filter(|name| !name.is_empty())
                     .map_or_else(|| format!("L{position}"), str::to_owned),
                 inner_position: Some(position),
+                fixed: None,
             },
         }
     }
@@ -344,6 +381,9 @@ impl FileName {
     /// `<project>.<ext>` (`classic`) or `<project>-<Layer>.gbr` with spaces as
     /// underscores (`descriptive`).
     fn name(&self, project: &str, settings: &GerberSettings) -> Result<String, String> {
+        if let Some(fixed) = &self.fixed {
+            return Ok(fixed.clone());
+        }
         if let Some(own) = settings
             .file_names
             .layers
@@ -379,7 +419,8 @@ fn render(
     polarity: &'static str,
     draw: impl Fn(&BoardPlot<'_>, &mut Gerber),
 ) -> Rendered {
-    let is_profile = function.starts_with("Profile");
+    // The Profile and the Plated Edges file never take the outline of `outline_on_every_plot`.
+    let is_profile = function.starts_with("Profile") || function.starts_with("OtherDrawing,Plated");
     let mut g = Gerber::new(plot.gerber.x2_attributes);
     let boards = || {
         plot.instances.iter().map(|instance| {
@@ -646,6 +687,21 @@ fn pad_template(pad: &PlacedPad) -> (Template, Point) {
         _ => Template::RoundRect(w, h, radius, rot),
     };
     (template, centre)
+}
+
+/// Only the Plated Edges, each drawn as a line or arc along its contour with the Profile's
+/// pen.
+fn plated_edges(plot: &BoardPlot<'_>, g: &mut Gerber) {
+    for edge in plot.pcb.plated_edges() {
+        g.draw(
+            PROFILE_PEN,
+            "Other,Plated edge",
+            edge.from,
+            edge.to,
+            edge.sweep,
+            &[],
+        );
+    }
 }
 
 /// The Board Outline and the Board Cutouts drawn with a thin pen.

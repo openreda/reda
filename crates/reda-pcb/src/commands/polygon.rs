@@ -6,12 +6,12 @@ use reda_command::{
     AvailabilityContext, Command, CommandError, Context, Kind, Length, Meta, Registry, Unavailable,
 };
 use reda_model::geom::{self, CornerError, Nm, Vertex};
-use reda_model::{InDocument, KeepoutShape, Object, PcbDocument, Uuid};
+use reda_model::{InDocument, KeepoutShape, Object, PcbDocument, PlatedEdges, Uuid, plated};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use super::outline::{VertexParam, contour};
+use super::outline::{BoardVertexParam, board_contour, unplated_contour};
 use super::{needs_pcb, pcb};
 
 pub(super) fn register_all(registry: &mut Registry) {
@@ -80,11 +80,28 @@ fn vertices_of(pcb: &PcbDocument, uuid: Uuid) -> Result<Vec<Vertex>, CommandErro
     ))
 }
 
+/// The Plated Edges of `uuid` when it is the Board Outline or a Board Cutout.
+fn marks_of(pcb: &PcbDocument, uuid: Uuid) -> Option<&PlatedEdges> {
+    if let Some(o) = pcb.outline().filter(|o| o.uuid == uuid) {
+        return Some(&o.plated);
+    }
+    pcb.cutout(uuid).map(|c| &c.plated)
+}
+
+/// How a reshape treats a board contour's Plated Edges.
+enum Marks {
+    /// The new vertices carry these marks.
+    Replace(PlatedEdges),
+    /// Corners were cut: the marks follow the edges (see [`plated::after_cut`]).
+    Cut,
+}
+
 /// Gives polygon object `uuid` the new `vertices`, refusing a self-crossing shape.
 fn reshape(
     cx: &mut Context<'_>,
     uuid: Uuid,
     vertices: Vec<Vertex>,
+    marks: Marks,
     include_locked: bool,
 ) -> Result<Reshaped, CommandError> {
     refuse_crossing(&vertices)?;
@@ -92,12 +109,18 @@ fn reshape(
     crate::lock::refuse(pcb, [uuid], include_locked, "reshape")?;
     let document = pcb.uuid;
     let count = vertices.len();
+    let marks = |old: &[Vertex], plated: &PlatedEdges| match &marks {
+        Marks::Replace(new) => new.clone(),
+        Marks::Cut => plated::after_cut(old, plated, &vertices),
+    };
     let object = if let Some(o) = pcb.outline().filter(|o| o.uuid == uuid) {
         let mut o = o.clone();
+        o.plated = marks(&o.vertices, &o.plated);
         o.vertices = vertices;
         Object::BoardOutline(InDocument::new(document, o))
     } else if let Some(c) = pcb.cutout(uuid) {
         let mut c = c.clone();
+        c.plated = marks(&c.vertices, &c.plated);
         c.vertices = vertices;
         Object::BoardCutout(InDocument::new(document, c))
     } else if let Some(z) = pcb.zone(uuid) {
@@ -154,7 +177,9 @@ pub struct SetVerticesParams {
     /// The Board Outline, Board Cutout, Zone, Zone Cutout or polygon Keepout.
     pub object: Uuid,
     /// Its new vertices in order; the last joins the first.
-    pub vertices: Vec<VertexParam>,
+    /// Only the Board Outline and Board Cutouts take `plated` marks; they keep only the
+    /// marks these vertices carry.
+    pub vertices: Vec<BoardVertexParam>,
     /// Reshapes a locked object too; without it a locked one is refused.
     #[serde(default)]
     pub include_locked: bool,
@@ -180,9 +205,19 @@ impl Command for SetVertices {
     }
 
     fn run(&self, cx: &mut Context<'_>, p: SetVerticesParams) -> Result<Reshaped, CommandError> {
-        vertices_of(pcb(cx)?, p.object)?;
-        let vertices = contour(&p.vertices)?;
-        reshape(cx, p.object, vertices, p.include_locked)
+        let pcb = pcb(cx)?;
+        vertices_of(pcb, p.object)?;
+        let (vertices, marks) = match marks_of(pcb, p.object) {
+            Some(_) => board_contour(pcb, &p.vertices)?,
+            None => (unplated_contour(&p.vertices)?, PlatedEdges::new()),
+        };
+        reshape(
+            cx,
+            p.object,
+            vertices,
+            Marks::Replace(marks),
+            p.include_locked,
+        )
     }
 }
 
@@ -230,7 +265,7 @@ impl Command for Fillet {
         let explicit = p.vertices.is_some();
         let new = geom::fillet(&old, p.vertices.as_deref(), radius)
             .map_err(|e| corner_error(e, explicit))?;
-        reshape(cx, p.object, new, p.include_locked)
+        reshape(cx, p.object, new, Marks::Cut, p.include_locked)
     }
 }
 
@@ -278,6 +313,6 @@ impl Command for Chamfer {
         let explicit = p.vertices.is_some();
         let new = geom::chamfer(&old, p.vertices.as_deref(), distance)
             .map_err(|e| corner_error(e, explicit))?;
-        reshape(cx, p.object, new, p.include_locked)
+        reshape(cx, p.object, new, Marks::Cut, p.include_locked)
     }
 }

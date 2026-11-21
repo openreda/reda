@@ -9,6 +9,7 @@ mod annotation;
 mod arc_tool;
 mod library;
 mod overview;
+mod plated_edge;
 pub(crate) mod rules;
 mod sheet_frame;
 mod teardrops;
@@ -242,6 +243,7 @@ fn content(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
                 );
             }
             track::show(ui, shell, project, units(shell), &mut out);
+            plated_edge::show(ui, shell, project, &mut out);
             annotation::show(ui, shell, project, units(shell), &mut out);
             zone::zones_section(ui, shell, &mut numbers);
             if let Some(found) = &properties.rules {

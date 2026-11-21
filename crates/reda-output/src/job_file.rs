@@ -49,6 +49,9 @@ struct GeneralSpecs {
     board_thickness: f64,
     #[serde(skip_serializing_if = "Option::is_none")]
     finish: Option<&'static str>,
+    /// Set when any edge is a Plated Edge; left out otherwise.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    edge_plating: Option<bool>,
 }
 
 #[derive(Serialize)]
@@ -212,6 +215,11 @@ pub fn gerber_job_file(plot: &Plot<'_>, files: &[OutputFile]) -> OutputFile {
             finish: pcb
                 .and_then(|p| p.stackup().finish.as_deref())
                 .and_then(job_finish),
+            edge_plating: plot
+                .instances
+                .iter()
+                .any(|i| !i.pcb.plated_edges().is_empty())
+                .then_some(true),
         },
         material_stackup: pcb
             .map(|pcb| material_stackup(pcb, files))
