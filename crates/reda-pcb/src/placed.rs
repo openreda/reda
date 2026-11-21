@@ -173,6 +173,10 @@ pub struct PlacedPad {
     pub pad: Uuid,
     pub number: String,
     pub kind: PadKind,
+    /// `edge_connector` for an Edge Connector Pad.
+    pub role: Option<reda_model::PadRole>,
+    /// A Castellated Pad: the Board Outline cuts its plated hole.
+    pub castellated: bool,
     pub shape: PadShape,
     /// The anchor on the board: the hole sits there and Tracks connect there.
     pub at: Point,
@@ -280,6 +284,8 @@ pub fn placed_pads(pcb: &PcbDocument, instance: &FootprintInstance) -> Vec<Place
                 unused_layers: pad.unused_layers,
                 number: pad.number.clone(),
                 kind: pad.kind,
+                role: pad.role,
+                castellated: pad.castellated,
                 shape: top.0,
                 at: frame.point(pad.at),
                 rotation: frame.angle(pad.rotation),
@@ -331,6 +337,8 @@ pub fn placed_free_pad(pad: &FreePad) -> PlacedPad {
         unused_layers: pad.unused_layers,
         number: String::new(),
         kind: pad.kind,
+        role: None,
+        castellated: pad.castellated,
         shape: pad.shape,
         at: pad.at,
         rotation: pad.rotation,

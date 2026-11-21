@@ -46,6 +46,8 @@ fn write_flawed_library(folder: &Path) {
             uuid: uuid("000000f2-0000-4000-8000-000000000000"),
             number: "1".into(),
             kind: PadKind::Smd,
+            role: None,
+            castellated: false,
             shape: PadShape::Circle,
             at: Point::new(Nm(0), Nm(0)),
             rotation: Millideg(0),

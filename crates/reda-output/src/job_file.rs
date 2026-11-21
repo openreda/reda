@@ -1,6 +1,7 @@
 //! The Gerber job file: `<project>-job.gbrjob`, a minimal JSON file in the publisher's
 //! Job spec form. It holds the generation software, the project ID, the board size, layer
-//! count and thickness, the finish when the Job spec names it, and the path, function and
+//! count and thickness, the finish when the Job spec names it, whether the board has Edge
+//! Connector or Castellated Pads, and the path, function and
 //! polarity of each Gerber and drill file in the zip, and the physical material stack.
 //!
 //! The Output Manifest holds the run date, so this file stays reproducible.
@@ -49,6 +50,12 @@ struct GeneralSpecs {
     board_thickness: f64,
     #[serde(skip_serializing_if = "Option::is_none")]
     finish: Option<&'static str>,
+    /// `true` when any Pad is an Edge Connector Pad; left out otherwise.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    edge_connector: Option<bool>,
+    /// `true` when any Pad is a Castellated Pad; left out otherwise.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    castellated: Option<bool>,
 }
 
 #[derive(Serialize)]
@@ -212,6 +219,12 @@ pub fn gerber_job_file(plot: &Plot<'_>, files: &[OutputFile]) -> OutputFile {
             finish: pcb
                 .and_then(|p| p.stackup().finish.as_deref())
                 .and_then(job_finish),
+            edge_connector: pcb
+                .is_some_and(PcbDocument::has_edge_connector_pads)
+                .then_some(true),
+            castellated: pcb
+                .is_some_and(PcbDocument::has_castellated_pads)
+                .then_some(true),
         },
         material_stackup: pcb
             .map(|pcb| material_stackup(pcb, files))

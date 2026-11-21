@@ -156,6 +156,11 @@ pub struct PcbPadEditParams {
     /// The Pad, by its UUID in the Footprint.
     pub pad: Uuid,
     pub kind: Option<PadKind>,
+    /// `edge_connector` on an SMD Pad; `null` clears the role.
+    #[serde(default, deserialize_with = "present")]
+    pub role: Option<Option<reda_model::PadRole>>,
+    /// Whether a plated through-hole Pad is castellated.
+    pub castellated: Option<bool>,
     pub shape: Option<PadShape>,
     /// In the Footprint's own frame.
     pub at: Option<PointParam>,
@@ -208,9 +213,10 @@ impl Command for PcbPadEdit {
     const META: Meta = Meta {
         id: "pcb.pad.edit",
         title: "Edit Placed Pad",
-        description: "Changes one Pad of one placed Footprint: any of its kind, shape, \
-                      position, rotation, size, corner and chamfer ratios and corners, \
-                      offset, hole, side, mask and paste overrides and Zone connection, as \
+        description: "Changes one Pad of one placed Footprint: any of its kind, role, \
+                      castellation, shape, position, rotation, size, corner and chamfer \
+                      ratios and corners, offset, hole, side, mask and paste overrides and \
+                      Zone connection, as \
                       `library.footprint.pad.edit` does, but never its number. Pads can't be \
                       added or removed on the board. The instance gets a Locally Edited \
                       Footprint: its own part-table entry, keyed by the new content hash, \
@@ -260,6 +266,8 @@ impl Command for PcbPadEdit {
         }
         let patch = PadPatch {
             kind: p.kind,
+            role: p.role,
+            castellated: p.castellated,
             shape: p.shape,
             at: p.at,
             rotation: p.rotation,

@@ -53,7 +53,7 @@ pub use output::{
 };
 pub use pad::{
     ConnectionStyle, Corner, Corners, Hole, HoleTolerance, MaskExpansion, Pad, PadCopperShape,
-    PadForm, PadKind, PadShape, PasteExpansion, Ratio, ZoneConnection,
+    PadForm, PadKind, PadRole, PadShape, PasteExpansion, Ratio, ZoneConnection,
 };
 pub use pcb::{
     ArrowPosition, AspectRatioLimit, BoardCutout, BoardOutline, BoardSetup, Bounds,

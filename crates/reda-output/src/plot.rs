@@ -9,8 +9,8 @@ mod openings;
 use reda_command::Fonts;
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{
-    CopperRole, FileNaming, GerberSettings, LayerKind, NotFittedPaste, PadKind, PcbDocument,
-    Project, Side, TrackGeometry, Uuid, ZoneFills,
+    CopperRole, FileNaming, GerberSettings, LayerKind, NotFittedPaste, PadKind, PadRole,
+    PcbDocument, Project, Side, TrackGeometry, Uuid, ZoneFills,
 };
 use reda_pcb::copper::{Item, UnusedLands};
 use reda_pcb::openings::{self as resolved, Kind};
@@ -561,6 +561,9 @@ fn copper_layer(plot: &BoardPlot<'_>, layer: Uuid, unused: &UnusedLands, g: &mut
                 let mut attrs = vec![(".P", pin.as_str())];
                 attrs.extend(net_attribute(&net));
                 let function = match pad.kind {
+                    // Edge Connector Pads are SMD, so on the outer Layers only.
+                    _ if pad.role == Some(PadRole::EdgeConnector) => "ConnectorPad",
+                    _ if pad.castellated => "CastellatedPad",
                     PadKind::Smd if mask_defined.contains(&(instance.uuid, pad.pad)) => {
                         "SMDPad,SMDef"
                     }
@@ -577,7 +580,12 @@ fn copper_layer(plot: &BoardPlot<'_>, layer: Uuid, unused: &UnusedLands, g: &mut
         if on_layer(&pad, Item::FreePad { uuid: free.uuid }) {
             let net = net_name(pcb, pad.net);
             let (template, at) = pad_template(&pad);
-            g.flash(template, "OtherPad,FreePad", at, &net_attribute(&net));
+            let function = if pad.castellated {
+                "CastellatedPad"
+            } else {
+                "OtherPad,FreePad"
+            };
+            g.flash(template, function, at, &net_attribute(&net));
         }
     }
 
