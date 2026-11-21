@@ -15,6 +15,7 @@ use reda_engine::schematic::natural_cmp;
 use serde_json::{Map, Value, json};
 
 mod actions;
+mod edge;
 mod field;
 mod grid;
 mod scoped;
@@ -24,6 +25,7 @@ use crate::settings::{Draft, Problem, Step};
 use crate::show_on_board::Shown;
 use crate::tr;
 pub use actions::ImportPreview;
+pub use edge::{ANGLE_FIELD as EDGE_ANGLE_FIELD, DEPTH_FIELD as EDGE_DEPTH_FIELD, EdgeDraft};
 pub use field::{
     ANGLES, GRID_FIELDS, GRID_KINDS, RuleField, SPOKES, STYLES, ValueKind, connection_value_name,
     kind_name, style_name, target_name, tear_target_name,
@@ -218,6 +220,10 @@ pub struct BoardSetupDraft {
     /// How Zones with no typed name are named.
     zone_scheme: Draft<ZoneNameScheme>,
     fab_notes: Draft<String>,
+    /// The board's `edge_connector`.
+    edge: Draft<EdgeDraft>,
+    /// Whether any Pad is an Edge Connector Pad, for the page's DRC note.
+    has_edge_connector_pads: bool,
     /// The board's rule records, by Net Class (`None` board-wide) and kind.
     records: BTreeMap<(Option<Uuid>, RuleKind), Uuid>,
     /// What the last rule action reported.
@@ -248,6 +254,8 @@ struct Edits {
     mask_linked: bool,
     zone_scheme: Draft<ZoneNameScheme>,
     fab_notes: Draft<String>,
+    /// The board's `edge_connector`.
+    edge: Draft<EdgeDraft>,
 }
 
 /// Loads a value's draft from `fresh` text; a typed value that means the same (`0.20`
@@ -361,6 +369,8 @@ impl BoardSetupDraft {
         }
         self.fab_notes
             .load(pcb.setup().fab_notes.clone().unwrap_or_default(), reset);
+        self.edge.load(EdgeDraft::of(setup.edge_connector), reset);
+        self.has_edge_connector_pads = pcb.has_edge_connector_pads();
         self.load_classes(pcb, reset);
         self.load_nets(pcb, reset);
     }
@@ -379,6 +389,7 @@ impl BoardSetupDraft {
             mask_linked: self.mask_linked,
             zone_scheme: self.zone_scheme.clone(),
             fab_notes: self.fab_notes.clone(),
+            edge: self.edge.clone(),
         }
     }
 
@@ -395,6 +406,7 @@ impl BoardSetupDraft {
         self.mask_linked = edits.mask_linked;
         self.zone_scheme = edits.zone_scheme;
         self.fab_notes = edits.fab_notes;
+        self.edge = edits.edge;
     }
 
     /// Notes the edits as they are now: a change since the last check becomes one step
@@ -450,6 +462,21 @@ impl BoardSetupDraft {
     /// Free text included in the board's fabrication notes.
     pub fn fab_notes_mut(&mut self) -> &mut String {
         self.fab_notes.value_mut()
+    }
+
+    /// The board's `edge_connector`: bevel and hard gold, edited beside the finish.
+    pub fn edge_mut(&mut self) -> &mut EdgeDraft {
+        self.edge.value_mut()
+    }
+
+    /// The problems in the edge connector's fields.
+    pub fn edge_problems(&self) -> Vec<Problem> {
+        self.edge.value().problems()
+    }
+
+    /// Whether any Pad on the board is an Edge Connector Pad.
+    pub fn has_edge_connector_pads(&self) -> bool {
+        self.has_edge_connector_pads
     }
 
     fn load_classes(&mut self, pcb: &PcbDocument, reset: bool) {
@@ -1082,6 +1109,7 @@ impl BoardSetupDraft {
                 json!({"text": (!text.is_empty()).then_some(text)}),
             ));
         }
+        steps.extend(self.edge.value().step(self.edge.base()));
         if self.zone_scheme.changed() {
             steps.push(Step::new(
                 "pcb.zone.set_name_scheme",

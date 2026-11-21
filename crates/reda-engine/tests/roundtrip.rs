@@ -796,6 +796,13 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
         severities,
         zone_name_scheme: ZoneNameScheme::LayernameNetPxxx,
         fab_notes: Some("Route the slots.\nNo X-outs.".into()),
+        edge_connector: Some(reda_engine::model::EdgeConnector {
+            bevel: Some(reda_engine::model::EdgeBevel {
+                angle: Millideg(30_000),
+                depth: Nm(1_000_000),
+            }),
+            hard_gold: true,
+        }),
     };
     let seeded = reda_engine::pcb::seed_rules(&fab_rules(seed.rules));
     for (kind, values) in seeded.into_iter().chain(reda_engine::pcb::default_rules()) {

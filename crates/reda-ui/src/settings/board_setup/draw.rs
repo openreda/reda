@@ -61,6 +61,7 @@ pub fn check_name(check: DrcCheck) -> String {
         DrcCheck::AnnularRing => tr!("check-annular-ring"),
         DrcCheck::HoleToHole => tr!("check-hole-to-hole"),
         DrcCheck::EdgeClearance => tr!("check-edge-clearance"),
+        DrcCheck::EdgeConnectorWithoutPads => tr!("check-edge-connector-without-pads"),
         DrcCheck::Keepout => tr!("check-keepout"),
         DrcCheck::FootprintOutsideBoard => tr!("check-footprint-outside-board"),
         DrcCheck::Unrouted => tr!("check-unrouted"),

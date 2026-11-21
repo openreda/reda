@@ -170,3 +170,104 @@ fn the_job_file_says_when_the_board_has_an_edge_connector_or_castellations() {
     assert!(specs.get("EdgeConnector").is_none(), "{specs}");
     assert!(specs.get("Castellated").is_none(), "{specs}");
 }
+
+fn fab_notes(engine: &TestEngine) -> String {
+    with_plot(engine, |plot| {
+        let mut files = gerber_files(plot).unwrap().files;
+        files.extend(drill_files(plot).files);
+        String::from_utf8(reda_output::fab_notes_file(plot, &files, &[]).bytes).unwrap()
+    })
+}
+
+/// The card with `edge_connector {bevel {20°, 1.30}, hard_gold}` and an ENIG finish.
+fn bevelled_card(dir: &TempDir) -> TestEngine {
+    let mut engine = card(dir);
+    engine.run_ok("pcb.stackup.set", json!({"finish": "ENIG"}));
+    engine.run_ok(
+        "pcb.edge_connector.set",
+        json!({"edge_connector": {"bevel": {"angle": "20deg", "depth": "1.3mm"},
+                                  "hard_gold": true}}),
+    );
+    engine
+}
+
+#[test]
+fn the_job_file_carries_the_bevel_in_its_notes_and_the_hard_gold_area() {
+    let dir = TempDir::new("edge-connector-bevel-job");
+    let specs = general_specs(&files(&bevelled_card(&dir)));
+    assert_eq!(specs["EdgeConnector"], true);
+    assert_eq!(specs["EdgeConnectorBevelled"], true);
+    assert_eq!(
+        specs["Notes"], "Bevel edge-connector edge: 20°, 1.30 mm",
+        "{specs}"
+    );
+    // Two 1 × 3 mm fingers, one on each side.
+    assert_eq!(specs["HardGoldArea"], 6.0, "{specs}");
+    // Hard gold is selective: the board finish stays ENIG.
+    assert_eq!(specs["Finish"], "ENIG");
+
+    let plain = TempDir::new("edge-connector-plain-job");
+    let specs = general_specs(&files(&card(&plain)));
+    for key in ["EdgeConnectorBevelled", "Notes", "HardGoldArea"] {
+        assert!(specs.get(key).is_none(), "{key}: {specs}");
+    }
+}
+
+#[test]
+fn hard_gold_alone_gives_its_area_and_no_bevel() {
+    let dir = TempDir::new("edge-connector-gold-job");
+    let mut engine = card(&dir);
+    engine.run_ok(
+        "pcb.edge_connector.set",
+        json!({"edge_connector": {"hard_gold": true}}),
+    );
+    let specs = general_specs(&files(&engine));
+    assert_eq!(specs["HardGoldArea"], 6.0, "{specs}");
+    assert!(specs.get("EdgeConnectorBevelled").is_none(), "{specs}");
+    assert!(specs.get("Notes").is_none(), "{specs}");
+    let notes = fab_notes(&engine);
+    assert!(
+        notes.contains("  Hard gold on edge-connector Pads, 6.00 mm²\n"),
+        "{notes}"
+    );
+    assert!(!notes.contains("Bevel"), "{notes}");
+}
+
+#[test]
+fn fab_notes_name_the_bevel_and_hard_gold_beside_the_unchanged_finish() {
+    let dir = TempDir::new("edge-connector-fab-notes");
+    let notes = fab_notes(&bevelled_card(&dir));
+    let board: Vec<&str> = notes
+        .lines()
+        .skip_while(|l| *l != "Board")
+        .take_while(|l| !l.is_empty())
+        .map(str::trim_start)
+        .collect();
+    let finish = board
+        .iter()
+        .position(|l| *l == "Finish: ENIG")
+        .expect("the finish line");
+    assert_eq!(
+        board[finish + 1..finish + 3],
+        [
+            "Bevel edge-connector edge: 20°, 1.30 mm",
+            "Hard gold on edge-connector Pads, 6.00 mm²"
+        ],
+        "{notes}"
+    );
+}
+
+#[test]
+fn hard_gold_writes_no_goldmask_gerber() {
+    let dir = TempDir::new("edge-connector-no-goldmask");
+    let plain = TempDir::new("edge-connector-no-goldmask-plain");
+    let names = |engine: &TestEngine| -> Vec<String> {
+        files(engine).into_iter().map(|f| f.name).collect()
+    };
+    let with_gold = names(&bevelled_card(&dir));
+    assert_eq!(names(&card(&plain)), with_gold);
+    assert!(
+        !with_gold.iter().any(|n| n.to_lowercase().contains("gold")),
+        "{with_gold:?}"
+    );
+}
