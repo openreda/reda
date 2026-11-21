@@ -7,7 +7,7 @@
 
 use std::path::PathBuf;
 
-use reda_model::{Footprint, Part, Symbol, Uuid};
+use reda_model::{BoardTemplate, Footprint, Part, Symbol, Uuid};
 
 use crate::CommandError;
 
@@ -61,6 +61,14 @@ pub trait PartSource {
     /// `None` for one no registered Library holds.
     fn locate(&self, elements: &[Uuid]) -> Vec<Option<ElementLocation>> {
         vec![None; elements.len()]
+    }
+
+    /// The usable Board Template with this Library element UUID from any registered
+    /// Library, for creating a board from it, or `not_found`.
+    fn board_template(&self, element: Uuid) -> Result<BoardTemplate, CommandError> {
+        Err(CommandError::not_found(format!(
+            "no registered Library holds a usable Board Template {element}"
+        )))
     }
 }
 

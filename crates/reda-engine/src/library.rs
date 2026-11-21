@@ -281,6 +281,12 @@ impl PartSource for DiskParts {
             .collect()
     }
 
+    fn board_template(&self, element: Uuid) -> Result<reda_model::BoardTemplate, CommandError> {
+        let index = scan(&self.roots(), &mut DiskLibraryFiles);
+        crate::commands::board_template::find_board_template(&index, element)
+            .map(|(_, template)| template.clone())
+    }
+
     fn locate(&self, elements: &[Uuid]) -> Vec<Option<ElementLocation>> {
         if elements.is_empty() {
             return vec![];

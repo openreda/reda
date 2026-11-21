@@ -138,7 +138,14 @@ fn the_new_project_dialog_takes_a_fab_preset_and_a_rectangle_board() {
         s.last_fab_preset = Some("JLCPCB".into());
     })
     .unwrap();
-    let mut h = harness(home.path());
+    // The Rectangle is the starter Library's Custom rectangle template.
+    let engine = Engine::builder()
+        .user_dirs(Some(UserDirs::under(home.path())))
+        .starter_library(Some(reda_testkit::starter_library()))
+        .headless(false)
+        .build();
+    let app = App::new(Shell::new(engine));
+    let mut h = builder().build_ui_state(|ui, app: &mut App| app.ui(ui), app);
     h.run();
 
     h.get_all_by_label("New Project…").last().unwrap().click();

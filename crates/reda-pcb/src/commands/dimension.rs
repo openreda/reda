@@ -280,6 +280,34 @@ fn check_measures(d: &Dimension) -> Result<(), CommandError> {
 }
 
 /// The angle of the line from `a` to `b`, to the millidegree.
+/// A Dimension from `a` to `b` on `layer` with the style of a new one, measuring along
+/// the line between its ends.
+pub fn new_dimension(uuid: Uuid, layer: Uuid, a: DimensionEnd, b: DimensionEnd) -> Dimension {
+    Dimension {
+        locked: false,
+        uuid,
+        layer,
+        a,
+        b,
+        rotation: angle_of(a.point, b.point),
+        width: DEFAULT_DIMENSION_WIDTH,
+        extension_width: DEFAULT_DIMENSION_WIDTH,
+        gap: DEFAULT_DIMENSION_GAP,
+        offset: DEFAULT_DIMENSION_OFFSET,
+        text_gap: DEFAULT_TEXT_GAP,
+        arrow_size: DEFAULT_ARROW_SIZE,
+        arrow_length: DEFAULT_ARROW_LENGTH,
+        arrow_position: ArrowPosition::default(),
+        text_position: DimensionTextPosition::default(),
+        style: Dimension::default_style(),
+        units: DimensionUnits::default(),
+        precision: DEFAULT_PRECISION,
+        format: DimensionFormat::default(),
+        prefix: String::new(),
+        suffix: String::new(),
+    }
+}
+
 fn angle_of(a: Point, b: Point) -> Millideg {
     let d = b - a;
     let deg = (d.y.0 as f64).atan2(d.x.0 as f64).to_degrees();
@@ -326,29 +354,7 @@ impl Command for DimensionAdd {
         let b = p.b.resolve(pcb, "/b")?;
         let document = pcb.uuid;
         let uuid = cx.new_id();
-        let mut d = Dimension {
-            locked: false,
-            uuid,
-            layer,
-            a,
-            b,
-            rotation: angle_of(a.point, b.point),
-            width: DEFAULT_DIMENSION_WIDTH,
-            extension_width: DEFAULT_DIMENSION_WIDTH,
-            gap: DEFAULT_DIMENSION_GAP,
-            offset: DEFAULT_DIMENSION_OFFSET,
-            text_gap: DEFAULT_TEXT_GAP,
-            arrow_size: DEFAULT_ARROW_SIZE,
-            arrow_length: DEFAULT_ARROW_LENGTH,
-            arrow_position: ArrowPosition::default(),
-            text_position: DimensionTextPosition::default(),
-            style: Dimension::default_style(),
-            units: DimensionUnits::default(),
-            precision: DEFAULT_PRECISION,
-            format: DimensionFormat::default(),
-            prefix: String::new(),
-            suffix: String::new(),
-        };
+        let mut d = new_dimension(uuid, layer, a, b);
         p.fields.apply(&mut d)?;
         check_measures(&d)?;
         cx.tx()?

@@ -7,7 +7,10 @@ use reda_engine::command::{FixedClock, SeededIds, UserDirs};
 use reda_engine::model::geom::Nm;
 use reda_engine::model::{RuleField, RuleKind};
 use reda_engine::state;
-use reda_testkit::{FolderTrash, TempDir, TestEngine, test_engine, test_engine_in};
+use reda_testkit::{
+    FolderTrash, TempDir, TestEngine, starter_library, test_engine, test_engine_in,
+    test_engine_with_library,
+};
 use serde_json::{Value, json};
 
 fn new_project(engine: &mut TestEngine, dir: &TempDir, params: Value) -> Value {
@@ -87,10 +90,10 @@ fn a_default_via_on_every_shipped_preset_has_enough_annular_ring() {
     for preset in ["Generic", "JLCPCB", "PCBWay", "OSH Park"] {
         let dir = TempDir::new("fab-via");
         let mut engine = test_engine();
-        new_project(
-            &mut engine,
-            &dir,
-            json!({"fab_preset": preset, "board": {"width": "20mm", "height": "20mm"}}),
+        new_project(&mut engine, &dir, json!({"fab_preset": preset}));
+        engine.run_ok(
+            "pcb.board_outline.add_rect",
+            json!({"width": "20mm", "height": "20mm"}),
         );
         engine.run_ok("pcb.via.add", json!({"at": {"x": "10mm", "y": "10mm"}}));
         let drc = engine.run_ok("drc.run", json!({}));
@@ -135,23 +138,25 @@ fn the_generic_preset_is_conservative() {
 }
 
 #[test]
-fn a_new_project_can_start_with_a_rectangular_board() {
+fn a_new_project_starts_with_a_rectangle_from_the_custom_rectangle_template() {
     let dir = TempDir::new("fab-board");
-    let mut engine = test_engine();
+    let mut engine = test_engine_with_library(&starter_library());
     new_project(
         &mut engine,
         &dir,
-        json!({"board": {"width": "100mm", "height": "80mm", "corner_radius": "2mm"}}),
+        json!({"board_template": {"element": "4b5a3569-5fcc-49b3-8af9-5d5fdda27d41",
+               "values": {"width": "100mm", "height": "80mm", "corner_radius": "2mm"}}}),
     );
     let outline = engine.project().unwrap().pcb().unwrap().outline().unwrap();
     assert_eq!(outline.vertices.len(), 8);
 
+    // `{board}` is gone: Custom rectangle replaces it.
     let err = test_engine().run_err(
         "project.new",
-        json!({"path": dir.path().join("other"), "name": "Demo", "board": {"width": 0, "height": 10}}),
+        json!({"path": dir.path().join("other"), "name": "Demo", "board": {"width": 10, "height": 10}}),
     );
     assert_eq!(err.code, ErrorCode::InvalidParams);
-    assert_eq!(err.details.unwrap()["pointer"], "/board/width");
+    assert!(!dir.path().join("other").exists());
 }
 
 #[test]

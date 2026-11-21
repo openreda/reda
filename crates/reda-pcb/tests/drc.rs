@@ -956,7 +956,14 @@ fn a_different_inner_via_land_is_not_duplicate_copper() {
 fn only_the_oversized_inner_lands_break_board_edge_clearance() {
     let dir = TempDir::new("pad-stack-edge");
     let mut engine = probe_engine();
-    engine.run_ok("project.new",json!({"name":"Demo","path":dir.path(),"layers":4,"board":{"width":"20mm","height":"10mm"}}));
+    engine.run_ok(
+        "project.new",
+        json!({"name":"Demo","path":dir.path(),"layers":4}),
+    );
+    engine.run_ok(
+        "pcb.board_outline.add_rect",
+        json!({"width":"20mm","height":"10mm"}),
+    );
     let inner: Vec<_> = engine
         .project()
         .unwrap()
@@ -1306,8 +1313,11 @@ fn every_disconnected_glyph_keeps_clear_of_the_board_edge() {
     let mut engine = probe_engine();
     engine.run_ok(
         "project.new",
-        json!({"path":dir.path(),"name":"Outline","layers":4,
-        "board":{"width":"10mm","height":"10mm"}}),
+        json!({"path":dir.path(),"name":"Outline","layers":4}),
+    );
+    engine.run_ok(
+        "pcb.board_outline.add_rect",
+        json!({"width":"10mm","height":"10mm"}),
     );
     let pcb = engine.project().unwrap().pcb().unwrap();
     let edge = pcb.outline().unwrap().uuid;

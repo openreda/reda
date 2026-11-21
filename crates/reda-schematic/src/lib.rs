@@ -2,6 +2,7 @@
 //! schematic Commands, and the connectivity derived from the drawing ([`connectivity`]).
 //! ERC ([`erc`]) checks it.
 
+mod beside;
 mod component;
 pub mod connectivity;
 pub mod cross_ref;
@@ -27,6 +28,7 @@ mod wiring;
 use reda_command::{CommandError, Registry};
 use reda_model::{Project, SchematicSheet, Uuid};
 
+pub use beside::beside_content;
 pub use component::{
     At, ComponentPlace, ComponentPlaceParams, PlacedResult, UnitPlace, UnitPlaceParams,
     next_free_designator,

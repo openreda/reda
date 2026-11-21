@@ -41,9 +41,10 @@ impl Fixture {
             .headless(false)
             .build();
         let mut shell = Shell::new(engine);
-        let params = json!({"path": work.path(), "name": "Win",
-                            "board": {"width": "30mm", "height": "20mm"}});
+        let params = json!({"path": work.path(), "name": "Win"});
         shell.run("project.new", params).unwrap();
+        let rect = json!({"width": "30mm", "height": "20mm"});
+        shell.run("pcb.board_outline.add_rect", rect).unwrap();
         let mut h = Harness::builder()
             .with_size([1300.0, 900.0])
             .build_ui_state(|ui, app: &mut App| app.ui(ui), App::new(shell));

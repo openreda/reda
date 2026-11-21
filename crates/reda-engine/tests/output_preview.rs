@@ -20,9 +20,10 @@ fn pt(x: f64, y: f64) -> Value {
 
 fn board(dir: &TempDir) -> TestEngine {
     let mut engine = probe_engine();
+    engine.run_ok("project.new", json!({"path": dir.path(), "name": "Demo"}));
     engine.run_ok(
-        "project.new",
-        json!({"path": dir.path(), "name": "Demo", "board": {"width": "30mm", "height": "20mm"}}),
+        "pcb.board_outline.add_rect",
+        json!({"width": "30mm", "height": "20mm"}),
     );
     // A plated hole, so the PTH file is written and the NPTH one left out.
     engine.run_ok(
@@ -127,9 +128,10 @@ fn the_previewed_zip_and_paths_are_what_a_run_writes() {
 fn the_bom_and_cpl_previews_are_the_writers_rows() {
     let dir = TempDir::new("preview-assembly");
     let mut engine = test_engine_with_library(&starter_library());
+    engine.run_ok("project.new", json!({"path": dir.path(), "name": "Demo"}));
     engine.run_ok(
-        "project.new",
-        json!({"path": dir.path(), "name": "Demo", "board": {"width": "30mm", "height": "20mm"}}),
+        "pcb.board_outline.add_rect",
+        json!({"width": "30mm", "height": "20mm"}),
     );
     for i in 0..3 {
         engine.run_ok(
@@ -193,8 +195,11 @@ fn multilayer_preview_matches_the_physical_order_in_the_zip_manifest_and_job() {
     let mut engine = probe_engine();
     engine.run_ok(
         "project.new",
-        json!({"path":dir.path(),"name":"Demo","layers":4,
-                                         "board":{"width":"20mm","height":"15mm"}}),
+        json!({"path":dir.path(),"name":"Demo","layers":4}),
+    );
+    engine.run_ok(
+        "pcb.board_outline.add_rect",
+        json!({"width":"20mm","height":"15mm"}),
     );
     let pcb = engine.project().unwrap().pcb().unwrap();
     let inner = pcb.copper_layers().nth(1).unwrap().uuid;
@@ -296,8 +301,11 @@ fn a_layer_name_with_a_slash_blocks_only_jobs_that_write_it_as_a_filename() {
     let mut engine = probe_engine();
     engine.run_ok(
         "project.new",
-        json!({"path":dir.path(),"name":"Board","layers":4,
-               "board":{"width":"20mm","height":"15mm"}}),
+        json!({"path":dir.path(),"name":"Board","layers":4}),
+    );
+    engine.run_ok(
+        "pcb.board_outline.add_rect",
+        json!({"width":"20mm","height":"15mm"}),
     );
     let project = engine.project().unwrap();
     let job = project.output_jobs().next().unwrap().clone();
@@ -337,8 +345,11 @@ fn drill_spans_follow_through_rows_and_old_span_files_are_removed_on_rerun() {
     let mut engine = probe_engine();
     engine.run_ok(
         "project.new",
-        json!({"path":dir.path(),"name":"Demo","layers":6,
-        "board":{"width":"30mm","height":"20mm"}}),
+        json!({"path":dir.path(),"name":"Demo","layers":6}),
+    );
+    engine.run_ok(
+        "pcb.board_outline.add_rect",
+        json!({"width":"30mm","height":"20mm"}),
     );
     let project = engine.project().unwrap();
     let job = project.output_jobs().next().unwrap().clone();

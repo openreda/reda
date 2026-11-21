@@ -124,7 +124,7 @@ fn fields_follow_the_schema_types() {
         [
             "path",
             "name",
-            "board",
+            "board_template",
             "construction",
             "fab_preset",
             "layers"
@@ -141,7 +141,10 @@ fn fields_follow_the_schema_types() {
     assert_eq!(f.field("fab_preset").unwrap().label, "Fab preset");
     assert!(!f.field("fab_preset").unwrap().required);
     // An object param is typed as JSON.
-    assert_eq!(f.field("board").unwrap().input, Input::Json(String::new()));
+    assert_eq!(
+        f.field("board_template").unwrap().input,
+        Input::Json(String::new())
+    );
 
     let f = form(&shell, "document.add", json!({}));
     let Input::Choice { options, selected } = &f.field("kind").unwrap().input else {
@@ -257,16 +260,17 @@ fn integers_choices_flags_and_json_turn_into_params() {
     );
 
     let mut f = form(&shell, "project.new", json!({"path": "/x", "name": "A"}));
-    f.set_text("board", "{\"width\": ");
+    f.set_text("board_template", "{\"element\": ");
     assert!(problems(&shell, &f)[0].1.starts_with("Not valid JSON"));
-    f.set_text("board", "{\"width\": \"1mm\", \"height\": true}");
+    f.set_text("board_template", "{\"element\": true}");
     let p = problems(&shell, &f);
-    assert_eq!(p[0].0, "board");
-    assert!(p[0].1.contains("height"), "{}", p[0].1);
-    f.set_text("board", "{\"width\": \"1mm\", \"height\": \"2mm\"}");
+    assert_eq!(p[0].0, "board_template");
+    assert!(p[0].1.contains("element"), "{}", p[0].1);
+    let element = "4b5a3569-5fcc-49b3-8af9-5d5fdda27d41";
+    f.set_text("board_template", &format!("{{\"element\": \"{element}\"}}"));
     assert_eq!(
         f.params(registry),
-        Some(json!({"path": "/x", "name": "A", "board": {"width": "1mm", "height": "2mm"}}))
+        Some(json!({"path": "/x", "name": "A", "board_template": {"element": element}}))
     );
 }
 

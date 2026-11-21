@@ -1003,7 +1003,18 @@ fn a_plane_role_offers_an_outline_zone_only_until_one_is_created() {
     let (home, work) = (TempDir::new("plane-ui-home"), TempDir::new("plane-ui-work"));
     let mut h = harness(home.path(), work.path(), "First");
     let shell = h.state_mut().shell_mut();
-    shell.run("project.new",json!({"name":"Planes","path":work.path(),"layers":4,"board":{"width":"20mm","height":"20mm"}})).unwrap();
+    shell
+        .run(
+            "project.new",
+            json!({"name":"Planes","path":work.path(),"layers":4}),
+        )
+        .unwrap();
+    shell
+        .run(
+            "pcb.board_outline.add_rect",
+            json!({"width":"20mm","height":"20mm"}),
+        )
+        .unwrap();
     let gnd = shell.run("test.net.add", json!({"name":"GND"})).unwrap()["result"]["uuid"].clone();
     let board = pcb(&h);
     let layer = board.copper_layers().nth(1).unwrap().uuid;

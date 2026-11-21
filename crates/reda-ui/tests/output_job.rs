@@ -28,10 +28,12 @@ fn shell(home: &TempDir) -> Shell {
 fn shell_with_board(home: &TempDir, work: &TempDir) -> Shell {
     let mut shell = shell(home);
     shell
+        .run("project.new", json!({"path": work.path(), "name": "Board"}))
+        .unwrap();
+    shell
         .run(
-            "project.new",
-            json!({"path": work.path(), "name": "Board",
-                   "board": {"width": "30mm", "height": "20mm"}}),
+            "pcb.board_outline.add_rect",
+            json!({"width": "30mm", "height": "20mm"}),
         )
         .unwrap();
     shell
