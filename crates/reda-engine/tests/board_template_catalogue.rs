@@ -409,6 +409,13 @@ fn contour_measure(vertices: &[Vertex], measure: &str) -> Result<i64, String> {
             }
         }
         other => {
+            if let Some(rest) = other.strip_prefix("arc:") {
+                let (i, what) = rest.split_once('/').ok_or("arc:<i>/<measure>")?;
+                let i: usize = i
+                    .parse()
+                    .map_err(|_| format!("`{i}` is not a vertex index"))?;
+                return arc_measure(vertices, i, what);
+            }
             if let Some(rest) = other.strip_prefix("vertex:") {
                 let (i, axis) = rest.split_once('/').ok_or("vertex:<i>/x or /y")?;
                 let i: usize = i
@@ -422,6 +429,33 @@ fn contour_measure(vertices: &[Vertex], measure: &str) -> Result<i64, String> {
     })
 }
 
+/// The arc leaving vertex `i`: its centre (`x`, `y`), `radius`, or the point halfway
+/// along it (`mid/x`, `mid/y`), such as the tip of a full-radius notch.
+fn arc_measure(vertices: &[Vertex], i: usize, what: &str) -> Result<i64, String> {
+    let v = vertices.get(i).ok_or(format!("there is no vertex {i}"))?;
+    if v.sweep == Millideg::ZERO {
+        return Err(format!("the edge leaving vertex {i} is not an arc"));
+    }
+    let to = vertices[(i + 1) % vertices.len()].point();
+    let c = arc_centre(v.point(), to, v.sweep);
+    let (dx, dy) = ((v.x - c.x).0 as f64, (v.y - c.y).0 as f64);
+    let half = (v.sweep.0 as f64 / 2_000.0).to_radians();
+    let mid = (
+        c.x.0 as f64 + dx * half.cos() - dy * half.sin(),
+        c.y.0 as f64 + dx * half.sin() + dy * half.cos(),
+    );
+    match what {
+        "x" => Ok(c.x.0),
+        "y" => Ok(c.y.0),
+        "radius" => Ok(dx.hypot(dy).round() as i64),
+        "mid/x" => Ok(mid.0.round() as i64),
+        "mid/y" => Ok(mid.1.round() as i64),
+        other => Err(format!(
+            "unknown arc measure `{other}`; use x, y, radius, mid/x or mid/y"
+        )),
+    }
+}
+
 fn axis_of(p: Point, axis: &str) -> Result<i64, String> {
     match axis {
         "x" => Ok(p.x.0),
@@ -433,12 +467,15 @@ fn axis_of(p: Point, axis: &str) -> Result<i64, String> {
 /// Measures one quantity term, `<object>/<measure>`:
 ///
 /// - `outline/…`, `cutout:<uuid>/…`, `keepout:<uuid>/…`: `width`, `height`, `min_x`,
-///   `min_y`, `max_x`, `max_y`, `corner_radius` or `vertex:<i>/x|y`;
+///   `min_y`, `max_x`, `max_y`, `corner_radius`, `vertex:<i>/x|y` or
+///   `arc:<i>/x|y|radius|mid/x|mid/y` (the arc leaving vertex `i`);
 /// - `hole:<uuid>/…`, `connector:<uuid>/…`: `x`, `y`, `rotation`, `drill` (the first Pad's
-///   hole width), or `pad:<number>/x|y|drill|width|height` (`width` and `height` are the
-///   Pad's copper extent on the board);
-/// - `drawing:<uuid>/…`: `from/x|y`, `to/x|y`, `position/x|y`.
-fn measure_term(frame: &Frame, term: &str) -> Result<Measured, String> {
+///   hole width), or `pad:<number>/x|y|drill|width|height|min_x|min_y|max_x|max_y`
+///   (`width`, `height` and the bounds are the Pad's copper extent on the board), or
+///   `pad:<number>/bottom_width`, the width of its bottom land in the Footprint copy;
+/// - `drawing:<uuid>/…`: `from/x|y`, `to/x|y`, `position/x|y`;
+/// - `board/bevel_angle`, `board/bevel_depth`: the `edge_connector` bevel.
+fn measure_term(template: &BoardTemplate, frame: &Frame, term: &str) -> Result<Measured, String> {
     let (object, measure) = term
         .split_once('/')
         .ok_or_else(|| format!("`{term}` is not <object>/<measure>"))?;
@@ -454,6 +491,17 @@ fn measure_term(frame: &Frame, term: &str) -> Result<Measured, String> {
     };
     let len = Measured::Length;
     match (kind, uuid) {
+        ("board", None) => {
+            let bevel = (frame.board.as_ref())
+                .and_then(|b| b.edge_connector.as_ref())
+                .and_then(|e| e.bevel.as_ref())
+                .ok_or("the board sets no edge-connector bevel")?;
+            match measure {
+                "bevel_angle" => Ok(Measured::Angle(bevel.angle.0)),
+                "bevel_depth" => Ok(len(bevel.depth.0)),
+                other => Err(format!("unknown board measure `{other}`")),
+            }
+        }
         ("outline", None) => contour_measure(&frame.outline.contour(), measure).map(len),
         ("cutout", Some(u)) => {
             let c = frame
@@ -472,20 +520,20 @@ fn measure_term(frame: &Frame, term: &str) -> Result<Measured, String> {
             contour_measure(&k.vertices, measure).map(len)
         }
         ("hole" | "connector", Some(u)) => {
-            let (at, rotation, pads) = if kind == "hole" {
+            let (at, rotation, pads, copy) = if kind == "hole" {
                 let h = frame
                     .holes
                     .iter()
                     .find(|h| h.uuid == u)
                     .ok_or(format!("no hole {u} in the frame"))?;
-                (h.at, h.rotation, &h.pads)
+                (h.at, h.rotation, &h.pads, h.footprint)
             } else {
                 let c = frame
                     .connectors
                     .iter()
                     .find(|c| c.uuid == u)
                     .ok_or(format!("no connector {u} in the frame"))?;
-                (c.at, c.rotation, &c.pads)
+                (c.at, c.rotation, &c.pads, Some(c.footprint))
             };
             let drill = |pad: &reda_engine::library::board_template::FramePad| {
                 pad.hole
@@ -505,15 +553,23 @@ fn measure_term(frame: &Frame, term: &str) -> Result<Measured, String> {
                         .iter()
                         .find(|p| p.number == number)
                         .ok_or(format!("no Pad {number}"))?;
+                    let b = contour_bounds(&pad.outline).ok_or("an empty Pad outline")?;
                     match what {
                         "drill" => drill(pad).map(len),
-                        "width" | "height" => {
-                            let b = contour_bounds(&pad.outline).ok_or("an empty Pad outline")?;
-                            Ok(len(if what == "width" {
-                                (b.max.x - b.min.x).0
-                            } else {
-                                (b.max.y - b.min.y).0
-                            }))
+                        "width" => Ok(len((b.max.x - b.min.x).0)),
+                        "height" => Ok(len((b.max.y - b.min.y).0)),
+                        "min_x" => Ok(len(b.min.x.0)),
+                        "min_y" => Ok(len(b.min.y.0)),
+                        "max_x" => Ok(len(b.max.x.0)),
+                        "max_y" => Ok(len(b.max.y.0)),
+                        "bottom_width" => {
+                            let copy = (template.footprint_copies.iter())
+                                .find(|c| Some(c.uuid) == copy)
+                                .ok_or("no Footprint copy")?;
+                            let pad = (copy.footprint.pads.iter())
+                                .find(|p| p.number == number)
+                                .ok_or(format!("no Pad {number} in the Footprint copy"))?;
+                            Ok(len(pad.bottom.as_ref().map_or(pad.width, |b| b.width).0))
                         }
                         axis => axis_of(pad.at, axis).map(len),
                     }
@@ -541,12 +597,12 @@ fn measure_term(frame: &Frame, term: &str) -> Result<Measured, String> {
 }
 
 /// A quantity: one term, or the difference of two (`a - b`), such as a hole pitch.
-fn measure(frame: &Frame, quantity: &str) -> Result<Measured, String> {
+fn measure(template: &BoardTemplate, frame: &Frame, quantity: &str) -> Result<Measured, String> {
     match quantity.split_once(" - ") {
-        None => measure_term(frame, quantity.trim()),
+        None => measure_term(template, frame, quantity.trim()),
         Some((a, b)) => match (
-            measure_term(frame, a.trim())?,
-            measure_term(frame, b.trim())?,
+            measure_term(template, frame, a.trim())?,
+            measure_term(template, frame, b.trim())?,
         ) {
             (Measured::Length(a), Measured::Length(b)) => Ok(Measured::Length(a - b)),
             (Measured::Angle(a), Measured::Angle(b)) => Ok(Measured::Angle(a - b)),
@@ -613,7 +669,7 @@ fn every_spec_number_is_measured_in_its_frame_and_sourced() {
                 .or_default()
                 .push_str(&format!("{}\n", row.quantity));
         }
-        let measured = match measure(&frame, &row.quantity) {
+        let measured = match measure(template, &frame, &row.quantity) {
             Ok(m) => m,
             Err(e) => {
                 failures.push(format!("{at}: {e}"));
@@ -685,22 +741,46 @@ fn the_dimension_measures_catch_a_wrong_number() {
         .unwrap();
     let frame = frame_at(&template, "width=65,corner_radius=5").unwrap();
     assert_eq!(
-        measure(&frame, "outline/width"),
+        measure(&template, &frame, "outline/width"),
         Ok(Measured::Length(65_000_000))
     );
     assert_eq!(
-        measure(&frame, "outline/height"),
+        measure(&template, &frame, "outline/height"),
         Ok(Measured::Length(80_000_000))
     );
     assert_eq!(
-        measure(&frame, "outline/corner_radius"),
+        measure(&template, &frame, "outline/corner_radius"),
         Ok(Measured::Length(5_000_000))
     );
     assert_eq!(
-        measure(&frame, "outline/vertex:1/x - outline/vertex:0/x"),
+        measure(&template, &frame, "outline/vertex:1/x - outline/vertex:0/x"),
         Ok(Measured::Length(55_000_000))
     );
-    assert!(measure(&frame, "hole:00000000-0000-4000-8000-000000000001/x").is_err());
+    // The arc leaving vertex 1 runs from (60, 0) to (65, 5) round (60, 5).
+    assert_eq!(
+        measure(&template, &frame, "outline/arc:1/radius"),
+        Ok(Measured::Length(5_000_000))
+    );
+    assert_eq!(
+        measure(&template, &frame, "outline/arc:1/x"),
+        Ok(Measured::Length(60_000_000))
+    );
+    assert_eq!(
+        measure(&template, &frame, "outline/arc:1/y"),
+        Ok(Measured::Length(5_000_000))
+    );
+    // Its middle, 45° round: 5 × (sin 45°, 1 − cos 45°) from (60, 0).
+    assert_eq!(
+        measure(&template, &frame, "outline/arc:1/mid/x"),
+        Ok(Measured::Length(63_535_534))
+    );
+    assert_eq!(
+        measure(&template, &frame, "outline/arc:1/mid/y"),
+        Ok(Measured::Length(1_464_466))
+    );
+    assert!(measure(&template, &frame, "outline/arc:0/radius").is_err());
+    assert!(measure(&template, &frame, "board/bevel_angle").is_err());
+    assert!(measure(&template, &frame, "hole:00000000-0000-4000-8000-000000000001/x").is_err());
     assert_eq!(
         frame.values["width"],
         ResolvedValue::Length(reda_engine::model::geom::Nm(65_000_000))
