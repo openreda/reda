@@ -18,6 +18,7 @@ mod net;
 mod net_class;
 mod outline;
 pub(crate) mod placement;
+mod plated_edge;
 mod polygon;
 mod route;
 mod rules;
@@ -63,6 +64,7 @@ pub fn register_all_with_user(
     user_name: reda_command::UserNameLookup,
 ) {
     outline::register_all(registry);
+    plated_edge::register_all(registry);
     rules::register_all(registry);
     stackup::register_all(registry);
     registry.add(layer::LayerSetCommand);

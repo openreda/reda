@@ -266,11 +266,7 @@ fn build_project(
     let copy = ProjectFabPreset::new(cx.new_id(), preset);
     let job = reda_output::new_job(cx.new_id(), copy.name.clone(), pcb.uuid, copy.uuid);
     let outline = outline.map(|vertices| {
-        let outline = BoardOutline {
-            locked: false,
-            uuid: cx.new_id(),
-            vertices,
-        };
+        let outline = BoardOutline::new(cx.new_id(), vertices);
         Object::BoardOutline(InDocument::new(pcb.uuid, outline))
     });
 

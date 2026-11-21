@@ -25060,6 +25060,43 @@
             },
             "type": "object"
           },
+          "BoardVertex": {
+            "additionalProperties": false,
+            "description": "One vertex of a Board Outline or Board Cutout as the file stores it: a [`Vertex`] and\nthe mark of the edge that leaves it.",
+            "properties": {
+              "plated": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/PlatedEdge"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Set when the edge to the next vertex is a Plated Edge; left out otherwise."
+              },
+              "sweep": {
+                "description": "The edge to the next vertex: left out (or 0) for a straight edge, otherwise an arc\nsweeping this angle, counter-clockwise when positive.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
           "BomGroup": {
             "description": "Sources shared by Components on a grouped BOM row.",
             "oneOf": [
@@ -28594,9 +28631,9 @@
                 "type": "string"
               },
               "vertices": {
-                "description": "The contour, counter-clockwise or not; the last vertex joins the first.",
+                "description": "The contour; the last vertex joins the first.",
                 "items": {
-                  "$ref": "#/$defs/Vertex"
+                  "$ref": "#/$defs/BoardVertex"
                 },
                 "type": "array"
               }
@@ -28621,7 +28658,7 @@
               "vertices": {
                 "description": "The contour; the last vertex joins the first.",
                 "items": {
-                  "$ref": "#/$defs/Vertex"
+                  "$ref": "#/$defs/BoardVertex"
                 },
                 "type": "array"
               }
@@ -31367,6 +31404,21 @@
               }
             ]
           },
+          "PlatedEdge": {
+            "additionalProperties": false,
+            "description": "The mark on a Plated Edge: the Net its plating carries, if any.",
+            "properties": {
+              "net": {
+                "description": "The Net the plating carries; left out for none.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          },
           "Point": {
             "additionalProperties": false,
             "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
@@ -33590,6 +33642,43 @@
                 ]
               }
             },
+            "type": "object"
+          },
+          "BoardVertex": {
+            "additionalProperties": false,
+            "description": "One vertex of a Board Outline or Board Cutout as the file stores it: a [`Vertex`] and\nthe mark of the edge that leaves it.",
+            "properties": {
+              "plated": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/PlatedEdge"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Set when the edge to the next vertex is a Plated Edge; left out otherwise."
+              },
+              "sweep": {
+                "description": "The edge to the next vertex: left out (or 0) for a straight edge, otherwise an arc\nsweeping this angle, counter-clockwise when positive.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
             "type": "object"
           },
           "BomGroup": {
@@ -37126,9 +37215,9 @@
                 "type": "string"
               },
               "vertices": {
-                "description": "The contour, counter-clockwise or not; the last vertex joins the first.",
+                "description": "The contour; the last vertex joins the first.",
                 "items": {
-                  "$ref": "#/$defs/Vertex"
+                  "$ref": "#/$defs/BoardVertex"
                 },
                 "type": "array"
               }
@@ -37153,7 +37242,7 @@
               "vertices": {
                 "description": "The contour; the last vertex joins the first.",
                 "items": {
-                  "$ref": "#/$defs/Vertex"
+                  "$ref": "#/$defs/BoardVertex"
                 },
                 "type": "array"
               }
@@ -39919,6 +40008,21 @@
                 "type": "object"
               }
             ]
+          },
+          "PlatedEdge": {
+            "additionalProperties": false,
+            "description": "The mark on a Plated Edge: the Net its plating carries, if any.",
+            "properties": {
+              "net": {
+                "description": "The Net the plating carries; left out for none.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
           },
           "Point": {
             "additionalProperties": false,
@@ -43562,24 +43666,22 @@
               }
             ]
           },
-          "Length": {
-            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
-            "oneOf": [
-              {
-                "description": "Nanometres.",
-                "type": "integer"
-              },
-              {
-                "description": "A number and a unit: nm, um, mm, mil or in.",
-                "format": "length",
-                "type": "string"
-              }
-            ]
-          },
-          "VertexParam": {
+          "BoardVertexParam": {
             "additionalProperties": false,
-            "description": "One vertex of a contour and the edge that leaves it towards the next.",
+            "description": "One vertex of a Board Outline or Board Cutout, the edge that leaves it towards the\nnext, and whether that edge is a Plated Edge.",
             "properties": {
+              "plated": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/PlatedEdge"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Marks the edge to the next vertex as a Plated Edge, with an optional `net`. Only\nthe Board Outline and Board Cutouts take it."
+              },
               "sweep": {
                 "anyOf": [
                   {
@@ -43604,6 +43706,35 @@
               "y"
             ],
             "type": "object"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PlatedEdge": {
+            "additionalProperties": false,
+            "description": "The mark on a Plated Edge: the Net its plating carries, if any.",
+            "properties": {
+              "net": {
+                "description": "The Net the plating carries; left out for none.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -43612,7 +43743,7 @@
           "vertices": {
             "description": "The cutout's vertices in order; the last joins the first.",
             "items": {
-              "$ref": "#/$defs/VertexParam"
+              "$ref": "#/$defs/BoardVertexParam"
             },
             "type": "array"
           }
@@ -43770,24 +43901,22 @@
               }
             ]
           },
-          "Length": {
-            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
-            "oneOf": [
-              {
-                "description": "Nanometres.",
-                "type": "integer"
-              },
-              {
-                "description": "A number and a unit: nm, um, mm, mil or in.",
-                "format": "length",
-                "type": "string"
-              }
-            ]
-          },
-          "VertexParam": {
+          "BoardVertexParam": {
             "additionalProperties": false,
-            "description": "One vertex of a contour and the edge that leaves it towards the next.",
+            "description": "One vertex of a Board Outline or Board Cutout, the edge that leaves it towards the\nnext, and whether that edge is a Plated Edge.",
             "properties": {
+              "plated": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/PlatedEdge"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Marks the edge to the next vertex as a Plated Edge, with an optional `net`. Only\nthe Board Outline and Board Cutouts take it."
+              },
               "sweep": {
                 "anyOf": [
                   {
@@ -43812,6 +43941,35 @@
               "y"
             ],
             "type": "object"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PlatedEdge": {
+            "additionalProperties": false,
+            "description": "The mark on a Plated Edge: the Net its plating carries, if any.",
+            "properties": {
+              "net": {
+                "description": "The Net the plating carries; left out for none.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -43820,7 +43978,7 @@
           "vertices": {
             "description": "The outline's vertices in order; the last joins the first.",
             "items": {
-              "$ref": "#/$defs/VertexParam"
+              "$ref": "#/$defs/BoardVertexParam"
             },
             "type": "array"
           }
@@ -44742,6 +44900,165 @@
         "type": "object"
       },
       "title": "Check Via Clearance"
+    },
+    {
+      "category": "pcb",
+      "description": "Marks one edge of the Board Outline or a Board Cutout as a Plated Edge, which the fab plates with copper, with an optional `net`; `plated: null` clears the mark. `edge` is the index of the vertex that starts the edge.",
+      "icon": "board_outline",
+      "id": "pcb.contour.edge.set",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "PlatedEdge": {
+            "additionalProperties": false,
+            "description": "The mark on a Plated Edge: the Net its plating carries, if any.",
+            "properties": {
+              "net": {
+                "description": "The Net the plating carries; left out for none.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "contour": {
+            "description": "The Board Outline's or a Board Cutout's UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "edge": {
+            "description": "The index of the vertex that starts the edge.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "plated": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PlatedEdge"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The mark, with an optional `net`; `null` clears it."
+          }
+        },
+        "required": [
+          "contour",
+          "edge"
+        ],
+        "title": "EdgeSetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What the marking Commands return.",
+        "properties": {
+          "contour": {
+            "description": "The Board Outline or Board Cutout.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "plated_edges": {
+            "description": "How many of its edges are plated now.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "contour",
+          "plated_edges"
+        ],
+        "title": "Marked",
+        "type": "object"
+      },
+      "title": "Set Plated Edge"
+    },
+    {
+      "category": "pcb",
+      "description": "Marks every edge of the Board Outline or a Board Cutout as a Plated Edge with the same optional `net` (Plate all edges); `plated: null` clears every edge (Unplate all).",
+      "icon": "board_outline",
+      "id": "pcb.contour.edge.set_all",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "PlatedEdge": {
+            "additionalProperties": false,
+            "description": "The mark on a Plated Edge: the Net its plating carries, if any.",
+            "properties": {
+              "net": {
+                "description": "The Net the plating carries; left out for none.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "contour": {
+            "description": "The Board Outline's or a Board Cutout's UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "plated": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PlatedEdge"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The mark every edge takes, with an optional `net`; `null` clears every edge."
+          }
+        },
+        "required": [
+          "contour"
+        ],
+        "title": "EdgeSetAllParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What the marking Commands return.",
+        "properties": {
+          "contour": {
+            "description": "The Board Outline or Board Cutout.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "plated_edges": {
+            "description": "How many of its edges are plated now.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "contour",
+          "plated_edges"
+        ],
+        "title": "Marked",
+        "type": "object"
+      },
+      "title": "Plate All Edges"
     },
     {
       "category": "pcb",
@@ -57819,24 +58136,22 @@
               }
             ]
           },
-          "Length": {
-            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
-            "oneOf": [
-              {
-                "description": "Nanometres.",
-                "type": "integer"
-              },
-              {
-                "description": "A number and a unit: nm, um, mm, mil or in.",
-                "format": "length",
-                "type": "string"
-              }
-            ]
-          },
-          "VertexParam": {
+          "BoardVertexParam": {
             "additionalProperties": false,
-            "description": "One vertex of a contour and the edge that leaves it towards the next.",
+            "description": "One vertex of a Board Outline or Board Cutout, the edge that leaves it towards the\nnext, and whether that edge is a Plated Edge.",
             "properties": {
+              "plated": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/PlatedEdge"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Marks the edge to the next vertex as a Plated Edge, with an optional `net`. Only\nthe Board Outline and Board Cutouts take it."
+              },
               "sweep": {
                 "anyOf": [
                   {
@@ -57861,6 +58176,35 @@
               "y"
             ],
             "type": "object"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PlatedEdge": {
+            "additionalProperties": false,
+            "description": "The mark on a Plated Edge: the Net its plating carries, if any.",
+            "properties": {
+              "net": {
+                "description": "The Net the plating carries; left out for none.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -57877,9 +58221,9 @@
             "type": "string"
           },
           "vertices": {
-            "description": "Its new vertices in order; the last joins the first.",
+            "description": "Its new vertices in order; the last joins the first.\nOnly the Board Outline and Board Cutouts take `plated` marks; they keep only the\nmarks these vertices carry.",
             "items": {
-              "$ref": "#/$defs/VertexParam"
+              "$ref": "#/$defs/BoardVertexParam"
             },
             "type": "array"
           }

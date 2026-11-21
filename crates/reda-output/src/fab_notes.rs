@@ -37,7 +37,7 @@ pub fn fab_notes_file(
     let _ = writeln!(out, "Written by REDA {}", plot.version);
     if let Some(instance) = plot.instances.first() {
         let pcb = instance.pcb;
-        board(&mut out, plot.project, pcb);
+        board(&mut out, plot.project, pcb, manufacturing);
         stackup_table(&mut out, pcb);
         via_table(&mut out, plot, pcb, manufacturing);
         minimum_features(&mut out, pcb);
@@ -91,7 +91,7 @@ pub(crate) fn board_size(pcb: &PcbDocument) -> Option<(Nm, Nm)> {
     Some((bounds.max.x - bounds.min.x, bounds.max.y - bounds.min.y))
 }
 
-fn board(out: &mut String, project: &Project, pcb: &PcbDocument) {
+fn board(out: &mut String, project: &Project, pcb: &PcbDocument, files: &[OutputFile]) {
     let mut lines = Vec::new();
     if let Some((width, height)) = board_size(pcb) {
         lines.push(format!("Size: {} x {} mm", number(width), number(height)));
@@ -129,7 +129,53 @@ fn board(out: &mut String, project: &Project, pcb: &PcbDocument) {
             lines.push(format!("{label}: {value}"));
         }
     }
+    lines.extend(edge_plating(pcb, files));
     section(out, "Board", lines);
+}
+
+/// The edge plating line, when any edge is a Plated Edge: where the plated edges are
+/// drawn, or "whole outline" when every edge of the Board Outline is plated, and the Nets
+/// the plating carries.
+fn edge_plating(pcb: &PcbDocument, files: &[OutputFile]) -> Option<String> {
+    let edges = pcb.plated_edges();
+    if edges.is_empty() {
+        return None;
+    }
+    let file = files
+        .iter()
+        .find(|f| f.function == "plated_edges")
+        .map(|f| f.name.as_str());
+    // Plated cutout edges need the drawing, so the line names the file then.
+    let whole_outline = pcb.outline().is_some_and(|o| {
+        !o.vertices.is_empty()
+            && o.plated.len() == o.vertices.len()
+            && edges.iter().all(|e| e.contour == o.uuid)
+    });
+    let mut nets: Vec<&str> = edges
+        .iter()
+        .filter_map(|e| pcb.net(e.net?))
+        .map(|n| n.name.as_str())
+        .collect();
+    nets.sort_by(|a, b| natural(a, b));
+    nets.dedup();
+    let unnetted = edges.iter().any(|e| e.net.is_none());
+    let carry = match nets.as_slice() {
+        [] => "plated edges carry no net".to_owned(),
+        [one] => format!("plated edges carry net {one}"),
+        [rest @ .., last] => format!("plated edges carry nets {} and {last}", rest.join(", ")),
+    };
+    let carry = if unnetted && !nets.is_empty() {
+        format!("{carry}; some carry no net")
+    } else {
+        carry
+    };
+    let place = match (whole_outline, file) {
+        (true, Some(file)) => format!("the whole outline, drawn in {file}"),
+        (true, None) => "the whole outline".to_owned(),
+        (false, Some(file)) => format!("the edges drawn in {file}"),
+        (false, None) => "the marked board edges".to_owned(),
+    };
+    Some(format!("Edge plating on {place}; {carry}"))
 }
 
 /// Align the text columns and keep blank cells visible between the separators.

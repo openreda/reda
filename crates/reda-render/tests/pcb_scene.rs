@@ -165,6 +165,51 @@ fn keepouts_are_outlined_on_each_of_their_layers_and_the_output_origin_is_marked
 }
 
 #[test]
+fn a_plated_edge_is_drawn_thicker_in_the_top_copper_colour() {
+    let dir = TempDir::new("pcb-plated-edge");
+    let mut engine = demo(&dir);
+    let board = sample_board(&mut engine);
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let contour = pcb.outline().unwrap().uuid;
+    let outline = layer(&engine, LayerKind::BoardOutline, None);
+    let top = layer(&engine, LayerKind::Copper, Some(Side::Top));
+    let strokes = |scene: &Scene, on: Uuid| -> Vec<i64> {
+        scene
+            .items_of(contour)
+            .filter(|i| i.layer == SceneLayer::Board(on))
+            .filter_map(|i| match i.primitive {
+                Primitive::Capsule { width, .. } => Some(width.0),
+                _ => None,
+            })
+            .collect()
+    };
+    let scene = engine.document_scene(board.pcb).unwrap();
+    assert!(strokes(&scene, top).is_empty());
+    let thin = strokes(&scene, outline);
+    assert_eq!(thin.len(), 4);
+
+    engine.run_ok(
+        "pcb.contour.edge.set",
+        json!({"contour": contour, "edge": 0, "plated": {}}),
+    );
+    let scene = engine.document_scene(board.pcb).unwrap();
+    assert_eq!(
+        strokes(&scene, outline),
+        thin,
+        "the outline itself is unchanged"
+    );
+    let plated = strokes(&scene, top);
+    assert_eq!(plated.len(), 1, "one stroke along the one straight edge");
+    assert!(plated[0] > thin[0]);
+    assert!(
+        scene
+            .items_of(contour)
+            .filter(|i| i.layer == SceneLayer::Board(top))
+            .all(|i| i.color == ColorKey::Board(BoardColor::CopperTop))
+    );
+}
+
+#[test]
 fn pads_and_tracks_carry_view_only_labels() {
     let dir = TempDir::new("pcb-labels");
     let mut engine = demo(&dir);

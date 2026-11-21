@@ -186,7 +186,14 @@ fn commands(text: &str) -> Vec<(bool, String)> {
             let inner = &rest[1..end];
             let blocks: Vec<String> = inner
                 .split('*')
-                .map(|b| b.split_whitespace().collect::<String>())
+                // Line breaks are not part of a block; spaces inside an attribute's
+                // value, such as `OtherDrawing,Plated edges`, are.
+                .map(|b| {
+                    b.chars()
+                        .filter(|c| !matches!(c, '\n' | '\r'))
+                        .collect::<String>()
+                })
+                .map(|b| b.trim().to_owned())
                 .filter(|b| !b.is_empty())
                 .collect();
             if blocks.first().is_some_and(|b| b.starts_with("AM")) {

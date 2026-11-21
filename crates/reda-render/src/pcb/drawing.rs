@@ -1,7 +1,7 @@
 //! Footprint and free drawing, text, the Board Outline and cutouts, and the Ratsnest.
 
 use reda_model::geom::{Nm, Point};
-use reda_model::{GraphicShape, LayerKind, Shape, Uuid};
+use reda_model::{GraphicShape, LayerKind, Shape, Side, Uuid};
 
 use super::{BoardGraphic, BoardText, Builder, RatsnestLine, SheetLabel, capsule};
 use crate::arc;
@@ -13,6 +13,8 @@ use crate::text::{TextStyle, glyph_run};
 
 /// The width of the Board Outline and cutouts.
 pub(super) const OUTLINE_WIDTH: Nm = Nm(150_000);
+/// The width a Plated Edge is drawn with, over the outline.
+pub(super) const PLATED_EDGE_WIDTH: Nm = Nm(450_000);
 /// The capital height of a sheet-name label over a Footprint cluster.
 pub(super) const SHEET_LABEL_HEIGHT: Nm = Nm(2_000_000);
 
@@ -141,6 +143,13 @@ pub(super) fn outline(b: &mut Builder) {
     for (object, vertices) in contours {
         let points = arc::contour(vertices);
         b.polyline(object, layer, &points, OUTLINE_WIDTH, true);
+    }
+    // A Plated Edge is drawn thicker, in the top copper Layer's colour.
+    if let Some(top) = b.find(LayerKind::Copper, Some(Side::Top)) {
+        for edge in pcb.plated_edges() {
+            let points = arc::through(edge.from, edge.to, edge.sweep);
+            b.polyline(edge.contour, top, &points, PLATED_EDGE_WIDTH, false);
+        }
     }
     if let Some(origin) = pcb.output_origin() {
         output_origin(b, layer, origin.uuid, origin.at);

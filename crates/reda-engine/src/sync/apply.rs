@@ -291,6 +291,29 @@ impl<'c, 'e> Applier<'c, 'e> {
                     moved.push(Object::Zone(InDocument::new(pcb.uuid, zone)));
                 }
             }
+            // Plated Edges are copper too.
+            let follow = |plated: &mut reda_model::PlatedEdges| {
+                let mut changed = false;
+                for mark in plated.values_mut() {
+                    if let Some(to) = merges.follow(mark.net) {
+                        mark.net = to;
+                        changed = true;
+                    }
+                }
+                changed
+            };
+            if let Some(outline) = pcb.outline() {
+                let mut outline = outline.clone();
+                if follow(&mut outline.plated) {
+                    moved.push(Object::BoardOutline(InDocument::new(pcb.uuid, outline)));
+                }
+            }
+            for cutout in pcb.cutouts() {
+                let mut cutout = cutout.clone();
+                if follow(&mut cutout.plated) {
+                    moved.push(Object::BoardCutout(InDocument::new(pcb.uuid, cutout)));
+                }
+            }
         }
         for object in moved {
             self.cx.tx()?.replace(object)?;
