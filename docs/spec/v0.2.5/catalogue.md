@@ -119,6 +119,8 @@ Both templates use the exact outline from Arduino's CAD files: the 45° chamfere
   | `Header_1x08` (D21 to D14) | (86.36, 50.8) | pad 8 at (68.58, 50.8) |
   | `Header_2x18` (XIO) | (93.98, 50.8), pad 2 at (96.52, 50.8) | pads 35/36 at y = 7.62 |
 
+  The XIO header uses its [bottom-mount Footprint](#bottom-mount-footprints), so its pads keep the Mega's numbering.
+
 - **Key dimensions:** width (101.6), height (53.34) and the header row spacing (48.26).
 
 ## PC expansion
@@ -205,7 +207,7 @@ This is built from the legacy HAT and uHAT drawings, which are BSD-3. It never c
 - **Camera slot** (full size with cutouts): a Board Cutout, an obround 2 × 17 overall, centred at (45, 11.5), so it spans Y = 3.0 to 20.0.
 - **Holes:** 4× `MountingHole_M2.5` (2.7 drill, fitting the spec's 2.75 ± 0.05) at (3.5, 3.5), (61.5, 3.5), (3.5, `top_hole_y`) and (61.5, `top_hole_y`). Micro size also gets all 4.
 - **Keepouts:** one per hole, a Ø6.2 circle on `all_copper` with `restrict: [tracks, vias, zones, smd_pads]`, `protects` the hole. `tht_pads` is left out so the Keepout doesn't flag the hole it protects.
-- **Connector:** `Socket_2x20` on the bottom, centred at (32.5, `top_hole_y`), on the top-hole row.
+- **Connector:** `Socket_2x20` on the bottom, centred at (32.5, `top_hole_y`), on the top-hole row, with its [bottom-mount Footprint](#bottom-mount-footprints).
   - Pad 1 is the left end of the row away from the board edge, at (8.37, `top_hole_y` − 1.27). Pad 2 is at (8.37, `top_hole_y` + 1.27).
 - **Left out:** the PoE-header keepout, because it isn't dimensioned.
 - **Key dimensions:** width, height, the hole pitch (58 × 49 full, 58 × 23 micro) and the 29 from the left hole column to the header centre.
@@ -239,6 +241,17 @@ Each new Part has a Symbol, a Footprint and a Part file in the Starter Library. 
 ### Headers and sockets
 
 `Socket_2x20`, `Header_2x20`, `Socket_1x20`, `Header_1x20`, `Header_1x12`, `Header_1x16` and `Header_2x18`. They follow the existing 2.54 mm header and socket Parts in pads, courtyard and pin 1 marking.
+
+#### Bottom-mount Footprints
+
+`Socket_2x20` and `Header_2x18` also have a third Footprint, for fitting the part on the bottom side: the 2.54 mm one, mirror-numbered (`SKTV254W64P254R2L5080T508H850B_Mirrored` and `HDRV254W64P254R2L4572T508H850B_Mirrored`).
+
+- A Footprint on the bottom is mirrored, so with the standard numbering pad 2 would land where pad 1 should be, and no rotation undoes a mirror.
+- The bottom-mount Footprint has pin 1 at the upper right and the odd and even rows swapped. Mirrored onto the bottom, each of its pads lands where the standard Footprint's pad of the same number lands on top, at the same position and rotation.
+- Pin 1 keeps the square Pad, and the Assembly outline's chamfer is at its corner.
+- The header generator makes it with `mirrored: true`.
+
+The Pi and Mega templates place these connectors on the bottom with this Footprint, so the pads, the bottom Courtyard and the CPL side are all correct.
 
 ### M.2 card edges
 

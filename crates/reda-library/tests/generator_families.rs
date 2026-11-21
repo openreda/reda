@@ -383,3 +383,54 @@ fn pin_1_can_sit_in_the_middle_of_the_top_side() {
     );
     assert_eq!(err.details.unwrap()["pointer"], "/pin1_location");
 }
+
+#[test]
+fn a_mirror_numbered_header_mounted_on_the_bottom_numbers_like_the_standard_one_on_top() {
+    let dir = TempDir::new("gen-header-mirrored");
+    let mut e = engine_with_library(&dir);
+    let params = json!({"rows": 2, "pins_per_row": 3, "pitch": "2.54"});
+    let (_, standard) = generate(&mut e, "header", params.clone());
+    let mut mirrored_params = params;
+    mirrored_params["mirrored"] = json!(true);
+    let (out, mirrored) = generate(&mut e, "header", mirrored_params);
+    assert_eq!(out["name"], "HDRV254W64P254R2L762T508H850B_Mirrored");
+    // Pin 1 at the upper right, 2 to its left: 1.27 mm either side of the centre line.
+    assert_eq!(
+        pads(&mirrored)[..2],
+        [
+            ("1".into(), 1_270_000, 2_540_000, 1_650_000, 1_650_000),
+            ("2".into(), -1_270_000, 2_540_000, 1_650_000, 1_650_000),
+        ]
+    );
+    // Flipped onto the bottom (x negated), every Pad lands on the standard one's.
+    let flipped: Vec<_> = pads(&mirrored)
+        .into_iter()
+        .map(|(n, x, y, w, h)| (n, -x, y, w, h))
+        .collect();
+    assert_eq!(flipped, pads(&standard));
+    let square: Vec<_> = mirrored["pads"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|p| p["shape"] == "rect")
+        .map(|p| p["number"].as_str().unwrap())
+        .collect();
+    assert_eq!(square, ["1"], "pin 1 stays the square Pad");
+    // The Assembly outline's chamfer marks pin 1's corner, the upper right.
+    let outline = graphics(&mirrored, "assembly_top")
+        .into_iter()
+        .find(|g| g["shape"]["kind"] == "polygon")
+        .expect("a chamfered outline");
+    let points = outline["shape"]["points"].as_array().unwrap();
+    let corner = |x: i64, y: i64| {
+        points
+            .iter()
+            .any(|p| p["x"].as_i64() == Some(x) && p["y"].as_i64() == Some(y))
+    };
+    assert!(corner(-2_540_000, 3_810_000), "upper left is square");
+    assert!(!corner(2_540_000, 3_810_000), "upper right is chamfered");
+    assert_eq!(
+        mirrored["footprint"]["description"],
+        "Pin header, 2 × 3, 2.54 mm pitch, mirror-numbered for the bottom side"
+    );
+}
