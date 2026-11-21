@@ -38,6 +38,9 @@ pub struct FreePadAddParams {
     /// `smd` (plated, no hole: fiducials, test points), `plated_through_hole` or
     /// `non_plated` (a bare hole).
     pub kind: PadKind,
+    /// Makes a plated through-hole Pad a Castellated Pad, which the Board Outline cuts.
+    #[serde(default)]
+    pub castellated: bool,
     /// Circle when left out.
     #[serde(default)]
     pub shape: Option<PadShape>,
@@ -95,7 +98,8 @@ impl Command for FreePadAdd {
         title: "Add Free Pad",
         description: "Adds a Pad that belongs to no Footprint: plated (SMD or through-hole) \
                       and optionally on a Net, or non-plated (a bare hole). For mounting \
-                      holes, fiducials and test points.",
+                      holes, fiducials and test points; a plated through-hole one may be \
+                      castellated.",
         category: "pcb",
         icon: "pad",
         kind: Kind::Edit,
@@ -126,6 +130,7 @@ impl Command for FreePadAdd {
             teardrop: p.teardrop.unwrap_or(true),
             uuid,
             kind: p.kind,
+            castellated: p.castellated,
             shape,
             at: p.at.point(),
             rotation: p

@@ -6,7 +6,7 @@ pub(crate) mod groups;
 use egui::{Id, Role, Ui, WidgetInfo};
 use reda_engine::model::geom::{Millideg, Nm};
 use reda_engine::model::{
-    ConnectionStyle, Corner, Corners, HoleTolerance, Pad, PadKind, PadShape, Paste, Side,
+    ConnectionStyle, Corner, Corners, HoleTolerance, Pad, PadKind, PadRole, PadShape, Paste, Side,
     ZoneConnection,
 };
 use reda_engine::preferences::Units;
@@ -96,7 +96,7 @@ fn show_angle(a: Millideg) -> String {
     reda_engine::model::geom::exact_decimal(a.0, 1000)
 }
 
-/// The Pad rows for `pad`; `numbered` adds the number row (a Footprint's Pad), `enabled`
+/// The Pad rows for `pad`; `numbered` adds the number and role rows (a Footprint's Pad), `enabled`
 /// false shows them read-only. Returns the edits made.
 pub fn rows(
     ui: &mut Ui,
@@ -124,6 +124,7 @@ pub fn rows(
             ) {
                 out.push(PadEdit::Kind(k));
             }
+            edge_rows(&mut row, pad, numbered, &mut out);
             if pad.kind == PadKind::PlatedThroughHole {
                 row.ui.label(tr!("pad-copper-top-group"));
                 row.ui.end_row();
@@ -174,6 +175,38 @@ pub fn rows(
         });
     });
     out
+}
+
+/// The copper that reaches the Board Outline: a Footprint's SMD Pad can be an Edge
+/// Connector Pad, and any plated through-hole Pad castellated.
+fn edge_rows(row: &mut Row<'_>, pad: &Pad, numbered: bool, out: &mut Vec<PadEdit>) {
+    if numbered && pad.kind == PadKind::Smd {
+        let name = |r: Option<PadRole>| match r {
+            None => tr!("pad-role-none"),
+            Some(PadRole::EdgeConnector) => tr!("pad-role-edge-connector"),
+        };
+        if let Some(r) = row.combo(
+            "role",
+            &tr!("pad-role"),
+            pad.role,
+            &[None, Some(PadRole::EdgeConnector)],
+            name,
+        ) {
+            out.push(PadEdit::Role(r));
+        }
+    }
+    if pad.kind == PadKind::PlatedThroughHole {
+        let name = |on: bool| if on { tr!("pad-on") } else { tr!("pad-off") };
+        if let Some(on) = row.combo(
+            "castellated",
+            &tr!("pad-castellated"),
+            pad.castellated,
+            &[false, true],
+            name,
+        ) {
+            out.push(PadEdit::Castellated(on));
+        }
+    }
 }
 
 fn shape_rows(row: &mut Row<'_>, pad: &Pad, out: &mut Vec<PadEdit>) {

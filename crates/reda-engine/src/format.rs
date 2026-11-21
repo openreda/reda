@@ -4,6 +4,7 @@
 //! file's typed shape, where unknown fields are an error. Writing always produces the
 //! current [`FORMAT`] through the canonical writer.
 
+mod board_template_file;
 mod fab_file;
 pub mod library;
 mod pcb_file;
@@ -20,6 +21,7 @@ use reda_command::CommandError;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 
+pub use board_template_file::{read_board_template, write_board_template};
 pub(crate) use fab_file::{read_fab_file, write_fab_file};
 pub(crate) use pcb_file::{read_pcb_file, write_pcb_file};
 pub(crate) use project_file::{ProjectFile, write_project_file};
@@ -55,10 +57,12 @@ pub enum FileKind {
     FabPreset,
     /// `<name>.redarules`: a board's design rules, to move between boards.
     Rules,
+    /// `<name>.redaboard`: one Library Board Template.
+    BoardTemplate,
 }
 
 impl FileKind {
-    pub const ALL: [FileKind; 9] = [
+    pub const ALL: [FileKind; 10] = [
         FileKind::Project,
         FileKind::Sheet,
         FileKind::Pcb,
@@ -68,6 +72,7 @@ impl FileKind {
         FileKind::Part,
         FileKind::FabPreset,
         FileKind::Rules,
+        FileKind::BoardTemplate,
     ];
 
     /// The file extension, without the dot.
@@ -82,6 +87,7 @@ impl FileKind {
             FileKind::Part => "redapart",
             FileKind::FabPreset => "redafab",
             FileKind::Rules => "redarules",
+            FileKind::BoardTemplate => "redaboard",
         }
     }
 }

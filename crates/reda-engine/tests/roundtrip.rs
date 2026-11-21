@@ -945,6 +945,8 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
             mask: None,
             paste: None,
             uuid: id(),
+            // A plated hole is castellated, so the field round-trips too.
+            castellated: flag,
             kind: if flag {
                 PadKind::PlatedThroughHole
             } else {

@@ -26,6 +26,8 @@ pub struct FreePadEditParams {
     pub pad: Uuid,
     /// Turning a Pad non-plated takes it off its Net.
     pub kind: Option<PadKind>,
+    /// Whether a plated through-hole Pad is castellated: cut by the Board Outline.
+    pub castellated: Option<bool>,
     pub shape: Option<PadShape>,
     pub at: Option<PointParam>,
     pub rotation: Option<Angle>,
@@ -76,7 +78,8 @@ impl Command for FreePadEdit {
     const META: Meta = Meta {
         id: "pcb.free_pad.edit",
         title: "Edit Free Pad",
-        description: "Changes any of a Free Pad's kind, shape, position, rotation, size, \
+        description: "Changes any of a Free Pad's kind, castellation, shape, position, \
+                      rotation, size, \
                       corner and chamfer ratios and corners, offset, hole, side, mask and \
                       paste overrides and Zone connection, as `library.footprint.pad.edit` \
                       does for a Footprint's Pad. Omitted fields keep their value; `null` \
@@ -102,6 +105,8 @@ impl Command for FreePadEdit {
             .clone();
         let patch = PadPatch {
             kind: p.kind,
+            role: None,
+            castellated: p.castellated,
             shape: p.shape,
             at: p.at,
             rotation: p.rotation,
@@ -126,6 +131,7 @@ impl Command for FreePadEdit {
             locked: free.locked,
             teardrop: free.teardrop,
             kind: pad.kind,
+            castellated: pad.castellated,
             shape: pad.shape,
             at: pad.at,
             rotation: pad.rotation,
@@ -165,6 +171,8 @@ fn as_pad(free: &FreePad) -> Pad {
         uuid: free.uuid,
         number: String::new(),
         kind: free.kind,
+        role: None,
+        castellated: free.castellated,
         shape: free.shape,
         at: free.at,
         rotation: free.rotation,

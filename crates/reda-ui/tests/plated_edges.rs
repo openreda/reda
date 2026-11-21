@@ -4,6 +4,7 @@
 
 use std::path::{Path, PathBuf};
 
+use egui::accesskit::Role;
 use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable;
 use reda_testkit::TempDir;
@@ -181,12 +182,13 @@ fn an_edges_properties_mark_it_plated_and_pick_its_net() {
     let mut h = harness(shell);
     h.run();
     assert!(
-        h.query_by_label("Net").is_none(),
+        h.query_by_role_and_label(Role::ComboBox, "Net").is_none(),
         "an unplated edge has no Net picker"
     );
-    h.get_by_label("Plated").scroll_to_me();
+    h.get_by_role_and_label(Role::CheckBox, "Plated")
+        .scroll_to_me();
     h.run();
-    h.get_by_label("Plated").click();
+    h.get_by_role_and_label(Role::CheckBox, "Plated").click();
     h.run();
     let (id, params) = last_entry(&h);
     assert_eq!(id, "pcb.contour.edge.set");
@@ -194,18 +196,19 @@ fn an_edges_properties_mark_it_plated_and_pick_its_net() {
     assert_eq!(marks(h.state().shell()), [(0, None), (1, None)]);
 
     // Now plated, the edge shows its Net picker.
-    h.get_by_label("Net").click();
+    h.get_by_role_and_label(Role::ComboBox, "Net").click();
     h.run();
     h.get_by_label("GND").click();
     h.run();
     let gnd: Uuid = gnd.as_str().unwrap().parse().unwrap();
     assert_eq!(marks(h.state().shell()), [(0, None), (1, Some(gnd))]);
 
-    h.get_by_label("Unplate all").click();
+    h.get_by_role_and_label(Role::Button, "Unplate all").click();
     h.run();
     assert_eq!(last_entry(&h).0, "pcb.contour.edge.set_all");
     assert!(marks(h.state().shell()).is_empty());
-    h.get_by_label("Plate all edges").click();
+    h.get_by_role_and_label(Role::Button, "Plate all edges")
+        .click();
     h.run();
     assert_eq!(marks(h.state().shell()).len(), 4);
 }

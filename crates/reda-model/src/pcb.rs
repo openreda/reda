@@ -262,7 +262,7 @@ pub struct BoardSetup {
 }
 
 /// The closed shape of the board's physical edge. The file stores each vertex with the
-/// mark of its Plated Edge, if any ([`plated::ContourRow`]).
+/// mark of its Plated Edge, if any.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(from = "plated::ContourRow", into = "plated::ContourRow")]
 pub struct BoardOutline {
@@ -385,6 +385,10 @@ pub(crate) fn yes() -> bool {
 
 pub(crate) fn is_true(value: &bool) -> bool {
     *value
+}
+
+pub(crate) fn is_false(value: &bool) -> bool {
+    !*value
 }
 
 /// An object stored in a Document, with the Document it lives in. The Document is not
@@ -620,6 +624,24 @@ impl PcbDocument {
 
     pub fn footprint(&self, uuid: Uuid) -> Option<&FootprintInstance> {
         self.footprints.get(&uuid)
+    }
+
+    /// The Pads of every placed Footprint, as their copies hold them.
+    fn placed_pads(&self) -> impl Iterator<Item = &crate::Pad> {
+        self.footprints()
+            .filter_map(|i| self.footprint_copy(i.footprint))
+            .flat_map(|c| &c.footprint.pads)
+    }
+
+    /// Whether any placed Pad is an Edge Connector Pad: the board has an edge connector.
+    pub fn has_edge_connector_pads(&self) -> bool {
+        self.placed_pads()
+            .any(|p| p.role == Some(crate::PadRole::EdgeConnector))
+    }
+
+    /// Whether any placed Pad or Free Pad is a Castellated Pad.
+    pub fn has_castellated_pads(&self) -> bool {
+        self.placed_pads().any(|p| p.castellated) || self.free_pads().any(|p| p.castellated)
     }
 
     /// The stored Pad of one instance, including any local Footprint edits.

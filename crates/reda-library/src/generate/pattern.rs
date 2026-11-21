@@ -170,6 +170,8 @@ impl PadSpec {
             uuid,
             number: self.number.clone(),
             kind,
+            role: None,
+            castellated: false,
             shape,
             at: self.at,
             rotation: Millideg(0),

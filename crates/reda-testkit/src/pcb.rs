@@ -16,7 +16,7 @@ pub(crate) fn register_all(registry: &mut Registry) {
 }
 
 /// `test.footprint.add {at, rotation?, side?, designator?, component_type?, graphics?:
-/// [{layer, shape, width, fill?}], pads: [{at, width, height, number?, shape?, kind?,
+/// [{layer, shape, width, fill?}], pads: [{at, width, height, number?, shape?, kind?, role?, castellated?,
 /// rotation?, corner_ratio?, chamfer_ratio?, corners?, offset?, side?, net?, hole?,
 /// mask_margin?, paste_margin?, zone_connection?}]}`: places a Footprint instance with its
 /// own one-off Footprint copy (Pads numbered 1, 2, … in param order unless `number` says
@@ -49,6 +49,10 @@ struct PadParams {
     shape: Option<PadShape>,
     #[serde(default)]
     kind: Option<PadKind>,
+    #[serde(default)]
+    role: Option<reda_model::PadRole>,
+    #[serde(default)]
+    castellated: bool,
     #[serde(default)]
     rotation: Option<Angle>,
     #[serde(default)]
@@ -146,6 +150,8 @@ impl Command for FootprintAdd {
                 uuid,
                 number: pad.number.clone().unwrap_or_else(|| (i + 1).to_string()),
                 kind: pad.kind.unwrap_or(PadKind::Smd),
+                role: pad.role,
+                castellated: pad.castellated,
                 shape: pad.shape.unwrap_or(PadShape::Rect),
                 at: pad.at.point(),
                 rotation: pad.rotation.map_or(Millideg::ZERO, |r| r.millideg()),

@@ -1,0 +1,2705 @@
+{
+  "$defs": {
+    "ChoiceOption": {
+      "additionalProperties": false,
+      "description": "One option of a choice.",
+      "properties": {
+        "bind": {
+          "additionalProperties": false,
+          "default": {},
+          "description": "The numeric names this option binds: lengths (an integer is nanometres) or angles\n(with an angle unit, such as `\"20deg\"`). Every option of a choice binds the same\nnames.",
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*$": {
+              "$ref": "#/$defs/TemplateNumber"
+            }
+          },
+          "type": "object"
+        },
+        "key": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "suggested_layers": {
+          "description": "Overrides the template's `suggested_layers`.",
+          "format": "uint8",
+          "maximum": 32,
+          "minimum": 2,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "key",
+        "label"
+      ],
+      "type": "object"
+    },
+    "ComponentType": {
+      "description": "What kind of part a Part is: it decides what the Part needs and where it may be\nplaced, and gives the defaults for In BOM and In CPL, which are separate flags.",
+      "oneOf": [
+        {
+          "const": "standard",
+          "description": "An ordinary part: it needs a Symbol and a Footprint, and reaches the board only\nthrough Sync.",
+          "type": "string"
+        },
+        {
+          "const": "mechanical",
+          "description": "A part with a Symbol, a Footprint or both, such as a screw, a heat sink or a\nmounting hole. It may be placed straight onto the board.",
+          "type": "string"
+        },
+        {
+          "const": "net_tie",
+          "description": "A deliberate short between Nets, made of touching Pads. It syncs like a Standard\npart and is never Not Fitted.",
+          "type": "string"
+        }
+      ]
+    },
+    "ConnectionStyle": {
+      "description": "How a fill meets a Pad or Via.",
+      "oneOf": [
+        {
+          "const": "relief",
+          "description": "Through spokes across a clear ring, so the Pad solders easily.",
+          "type": "string"
+        },
+        {
+          "const": "solid",
+          "description": "The fill runs straight into it.",
+          "type": "string"
+        },
+        {
+          "const": "none",
+          "description": "The fill keeps the gap clear and doesn't connect.",
+          "type": "string"
+        }
+      ]
+    },
+    "Corner": {
+      "description": "A corner of a Pad, in its own frame (+y up).",
+      "enum": [
+        "top_left",
+        "top_right",
+        "bottom_left",
+        "bottom_right"
+      ],
+      "type": "string"
+    },
+    "DisplayUnit": {
+      "description": "The unit a length parameter is shown in.",
+      "enum": [
+        "mm",
+        "mil",
+        "in"
+      ],
+      "type": "string"
+    },
+    "DrawingKind": {
+      "description": "What a drawing row draws.",
+      "enum": [
+        "line",
+        "arc",
+        "rectangle",
+        "text",
+        "dimension"
+      ],
+      "type": "string"
+    },
+    "DrawingLayer": {
+      "description": "The Layer a drawing group goes on, named symbolically.",
+      "enum": [
+        "mechanical",
+        "documentation"
+      ],
+      "type": "string"
+    },
+    "EditedFrom": {
+      "additionalProperties": false,
+      "description": "The copy a Locally Edited Footprint came from (ADR-0013): that copy's UUID in the same\npart table and its content hash, which Sync compares with the schematic's copy.",
+      "properties": {
+        "hash": {
+          "type": "string"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uuid",
+        "hash"
+      ],
+      "type": "object"
+    },
+    "Field": {
+      "additionalProperties": false,
+      "description": "One free-form field.",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ],
+      "type": "object"
+    },
+    "Fields": {
+      "additionalProperties": false,
+      "description": "A Part's default fields, copied onto each Component placed from it.",
+      "properties": {
+        "custom": {
+          "description": "Free-form fields, such as `LCSC` or `DigiKey`, in the user's order.",
+          "items": {
+            "$ref": "#/$defs/Field"
+          },
+          "type": "array"
+        },
+        "datasheet": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "keywords": {
+          "type": "string"
+        },
+        "manufacturer": {
+          "type": "string"
+        },
+        "mpn": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "FootprintCopyRow": {
+      "additionalProperties": false,
+      "description": "One copied Footprint: a `.redafp` file's keys in one row. The PCB file's part table\nuses the same rows.",
+      "properties": {
+        "edited_from": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EditedFrom"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "On a PCB's Locally Edited Footprint: the copy it was edited from."
+        },
+        "footprint": {
+          "$ref": "#/$defs/FootprintRow"
+        },
+        "graphics": {
+          "items": {
+            "$ref": "#/$defs/FootprintGraphic"
+          },
+          "type": "array"
+        },
+        "hash": {
+          "description": "The content hash of the Footprint, as copied.",
+          "type": "string"
+        },
+        "pads": {
+          "items": {
+            "$ref": "#/$defs/Pad"
+          },
+          "type": "array"
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Where the Footprint was imported from, as in a `.redafp` file."
+        },
+        "texts": {
+          "items": {
+            "$ref": "#/$defs/FootprintText"
+          },
+          "type": "array"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uuid",
+        "hash",
+        "footprint",
+        "pads",
+        "graphics",
+        "texts"
+      ],
+      "type": "object"
+    },
+    "FootprintGraphic": {
+      "additionalProperties": false,
+      "description": "One shape a Footprint draws on a non-copper Layer.",
+      "properties": {
+        "fill": {
+          "description": "Whether a closed shape is filled.",
+          "type": "boolean"
+        },
+        "layer": {
+          "$ref": "#/$defs/FootprintLayer"
+        },
+        "shape": {
+          "$ref": "#/$defs/Shape"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "width": {
+          "description": "The stroke width.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "uuid",
+        "layer",
+        "shape",
+        "width"
+      ],
+      "type": "object"
+    },
+    "FootprintLayer": {
+      "description": "The Layers a Footprint draws on besides copper.",
+      "enum": [
+        "silkscreen_top",
+        "silkscreen_bottom",
+        "courtyard_top",
+        "courtyard_bottom",
+        "assembly_top",
+        "assembly_bottom"
+      ],
+      "type": "string"
+    },
+    "FootprintRow": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "height": {
+          "description": "The part's greatest height above the board, when known.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uuid",
+        "name"
+      ],
+      "type": "object"
+    },
+    "FootprintText": {
+      "additionalProperties": false,
+      "description": "One field text of a Footprint, on a Silkscreen or Assembly Layer.",
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/Point",
+          "description": "The text anchor, relative to the Footprint origin; `style.justify` says how the\ntext sits on it."
+        },
+        "field": {
+          "description": "The field it shows: `Designator`, `Value` or any field name. A field the Component\ndoes not have draws nothing.",
+          "type": "string"
+        },
+        "layer": {
+          "$ref": "#/$defs/FootprintLayer"
+        },
+        "rotation": {
+          "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "style": {
+          "$ref": "#/$defs/TextStyle"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "visible": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "uuid",
+        "field",
+        "at",
+        "rotation",
+        "style",
+        "layer"
+      ],
+      "type": "object"
+    },
+    "Hole": {
+      "additionalProperties": false,
+      "description": "A drilled hole: round when `width == height`, otherwise a slot along the longer side.\nSizes are the finished diameter.",
+      "properties": {
+        "height": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "rotation": {
+          "description": "Turns a slot in the Pad's frame, counter-clockwise.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "tolerance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HoleTolerance"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The allowed deviation from the finished size. Stored and shown; it changes no\ngeometry."
+        },
+        "width": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "width",
+        "height"
+      ],
+      "type": "object"
+    },
+    "HoleTolerance": {
+      "additionalProperties": false,
+      "description": "How far a finished hole may come out larger (`plus`) or smaller (`minus`).",
+      "properties": {
+        "minus": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "plus": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "plus",
+        "minus"
+      ],
+      "type": "object"
+    },
+    "InsideEdge": {
+      "description": "A Pin decoration just inside the body edge.",
+      "oneOf": [
+        {
+          "const": "clock",
+          "description": "A clock input's wedge.",
+          "type": "string"
+        }
+      ]
+    },
+    "KeepoutShapeKind": {
+      "description": "Which [`KeepoutShape`] a Keepout has, as the file spells it.",
+      "enum": [
+        "polygon",
+        "line"
+      ],
+      "type": "string"
+    },
+    "Mask": {
+      "additionalProperties": false,
+      "properties": {
+        "bottom": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MaskSide"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "from_hole_edge": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "top": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MaskSide"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "MaskSide": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "expansion": {
+              "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "expansion"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/Tenting"
+        }
+      ]
+    },
+    "OutsideEdge": {
+      "description": "A Pin decoration just outside the body edge.",
+      "oneOf": [
+        {
+          "const": "dot",
+          "description": "An inversion circle.",
+          "type": "string"
+        },
+        {
+          "const": "active_low_input",
+          "description": "The active-low input flag.",
+          "type": "string"
+        },
+        {
+          "const": "active_low_output",
+          "description": "The active-low output flag.",
+          "type": "string"
+        }
+      ]
+    },
+    "Pad": {
+      "additionalProperties": false,
+      "description": "A copper area, with or without a hole, of a Footprint.",
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/Point",
+          "description": "The Pad's anchor, relative to the Footprint origin: the hole sits there, Tracks\nconnect there and the Pad turns about it."
+        },
+        "bottom": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PadCopperShape"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional bottom copper, in the Pad's frame. Omitted groups inherit the top."
+        },
+        "castellated": {
+          "description": "A plated through-hole Pad the Board Outline cuts through, leaving a plated\nhalf-hole on the edge.",
+          "type": "boolean"
+        },
+        "chamfer_ratio": {
+          "description": "How deep the chamfers of a `chamfered_rect` are.",
+          "maximum": 100000,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "corner_ratio": {
+          "description": "How round the corners of a `rounded_rect`, or the uncut corners of a\n`chamfered_rect`, are.",
+          "maximum": 100000,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "corners": {
+          "description": "Which corners are rounded (`rounded_rect`) or chamfered (`chamfered_rect`), in the\nPad's frame. Left out, all four.",
+          "items": {
+            "$ref": "#/$defs/Corner"
+          },
+          "type": [
+            "array",
+            "null"
+          ],
+          "uniqueItems": true
+        },
+        "height": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "hole": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Hole"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "A round hole when width equals height, otherwise a slot. SMD Pads have none."
+        },
+        "kind": {
+          "$ref": "#/$defs/PadKind"
+        },
+        "mask": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Mask"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Per-side solder-mask expansion or tenting; omitted values inherit the board's rule."
+        },
+        "middle": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PadCopperShape"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional copper on all inner Layers, in the Pad's frame."
+        },
+        "number": {
+          "type": "string"
+        },
+        "offset": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Point"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Where the copper sits relative to `at`, in the Pad's frame. Left out, on it."
+        },
+        "paste": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Paste"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "An SMD Pad's paste opening; omitted, it inherits the board's rule."
+        },
+        "role": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PadRole"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "What the Pad is for beyond its copper: `edge_connector` marks an SMD Pad that\nreaches the Board Outline, such as a card-edge finger."
+        },
+        "rotation": {
+          "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "shape": {
+          "$ref": "#/$defs/PadShape"
+        },
+        "side": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Side"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The side of an SMD Pad, in the Footprint's frame. Left out, the top. Pads with a\nhole have none: their copper is on every Layer."
+        },
+        "teardrop": {
+          "description": "False on a locally edited Footprint copy opts this Pad out on every Layer.",
+          "type": "boolean"
+        },
+        "unused_layers": {
+          "$ref": "#/$defs/UnusedLayers",
+          "description": "Whether unused inner lands of a plated through-hole Pad are removed."
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "width": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "zone_connection": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ZoneConnection"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "How Zone fills of its Net join it. Each value left out inherits."
+        }
+      },
+      "required": [
+        "uuid",
+        "number",
+        "kind",
+        "shape",
+        "at",
+        "rotation",
+        "width",
+        "height"
+      ],
+      "type": "object"
+    },
+    "PadCopperShape": {
+      "additionalProperties": false,
+      "description": "The complete copper shape of one Pad Stack group. Its anchor, offset and hole\nbelong to the Pad and are shared by every group.",
+      "properties": {
+        "chamfer_ratio": {
+          "description": "Thousandths of a percent of half the shorter side: 100000 is fully round.",
+          "maximum": 100000,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "corner_ratio": {
+          "description": "Thousandths of a percent of half the shorter side: 100000 is fully round.",
+          "maximum": 100000,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "corners": {
+          "items": {
+            "$ref": "#/$defs/Corner"
+          },
+          "type": [
+            "array",
+            "null"
+          ],
+          "uniqueItems": true
+        },
+        "height": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "shape": {
+          "$ref": "#/$defs/PadShape"
+        },
+        "width": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "shape",
+        "width",
+        "height"
+      ],
+      "type": "object"
+    },
+    "PadKind": {
+      "enum": [
+        "smd",
+        "plated_through_hole",
+        "non_plated"
+      ],
+      "type": "string"
+    },
+    "PadRole": {
+      "description": "A Pad's role: what it is for beyond carrying a Net.",
+      "oneOf": [
+        {
+          "const": "edge_connector",
+          "description": "An Edge Connector Pad: an SMD Pad meant to reach the Board Outline, exempt from\n`edge_clearance` against it, and plotted as a connector Pad.",
+          "type": "string"
+        }
+      ]
+    },
+    "PadShape": {
+      "oneOf": [
+        {
+          "enum": [
+            "circle",
+            "rect",
+            "oval"
+          ],
+          "type": "string"
+        },
+        {
+          "const": "rounded_rect",
+          "description": "A rectangle with rounded corners: `corner_ratio`, on `corners`.",
+          "type": "string"
+        },
+        {
+          "const": "chamfered_rect",
+          "description": "A rectangle with `corners` cut off by `chamfer_ratio`, the others rounded by\n`corner_ratio`. An octagon is one.",
+          "type": "string"
+        }
+      ]
+    },
+    "PartRow": {
+      "additionalProperties": false,
+      "properties": {
+        "component_type": {
+          "$ref": "#/$defs/ComponentType"
+        },
+        "in_bom": {
+          "description": "Whether its Components go into the BOM, by default.",
+          "type": "boolean"
+        },
+        "in_cpl": {
+          "description": "Whether its Components go into the CPL, by default.",
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string"
+        },
+        "symbol": {
+          "description": "The Symbol by UUID. Mechanical Parts may have none.",
+          "format": "uuid",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uuid",
+        "name",
+        "component_type",
+        "in_bom",
+        "in_cpl"
+      ],
+      "type": "object"
+    },
+    "Paste": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "expansion": {
+              "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "expansion"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "percent": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "percent"
+          ],
+          "type": "object"
+        },
+        {
+          "$ref": "#/$defs/PasteMode"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "windows": {
+              "items": {
+                "$ref": "#/$defs/PasteWindow"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "windows"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "PasteMode": {
+      "enum": [
+        "none"
+      ],
+      "type": "string"
+    },
+    "PasteWindow": {
+      "additionalProperties": false,
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/Point"
+        },
+        "corner_ratio": {
+          "description": "Thousandths of a percent of half the shorter side: 100000 is fully round.",
+          "maximum": 100000,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "height": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "width": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "at",
+        "width",
+        "height"
+      ],
+      "type": "object"
+    },
+    "Pin": {
+      "additionalProperties": false,
+      "description": "A connection point of a Symbol.",
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/Point",
+          "description": "The connection end of the Pin, relative to the Symbol origin."
+        },
+        "description": {
+          "description": "What the Pin is for, shown on hover. Left out when empty.",
+          "type": "string"
+        },
+        "electrical_type": {
+          "$ref": "#/$defs/PinType"
+        },
+        "inside_edge": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/InsideEdge"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The glyph drawn just inside the body edge, such as a clock wedge."
+        },
+        "length": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "name_visible": {
+          "description": "Whether the Pin's name is drawn.",
+          "type": "boolean"
+        },
+        "number": {
+          "description": "Unique across the Symbol; Pins map to the Pads with the same number unless the\nPart overrides it.",
+          "type": "string"
+        },
+        "number_visible": {
+          "description": "Whether the Pin's number is drawn.",
+          "type": "boolean"
+        },
+        "outside_edge": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OutsideEdge"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The glyph drawn just outside the body edge, such as an inversion dot."
+        },
+        "rotation": {
+          "description": "The direction from the connection end towards the body, counter-clockwise from +x.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "unit": {
+          "description": "The Unit it belongs to.",
+          "format": "uuid",
+          "type": "string"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uuid",
+        "unit",
+        "name",
+        "number",
+        "electrical_type",
+        "at",
+        "rotation",
+        "length"
+      ],
+      "type": "object"
+    },
+    "PinMap": {
+      "additionalProperties": false,
+      "description": "The Part's exceptions to the implicit map, where a Pin connects to the Pads with its\nown number.",
+      "properties": {
+        "pins": {
+          "description": "Pins mapped to other Pads, or to several, sorted by Pin number.",
+          "items": {
+            "$ref": "#/$defs/PinPads"
+          },
+          "type": "array"
+        },
+        "unconnected": {
+          "description": "Pad numbers deliberately left unconnected, sorted.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "PinPads": {
+      "additionalProperties": false,
+      "description": "One Pin mapped to an explicit set of Pads.",
+      "properties": {
+        "pads": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "pin": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "pin",
+        "pads"
+      ],
+      "type": "object"
+    },
+    "PinType": {
+      "description": "A Pin's electrical type, which ERC checks.",
+      "enum": [
+        "input",
+        "output",
+        "bidirectional",
+        "tri_state",
+        "passive",
+        "power_in",
+        "power_out",
+        "open_collector",
+        "open_emitter",
+        "not_connected"
+      ],
+      "type": "string"
+    },
+    "Point": {
+      "additionalProperties": false,
+      "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+      "properties": {
+        "x": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "y": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
+    "Provenance": {
+      "additionalProperties": false,
+      "description": "Where an imported Library element came from, kept with the element so its terms travel\nwith it: vendor parts stay under the vendor's terms after import.",
+      "properties": {
+        "copyright": {
+          "description": "Copyright lines found in the imported files, kept verbatim.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "service": {
+          "description": "The service the files came from, such as `SnapMagic`, or `Unknown`.",
+          "type": "string"
+        },
+        "terms_url": {
+          "description": "The service's terms of use, when known.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "service"
+      ],
+      "type": "object"
+    },
+    "Restriction": {
+      "description": "A kind of object a Keepout keeps out.",
+      "oneOf": [
+        {
+          "enum": [
+            "tracks",
+            "vias",
+            "smd_pads"
+          ],
+          "type": "string"
+        },
+        {
+          "const": "zones",
+          "description": "Zone fills.",
+          "type": "string"
+        },
+        {
+          "const": "tht_pads",
+          "description": "Through-hole Pads, plated or not.",
+          "type": "string"
+        },
+        {
+          "const": "footprints",
+          "description": "Footprints, by their Courtyard (or fallback box) on the Keepout's side, with no\nclearance. REDA's own addition.",
+          "type": "string"
+        }
+      ]
+    },
+    "Shape": {
+      "description": "A drawn shape. Lines, arcs and outlines are stroked with the graphic's width.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "end": {
+              "$ref": "#/$defs/Point"
+            },
+            "kind": {
+              "const": "line",
+              "type": "string"
+            },
+            "start": {
+              "$ref": "#/$defs/Point"
+            }
+          },
+          "required": [
+            "kind",
+            "start",
+            "end"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "An axis-aligned rectangle between two opposite corners.",
+          "properties": {
+            "end": {
+              "$ref": "#/$defs/Point"
+            },
+            "kind": {
+              "const": "rect",
+              "type": "string"
+            },
+            "start": {
+              "$ref": "#/$defs/Point"
+            }
+          },
+          "required": [
+            "kind",
+            "start",
+            "end"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The arc from `start` around `center`, sweeping `sweep` counter-clockwise (negative\nis clockwise).",
+          "properties": {
+            "center": {
+              "$ref": "#/$defs/Point"
+            },
+            "kind": {
+              "const": "arc",
+              "type": "string"
+            },
+            "start": {
+              "$ref": "#/$defs/Point"
+            },
+            "sweep": {
+              "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "kind",
+            "center",
+            "start",
+            "sweep"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "center": {
+              "$ref": "#/$defs/Point"
+            },
+            "kind": {
+              "const": "circle",
+              "type": "string"
+            },
+            "radius": {
+              "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "kind",
+            "center",
+            "radius"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A closed polygon through its corners.",
+          "properties": {
+            "kind": {
+              "const": "polygon",
+              "type": "string"
+            },
+            "points": {
+              "items": {
+                "$ref": "#/$defs/Point"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "kind",
+            "points"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "at": {
+              "$ref": "#/$defs/Point",
+              "description": "The text's anchor."
+            },
+            "kind": {
+              "const": "text",
+              "type": "string"
+            },
+            "rotation": {
+              "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+              "format": "int64",
+              "type": "integer"
+            },
+            "size": {
+              "description": "The text height.",
+              "format": "int64",
+              "type": "integer"
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "at",
+            "text",
+            "size",
+            "rotation"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "Side": {
+      "description": "Which face of the board a sided Layer is on.",
+      "enum": [
+        "top",
+        "bottom"
+      ],
+      "type": "string"
+    },
+    "SymbolGraphic": {
+      "additionalProperties": false,
+      "description": "One shape of a Symbol Unit's body.",
+      "properties": {
+        "fill": {
+          "description": "Whether a closed shape is filled.",
+          "type": "boolean"
+        },
+        "shape": {
+          "$ref": "#/$defs/Shape"
+        },
+        "unit": {
+          "description": "The Unit it is drawn on.",
+          "format": "uuid",
+          "type": "string"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "width": {
+          "description": "The stroke width.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "uuid",
+        "unit",
+        "shape",
+        "width"
+      ],
+      "type": "object"
+    },
+    "SymbolRow": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "designator_prefix": {
+          "description": "The Designator prefix of Components placed from it, such as `R` or `U`.",
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uuid",
+        "name",
+        "designator_prefix"
+      ],
+      "type": "object"
+    },
+    "TemplateBevel": {
+      "additionalProperties": false,
+      "description": "A card-edge bevel.",
+      "properties": {
+        "angle": {
+          "$ref": "#/$defs/TemplateNumber",
+          "description": "An angle."
+        },
+        "depth": {
+          "$ref": "#/$defs/TemplateNumber",
+          "description": "A length."
+        }
+      },
+      "required": [
+        "angle",
+        "depth"
+      ],
+      "type": "object"
+    },
+    "TemplateBoard": {
+      "additionalProperties": false,
+      "description": "Board properties a template sets.",
+      "properties": {
+        "edge_connector": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TemplateEdgeConnector"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The board's `edge_connector` property."
+        }
+      },
+      "type": "object"
+    },
+    "TemplateContour": {
+      "additionalProperties": false,
+      "description": "The Board Outline or a Board Cutout.",
+      "properties": {
+        "locked": {
+          "description": "Created Locked; left out when false.",
+          "type": "boolean"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "vertices": {
+          "description": "Each vertex holds the edge that leaves it; the last joins the first.",
+          "items": {
+            "$ref": "#/$defs/TemplateVertex"
+          },
+          "type": "array"
+        },
+        "when": {
+          "additionalProperties": false,
+          "description": "A gate: choice parameter names, each with the option keys under which the row exists.",
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*$": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "uuid",
+        "vertices"
+      ],
+      "type": "object"
+    },
+    "TemplateCopperLayer": {
+      "description": "A copper Layer named symbolically, since a template has no Layer UUIDs.",
+      "enum": [
+        "all_copper",
+        "top_copper",
+        "bottom_copper"
+      ],
+      "type": "string"
+    },
+    "TemplateDimensionEnd": {
+      "additionalProperties": false,
+      "description": "A Dimension end: a fixed point (`x`, `y`), or one that follows a template object.",
+      "properties": {
+        "follow": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TemplateFollow"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "x": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TemplateNumber"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "y": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TemplateNumber"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "TemplateDrawing": {
+      "additionalProperties": false,
+      "description": "One drawing. Which fields it needs depends on `kind`:\n\n- `line`: `from`, `to` and `width`; `arc` adds `sweep`; `rectangle` takes `from`, `to`,\n  `width` and `filled`.\n- `text`: `text`, `position` and `height`, with an optional `rotation`.\n- `dimension`: ends `a` and `b`, with optional `rotation` (the direction measured\n  along), `offset`, `prefix` and `suffix`.",
+      "properties": {
+        "a": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TemplateDimensionEnd"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "A Dimension's first end."
+        },
+        "b": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TemplateDimensionEnd"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "A Dimension's second end."
+        },
+        "filled": {
+          "description": "A filled rectangle; left out when false.",
+          "type": "boolean"
+        },
+        "from": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TemplatePoint"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "group": {
+          "description": "The drawing group's UUID.",
+          "format": "uuid",
+          "type": "string"
+        },
+        "height": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TemplateNumber"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "A text's height."
+        },
+        "kind": {
+          "$ref": "#/$defs/DrawingKind"
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "offset": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TemplateNumber"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "How far a Dimension's line sits to the left of `a`, looking along `rotation`."
+        },
+        "position": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TemplatePoint"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "A text's anchor."
+        },
+        "prefix": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rotation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TemplateNumber"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "A text's rotation, or the direction a Dimension measures along."
+        },
+        "suffix": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sweep": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TemplateNumber"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "An arc's sweep from `from` to `to`, counter-clockwise when positive."
+        },
+        "text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "to": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TemplatePoint"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "when": {
+          "additionalProperties": false,
+          "description": "A gate: choice parameter names, each with the option keys under which the row exists.",
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*$": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "type": "object"
+        },
+        "width": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TemplateNumber"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The pen width."
+        }
+      },
+      "required": [
+        "uuid",
+        "group",
+        "kind"
+      ],
+      "type": "object"
+    },
+    "TemplateDrawingGroup": {
+      "additionalProperties": false,
+      "description": "A named group of drawings on one Layer: one Includes tick in the dialog.",
+      "properties": {
+        "layer": {
+          "$ref": "#/$defs/DrawingLayer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "when": {
+          "additionalProperties": false,
+          "description": "A gate: choice parameter names, each with the option keys under which the row exists.",
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*$": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "uuid",
+        "name",
+        "layer"
+      ],
+      "type": "object"
+    },
+    "TemplateDrill": {
+      "additionalProperties": false,
+      "description": "A Free Pad's drilled hole.",
+      "properties": {
+        "height": {
+          "$ref": "#/$defs/TemplateNumber"
+        },
+        "rotation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TemplateNumber"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tolerance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HoleTolerance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "width": {
+          "$ref": "#/$defs/TemplateNumber"
+        }
+      },
+      "required": [
+        "width",
+        "height"
+      ],
+      "type": "object"
+    },
+    "TemplateEdgeConnector": {
+      "additionalProperties": false,
+      "description": "The `edge_connector` board property, with expression-valued numbers.",
+      "properties": {
+        "bevel": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TemplateBevel"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hard_gold": {
+          "description": "Selective hard gold on the Edge Connector Pads; left out when false.",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "TemplateFollow": {
+      "additionalProperties": false,
+      "description": "The template object a Dimension end follows: an outline or cutout vertex (with\n`vertex`), a Keepout vertex, or a hole's or connector's origin.",
+      "properties": {
+        "object": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "vertex": {
+          "description": "A vertex index, counted from 0, for a contour or Keepout.",
+          "format": "uint",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "object"
+      ],
+      "type": "object"
+    },
+    "TemplateHole": {
+      "additionalProperties": false,
+      "description": "A hole: a Mechanical Part row (`part`, `footprint` and `side`, as a connector) or a\nFree Pad row (`pad`).",
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/TemplatePoint",
+          "description": "The Footprint origin, or the Free Pad's anchor."
+        },
+        "footprint": {
+          "description": "A Mechanical Part row's `footprint_copies` UUID.",
+          "format": "uuid",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "pad": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TemplatePad"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "A Free Pad row's Pad."
+        },
+        "part": {
+          "description": "A Mechanical Part row's `parts` entry UUID.",
+          "format": "uuid",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rotation": {
+          "$ref": "#/$defs/TemplateNumber",
+          "description": "Counter-clockwise; left out for 0."
+        },
+        "side": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Side"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "A Mechanical Part row's side."
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "when": {
+          "additionalProperties": false,
+          "description": "A gate: choice parameter names, each with the option keys under which the row exists.",
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*$": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "uuid",
+        "at"
+      ],
+      "type": "object"
+    },
+    "TemplateKeepout": {
+      "additionalProperties": false,
+      "properties": {
+        "layer": {
+          "$ref": "#/$defs/TemplateCopperLayer"
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "protects": {
+          "description": "A connector or hole row this Keepout goes with when it is excluded or gated out.",
+          "format": "uuid",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "restrict": {
+          "description": "Any of `tracks`, `vias`, `zones`, `smd_pads`, `tht_pads` and `footprints`.",
+          "items": {
+            "$ref": "#/$defs/Restriction"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "shape": {
+          "$ref": "#/$defs/KeepoutShapeKind",
+          "description": "`polygon` or `line`."
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "vertices": {
+          "items": {
+            "$ref": "#/$defs/TemplateVertex"
+          },
+          "type": "array"
+        },
+        "when": {
+          "additionalProperties": false,
+          "description": "A gate: choice parameter names, each with the option keys under which the row exists.",
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*$": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "type": "object"
+        },
+        "width": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TemplateNumber"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "A line's width; only for `line`."
+        }
+      },
+      "required": [
+        "uuid",
+        "layer",
+        "restrict",
+        "shape",
+        "vertices"
+      ],
+      "type": "object"
+    },
+    "TemplateNumber": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "minLength": 1,
+          "type": "string"
+        }
+      ],
+      "description": "An integer in nanometres (millidegrees for an angle), or an expression over the template's parameter names such as \"width - corner_radius\"; a bare number in an expression is mm (degrees for an angle)."
+    },
+    "TemplatePad": {
+      "additionalProperties": false,
+      "description": "A Free Pad's whole Pad model, with expression-valued sizes. It has no Net.",
+      "properties": {
+        "bottom": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PadCopperShape"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "castellated": {
+          "description": "A plated through-hole Pad the Board Outline cuts through: a Castellated Pad.",
+          "type": "boolean"
+        },
+        "chamfer_ratio": {
+          "description": "Thousandths of a percent of half the shorter side: 100000 is fully round.",
+          "maximum": 100000,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "corner_ratio": {
+          "description": "Thousandths of a percent of half the shorter side: 100000 is fully round.",
+          "maximum": 100000,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "corners": {
+          "items": {
+            "$ref": "#/$defs/Corner"
+          },
+          "type": [
+            "array",
+            "null"
+          ],
+          "uniqueItems": true
+        },
+        "height": {
+          "$ref": "#/$defs/TemplateNumber"
+        },
+        "hole": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TemplateDrill"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "kind": {
+          "$ref": "#/$defs/PadKind"
+        },
+        "mask": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Mask"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "middle": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PadCopperShape"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "offset": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TemplatePoint"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "paste": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Paste"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "shape": {
+          "$ref": "#/$defs/PadShape"
+        },
+        "side": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Side"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "teardrop": {
+          "description": "False opts the land out of derived Teardrops.",
+          "type": "boolean"
+        },
+        "unused_layers": {
+          "$ref": "#/$defs/UnusedLayers"
+        },
+        "width": {
+          "$ref": "#/$defs/TemplateNumber"
+        },
+        "zone_connection": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ZoneConnection"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "shape",
+        "width",
+        "height"
+      ],
+      "type": "object"
+    },
+    "TemplateParameter": {
+      "description": "One parameter the dialog shows.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "One of a fixed set of options, each binding numeric names.",
+          "properties": {
+            "default": {
+              "description": "An option `key`; left out, the first option.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "kind": {
+              "const": "choice",
+              "type": "string"
+            },
+            "label": {
+              "description": "What the dialog shows.",
+              "type": "string"
+            },
+            "name": {
+              "description": "`snake_case`, unique across the template's names.",
+              "type": "string"
+            },
+            "options": {
+              "items": {
+                "$ref": "#/$defs/ChoiceOption"
+              },
+              "type": "array"
+            },
+            "when": {
+              "additionalProperties": false,
+              "description": "Hides the parameter in the dialog unless it holds.",
+              "patternProperties": {
+                "^[a-z][a-z0-9_]*$": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "required": [
+            "kind",
+            "name",
+            "label",
+            "options"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A free length between `min` and `max`.",
+          "properties": {
+            "default": {
+              "$ref": "#/$defs/TemplateNumber"
+            },
+            "kind": {
+              "const": "length",
+              "type": "string"
+            },
+            "label": {
+              "description": "What the dialog shows.",
+              "type": "string"
+            },
+            "max": {
+              "$ref": "#/$defs/TemplateNumber"
+            },
+            "min": {
+              "$ref": "#/$defs/TemplateNumber"
+            },
+            "name": {
+              "description": "`snake_case`, unique across the template's names.",
+              "type": "string"
+            },
+            "unit": {
+              "$ref": "#/$defs/DisplayUnit",
+              "description": "How the dialog shows it. It does not change how the file is read."
+            },
+            "when": {
+              "additionalProperties": false,
+              "description": "Hides the parameter in the dialog unless it holds.",
+              "patternProperties": {
+                "^[a-z][a-z0-9_]*$": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "required": [
+            "kind",
+            "name",
+            "label",
+            "default",
+            "min",
+            "max",
+            "unit"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "TemplatePartRow": {
+      "additionalProperties": false,
+      "description": "One part-table entry: a sheet's part-table row whose Symbol may be left out.",
+      "properties": {
+        "copies": {
+          "description": "The template's Footprint copy of each alternate, in the same order.",
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "fields": {
+          "$ref": "#/$defs/Fields"
+        },
+        "footprints": {
+          "description": "The alternate Footprints by Library UUID, the default first.",
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "graphics": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SymbolGraphic"
+          },
+          "type": "array"
+        },
+        "hash": {
+          "description": "The content hash of the Part with its Symbol and Footprints, as copied.",
+          "type": "string"
+        },
+        "part": {
+          "$ref": "#/$defs/PartRow"
+        },
+        "pin_map": {
+          "$ref": "#/$defs/PinMap"
+        },
+        "pins": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Pin"
+          },
+          "type": "array"
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "symbol": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SymbolRow"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Left out for a Mechanical Part without a Symbol."
+        },
+        "symbol_provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "units": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Unit"
+          },
+          "type": "array"
+        },
+        "uuid": {
+          "description": "The entry's own UUID, which connector and hole rows name.",
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uuid",
+        "hash",
+        "part",
+        "footprints",
+        "copies",
+        "fields",
+        "pin_map"
+      ],
+      "type": "object"
+    },
+    "TemplatePlacement": {
+      "additionalProperties": false,
+      "description": "A connector: any Part placed as a linked Component.",
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/TemplatePoint",
+          "description": "Where the Footprint origin goes."
+        },
+        "footprint": {
+          "description": "A `footprint_copies` UUID: the Footprint it uses.",
+          "format": "uuid",
+          "type": "string"
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "part": {
+          "description": "A `parts` entry UUID.",
+          "format": "uuid",
+          "type": "string"
+        },
+        "rotation": {
+          "$ref": "#/$defs/TemplateNumber",
+          "description": "Counter-clockwise, applied after flipping to the bottom."
+        },
+        "side": {
+          "$ref": "#/$defs/Side"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "when": {
+          "additionalProperties": false,
+          "description": "A gate: choice parameter names, each with the option keys under which the row exists.",
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*$": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "uuid",
+        "part",
+        "footprint",
+        "at",
+        "rotation",
+        "side"
+      ],
+      "type": "object"
+    },
+    "TemplatePoint": {
+      "additionalProperties": false,
+      "description": "A point whose coordinates may be expressions.",
+      "properties": {
+        "x": {
+          "$ref": "#/$defs/TemplateNumber"
+        },
+        "y": {
+          "$ref": "#/$defs/TemplateNumber"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
+    "TemplateVertex": {
+      "additionalProperties": false,
+      "description": "One contour vertex and the edge that leaves it.",
+      "properties": {
+        "plated": {
+          "description": "Marks the edge this vertex starts as a Plated Edge, with no Net. Only on the\noutline and cutouts; left out when false.",
+          "type": "boolean"
+        },
+        "sweep": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TemplateNumber"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The edge to the next vertex: left out for a straight edge, otherwise an arc\nsweeping this angle, counter-clockwise when positive."
+        },
+        "x": {
+          "$ref": "#/$defs/TemplateNumber"
+        },
+        "y": {
+          "$ref": "#/$defs/TemplateNumber"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
+    "Tenting": {
+      "enum": [
+        "tent"
+      ],
+      "type": "string"
+    },
+    "TextHJustify": {
+      "enum": [
+        "left",
+        "center",
+        "right"
+      ],
+      "type": "string"
+    },
+    "TextJustify": {
+      "additionalProperties": false,
+      "description": "How a text block sits on its anchor. Bottom is the last line's baseline.",
+      "properties": {
+        "h": {
+          "$ref": "#/$defs/TextHJustify"
+        },
+        "v": {
+          "$ref": "#/$defs/TextVJustify"
+        }
+      },
+      "required": [
+        "h",
+        "v"
+      ],
+      "type": "object"
+    },
+    "TextKnockout": {
+      "additionalProperties": false,
+      "properties": {
+        "margin": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "margin"
+      ],
+      "type": "object"
+    },
+    "TextStyle": {
+      "additionalProperties": false,
+      "description": "The shared style of free PCB text and Footprint field text.",
+      "properties": {
+        "font": {
+          "description": "The named family. A missing family draws as bundled Noto Sans.",
+          "type": "string"
+        },
+        "height": {
+          "description": "Capital height.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "justify": {
+          "$ref": "#/$defs/TextJustify",
+          "default": {
+            "h": "left",
+            "v": "bottom"
+          }
+        },
+        "knockout": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TextKnockout"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "thickness": {
+          "description": "Stroke-font pen width; outline fonts ignore it.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "font",
+        "height",
+        "thickness"
+      ],
+      "type": "object"
+    },
+    "TextVJustify": {
+      "enum": [
+        "top",
+        "center",
+        "bottom"
+      ],
+      "type": "string"
+    },
+    "Unit": {
+      "additionalProperties": false,
+      "description": "One independently placeable section of a Symbol.",
+      "properties": {
+        "name": {
+          "description": "Such as `A`, or `Power` for a power section.",
+          "type": "string"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uuid",
+        "name"
+      ],
+      "type": "object"
+    },
+    "UnusedLayers": {
+      "enum": [
+        "keep",
+        "remove",
+        "remove_keep_ends"
+      ],
+      "type": "string"
+    },
+    "ZoneConnection": {
+      "additionalProperties": false,
+      "description": "How a Zone fill joins a Pad of its own Net. Each value left out inherits from the\n`zone_connection` rule.",
+      "properties": {
+        "angle": {
+          "description": "0, 45 or 90 degrees in the Pad's frame.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "gap": {
+          "description": "The clear ring around a relieved or unconnected Pad.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "spoke_width": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "spokes": {
+          "description": "2 or 4.",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "style": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ConnectionStyle"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A REDA Board Template file (`.redaboard`).",
+  "properties": {
+    "board": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TemplateBoard"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Board properties the template sets."
+    },
+    "category": {
+      "default": null,
+      "description": "Groups the picker; left out, the template is listed under \"Other\".",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "connectors": {
+      "default": [],
+      "description": "The connectors: Parts placed as linked Components.",
+      "items": {
+        "$ref": "#/$defs/TemplatePlacement"
+      },
+      "type": "array"
+    },
+    "cutouts": {
+      "default": [],
+      "description": "The Board Cutouts.",
+      "items": {
+        "$ref": "#/$defs/TemplateContour"
+      },
+      "type": "array"
+    },
+    "description": {
+      "default": "",
+      "description": "Compatibility wording, trademark acknowledgements and sources.",
+      "type": "string"
+    },
+    "drawing_groups": {
+      "default": [],
+      "description": "The named drawing groups, one Includes tick each.",
+      "items": {
+        "$ref": "#/$defs/TemplateDrawingGroup"
+      },
+      "type": "array"
+    },
+    "drawings": {
+      "default": [],
+      "description": "The drawings, each in one group.",
+      "items": {
+        "$ref": "#/$defs/TemplateDrawing"
+      },
+      "type": "array"
+    },
+    "footprint_copies": {
+      "default": [],
+      "description": "The copied Footprints the part table's entries share.",
+      "items": {
+        "$ref": "#/$defs/FootprintCopyRow"
+      },
+      "type": "array"
+    },
+    "format": {
+      "const": 2,
+      "description": "The file-format version. REDA writes only the current one.",
+      "type": "integer"
+    },
+    "holes": {
+      "default": [],
+      "description": "The holes: Mechanical Parts or Free Pads.",
+      "items": {
+        "$ref": "#/$defs/TemplateHole"
+      },
+      "type": "array"
+    },
+    "keepouts": {
+      "default": [],
+      "description": "The Keepouts.",
+      "items": {
+        "$ref": "#/$defs/TemplateKeepout"
+      },
+      "type": "array"
+    },
+    "name": {
+      "description": "Unique within its Library. Built-in names refer to the host only.",
+      "type": "string"
+    },
+    "outline": {
+      "description": "The Board Outline rows; exactly one survives every choice combination.",
+      "items": {
+        "$ref": "#/$defs/TemplateContour"
+      },
+      "type": "array"
+    },
+    "parameters": {
+      "default": [],
+      "description": "The choice and length parameters, in the order the dialog shows them.",
+      "items": {
+        "$ref": "#/$defs/TemplateParameter"
+      },
+      "type": "array"
+    },
+    "parts": {
+      "default": [],
+      "description": "The part table: one copied Part, with its Symbol if it has one, per entry.",
+      "items": {
+        "$ref": "#/$defs/TemplatePartRow"
+      },
+      "type": "array"
+    },
+    "suggested_layers": {
+      "description": "A plain copper Layer count, 2 to 32.",
+      "format": "uint8",
+      "maximum": 32,
+      "minimum": 2,
+      "type": "integer"
+    },
+    "uuid": {
+      "description": "The template's identity as a Library element.",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "format",
+    "uuid",
+    "name",
+    "suggested_layers",
+    "outline"
+  ],
+  "title": "REDA Board Template file",
+  "type": "object"
+}

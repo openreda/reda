@@ -320,7 +320,7 @@ fn check(project: &Project, selection: &Selection) -> Result<(), CommandError> {
             }
             pcb.cutout(edge.contour).map(|c| c.vertices.len())
         });
-        if !len.is_some_and(|len| edge.edge < len) {
+        if len.is_none_or(|len| edge.edge >= len) {
             return Err(CommandError::not_found(format!(
                 "no edge {} on a Board Outline or Board Cutout {}",
                 edge.edge, edge.contour

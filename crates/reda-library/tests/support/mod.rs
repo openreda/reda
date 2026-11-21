@@ -153,6 +153,8 @@ pub fn footprint(n: u128, name: &str) -> Footprint {
         uuid: uuid(n * 1000 + i),
         number: i.to_string(),
         kind: PadKind::Smd,
+        role: None,
+        castellated: false,
         shape: PadShape::RoundedRect,
         at: Point::new(Nm::from_um(1000) * (i as i64), Nm(0)),
         rotation: Millideg(0),

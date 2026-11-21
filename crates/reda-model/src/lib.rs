@@ -6,6 +6,7 @@
 
 pub mod annotate;
 pub mod auto_increment;
+mod board_template;
 mod change;
 mod check;
 mod derived;
@@ -28,6 +29,14 @@ pub mod text;
 mod transaction;
 mod uuid;
 
+pub use board_template::{
+    BoardTemplate, ChoiceOption, ChoiceParameter, DisplayUnit, DrawingKind, DrawingLayer,
+    LengthParameter, TemplateBevel, TemplateBoard, TemplateContour, TemplateCopperLayer,
+    TemplateDimensionEnd, TemplateDrawing, TemplateDrawingGroup, TemplateDrill,
+    TemplateEdgeConnector, TemplateFollow, TemplateHole, TemplateKeepout, TemplateNumber,
+    TemplatePad, TemplateParameter, TemplatePart, TemplatePlacement, TemplatePoint, TemplateVertex,
+    When,
+};
 pub use change::{Change, ChangeSet, Object, ObjectType, Scope, ScopeSummary};
 pub use check::{
     Cell, CheckKind, ErcCheck, ErcSettings, ErcSeverities, LENGTH_ARGS, LibraryCheck,
@@ -53,7 +62,7 @@ pub use output::{
 };
 pub use pad::{
     ConnectionStyle, Corner, Corners, Hole, HoleTolerance, MaskExpansion, Pad, PadCopperShape,
-    PadForm, PadKind, PadShape, PasteExpansion, Ratio, ZoneConnection,
+    PadForm, PadKind, PadRole, PadShape, PasteExpansion, Ratio, ZoneConnection,
 };
 pub use pcb::plated;
 pub use pcb::{

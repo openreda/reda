@@ -207,3 +207,24 @@ fn each_object_gets_its_own_result_and_one_failure_fails_them_all() {
     // A syntax error is reported once, against the first object.
     assert_eq!(evaluate_each("1 +", MM, &[a, b]).unwrap_err().object, 0);
 }
+
+#[test]
+fn references_lists_the_names_an_expression_uses_and_whether_it_uses_the_current_value() {
+    use reda_geom::expr::references;
+    let r = references("width - 2 * corner_radius + 1mm").unwrap();
+    assert_eq!(
+        r.names,
+        vec!["width".to_owned(), "corner_radius".to_owned()]
+    );
+    assert!(!r.current);
+    let r = references("(! + width) / 2").unwrap();
+    assert!(r.current);
+    assert_eq!(r.names, vec!["width".to_owned()]);
+    // Repeated names are listed once, in first-use order.
+    let r = references("a + b + a").unwrap();
+    assert_eq!(r.names, vec!["a".to_owned(), "b".to_owned()]);
+    // Syntax errors and calls are refused as when evaluating.
+    assert!(references("sqrt(2)").is_err());
+    assert!(references("width(1)").is_err());
+    assert!(references("1 +").is_err());
+}

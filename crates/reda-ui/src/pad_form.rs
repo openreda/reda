@@ -1,7 +1,8 @@
 //! The Pad fields of the Pad model (library.md#pad-model) as one form, shared by the
 //! Footprint editor's Pad rows and Free Pad Properties: kind, shape, size, rotation,
 //! corner and chamfer ratios and corners, offset, hole (size, rotation, tolerance), side,
-//! mask and paste overrides and the Zone connection.
+//! mask and paste overrides, the Zone connection, and the Edge Connector role (a
+//! Footprint's SMD Pads) and castellation (plated through-hole Pads).
 //!
 //! An edit ([`PadEdit`]) becomes the fields of a `library.footprint.pad.edit` or
 //! `pcb.free_pad.edit` call ([`patch`]), which the caller completes with the Pad's ids. A
@@ -13,7 +14,7 @@ pub mod draw;
 use reda_engine::model::geom::{Millideg, Nm, Point};
 use reda_engine::model::{
     ConnectionStyle, Corner, Corners, FreePad, Hole, HoleTolerance, Mask, MaskSide, Pad, PadKind,
-    PadShape, Paste, Ratio, Side, Tenting, ZoneConnection,
+    PadRole, PadShape, Paste, Ratio, Side, Tenting, ZoneConnection,
 };
 use serde_json::{Map, Value, json};
 
@@ -47,6 +48,10 @@ pub enum PasteChoice {
 pub enum PadEdit {
     Number(String),
     Kind(PadKind),
+    /// `Some(EdgeConnector)` makes an SMD Pad an Edge Connector Pad.
+    Role(Option<PadRole>),
+    /// Makes a plated through-hole Pad castellated, or not.
+    Castellated(bool),
     Shape(PadShape),
     Width(Nm),
     Height(Nm),
@@ -80,6 +85,8 @@ pub fn from_free(free: &FreePad) -> Pad {
         uuid: free.uuid,
         number: String::new(),
         kind: free.kind,
+        role: None,
+        castellated: free.castellated,
         shape: free.shape,
         at: free.at,
         rotation: free.rotation,
@@ -184,6 +191,12 @@ pub fn patch(pad: &Pad, edit: &PadEdit) -> Option<Map<String, Value>> {
                 return None;
             }
             set("kind", json!(kind));
+            if *kind != PadKind::Smd && pad.role.is_some() {
+                set("role", Value::Null);
+            }
+            if *kind != PadKind::PlatedThroughHole && pad.castellated {
+                set("castellated", json!(false));
+            }
             if *kind != PadKind::PlatedThroughHole {
                 if !pad.unused_layers.is_keep() {
                     set(
@@ -228,6 +241,10 @@ pub fn patch(pad: &Pad, edit: &PadEdit) -> Option<Map<String, Value>> {
                     set("paste", Value::Null);
                 }
             }
+        }
+        PadEdit::Role(role) => changed(&mut set, "role", pad.role != *role, json!(role))?,
+        PadEdit::Castellated(on) => {
+            changed(&mut set, "castellated", pad.castellated != *on, json!(on))?
         }
         PadEdit::Shape(shape) => {
             if *shape == pad.shape {
@@ -442,7 +459,8 @@ pub fn footprint_command(
 
 /// The `pcb.free_pad.edit` for `edit` on the Free Pad `free`. A Free Pad has no number.
 pub fn free_pad_command(free: &FreePad, edit: &PadEdit) -> Option<(&'static str, Value)> {
-    if matches!(edit, PadEdit::Number(_)) {
+    // A Free Pad has no number, and no role: only a Footprint's fingers reach a slot.
+    if matches!(edit, PadEdit::Number(_) | PadEdit::Role(_)) {
         return None;
     }
     let mut p = patch(&from_free(free), edit)?;
