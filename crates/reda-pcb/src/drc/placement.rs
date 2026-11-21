@@ -5,6 +5,9 @@
 //! its courtyard drawing encloses: rectangles, polygons and circles, and closed chains of
 //! lines and arcs; open chains enclose nothing. A Footprint with no courtyard uses a
 //! fallback box around its copper, silkscreen and assembly drawing, ignoring text.
+//!
+//! A Castellated Pad that the outline cuts is meant to cross it, so each piece of the
+//! extent outside the board that holds one, such as a half-moon's courtyard, is spared.
 
 use crate::copper::shape::BoardShape as _;
 use std::collections::BTreeMap;
@@ -36,8 +39,15 @@ fn outside_board(board: &Board<'_>, report: &mut Report) {
     };
     let inside = poly::polygon(poly::contour(&outline.vertices));
     for instance in pcb.footprints() {
-        let extent = extent(pcb, instance);
-        if poly::difference(&extent, &inside).is_empty() {
+        let mut outside = poly::difference(&extent(pcb, instance), &inside);
+        // A Castellated Pad is meant to cross the outline (edge-connectors.md#castellated-
+        // pads): a piece sticking out with one that the outline cuts is spared.
+        let cut = castellations_cut(pcb, instance, &inside);
+        outside.retain(|piece| {
+            let piece = vec![piece.clone()];
+            !cut.iter().any(|pad| poly::overlaps(&piece, pad))
+        });
+        if outside.is_empty() {
             continue;
         }
         report.add(DrcCheck::FootprintOutsideBoard, |v| {
@@ -214,6 +224,23 @@ fn extent(pcb: &PcbDocument, instance: &FootprintInstance) -> Area {
         shapes.extend(area);
     }
     poly::union(shapes)
+}
+
+/// The copper of each of the Footprint's Castellated Pads that the outline cuts: partly
+/// inside the board and partly outside it.
+fn castellations_cut(pcb: &PcbDocument, instance: &FootprintInstance, inside: &Area) -> Vec<Area> {
+    let Some(copy) = pcb.footprint_copy(instance.footprint) else {
+        return vec![];
+    };
+    copy.footprint
+        .pads
+        .iter()
+        .filter(|pad| pad.castellated)
+        .map(|pad| poly::union(poly::grown(&Copper::pad(instance, pad), 0)))
+        .filter(|copper| {
+            poly::overlaps(copper, inside) && !poly::difference(copper, inside).is_empty()
+        })
+        .collect()
 }
 
 /// The areas a placed Footprint's courtyard drawing encloses, per board side.
