@@ -98,7 +98,10 @@ fn plated_edges_meeting_at_a_corner_with_different_nets_are_an_error_at_the_corn
     let found = violations(&run);
     // Edges 0 (GND) and 1 (VCC) meet at (40, 0), edges 1 and 2 at (40, 30).
     assert_eq!(found.len(), 2, "{run:#}");
-    for (v, at) in found.iter().zip([[40_000_000, 0], [40_000_000, 30_000_000]]) {
+    for (v, at) in found
+        .iter()
+        .zip([[40_000_000, 0], [40_000_000, 30_000_000]])
+    {
         assert_eq!(v["severity"], "error", "{v:#}");
         assert_eq!(v["at"], json!({"x": at[0], "y": at[1]}), "{v:#}");
         assert_eq!(objects(v), [outline], "{v:#}");
@@ -119,7 +122,12 @@ fn two_pads_run_to_the_left_edge(engine: &mut TestEngine, gnd: Uuid) -> [Uuid; 4
         "pcb.via.add",
         json!({"at": {"x": "3mm", "y": "20mm"}, "net": gnd}),
     );
-    let tb = track(engine, "copper_bottom", Some(gnd), &[(3.0, 20.0), (0.1, 20.0)]);
+    let tb = track(
+        engine,
+        "copper_bottom",
+        Some(gnd),
+        &[(3.0, 20.0), (0.1, 20.0)],
+    );
     [a, b, ta, tb]
 }
 
@@ -171,7 +179,12 @@ fn a_plated_edge_no_copper_of_its_net_touches_on_the_outer_layers_is_a_warning()
     let (gnd, vcc) = (net(&mut engine, "GND"), net(&mut engine, "VCC"));
     // A GND Track touches the left edge; the top edge meets it at a corner, so it is
     // the same metal and joined too.
-    track(&mut engine, "copper_top", Some(gnd), &[(5.0, 10.0), (0.1, 10.0)]);
+    track(
+        &mut engine,
+        "copper_top",
+        Some(gnd),
+        &[(5.0, 10.0), (0.1, 10.0)],
+    );
     plate(&mut engine, outline, 3, Some(gnd));
     plate(&mut engine, outline, 2, Some(gnd));
     // A plated triangular cutout that only copper of another Net touches.
@@ -187,7 +200,12 @@ fn a_plated_edge_no_copper_of_its_net_touches_on_the_outer_layers_is_a_warning()
         "pcb.contour.edge.set_all",
         json!({"contour": cutout, "plated": {"net": gnd}}),
     );
-    track(&mut engine, "copper_top", Some(vcc), &[(22.0, 5.0), (22.0, 9.9)]);
+    track(
+        &mut engine,
+        "copper_top",
+        Some(vcc),
+        &[(22.0, 5.0), (22.0, 9.9)],
+    );
     let run = drc(&mut engine, &["plated_edge_unconnected"]);
     let found = violations(&run);
     assert_eq!(found.len(), 3, "{run:#}");
@@ -198,7 +216,12 @@ fn a_plated_edge_no_copper_of_its_net_touches_on_the_outer_layers_is_a_warning()
         assert_eq!(v["args"]["net"], "GND");
     }
     // A GND Track on the bottom copper joins the cutout's plating.
-    track(&mut engine, "copper_bottom", Some(gnd), &[(22.0, 5.0), (22.0, 9.9)]);
+    track(
+        &mut engine,
+        "copper_bottom",
+        Some(gnd),
+        &[(22.0, 5.0), (22.0, 9.9)],
+    );
     let run = drc(&mut engine, &["plated_edge_unconnected"]);
     assert_eq!(violations(&run), Vec::<Value>::new(), "{run:#}");
 }
@@ -255,28 +278,78 @@ fn copper_of_the_edges_own_net_may_touch_a_plated_edge_but_not_cross_it() {
     let gnd = net(&mut engine, "GND");
     plate(&mut engine, outline, 3, Some(gnd));
     // Touches the left edge (its round end reaches x = 0).
-    track(&mut engine, "copper_top", Some(gnd), &[(5.0, 10.0), (0.1, 10.0)]);
+    track(
+        &mut engine,
+        "copper_top",
+        Some(gnd),
+        &[(5.0, 10.0), (0.1, 10.0)],
+    );
     let run = drc(&mut engine, &["edge_clearance"]);
     assert_eq!(violations(&run), Vec::<Value>::new(), "{run:#}");
 
     // Runs 0.4 mm past it.
-    let across = track(&mut engine, "copper_top", Some(gnd), &[(5.0, 20.0), (-0.3, 20.0)]);
+    let across = track(
+        &mut engine,
+        "copper_top",
+        Some(gnd),
+        &[(5.0, 20.0), (-0.3, 20.0)],
+    );
     let run = drc(&mut engine, &["edge_clearance"]);
     let found = violations(&run);
     assert_eq!(found.len(), 1, "{run:#}");
     assert_eq!(objects(&found[0]), [across, outline]);
     assert_eq!(found[0]["args"]["actual"], 0);
+
+    // The same holds at a plated Board Cutout: up to it, but not into it.
+    let cutout = uuid(
+        &engine.run_ok(
+            "pcb.board_cutout.add",
+            json!({"vertices": [
+                {"x": "20mm", "y": "10mm"}, {"x": "25mm", "y": "10mm"},
+                {"x": "25mm", "y": "14mm"}, {"x": "20mm", "y": "14mm"}
+            ]}),
+        )["result"]["uuid"],
+    );
+    engine.run_ok(
+        "pcb.contour.edge.set_all",
+        json!({"contour": cutout, "plated": {"net": gnd}}),
+    );
+    track(
+        &mut engine,
+        "copper_top",
+        Some(gnd),
+        &[(22.0, 5.0), (22.0, 9.9)],
+    );
+    let run = drc(&mut engine, &["edge_clearance"]);
+    assert_eq!(violations(&run).len(), 1, "{run:#}");
+    let into = track(
+        &mut engine,
+        "copper_top",
+        Some(gnd),
+        &[(23.0, 5.0), (23.0, 10.5)],
+    );
+    let run = drc(&mut engine, &["edge_clearance"]);
+    let found = violations(&run);
+    assert_eq!(found.len(), 2, "{run:#}");
+    assert!(
+        found.iter().any(|v| objects(v) == [into, cutout]),
+        "{run:#}"
+    );
 }
 
 #[test]
-fn copper_of_another_net_keeps_the_larger_of_clearance_and_edge_clearance_from_a_plated_edge()
-{
+fn copper_of_another_net_keeps_the_larger_of_clearance_and_edge_clearance_from_a_plated_edge() {
     let dir = TempDir::new("plated-other-net");
     let (mut engine, outline) = board(&dir);
     let (gnd, vcc) = (net(&mut engine, "GND"), net(&mut engine, "VCC"));
     plate(&mut engine, outline, 3, Some(gnd));
     // 0.5 mm from the plated left edge: clear of the 0.4 mm edge clearance.
-    let beside = track(&mut engine, "copper_top", Some(vcc), &[(5.0, 10.0), (0.6, 10.0)]);
+    let beside = track(
+        &mut engine,
+        "copper_top",
+        Some(vcc),
+        &[(5.0, 10.0), (0.6, 10.0)],
+    );
     let run = drc(&mut engine, &["edge_clearance", "clearance"]);
     assert_eq!(violations(&run), Vec::<Value>::new(), "{run:#}");
 
@@ -294,7 +367,12 @@ fn copper_of_another_net_keeps_the_larger_of_clearance_and_edge_clearance_from_a
     assert_eq!(found[0]["args"]["actual"], 500_000);
 
     // The unplated bottom edge still asks only the edge clearance.
-    track(&mut engine, "copper_top", Some(vcc), &[(20.0, 5.0), (20.0, 0.6)]);
+    track(
+        &mut engine,
+        "copper_top",
+        Some(vcc),
+        &[(20.0, 5.0), (20.0, 0.6)],
+    );
     let run = drc(&mut engine, &["edge_clearance"]);
     assert_eq!(violations(&run).len(), 1, "{run:#}");
 }

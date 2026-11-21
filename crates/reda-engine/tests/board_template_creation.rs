@@ -238,6 +238,7 @@ fn engine_with_fixture(home: &Path, work: &Path) -> TestEngine {
             .clock(FixedClock::EPOCH)
             .user_dirs(Some(UserDirs::under(home)))
             .starter_library(Some(starter_library()))
+            .commands(reda_testkit::probe_commands)
             .build(),
     );
     engine.run_ok(
@@ -423,6 +424,36 @@ fn project_new_writes_every_kind_of_template_object() {
         setup["edge_connector"],
         json!({"bevel": {"angle": 20_000, "depth": 1_300_000}, "hard_gold": true})
     );
+}
+
+#[test]
+fn a_plated_edge_from_a_template_warns_it_has_no_net_until_one_is_set() {
+    let home = TempDir::new("template-home");
+    let work = TempDir::new("template-work");
+    let mut engine = engine_with_fixture(home.path(), work.path());
+    let out = engine.run_ok(
+        "project.new",
+        json!({"path": work.path(), "name": "Card", "board_template": {"element": s(100)}}),
+    );
+    let outline = out["seeded"]["outline"].clone();
+    let warnings = |engine: &mut TestEngine| -> Vec<Value> {
+        engine.run_ok("drc.run", json!({"checks": ["plated_edge_without_net"]}))["violations"]
+            .as_array()
+            .unwrap()
+            .clone()
+    };
+    let found = warnings(&mut engine);
+    assert_eq!(found.len(), 1, "{found:#?}");
+    assert_eq!(found[0]["severity"], "warning");
+    assert_eq!(found[0]["objects"], json!([outline]));
+    assert_eq!(found[0]["args"]["edge"], 0);
+
+    let gnd = engine.run_ok("test.net.add", json!({"name": "GND"}));
+    engine.run_ok(
+        "pcb.contour.edge.set",
+        json!({"contour": outline, "edge": 0, "plated": {"net": gnd["result"]["uuid"]}}),
+    );
+    assert_eq!(warnings(&mut engine), Vec::<Value>::new());
 }
 
 #[test]

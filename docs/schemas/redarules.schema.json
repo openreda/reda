@@ -115,6 +115,11 @@
           "default": "error",
           "description": "Copper too close to the Board Outline or a Board Cutout."
         },
+        "edge_connector_on_plated_edge": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "An Edge Connector Pad on a Plated Edge: the plating would short the fingers."
+        },
         "edge_connector_without_pads": {
           "$ref": "#/$defs/Severity",
           "default": "warning",
@@ -174,6 +179,21 @@
           "$ref": "#/$defs/Severity",
           "default": "warning",
           "description": "The PCB out of sync with the schematic."
+        },
+        "plated_edge_nets_differ": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "Plated Edges that meet at a vertex with different Nets: one piece of metal."
+        },
+        "plated_edge_unconnected": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "A Plated Edge that no copper of its Net touches on the outer Layers."
+        },
+        "plated_edge_without_net": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "A Plated Edge with no Net: floating metal."
         },
         "poor_connection": {
           "$ref": "#/$defs/Severity",

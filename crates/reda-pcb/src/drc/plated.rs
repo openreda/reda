@@ -18,8 +18,7 @@ pub(super) fn check(board: &Board<'_>, report: &mut Report) {
 /// One error per Edge Connector Pad and Plated Edge its copper touches, at the contact,
 /// naming the Footprint instance, the Pad and the contour.
 fn edge_connector_on_plating(board: &Board<'_>, report: &mut Report) {
-    if report.is_off(DrcCheck::EdgeConnectorOnPlatedEdge) || board.pcb.plated_edges().is_empty()
-    {
+    if report.is_off(DrcCheck::EdgeConnectorOnPlatedEdge) || board.pcb.plated_edges().is_empty() {
         return;
     }
     let pcb = board.pcb;
@@ -28,8 +27,7 @@ fn edge_connector_on_plating(board: &Board<'_>, report: &mut Report) {
         let Some(copy) = pcb.footprint_copy(instance.footprint) else {
             continue;
         };
-        for pad in (copy.footprint.pads.iter()).filter(|p| p.role == Some(PadRole::EdgeConnector))
-        {
+        for pad in (copy.footprint.pads.iter()).filter(|p| p.role == Some(PadRole::EdgeConnector)) {
             let item = Item::Pad {
                 footprint: instance.uuid,
                 pad: pad.uuid,
@@ -40,7 +38,9 @@ fn edge_connector_on_plating(board: &Board<'_>, report: &mut Report) {
                 };
                 let edge_pieces = copper.item_pieces(plating);
                 let Some((layer, at)) = copper.item_pieces(item).into_iter().find_map(|(l, s)| {
-                    let (_, e) = edge_pieces.iter().find(|(el, e)| *el == l && e.touches(s))?;
+                    let (_, e) = edge_pieces
+                        .iter()
+                        .find(|(el, e)| *el == l && e.touches(s))?;
                     Some((l, s.closest_points(e)[0]))
                 }) else {
                     continue;
@@ -127,7 +127,10 @@ fn middle(edge: &PlatedEdgeRef) -> Point {
     }
     let c = arc_centre(edge.from, edge.to, edge.sweep);
     let half = (edge.sweep.0 as f64 / 1000.0).to_radians() / 2.0;
-    let (dx, dy) = ((edge.from.x.0 - c.x.0) as f64, (edge.from.y.0 - c.y.0) as f64);
+    let (dx, dy) = (
+        (edge.from.x.0 - c.x.0) as f64,
+        (edge.from.y.0 - c.y.0) as f64,
+    );
     let (sin, cos) = half.sin_cos();
     Point::new(
         Nm(c.x.0 + (dx * cos - dy * sin).round() as i64),
@@ -154,9 +157,7 @@ fn without_net(board: &Board<'_>, report: &mut Report) {
 /// The Plated Edges of each contour, in vertex order, with the contour's vertex count.
 fn by_contour(board: &Board<'_>) -> Vec<(usize, Vec<PlatedEdgeRef>)> {
     let pcb = board.pcb;
-    let outline = pcb
-        .outline()
-        .map(|o| (o.vertices.len(), o.plated_edges()));
+    let outline = pcb.outline().map(|o| (o.vertices.len(), o.plated_edges()));
     outline
         .into_iter()
         .chain(pcb.cutouts().map(|c| (c.vertices.len(), c.plated_edges())))

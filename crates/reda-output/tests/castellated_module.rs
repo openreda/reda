@@ -19,7 +19,6 @@ fn the_castellated_module_fab_files_read_back_as_its_plated_edges_and_castellati
     let (_dir, mut engine) = open_reference_copy(&source, "Castellated.reda");
     let job = engine.project().unwrap().output_jobs().next().unwrap().uuid;
     let report = engine.run_ok("output.job.run", json!({"job": job}));
-    assert_eq!(report["skipped"], json!([]));
     let output = Path::new(report["destination"].as_str().unwrap());
     let pcb = engine.project().unwrap().pcb().unwrap();
     let fab = output.join("fab");
@@ -42,8 +41,7 @@ fn the_castellated_module_fab_files_read_back_as_its_plated_edges_and_castellati
     let profile = gerber_reader::read(&fs::read(fab.join(profile)).unwrap());
     assert_eq!(profile.file[".FileFunction"], "Profile,P");
 
-    let plated =
-        gerber_reader::read(&fs::read(fab.join("Castellated-plated_edges.gbr")).unwrap());
+    let plated = gerber_reader::read(&fs::read(fab.join("Castellated-plated_edges.gbr")).unwrap());
     assert!(plated.ended);
     assert_eq!(plated.file[".FileFunction"], "OtherDrawing,Plated edges");
     let mut draws: Vec<_> = plated

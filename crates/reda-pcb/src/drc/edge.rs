@@ -71,14 +71,15 @@ impl Edge {
 
     /// The Board Outline and every Board Cutout with at least three corners.
     pub fn all(pcb: &reda_model::PcbDocument) -> Vec<Edge> {
-        (pcb.outline().map(|o| Edge::new(o.uuid, &o.vertices, &o.plated, true)))
-            .into_iter()
-            .chain(
-                pcb.cutouts()
-                    .map(|c| Edge::new(c.uuid, &c.vertices, &c.plated, false)),
-            )
-            .filter(|e| e.corners.len() >= 3)
-            .collect()
+        (pcb.outline()
+            .map(|o| Edge::new(o.uuid, &o.vertices, &o.plated, true)))
+        .into_iter()
+        .chain(
+            pcb.cutouts()
+                .map(|c| Edge::new(c.uuid, &c.vertices, &c.plated, false)),
+        )
+        .filter(|e| e.corners.len() >= 3)
+        .collect()
     }
 
     /// The gap between `shape` and the nearest segment of this edge, and the closest
@@ -326,13 +327,18 @@ pub(super) fn check(board: &Board<'_>, report: &mut Report) {
                 };
                 let actual = Nm(gap.max(0.0).floor() as i64);
                 report.add(DrcCheck::EdgeClearance, |v| {
-                    v.length(actual, limit, Limit::Min, pair_rule.unwrap_or_else(|| rule(item)))
-                        .distance_points(a, b)
-                        .on_layers(layers.iter().copied())
-                        .arg("required", limit)
-                        .arg("actual", actual)
-                        .objects(item_objects(item))
-                        .object(edge.uuid)
+                    v.length(
+                        actual,
+                        limit,
+                        Limit::Min,
+                        pair_rule.unwrap_or_else(|| rule(item)),
+                    )
+                    .distance_points(a, b)
+                    .on_layers(layers.iter().copied())
+                    .arg("required", limit)
+                    .arg("actual", actual)
+                    .objects(item_objects(item))
+                    .object(edge.uuid)
                 });
             }
         }
