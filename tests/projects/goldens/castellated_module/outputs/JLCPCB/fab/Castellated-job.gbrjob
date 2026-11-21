@@ -1,0 +1,96 @@
+{
+  "Header": {
+    "GenerationSoftware": {
+      "Vendor": "openreda",
+      "Application": "REDA",
+      "Version": "0.0.0-test"
+    }
+  },
+  "GeneralSpecs": {
+    "ProjectId": {
+      "Name": "Castellated",
+      "GUID": "00000000-0000-4000-8000-000000000001",
+      "Revision": "A"
+    },
+    "Size": {
+      "X": 20.0,
+      "Y": 15.0
+    },
+    "LayerNumber": 2,
+    "BoardThickness": 1.6,
+    "EdgePlating": true,
+    "Castellated": true
+  },
+  "FilesAttributes": [
+    {
+      "Path": "Castellated.gtl",
+      "FileFunction": "Copper,L1,Top,Signal",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "Castellated.gbl",
+      "FileFunction": "Copper,L2,Bot,Signal",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "Castellated.gts",
+      "FileFunction": "Soldermask,Top",
+      "FilePolarity": "Negative"
+    },
+    {
+      "Path": "Castellated.gbs",
+      "FileFunction": "Soldermask,Bot",
+      "FilePolarity": "Negative"
+    },
+    {
+      "Path": "Castellated.gtp",
+      "FileFunction": "Paste,Top",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "Castellated.gto",
+      "FileFunction": "Legend,Top",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "Castellated.gm1",
+      "FileFunction": "Profile,P",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "Castellated-plated_edges.gbr",
+      "FileFunction": "OtherDrawing,Plated edges",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "Castellated-PTH.drl",
+      "FileFunction": "Plated,1,2,PTH,Drill",
+      "FilePolarity": "Positive"
+    }
+  ],
+  "MaterialStackup": [
+    {
+      "Type": "Legend"
+    },
+    {
+      "Type": "SolderMask"
+    },
+    {
+      "Type": "Copper",
+      "Name": "L1",
+      "Thickness": 0.035
+    },
+    {
+      "Type": "Dielectric",
+      "Thickness": 1.53
+    },
+    {
+      "Type": "Copper",
+      "Name": "L2",
+      "Thickness": 0.035
+    },
+    {
+      "Type": "SolderMask"
+    }
+  ]
+}

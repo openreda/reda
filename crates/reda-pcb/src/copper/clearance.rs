@@ -400,8 +400,10 @@ impl Copper {
         for (&layer, tree) in &self.index {
             for entry in tree.iter() {
                 let piece = self.piece(entry.slot);
-                // Zone fills are checked from the artwork side of each pair.
-                if matches!(piece.item, Item::Zone { .. }) {
+                // Zone fills are checked from the artwork side of each pair. Copper near
+                // a Plated Edge keeps the larger of this clearance and `edge_clearance`,
+                // which the edge check measures.
+                if matches!(piece.item, Item::Zone { .. } | Item::PlatedEdge { .. }) {
                     continue;
                 }
                 let (lo, hi) = (entry.envelope.lower(), entry.envelope.upper());
@@ -412,6 +414,7 @@ impl Copper {
                 for other in self.candidates(layer, search) {
                     let artwork = piece.item.is_artwork() || other.item.is_artwork();
                     if other.item <= piece.item
+                        || other.item.is_plated_edge()
                         || (!artwork && matches!(other.item, Item::Zone { .. }))
                     {
                         continue;

@@ -72,6 +72,9 @@ impl Copper {
                 }
                 anchors
             })
+            // An island of Plated Edges alone has nothing to route to: its own DRC
+            // warning says no copper touches it.
+            .filter(|anchors| !anchors.is_empty())
             .collect();
         let n = islands.len();
         if n < 2 {
