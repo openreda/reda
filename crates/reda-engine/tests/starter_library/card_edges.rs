@@ -5,7 +5,8 @@
 //! Every finger is an SMD Edge Connector Pad with no paste, odd or B-side fingers on top
 //! and even or A-side ones on the bottom. The origin is on the finger edge, not at the
 //! body centre, and the Courtyard is drawn on top only, so a component Keepout on the
-//! bottom of the card doesn't flag its own fingers.
+//! bottom of the card doesn't flag its own fingers. The Courtyard follows the finger tab:
+//! it stops at each key notch and at the tab's corner chamfers, so it stays on the board.
 //!
 //! The numbers are the v0.2.5 catalogue's (`docs/spec/v0.2.5/catalogue.md`, New starter
 //! Parts), from the card-edge research on open hardware.
@@ -13,7 +14,7 @@
 use serde_json::{Value, json};
 
 use crate::passives::fields;
-use crate::script::{Kind, PartSpec, Script, left, mil, mm, rect, right};
+use crate::script::{Kind, PartSpec, Script, left, mil, mm, polygon, rect, right};
 
 /// The height of a copper-only Footprint: 1 oz copper, 0.035 mm.
 const COPPER: f64 = 0.035;
@@ -22,15 +23,21 @@ const COPPER: f64 = 0.035;
 const COURTYARD: f64 = 0.25;
 
 pub fn build(s: &mut Script) {
-    for (key, removed) in [
-        ("A", &[(8, 15)][..]),
-        ("B", &[(12, 19)]),
-        ("E", &[(24, 31)]),
-        ("M", &[(59, 66)]),
-        ("AE", &[(8, 15), (24, 31)]),
-        ("BM", &[(12, 19), (59, 66)]),
+    // Each key removes a run of Pins and cuts a 1.20 mm notch centred this far from the
+    // centreline toward Pin 1.
+    let a = ((8, 15), 6.625);
+    let b = ((12, 19), 5.625);
+    let e = ((24, 31), 2.625);
+    let m = ((59, 66), -6.125);
+    for (key, keys) in [
+        ("A", &[a][..]),
+        ("B", &[b]),
+        ("E", &[e]),
+        ("M", &[m]),
+        ("AE", &[a, e]),
+        ("BM", &[b, m]),
     ] {
-        m2(s, key, removed);
+        m2(s, key, keys);
     }
     for (lanes, per_side, prsnt2) in [(1, 18, 17), (4, 32, 31), (8, 49, 48), (16, 82, 81)] {
         pcie(s, lanes, per_side, prsnt2);
@@ -57,8 +64,17 @@ fn finger(number: &str, x: f64, width: f64, (near, far): (f64, f64), top: bool) 
 }
 
 /// The Assembly outline over the fingers from `x0` to `x1` and the edge out to `depth`,
-/// the top-only Courtyard around it, starting at the edge, and the Designator above.
-fn finish_card_edge(s: &mut Script, fp: &str, (x0, x1): (f64, f64), depth: f64) -> String {
+/// the top-only Courtyard around it, starting at the edge, and the Designator above. The
+/// Courtyard is cut through at each key notch `(left, right)` and has `chamfer` × 45°
+/// corners at the edge, as the finger tab does.
+fn finish_card_edge(
+    s: &mut Script,
+    fp: &str,
+    (x0, x1): (f64, f64),
+    depth: f64,
+    notches: &[(f64, f64)],
+    chamfer: f64,
+) -> String {
     s.fp_draw(
         fp,
         "assembly_top",
@@ -66,8 +82,28 @@ fn finish_card_edge(s: &mut Script, fp: &str, (x0, x1): (f64, f64), depth: f64) 
         mm(0.1),
     );
     let top = mm(depth + COURTYARD);
-    let courtyard = rect(mm(x0 - COURTYARD), 0, mm(x1 + COURTYARD), top);
-    s.fp_draw(fp, "courtyard_top", courtyard, mm(0.05));
+    let mut cuts = vec![x0 - COURTYARD];
+    for &(left, right) in notches {
+        cuts.extend([left, right]);
+    }
+    cuts.push(x1 + COURTYARD);
+    let pieces = cuts.len() / 2;
+    for (i, piece) in cuts.chunks(2).enumerate() {
+        let (a, b) = (piece[0], piece[1]);
+        let mut points = vec![];
+        if i == 0 && chamfer > 0.0 {
+            points.extend([(mm(a), mm(chamfer)), (mm(a + chamfer), 0)]);
+        } else {
+            points.push((mm(a), 0));
+        }
+        if i + 1 == pieces && chamfer > 0.0 {
+            points.extend([(mm(b - chamfer), 0), (mm(b), mm(chamfer))]);
+        } else {
+            points.push((mm(b), 0));
+        }
+        points.extend([(mm(b), top), (mm(a), top)]);
+        s.fp_draw(fp, "courtyard_top", polygon(&points), mm(0.05));
+    }
     s.finish_footprint(fp, top)
 }
 
@@ -102,10 +138,11 @@ fn card_edge_symbol(
 
 /// `CardEdge_M.2_Key_<key>`: 75 positions with Pin n at x = 9.25 − (n − 1) × 0.25 mm,
 /// +x toward Pin 1; odd Pins on top from 0.50 to 2.00 mm, even ones below from 0.50 to
-/// 2.50 mm, 0.35 mm wide. The key removes the Pins in `removed`.
-fn m2(s: &mut Script, key: &str, removed: &[(u32, u32)]) {
+/// 2.50 mm, 0.35 mm wide. Each key removes its run of Pins and cuts its notch, centred
+/// on its offset.
+fn m2(s: &mut Script, key: &str, cuts: &[((u32, u32), f64)]) {
     let name = format!("CardEdge_M.2_Key_{key}");
-    let keyed = |n: u32| removed.iter().any(|&(a, b)| (a..=b).contains(&n));
+    let keyed = |n: u32| cuts.iter().any(|&((a, b), _)| (a..=b).contains(&n));
     let numbers: Vec<u32> = (1..=75).filter(|&n| !keyed(n)).collect();
     let pins = numbers.len();
     let pin = |n: u32| (!keyed(n) && n <= 75).then(|| n.to_string());
@@ -134,7 +171,9 @@ fn m2(s: &mut Script, key: &str, removed: &[(u32, u32)]) {
         let span = (0.5, if top { 2.0 } else { 2.5 });
         s.pad(&fp, finger(&n.to_string(), x, 0.35, span, top));
     }
-    let fp = finish_card_edge(s, &fp, (-9.425, 9.425), 2.5);
+    let mut notches: Vec<(f64, f64)> = cuts.iter().map(|&(_, c)| (c - 0.6, c + 0.6)).collect();
+    notches.sort_by(|p, q| p.0.total_cmp(&q.0));
+    let fp = finish_card_edge(s, &fp, (-9.425, 9.425), 2.5, &notches, 0.0);
     s.part(PartSpec {
         name: &name,
         symbol: Some(&sym),
@@ -187,7 +226,9 @@ fn pcie(s: &mut Script, lanes: u32, per_side: u32, prsnt2: u32) {
             s.pad(&fp, finger(&format!("{side}{n}"), x(n), 0.7, span, top));
         }
     }
-    let fp = finish_card_edge(s, &fp, (x(1) - 0.35, x(per_side) + 0.35), 5.6);
+    // The 1.90 mm key notch on the centreline, and the tab's 0.5 mm chamfers.
+    let span = (x(1) - 0.35, x(per_side) + 0.35);
+    let fp = finish_card_edge(s, &fp, span, 5.6, &[(-0.95, 0.95)], 0.5);
     s.part(PartSpec {
         name: &name,
         symbol: Some(&sym),

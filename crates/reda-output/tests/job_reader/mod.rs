@@ -14,6 +14,22 @@ pub struct Job {
 #[serde(rename_all = "PascalCase")]
 pub struct GeneralSpecs {
     pub layer_number: usize,
+    /// Set when any Pad is castellated.
+    #[allow(dead_code, reason = "used by the card-edge reference suites")]
+    pub castellated: Option<bool>,
+    /// Set when any Pad is an Edge Connector Pad.
+    #[allow(dead_code, reason = "used by the card-edge reference suites")]
+    pub edge_connector: Option<bool>,
+    /// Set when the edge connector is bevelled.
+    #[allow(dead_code, reason = "used by the card-edge reference suites")]
+    pub edge_connector_bevelled: Option<bool>,
+    /// The hard-gold area of the Edge Connector Pads, mm².
+    #[allow(dead_code, reason = "used by the card-edge reference suites")]
+    pub hard_gold_area: Option<f64>,
+    #[allow(dead_code, reason = "used by the card-edge reference suites")]
+    pub board_thickness: Option<f64>,
+    #[allow(dead_code, reason = "used by the card-edge reference suites")]
+    pub notes: Option<String>,
 }
 
 #[derive(Deserialize)]

@@ -40,12 +40,13 @@
     {"uuid":"ff7fe5db-37be-41c6-a0b4-1f0eaac91010","number":"B5","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":-7500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"paste":"none"}
   ],
   "graphics": [
+    {"uuid":"1cc9e6dc-7f15-4e88-9ff8-c097e96a9dc0","layer":"courtyard_top","shape":{"kind":"polygon","points":[{"x":950000,"y":0},{"x":7600000,"y":0},{"x":8100000,"y":500000},{"x":8100000,"y":5850000},{"x":950000,"y":5850000}]},"width":50000},
     {"uuid":"5b0863e1-ad3f-4c2a-9bfe-6481ef357227","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-11850000,"y":0},"end":{"x":7850000,"y":5600000}},"width":100000},
-    {"uuid":"f7483502-dc8a-463b-b5d5-728f2558b30a","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-12100000,"y":0},"end":{"x":8100000,"y":5850000}},"width":50000}
+    {"uuid":"f7483502-dc8a-463b-b5d5-728f2558b30a","layer":"courtyard_top","shape":{"kind":"polygon","points":[{"x":-12100000,"y":500000},{"x":-11600000,"y":0},{"x":-950000,"y":0},{"x":-950000,"y":5850000},{"x":-12100000,"y":5850000}]},"width":50000}
   ],
   "texts": [
     {"uuid":"03d75643-e6c6-46d6-adeb-2d7dc7b335ee","field":"Designator","at":{"x":0,"y":6650000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
     {"uuid":"0b38a6fc-f26b-4e4c-9d12-be0d0c2ef20b","field":"Value","at":{"x":0,"y":-700000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
-    {"uuid":"1cc9e6dc-7f15-4e88-9ff8-c097e96a9dc0","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
+    {"uuid":"d38c0142-a7a4-4e5e-b1ec-db4d2ef800dc","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
   ]
 }

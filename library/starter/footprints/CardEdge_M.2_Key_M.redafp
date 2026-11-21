@@ -71,11 +71,12 @@
     {"uuid":"f559689d-8d6c-449e-b360-7e157a08d472","number":"47","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":-2250000,"y":1250000},"rotation":0,"width":350000,"height":1500000,"paste":"none"}
   ],
   "graphics": [
-    {"uuid":"509bb787-3e5f-4d17-9354-9f7e80330031","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-9675000,"y":0},"end":{"x":9675000,"y":2750000}},"width":50000},
+    {"uuid":"1bc8469f-b50b-4be1-975c-1c39be62f564","layer":"courtyard_top","shape":{"kind":"polygon","points":[{"x":-5525000,"y":0},{"x":9675000,"y":0},{"x":9675000,"y":2750000},{"x":-5525000,"y":2750000}]},"width":50000},
+    {"uuid":"509bb787-3e5f-4d17-9354-9f7e80330031","layer":"courtyard_top","shape":{"kind":"polygon","points":[{"x":-9675000,"y":0},{"x":-6725000,"y":0},{"x":-6725000,"y":2750000},{"x":-9675000,"y":2750000}]},"width":50000},
     {"uuid":"c627caf1-d894-49a6-ad00-e3007372b950","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-9425000,"y":0},"end":{"x":9425000,"y":2500000}},"width":100000}
   ],
   "texts": [
-    {"uuid":"1bc8469f-b50b-4be1-975c-1c39be62f564","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+    {"uuid":"3af5fa98-277e-433b-9867-3f6e082bb6f1","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
     {"uuid":"902bd5ad-b68d-4018-a66f-4e0fbffe100a","field":"Designator","at":{"x":0,"y":3550000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
     {"uuid":"cdb76a35-dde5-4157-936d-5b5e39dfdfa5","field":"Value","at":{"x":0,"y":-700000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
   ]

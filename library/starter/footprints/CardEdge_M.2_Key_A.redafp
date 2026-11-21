@@ -71,12 +71,13 @@
     {"uuid":"f45eca3d-626d-4d13-8488-7bf838d0f843","number":"61","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":-5750000,"y":1250000},"rotation":0,"width":350000,"height":1500000,"paste":"none"}
   ],
   "graphics": [
-    {"uuid":"79eecbe7-6b8f-41bd-9e3e-c88a853d9b6a","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-9675000,"y":0},"end":{"x":9675000,"y":2750000}},"width":50000},
+    {"uuid":"18e4c64f-17a6-459a-ad59-046dbd50a3f1","layer":"courtyard_top","shape":{"kind":"polygon","points":[{"x":7225000,"y":0},{"x":9675000,"y":0},{"x":9675000,"y":2750000},{"x":7225000,"y":2750000}]},"width":50000},
+    {"uuid":"79eecbe7-6b8f-41bd-9e3e-c88a853d9b6a","layer":"courtyard_top","shape":{"kind":"polygon","points":[{"x":-9675000,"y":0},{"x":6025000,"y":0},{"x":6025000,"y":2750000},{"x":-9675000,"y":2750000}]},"width":50000},
     {"uuid":"e0e2acea-4168-4299-a2a2-93ddc6a97d1b","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-9425000,"y":0},"end":{"x":9425000,"y":2500000}},"width":100000}
   ],
   "texts": [
-    {"uuid":"18e4c64f-17a6-459a-ad59-046dbd50a3f1","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
     {"uuid":"26067c7b-46a8-4091-b8da-08e33d8fbaae","field":"Value","at":{"x":0,"y":-700000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
-    {"uuid":"72a9d44b-f341-4d51-80b0-90a4d41f32fc","field":"Designator","at":{"x":0,"y":3550000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
+    {"uuid":"72a9d44b-f341-4d51-80b0-90a4d41f32fc","field":"Designator","at":{"x":0,"y":3550000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
+    {"uuid":"97255d25-d538-4cd7-9a87-f5dbb6a39875","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
   ]
 }

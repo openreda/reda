@@ -1,0 +1,30 @@
+{
+  "format": 1,
+  "reda": "0.0.0-test",
+  "job": {"uuid":"00000000-0000-4000-8000-00000000002e","name":"JLCPCB"},
+  "fab_preset": {"name":"JLCPCB","sha256":"453c737c9ae96fbc0213a6adbf797fcd472c55dfb002a5b8f0159541a8eee23e"},
+  "pcb": "00000000-0000-4000-8000-000000000003",
+  "revision": "A",
+  "date": "2026-01-01T00:00:00Z",
+  "zip": {"path":"M2Card-JLCPCB.zip","sha256":"6fc550de625a732ee5e379803d0b9ee1aa487aac5a6d0e186cf2a908fe7efb49"},
+  "files": [
+    {"path":"fab/M2Card.gtl","size":2197,"sha256":"f5f33564b6c697b02424b4a0af85e0357c495ad0c46e0e9ede59a3436f27d414","kind":"copper_top"},
+    {"path":"fab/M2Card.gbl","size":2148,"sha256":"d2a3a4de56dead8abe3b696d6f2e516da083548c3e105f6a16f2f5fff7581bc7","kind":"copper_bottom"},
+    {"path":"fab/M2Card.gts","size":1178,"sha256":"bf3d69f1b3600a625da65e46a24d5f1ac3d4ee0f45df7e58b0dc3ca1faf4c1d2","kind":"solder_mask_top"},
+    {"path":"fab/M2Card.gbs","size":1157,"sha256":"c1cee9c4afc7a933238af6e84a140f2e3a2469b1996953f996e555c81e80535a","kind":"solder_mask_bottom"},
+    {"path":"fab/M2Card.gto","size":1716,"sha256":"465b75c7dd58af587db027513d29d3b24c26e1e1d4be1ce0b7bd92c3fd02d875","kind":"silkscreen_top"},
+    {"path":"fab/M2Card.gm1","size":685,"sha256":"fc870075bde3877779bd6e63aaf8b78f7db62dd6988e262c9aa64c4ac0ea579a","kind":"profile"},
+    {"path":"fab/M2Card-PTH.drl","size":352,"sha256":"5f25f1964885231f7800cf6f8003ccb7bb6925c7ded272d2db8bd10b09089f90","kind":"drill_plated"},
+    {"path":"fab/M2Card-fab-notes.txt","size":1150,"sha256":"60e4317a5df05ae607bb19d02c4c0056a4a128953c26be2879247604e232e9c5","kind":"fab_notes"},
+    {"path":"fab/M2Card-drill-report.txt","size":397,"sha256":"57b18c9a75afdbb7fa71776ffafe2c6667fb2e62713432a9de6c038092566940","kind":"drill_report"},
+    {"path":"fab/M2Card-job.gbrjob","size":1778,"sha256":"6f9611d0babab1cfb78ff1f747381ecfbafd3fb853d2444a8c4ec9c697738b43","kind":"gerber_job"},
+    {"path":"M2Card-JLCPCB.zip","size":5213,"sha256":"6fc550de625a732ee5e379803d0b9ee1aa487aac5a6d0e186cf2a908fe7efb49","kind":"zip"},
+    {"path":"M2Card-JLCPCB-BOM.csv","size":41,"sha256":"bf54c8808cef558f29d0551c0995815930da09442a515988e950272b83984adb","kind":"bom"},
+    {"path":"M2Card-JLCPCB-CPL.csv","size":38,"sha256":"3573cb886af477954706d7ab531c75014ccab200ab5595f1c9425c46095802c6","kind":"cpl"},
+    {"path":"M2Card-JLCPCB-schematic.pdf","size":366765,"sha256":"85ad29ccf9283fe1cb06c93a69226c1960097a6b9316e28de673c0c521661889","kind":"schematic_pdf"},
+    {"path":"reports/M2Card-erc.json","size":27074,"sha256":"7e65b59b72113d2d7e63004f4f139e91832548c64efc1001fb6e2584739e3df3","kind":"erc_report"},
+    {"path":"reports/M2Card-drc.json","size":240,"sha256":"6e6b98b12284e628144c704a5e31e4f129733d7c9be5164e91a2f4dfffbf4d36","kind":"drc_report"},
+    {"path":"reports/M2Card-change-list.json","size":179,"sha256":"34e9a051f1b1f74b936680824c3b9af3560536311aed824923dd16bd876566dc","kind":"change_list_report"}
+  ],
+  "warnings": []
+}

@@ -1,0 +1,48 @@
+Fab Notes for M2Card
+Revision: A
+Written by REDA 0.0.0-test
+
+Board
+  Size: 22 x 80 mm
+  Copper layers: 2
+  Thickness: 0.8 mm
+  Symmetry: Symmetric
+  Thickness check: Outside 10% tolerance
+  Bevel edge-connector edge: 20°, 1.30 mm
+  Hard gold on edge-connector Pads, 40.95 mm²
+
+Stackup
+  | Layer       | Kind   | Role   | Thickness    | Material | Dk |
+  | L1 (top)    | Copper | Signal | 1 oz (35 µm) |          |    |
+  |             | Core   |        | 1.53 mm      |          |    |
+  | L2 (bottom) | Copper | Signal | 1 oz (35 µm) |          |    |
+
+Via types
+  | Name    | Span  | Micro | Drill (mm) | Pad (mm) | Vias | Drill file |
+  | Through | L1-L2 | No    | 0.3        | 0.66     | 0    |            |
+
+Minimum features
+  Clearance: 0.1 mm
+  Track width: 0.1 mm
+  Via diameter: 0.51 mm
+  Via hole: 0.15 mm
+  Hole size: 0.2 mm
+  Annular ring: 0.18 mm
+  Hole to hole: 0.45 mm
+  Copper to board edge: 0.2 mm
+
+Copper files in order
+  M2Card.gtl
+  M2Card.gbl
+
+Files in the zip
+  M2Card.gtl
+  M2Card.gbl
+  M2Card.gts
+  M2Card.gbs
+  M2Card.gto
+  M2Card.gm1
+  M2Card-PTH.drl
+  M2Card-fab-notes.txt
+  M2Card-drill-report.txt
+  M2Card-job.gbrjob

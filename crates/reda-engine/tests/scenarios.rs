@@ -18,6 +18,7 @@ const REFERENCE_PROJECTS: &[&str] = &[
     "usb_c_mcu",
     "four_layer",
     "six_layer_hdi",
+    "m2_card",
 ];
 
 fn repo() -> PathBuf {

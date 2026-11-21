@@ -71,11 +71,12 @@
     {"uuid":"faacf761-1490-4350-9c3c-4c6d99a2afe9","number":"33","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":1250000,"y":1250000},"rotation":0,"width":350000,"height":1500000,"paste":"none"}
   ],
   "graphics": [
-    {"uuid":"135721e1-d61f-4927-92e8-4cfbde5433ca","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-9675000,"y":0},"end":{"x":9675000,"y":2750000}},"width":50000},
+    {"uuid":"135721e1-d61f-4927-92e8-4cfbde5433ca","layer":"courtyard_top","shape":{"kind":"polygon","points":[{"x":-9675000,"y":0},{"x":2025000,"y":0},{"x":2025000,"y":2750000},{"x":-9675000,"y":2750000}]},"width":50000},
+    {"uuid":"160d5fda-9c7b-43b5-aa0c-aee245697445","layer":"courtyard_top","shape":{"kind":"polygon","points":[{"x":3225000,"y":0},{"x":9675000,"y":0},{"x":9675000,"y":2750000},{"x":3225000,"y":2750000}]},"width":50000},
     {"uuid":"b99695ab-66ad-4bfd-a30f-efc76613211a","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-9425000,"y":0},"end":{"x":9425000,"y":2500000}},"width":100000}
   ],
   "texts": [
-    {"uuid":"160d5fda-9c7b-43b5-aa0c-aee245697445","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+    {"uuid":"3d810e23-6c99-4604-b69e-9ed8c367c9da","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
     {"uuid":"eb09a324-1f54-463a-90a1-e1794477b3be","field":"Designator","at":{"x":0,"y":3550000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
     {"uuid":"fa174c31-e0ce-48ca-ab8b-7396991f8a1d","field":"Value","at":{"x":0,"y":-700000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
   ]

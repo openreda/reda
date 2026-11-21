@@ -2,7 +2,7 @@
   "format": 2,
   "sheet": {"uuid":"00000000-0000-4000-8000-000000000002"},
   "parts": [
-    {"uuid":"00000000-0000-4000-8000-000000000031","hash":"f285c228314ff350a735812c7a5dabec","part":{"uuid":"a1ed1964-d3de-43dd-b97f-ffe5743ee5ee","name":"CardEdge_PCIe_x4","component_type":"standard","in_bom":false,"in_cpl":false,"symbol":"ce8d6ae9-c882-460e-9812-bd1070628ebd"},"footprints":["485e03a0-c755-4a01-b4de-e758baae9e79"],"copies":["00000000-0000-4000-8000-000000000030"],"fields":{"value":"PCIe x4","description":"PCI Express x4 card edge, 32 fingers a side","keywords":"J connector card edge fingers PCIe PCI Express"},"pin_map":{},"symbol":{"uuid":"ce8d6ae9-c882-460e-9812-bd1070628ebd","name":"CardEdge_PCIe_x4","designator_prefix":"J","description":"PCI Express x4 card edge, 32 fingers a side"},"units":[
+    {"uuid":"00000000-0000-4000-8000-000000000031","hash":"d45d6476e4544c6f7525064107dae33e","part":{"uuid":"a1ed1964-d3de-43dd-b97f-ffe5743ee5ee","name":"CardEdge_PCIe_x4","component_type":"standard","in_bom":false,"in_cpl":false,"symbol":"ce8d6ae9-c882-460e-9812-bd1070628ebd"},"footprints":["485e03a0-c755-4a01-b4de-e758baae9e79"],"copies":["00000000-0000-4000-8000-000000000030"],"fields":{"value":"PCIe x4","description":"PCI Express x4 card edge, 32 fingers a side","keywords":"J connector card edge fingers PCIe PCI Express"},"pin_map":{},"symbol":{"uuid":"ce8d6ae9-c882-460e-9812-bd1070628ebd","name":"CardEdge_PCIe_x4","designator_prefix":"J","description":"PCI Express x4 card edge, 32 fingers a side"},"units":[
       {"uuid":"ef6358b4-ecb6-4e0d-aa37-db699ee51081","name":"A"}
     ],"pins":[
       {"uuid":"033a41e0-6918-422a-a244-a667560d4051","unit":"ef6358b4-ecb6-4e0d-aa37-db699ee51081","name":"A5","number":"A5","electrical_type":"passive","at":{"x":-5080000,"y":30480000},"rotation":0,"length":2540000,"name_visible":false},
@@ -74,7 +74,7 @@
     ]}
   ],
   "footprints": [
-    {"uuid":"00000000-0000-4000-8000-000000000030","hash":"ac6b71cd6faa9e74ec5056ad365bdf46","footprint":{"uuid":"485e03a0-c755-4a01-b4de-e758baae9e79","name":"CardEdge_PCIe_x4","description":"PCI Express x4 card edge, 32 fingers a side: Edge Connector Pads 0.70 mm wide on a 1.0 mm pitch, B side on top and A side below, from 1.40 mm off the edge (clear of a 1.30 mm bevel; present-detect A1 and B31 from 2.40 mm), the open-hardware values; the origin is the key centreline on the finger edge","height":35000},"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000030","hash":"a26fc6d29d7bc679e45657c356bec9c1","footprint":{"uuid":"485e03a0-c755-4a01-b4de-e758baae9e79","name":"CardEdge_PCIe_x4","description":"PCI Express x4 card edge, 32 fingers a side: Edge Connector Pads 0.70 mm wide on a 1.0 mm pitch, B side on top and A side below, from 1.40 mm off the edge (clear of a 1.30 mm bevel; present-detect A1 and B31 from 2.40 mm), the open-hardware values; the origin is the key centreline on the finger edge","height":35000},"pads":[
       {"uuid":"04a4f693-fea3-4e37-8de5-1a25be7354f4","number":"B8","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":-4500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"paste":"none"},
       {"uuid":"086d4a15-a370-490f-9135-210ad8603e92","number":"B27","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":16500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"paste":"none"},
       {"uuid":"086d7c44-0b75-4c64-956b-411e65f9e520","number":"B29","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":18500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"paste":"none"},
@@ -141,11 +141,12 @@
       {"uuid":"edea45e6-bba3-4864-923a-2c2dee09ec2c","number":"B16","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":5500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"paste":"none"}
     ],"graphics":[
       {"uuid":"739c92c7-5560-4817-8b98-34bd81cc5879","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-11850000,"y":0},"end":{"x":21850000,"y":5600000}},"width":100000},
-      {"uuid":"bbfb406f-6815-4a59-94e2-fb97e7f16b0b","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-12100000,"y":0},"end":{"x":22100000,"y":5850000}},"width":50000}
+      {"uuid":"bbfb406f-6815-4a59-94e2-fb97e7f16b0b","layer":"courtyard_top","shape":{"kind":"polygon","points":[{"x":-12100000,"y":500000},{"x":-11600000,"y":0},{"x":-950000,"y":0},{"x":-950000,"y":5850000},{"x":-12100000,"y":5850000}]},"width":50000},
+      {"uuid":"f046d923-563b-4998-962d-379f2b612b45","layer":"courtyard_top","shape":{"kind":"polygon","points":[{"x":950000,"y":0},{"x":21600000,"y":0},{"x":22100000,"y":500000},{"x":22100000,"y":5850000},{"x":950000,"y":5850000}]},"width":50000}
     ],"texts":[
       {"uuid":"80f48ce7-781c-4c9b-abee-4b209fed850f","field":"Value","at":{"x":0,"y":-700000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
       {"uuid":"db04e6f3-41c6-4700-8190-1d1176c5b7d7","field":"Designator","at":{"x":0,"y":6650000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
-      {"uuid":"f046d923-563b-4998-962d-379f2b612b45","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
+      {"uuid":"df77f11e-3964-4cad-91ed-8766552507c9","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]}
   ],
   "units": [

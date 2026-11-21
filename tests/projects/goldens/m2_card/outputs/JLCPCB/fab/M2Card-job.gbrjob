@@ -1,0 +1,89 @@
+{
+  "Header": {
+    "GenerationSoftware": {
+      "Vendor": "openreda",
+      "Application": "REDA",
+      "Version": "0.0.0-test"
+    }
+  },
+  "GeneralSpecs": {
+    "ProjectId": {
+      "Name": "M2Card",
+      "GUID": "00000000-0000-4000-8000-000000000001",
+      "Revision": "A"
+    },
+    "Size": {
+      "X": 22.0,
+      "Y": 80.0
+    },
+    "LayerNumber": 2,
+    "BoardThickness": 0.8,
+    "EdgeConnector": true,
+    "EdgeConnectorBevelled": true,
+    "HardGoldArea": 40.95,
+    "Castellated": true,
+    "Notes": "Bevel edge-connector edge: 20°, 1.30 mm"
+  },
+  "FilesAttributes": [
+    {
+      "Path": "M2Card.gtl",
+      "FileFunction": "Copper,L1,Top,Signal",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "M2Card.gbl",
+      "FileFunction": "Copper,L2,Bot,Signal",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "M2Card.gts",
+      "FileFunction": "Soldermask,Top",
+      "FilePolarity": "Negative"
+    },
+    {
+      "Path": "M2Card.gbs",
+      "FileFunction": "Soldermask,Bot",
+      "FilePolarity": "Negative"
+    },
+    {
+      "Path": "M2Card.gto",
+      "FileFunction": "Legend,Top",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "M2Card.gm1",
+      "FileFunction": "Profile,NP",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "M2Card-PTH.drl",
+      "FileFunction": "Plated,1,2,PTH,Drill",
+      "FilePolarity": "Positive"
+    }
+  ],
+  "MaterialStackup": [
+    {
+      "Type": "Legend"
+    },
+    {
+      "Type": "SolderMask"
+    },
+    {
+      "Type": "Copper",
+      "Name": "L1",
+      "Thickness": 0.035
+    },
+    {
+      "Type": "Dielectric",
+      "Thickness": 1.53
+    },
+    {
+      "Type": "Copper",
+      "Name": "L2",
+      "Thickness": 0.035
+    },
+    {
+      "Type": "SolderMask"
+    }
+  ]
+}

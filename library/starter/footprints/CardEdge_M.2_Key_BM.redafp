@@ -64,11 +64,13 @@
   ],
   "graphics": [
     {"uuid":"04240954-04d8-40d4-bcd0-6ffc66b04a7b","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-9425000,"y":0},"end":{"x":9425000,"y":2500000}},"width":100000},
-    {"uuid":"ceff6dc6-c09f-4c42-993a-193d92a37502","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-9675000,"y":0},"end":{"x":9675000,"y":2750000}},"width":50000}
+    {"uuid":"0d0e7ca6-3cc4-45aa-9bdd-89f9a727de0a","layer":"courtyard_top","shape":{"kind":"polygon","points":[{"x":6225000,"y":0},{"x":9675000,"y":0},{"x":9675000,"y":2750000},{"x":6225000,"y":2750000}]},"width":50000},
+    {"uuid":"9aecdc8e-eaca-4196-bc0e-3b5d1e8733c2","layer":"courtyard_top","shape":{"kind":"polygon","points":[{"x":-5525000,"y":0},{"x":5025000,"y":0},{"x":5025000,"y":2750000},{"x":-5525000,"y":2750000}]},"width":50000},
+    {"uuid":"ceff6dc6-c09f-4c42-993a-193d92a37502","layer":"courtyard_top","shape":{"kind":"polygon","points":[{"x":-9675000,"y":0},{"x":-6725000,"y":0},{"x":-6725000,"y":2750000},{"x":-9675000,"y":2750000}]},"width":50000}
   ],
   "texts": [
     {"uuid":"0e64cbb8-8c8f-4859-814a-66405386b007","field":"Value","at":{"x":0,"y":-700000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
-    {"uuid":"9aecdc8e-eaca-4196-bc0e-3b5d1e8733c2","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+    {"uuid":"89d5dc85-d4a5-4154-819d-c4f7045e7f3a","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
     {"uuid":"df589758-eeaa-4517-9a4e-33cd139dbc47","field":"Designator","at":{"x":0,"y":3550000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
   ]
 }

@@ -89,7 +89,7 @@
     {"uuid":"00000000-0000-4000-8000-00000000003f","locked":true,"layer":"00000000-0000-4000-8000-000000000012","a":{"point":{"x":22000000,"y":26200000}},"b":{"point":{"x":22000000,"y":30000000}},"rotation":90000,"width":150000,"extension_width":150000,"gap":500000,"offset":-3000000,"text_gap":250000,"arrow_size":1000000,"arrow_length":2000000,"arrow_position":"inside","text_position":"automatic","font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"},"units":"automatic","precision":2,"format":"value_unit","suffix":" mm"}
   ],
   "footprint_copies": [
-    {"uuid":"00000000-0000-4000-8000-000000000035","hash":"2849e54e91d2c25c80df97d3dc32d2cd","footprint":{"uuid":"fb2d5026-2247-4cc1-94dd-905a027c637e","name":"CardEdge_M.2_Key_AE","description":"M.2 card edge, key A and E, 59 fingers: Edge Connector Pads 0.35 mm wide on a 0.5 mm pitch per side, set back 0.50 mm from the edge, the common open-hardware value; the origin is the centre of the finger edge","height":35000},"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000035","hash":"b6972e82c0eab477db6176d03cc54988","footprint":{"uuid":"fb2d5026-2247-4cc1-94dd-905a027c637e","name":"CardEdge_M.2_Key_AE","description":"M.2 card edge, key A and E, 59 fingers: Edge Connector Pads 0.35 mm wide on a 0.5 mm pitch per side, set back 0.50 mm from the edge, the common open-hardware value; the origin is the centre of the finger edge","height":35000},"pads":[
       {"uuid":"02bad75e-7b78-4f3c-b35c-b588ae634968","number":"19","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":4750000,"y":1250000},"rotation":0,"width":350000,"height":1500000,"paste":"none"},
       {"uuid":"0a10ea24-799e-4bdc-8d5c-03f029e857e6","number":"59","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":-5250000,"y":1250000},"rotation":0,"width":350000,"height":1500000,"paste":"none"},
       {"uuid":"102cc457-215e-4493-99ad-d07b73d97aa8","number":"2","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":9000000,"y":1500000},"rotation":0,"width":350000,"height":2000000,"side":"bottom","paste":"none"},
@@ -150,12 +150,14 @@
       {"uuid":"f9264853-2870-4d91-9ec5-be051daf4917","number":"23","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":3750000,"y":1250000},"rotation":0,"width":350000,"height":1500000,"paste":"none"},
       {"uuid":"fb605bf2-68cf-4784-b976-89bd90be36c8","number":"16","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":5500000,"y":1500000},"rotation":0,"width":350000,"height":2000000,"side":"bottom","paste":"none"}
     ],"graphics":[
+      {"uuid":"575f7ffd-d5ba-4025-8977-d1a7ee53fab2","layer":"courtyard_top","shape":{"kind":"polygon","points":[{"x":7225000,"y":0},{"x":9675000,"y":0},{"x":9675000,"y":2750000},{"x":7225000,"y":2750000}]},"width":50000},
       {"uuid":"58f4841f-e65a-4527-8d9b-7e96b12cb375","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-9425000,"y":0},"end":{"x":9425000,"y":2500000}},"width":100000},
-      {"uuid":"cc6d5f25-00c5-41f7-83da-cfd7417e4063","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-9675000,"y":0},"end":{"x":9675000,"y":2750000}},"width":50000}
+      {"uuid":"a510f0b0-61ca-4bf3-971a-d53a8c1303e3","layer":"courtyard_top","shape":{"kind":"polygon","points":[{"x":3225000,"y":0},{"x":6025000,"y":0},{"x":6025000,"y":2750000},{"x":3225000,"y":2750000}]},"width":50000},
+      {"uuid":"cc6d5f25-00c5-41f7-83da-cfd7417e4063","layer":"courtyard_top","shape":{"kind":"polygon","points":[{"x":-9675000,"y":0},{"x":2025000,"y":0},{"x":2025000,"y":2750000},{"x":-9675000,"y":2750000}]},"width":50000}
     ],"texts":[
       {"uuid":"0239c9a5-bbc2-4be9-8399-8d6e7f428bc1","field":"Designator","at":{"x":0,"y":3550000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
       {"uuid":"3c03b8b2-7fce-4be6-80b3-d893a2d631d3","field":"Value","at":{"x":0,"y":-700000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
-      {"uuid":"a510f0b0-61ca-4bf3-971a-d53a8c1303e3","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
+      {"uuid":"45f11d74-32fb-4ed3-b4df-e47bd0545a17","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]},
     {"uuid":"00000000-0000-4000-8000-000000000037","hash":"a706c927bc602ec0bc62b71c63729be3","footprint":{"uuid":"ac2e8f5f-a3e8-40a7-91bb-42fb9de9bae3","name":"MountingHole_M2_Castellated","description":"Castellated half-moon for an M.2 card's M2 screw, 3.5 mm plated hole, 5.5 mm land on top and 6.0 mm below, the SATA-IO figures. Centre it on the board edge: the edge cuts it in half","height":2000000},"pads":[
       {"uuid":"af92254b-fa6d-432a-9d7a-1de096889234","number":"1","kind":"plated_through_hole","castellated":true,"shape":"circle","bottom":{"shape":"circle","width":6000000,"height":6000000},"at":{"x":0,"y":0},"rotation":0,"width":5500000,"height":5500000,"hole":{"width":3500000,"height":3500000}}
@@ -230,7 +232,7 @@
       {"pad":"f9264853-2870-4d91-9ec5-be051daf4917"},
       {"pad":"fb605bf2-68cf-4784-b976-89bd90be36c8"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000038","footprint":"00000000-0000-4000-8000-000000000037","at":{"x":11000000,"y":30000000},"rotation":0,"side":"top","locked":true,"designator":"H1","fields":{"value":"M2","description":"Castellated half-moon for an M.2 card's M2 screw, 3.5 mm plated hole, 5.5 mm land on top and 6.0 mm below","keywords":"H mounting hole screw castellated half-moon M.2 mechanical"},"component_type":"mechanical","in_bom":false,"in_cpl":false,"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000038","footprint":"00000000-0000-4000-8000-000000000037","at":{"x":11000000,"y":30000000},"rotation":180000,"side":"top","locked":true,"designator":"H1","fields":{"value":"M2","description":"Castellated half-moon for an M.2 card's M2 screw, 3.5 mm plated hole, 5.5 mm land on top and 6.0 mm below","keywords":"H mounting hole screw castellated half-moon M.2 mechanical"},"component_type":"mechanical","in_bom":false,"in_cpl":false,"pads":[
       {"pad":"af92254b-fa6d-432a-9d7a-1de096889234"}
     ]}
   ],
