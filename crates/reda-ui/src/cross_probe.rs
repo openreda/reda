@@ -219,6 +219,15 @@ pub(crate) fn pcb_objects_of(pcb: &PcbDocument, net: Uuid) -> Vec<Uuid> {
                 .filter(|f| f.pads.iter().any(|p| p.net == on))
                 .map(|f| f.uuid),
         )
+        // A contour carrying a Plated Edge of the Net: its plating is the Net's copper.
+        .chain({
+            let mut contours: Vec<Uuid> = (pcb.plated_edges().into_iter())
+                .filter(|e| e.net == on)
+                .map(|e| e.contour)
+                .collect();
+            contours.dedup();
+            contours
+        })
         .collect()
 }
 

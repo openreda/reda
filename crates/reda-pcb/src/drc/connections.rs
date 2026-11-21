@@ -145,7 +145,8 @@ fn stub_length(board: &Board<'_>, track: &Track, end: Point) -> f64 {
 
 /// Track ends whose round end touches copper of their Net while the end's centre lies
 /// outside it: one Violation per end and piece of copper touched, naming the Track then
-/// that copper. Zones are left out: their fill follows the copper, not the other way.
+/// that copper. Zones are left out: their fill follows the copper, not the other way; and
+/// so are Plated Edges, which have no inside for an end to sit in.
 fn poor_connection(board: &Board<'_>, report: &mut Report) {
     if report.is_off(DrcCheck::PoorConnection) {
         return;
@@ -165,7 +166,7 @@ fn poor_connection(board: &Board<'_>, report: &mut Report) {
             let cap = Shape::disc(end, track.width);
             for other in copper.items_touching(track.layer, &cap) {
                 if other == item
-                    || matches!(other, Item::Zone { .. })
+                    || matches!(other, Item::Zone { .. } | Item::PlatedEdge { .. })
                     || copper.net(other) != track.net
                 {
                     continue;

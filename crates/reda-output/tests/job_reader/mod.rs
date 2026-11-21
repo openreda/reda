@@ -14,6 +14,9 @@ pub struct Job {
 #[serde(rename_all = "PascalCase")]
 pub struct GeneralSpecs {
     pub layer_number: usize,
+    /// Set when any board edge is plated.
+    #[allow(dead_code, reason = "used by the plated-edge reference suite")]
+    pub edge_plating: Option<bool>,
     /// Set when any Pad is castellated.
     #[allow(dead_code, reason = "used by the card-edge reference suites")]
     pub castellated: Option<bool>,

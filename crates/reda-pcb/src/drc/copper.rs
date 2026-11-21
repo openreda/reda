@@ -96,7 +96,8 @@ fn short_circuit(board: &Board<'_>, report: &mut Report) {
         let (Some(na), Some(nb)) = (na, nb) else {
             continue;
         };
-        if na == nb || ties.same_tie(a, b) {
+        // Plated Edges meeting with different Nets have a check of their own.
+        if na == nb || ties.same_tie(a, b) || (a.is_plated_edge() && b.is_plated_edge()) {
             continue;
         }
         for (layer, pa, pb) in touching_pieces(copper, a, b) {

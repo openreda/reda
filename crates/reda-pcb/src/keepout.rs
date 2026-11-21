@@ -89,7 +89,9 @@ pub(crate) fn restriction(pcb: &PcbDocument, item: Item) -> Option<Restriction> 
     match item {
         Item::Track { .. } => Some(Restriction::Tracks),
         Item::Via { .. } => Some(Restriction::Vias),
-        Item::Zone { .. } | Item::Text { .. } | Item::Graphic { .. } => None,
+        Item::Zone { .. } | Item::Text { .. } | Item::Graphic { .. } | Item::PlatedEdge { .. } => {
+            None
+        }
         Item::FreePad { uuid } => pcb.free_pad(uuid).map(|p| pad(p.kind)),
         Item::Pad { footprint, pad: id } => {
             let instance = pcb.footprint(footprint)?;

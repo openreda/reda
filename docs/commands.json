@@ -283,6 +283,26 @@
                 "type": "string"
               },
               {
+                "const": "plated_edge_nets_differ",
+                "description": "Plated Edges that meet at a vertex with different Nets: one piece of metal.",
+                "type": "string"
+              },
+              {
+                "const": "edge_connector_on_plated_edge",
+                "description": "An Edge Connector Pad on a Plated Edge: the plating would short the fingers.",
+                "type": "string"
+              },
+              {
+                "const": "plated_edge_without_net",
+                "description": "A Plated Edge with no Net: floating metal.",
+                "type": "string"
+              },
+              {
+                "const": "plated_edge_unconnected",
+                "description": "A Plated Edge that no copper of its Net touches on the outer Layers.",
+                "type": "string"
+              },
+              {
                 "const": "keepout",
                 "description": "An object inside a Keepout that forbids it.",
                 "type": "string"
@@ -1770,6 +1790,26 @@
                 "type": "string"
               },
               {
+                "const": "plated_edge_nets_differ",
+                "description": "Plated Edges that meet at a vertex with different Nets: one piece of metal.",
+                "type": "string"
+              },
+              {
+                "const": "edge_connector_on_plated_edge",
+                "description": "An Edge Connector Pad on a Plated Edge: the plating would short the fingers.",
+                "type": "string"
+              },
+              {
+                "const": "plated_edge_without_net",
+                "description": "A Plated Edge with no Net: floating metal.",
+                "type": "string"
+              },
+              {
+                "const": "plated_edge_unconnected",
+                "description": "A Plated Edge that no copper of its Net touches on the outer Layers.",
+                "type": "string"
+              },
+              {
                 "const": "keepout",
                 "description": "An object inside a Keepout that forbids it.",
                 "type": "string"
@@ -2035,6 +2075,26 @@
               {
                 "const": "edge_connector_without_pads",
                 "description": "A bevel or hard gold set in `edge_connector` on a board with no Edge Connector Pads.",
+                "type": "string"
+              },
+              {
+                "const": "plated_edge_nets_differ",
+                "description": "Plated Edges that meet at a vertex with different Nets: one piece of metal.",
+                "type": "string"
+              },
+              {
+                "const": "edge_connector_on_plated_edge",
+                "description": "An Edge Connector Pad on a Plated Edge: the plating would short the fingers.",
+                "type": "string"
+              },
+              {
+                "const": "plated_edge_without_net",
+                "description": "A Plated Edge with no Net: floating metal.",
+                "type": "string"
+              },
+              {
+                "const": "plated_edge_unconnected",
+                "description": "A Plated Edge that no copper of its Net touches on the outer Layers.",
                 "type": "string"
               },
               {
@@ -2639,6 +2699,26 @@
                 "type": "string"
               },
               {
+                "const": "plated_edge_nets_differ",
+                "description": "Plated Edges that meet at a vertex with different Nets: one piece of metal.",
+                "type": "string"
+              },
+              {
+                "const": "edge_connector_on_plated_edge",
+                "description": "An Edge Connector Pad on a Plated Edge: the plating would short the fingers.",
+                "type": "string"
+              },
+              {
+                "const": "plated_edge_without_net",
+                "description": "A Plated Edge with no Net: floating metal.",
+                "type": "string"
+              },
+              {
+                "const": "plated_edge_unconnected",
+                "description": "A Plated Edge that no copper of its Net touches on the outer Layers.",
+                "type": "string"
+              },
+              {
                 "const": "keepout",
                 "description": "An object inside a Keepout that forbids it.",
                 "type": "string"
@@ -2959,6 +3039,26 @@
               {
                 "const": "edge_connector_without_pads",
                 "description": "A bevel or hard gold set in `edge_connector` on a board with no Edge Connector Pads.",
+                "type": "string"
+              },
+              {
+                "const": "plated_edge_nets_differ",
+                "description": "Plated Edges that meet at a vertex with different Nets: one piece of metal.",
+                "type": "string"
+              },
+              {
+                "const": "edge_connector_on_plated_edge",
+                "description": "An Edge Connector Pad on a Plated Edge: the plating would short the fingers.",
+                "type": "string"
+              },
+              {
+                "const": "plated_edge_without_net",
+                "description": "A Plated Edge with no Net: floating metal.",
+                "type": "string"
+              },
+              {
+                "const": "plated_edge_unconnected",
+                "description": "A Plated Edge that no copper of its Net touches on the outer Layers.",
                 "type": "string"
               },
               {
@@ -26233,6 +26333,11 @@
                 "default": "error",
                 "description": "Copper too close to the Board Outline or a Board Cutout."
               },
+              "edge_connector_on_plated_edge": {
+                "$ref": "#/$defs/Severity",
+                "default": "error",
+                "description": "An Edge Connector Pad on a Plated Edge: the plating would short the fingers."
+              },
               "edge_connector_without_pads": {
                 "$ref": "#/$defs/Severity",
                 "default": "warning",
@@ -26292,6 +26397,21 @@
                 "$ref": "#/$defs/Severity",
                 "default": "warning",
                 "description": "The PCB out of sync with the schematic."
+              },
+              "plated_edge_nets_differ": {
+                "$ref": "#/$defs/Severity",
+                "default": "error",
+                "description": "Plated Edges that meet at a vertex with different Nets: one piece of metal."
+              },
+              "plated_edge_unconnected": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A Plated Edge that no copper of its Net touches on the outer Layers."
+              },
+              "plated_edge_without_net": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A Plated Edge with no Net: floating metal."
               },
               "poor_connection": {
                 "$ref": "#/$defs/Severity",
@@ -26397,6 +26517,10 @@
               "hole_to_hole",
               "edge_clearance",
               "edge_connector_without_pads",
+              "plated_edge_nets_differ",
+              "edge_connector_on_plated_edge",
+              "plated_edge_without_net",
+              "plated_edge_unconnected",
               "keepout",
               "footprint_outside_board",
               "unrouted",
@@ -34877,6 +35001,11 @@
                 "default": "error",
                 "description": "Copper too close to the Board Outline or a Board Cutout."
               },
+              "edge_connector_on_plated_edge": {
+                "$ref": "#/$defs/Severity",
+                "default": "error",
+                "description": "An Edge Connector Pad on a Plated Edge: the plating would short the fingers."
+              },
               "edge_connector_without_pads": {
                 "$ref": "#/$defs/Severity",
                 "default": "warning",
@@ -34936,6 +35065,21 @@
                 "$ref": "#/$defs/Severity",
                 "default": "warning",
                 "description": "The PCB out of sync with the schematic."
+              },
+              "plated_edge_nets_differ": {
+                "$ref": "#/$defs/Severity",
+                "default": "error",
+                "description": "Plated Edges that meet at a vertex with different Nets: one piece of metal."
+              },
+              "plated_edge_unconnected": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A Plated Edge that no copper of its Net touches on the outer Layers."
+              },
+              "plated_edge_without_net": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A Plated Edge with no Net: floating metal."
               },
               "poor_connection": {
                 "$ref": "#/$defs/Severity",
@@ -35041,6 +35185,10 @@
               "hole_to_hole",
               "edge_clearance",
               "edge_connector_without_pads",
+              "plated_edge_nets_differ",
+              "edge_connector_on_plated_edge",
+              "plated_edge_without_net",
+              "plated_edge_unconnected",
               "keepout",
               "footprint_outside_board",
               "unrouted",
@@ -44861,6 +45009,32 @@
                   "island"
                 ],
                 "type": "object"
+              },
+              {
+                "description": "A Plated Edge: the plating along one edge of the Board Outline or a Board Cutout,\ncopper of its Net on every copper Layer.",
+                "properties": {
+                  "contour": {
+                    "description": "The Board Outline or Board Cutout.",
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "edge": {
+                    "description": "The index of the vertex that starts the edge.",
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "kind": {
+                    "const": "plated_edge",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "contour",
+                  "edge"
+                ],
+                "type": "object"
               }
             ]
           }
@@ -45157,6 +45331,32 @@
                   "kind",
                   "zone",
                   "island"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "A Plated Edge: the plating along one edge of the Board Outline or a Board Cutout,\ncopper of its Net on every copper Layer.",
+                "properties": {
+                  "contour": {
+                    "description": "The Board Outline or Board Cutout.",
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "edge": {
+                    "description": "The index of the vertex that starts the edge.",
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "kind": {
+                    "const": "plated_edge",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "contour",
+                  "edge"
                 ],
                 "type": "object"
               }
@@ -45524,6 +45724,32 @@
                   "kind",
                   "zone",
                   "island"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "A Plated Edge: the plating along one edge of the Board Outline or a Board Cutout,\ncopper of its Net on every copper Layer.",
+                "properties": {
+                  "contour": {
+                    "description": "The Board Outline or Board Cutout.",
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "edge": {
+                    "description": "The index of the vertex that starts the edge.",
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "kind": {
+                    "const": "plated_edge",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "contour",
+                  "edge"
                 ],
                 "type": "object"
               }
@@ -58826,6 +59052,32 @@
                   "island"
                 ],
                 "type": "object"
+              },
+              {
+                "description": "A Plated Edge: the plating along one edge of the Board Outline or a Board Cutout,\ncopper of its Net on every copper Layer.",
+                "properties": {
+                  "contour": {
+                    "description": "The Board Outline or Board Cutout.",
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "edge": {
+                    "description": "The index of the vertex that starts the edge.",
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "kind": {
+                    "const": "plated_edge",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "contour",
+                  "edge"
+                ],
+                "type": "object"
               }
             ]
           },
@@ -61404,6 +61656,26 @@
               {
                 "const": "edge_connector_without_pads",
                 "description": "A bevel or hard gold set in `edge_connector` on a board with no Edge Connector Pads.",
+                "type": "string"
+              },
+              {
+                "const": "plated_edge_nets_differ",
+                "description": "Plated Edges that meet at a vertex with different Nets: one piece of metal.",
+                "type": "string"
+              },
+              {
+                "const": "edge_connector_on_plated_edge",
+                "description": "An Edge Connector Pad on a Plated Edge: the plating would short the fingers.",
+                "type": "string"
+              },
+              {
+                "const": "plated_edge_without_net",
+                "description": "A Plated Edge with no Net: floating metal.",
+                "type": "string"
+              },
+              {
+                "const": "plated_edge_unconnected",
+                "description": "A Plated Edge that no copper of its Net touches on the outer Layers.",
                 "type": "string"
               },
               {

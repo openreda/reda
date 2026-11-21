@@ -45,6 +45,7 @@ const PROJECTS: &[(&str, &str)] = &[
     ("usb_c_mcu", "UsbMcu.reda"),
     ("four_layer", "FourLayer.reda"),
     ("six_layer_hdi", "SixLayerHdi.reda"),
+    ("castellated_module", "Castellated.reda"),
     ("m2_card", "M2Card.reda"),
 ];
 
@@ -267,6 +268,22 @@ fn between_them_the_projects_hold_every_object_the_goldens_cover() {
                 && footprints.iter().any(|f| f["not_fitted"] == true),
         ),
         (
+            "a Plated Edge with a Net",
+            (docs.iter())
+                .filter(|(e, _)| e == "redapcb")
+                .map(|(_, doc)| &doc["board_outline"])
+                .chain(rows(&docs, "redapcb", "board_cutouts"))
+                .flat_map(|c| c["vertices"].as_array().cloned().unwrap_or_default())
+                .any(|v| v["plated"]["net"].is_string()),
+        ),
+        (
+            "a Castellated Pad",
+            rows(&docs, "redapcb", "free_pads")
+                .into_iter()
+                .any(|p| p["castellated"] == true)
+                || copy_pads.iter().any(|p| p["castellated"] == true),
+        ),
+        (
             "a non-plated slot",
             rows(&docs, "redapcb", "free_pads").into_iter().any(slot) || copy_pads.iter().any(slot),
         ),
@@ -370,6 +387,38 @@ fn time_drc_after_a_track_edit() {
 #[test]
 fn six_layer_hdi_is_a_clean_six_layer_board() {
     check_clean_board("six_layer_hdi", "SixLayerHdi.reda", 6);
+}
+
+#[test]
+fn castellated_module_is_clean_with_its_plating_joined_to_gnd() {
+    check_clean_board("castellated_module", "Castellated.reda", 2);
+    let (_work, engine) = open_copy("castellated_module", "Castellated.reda");
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let gnd = pcb.nets().find(|n| n.name == "GND").unwrap().uuid;
+    let edges = pcb.plated_edges();
+    // The bottom edge and the chamfer meet at a corner, both on GND.
+    assert_eq!(edges.len(), 2);
+    assert_eq!(edges[0].to, edges[1].from);
+    assert!(edges.iter().all(|e| e.net == Some(gnd)));
+    let castellated: Vec<_> = pcb.free_pads().filter(|p| p.castellated).collect();
+    assert!(castellated.iter().any(|p| p.at.x.0 == 0));
+    assert!(castellated.iter().any(|p| p.at.y.0 == 15_000_000));
+    // The GND Zones join the plating: it is one island with the GND Pads.
+    let copper = reda_engine::pcb::Copper::of(engine.project().unwrap()).unwrap();
+    let plating = reda_engine::pcb::Item::PlatedEdge {
+        contour: edges[0].contour,
+        edge: 0,
+    };
+    let island = copper
+        .islands(gnd)
+        .into_iter()
+        .find(|i| i.contains(&plating))
+        .unwrap();
+    assert!(
+        island
+            .iter()
+            .any(|i| matches!(i, reda_engine::pcb::Item::Pad { .. }))
+    );
 }
 
 #[test]
