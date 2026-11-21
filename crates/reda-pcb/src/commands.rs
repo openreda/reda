@@ -6,6 +6,7 @@ mod clipboard;
 mod copper;
 mod dimension;
 mod drc;
+mod edge_connector;
 mod find;
 mod free_pad;
 pub mod from_graphics;
@@ -67,6 +68,7 @@ pub fn register_all_with_user(
     plated_edge::register_all(registry);
     rules::register_all(registry);
     stackup::register_all(registry);
+    registry.add(edge_connector::EdgeConnectorSet);
     registry.add(layer::LayerSetCommand);
     registry.add(layer_count::Add);
     registry.add(layer_count::Remove);

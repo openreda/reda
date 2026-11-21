@@ -1,7 +1,8 @@
 //! The Gerber job file: `<project>-job.gbrjob`, a minimal JSON file in the publisher's
 //! Job spec form. It holds the generation software, the project ID, the board size, layer
 //! count and thickness, the finish when the Job spec names it, whether the board has Edge
-//! Connector or Castellated Pads, and the path, function and
+//! Connector or Castellated Pads, the edge connector's bevel (its angle and depth in
+//! `Notes`) and hard gold area, and the path, function and
 //! polarity of each Gerber and drill file in the zip, and the physical material stack.
 //!
 //! The Output Manifest holds the run date, so this file stays reproducible.
@@ -9,7 +10,7 @@
 use reda_model::{PcbDocument, StackupEntry};
 use serde::Serialize;
 
-use crate::fab_notes::board_size;
+use crate::fab_notes::{bevel_line, board_size, hard_gold_area};
 use crate::plot::{OutputFile, Plot};
 
 /// The job file's name for the Project `name`.
@@ -56,9 +57,19 @@ struct GeneralSpecs {
     /// `true` when any Pad is an Edge Connector Pad; left out otherwise.
     #[serde(skip_serializing_if = "Option::is_none")]
     edge_connector: Option<bool>,
+    /// `true` when the board's `edge_connector` has a bevel; left out otherwise.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    edge_connector_bevelled: Option<bool>,
+    /// The summed Edge Connector Pad copper area in mm², when the board's
+    /// `edge_connector` asks for hard gold; left out otherwise.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    hard_gold_area: Option<f64>,
     /// `true` when any Pad is a Castellated Pad; left out otherwise.
     #[serde(skip_serializing_if = "Option::is_none")]
     castellated: Option<bool>,
+    /// What the spec has no field for: the bevel's angle and depth. Left out when unset.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    notes: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -200,6 +211,8 @@ pub fn gerber_job_file(plot: &Plot<'_>, files: &[OutputFile]) -> OutputFile {
         "" => "-",
         r => r,
     };
+    let edge = pcb.and_then(|p| p.setup().edge_connector);
+    let bevel = edge.and_then(|e| e.bevel);
     let job = Job {
         header: Header {
             generation_software: Software {
@@ -230,9 +243,14 @@ pub fn gerber_job_file(plot: &Plot<'_>, files: &[OutputFile]) -> OutputFile {
             edge_connector: pcb
                 .is_some_and(PcbDocument::has_edge_connector_pads)
                 .then_some(true),
+            edge_connector_bevelled: bevel.map(|_| true),
+            hard_gold_area: pcb
+                .filter(|_| edge.is_some_and(|e| e.hard_gold))
+                .map(|p| (hard_gold_area(p) * 1e4).round() / 1e4),
             castellated: pcb
                 .is_some_and(PcbDocument::has_castellated_pads)
                 .then_some(true),
+            notes: bevel.map(bevel_line),
         },
         material_stackup: pcb
             .map(|pcb| material_stackup(pcb, files))

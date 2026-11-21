@@ -115,6 +115,11 @@
           "default": "error",
           "description": "Copper too close to the Board Outline or a Board Cutout."
         },
+        "edge_connector_without_pads": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "A bevel or hard gold set in `edge_connector` on a board with no Edge Connector Pads."
+        },
         "empty_zone": {
           "$ref": "#/$defs/Severity",
           "default": "warning",

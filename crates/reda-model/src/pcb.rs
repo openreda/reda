@@ -185,6 +185,8 @@ crate::check::severities! {
     hole_to_hole => HoleToHole = Error,
     /// Copper too close to the Board Outline or a Board Cutout.
     edge_clearance => EdgeClearance = Error,
+    /// A bevel or hard gold set in `edge_connector` on a board with no Edge Connector Pads.
+    edge_connector_without_pads => EdgeConnectorWithoutPads = Warning,
     /// An object inside a Keepout that forbids it.
     keepout => Keepout = Error,
     /// A Footprint outside the Board Outline.
@@ -259,6 +261,46 @@ pub struct BoardSetup {
     /// Free text for the fab, copied into the Fab Notes; left out when unset.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fab_notes: Option<String>,
+    /// What the fab does to the card edge; left out when unset. Whether the board has an
+    /// edge connector is not stored: any Edge Connector Pad makes one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub edge_connector: Option<EdgeConnector>,
+}
+
+/// The board's `edge_connector` property: the bevel ground on the card edge and selective
+/// hard gold on the Edge Connector Pads. The board finish is unchanged by it.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct EdgeConnector {
+    /// The bevel; left out for none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bevel: Option<EdgeBevel>,
+    /// Selective hard gold on the Edge Connector Pads only; left out when false.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub hard_gold: bool,
+}
+
+/// The chamfer ground on the card edge so it enters its slot.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct EdgeBevel {
+    /// The bevel angle; between 0° and 90°, exclusive.
+    pub angle: reda_geom::Millideg,
+    /// How far the bevel reaches in from the edge; positive.
+    pub depth: Nm,
+}
+
+impl EdgeBevel {
+    /// What is wrong with it, as a field (`/angle` or `/depth`) and a reason.
+    pub fn problem(&self) -> Option<(&'static str, &'static str)> {
+        if self.angle.0 <= 0 || self.angle.0 >= 90_000 {
+            return Some(("/angle", "the bevel angle must be between 0° and 90°"));
+        }
+        if self.depth <= Nm::ZERO {
+            return Some(("/depth", "the bevel depth must be positive"));
+        }
+        None
+    }
 }
 
 /// The closed shape of the board's physical edge. The file stores each vertex with the
@@ -958,6 +1000,14 @@ impl PcbDocument {
             return Err(format!("PCB Document {doc} must have exactly one Stackup"));
         }
         self.check_layers()?;
+        if let Some((field, problem)) = self
+            .setup()
+            .edge_connector
+            .and_then(|e| e.bevel)
+            .and_then(|b| b.problem())
+        {
+            return Err(format!("edge_connector bevel{field}: {problem}"));
+        }
         let copper: Vec<Uuid> = self.copper_layers().map(|l| l.uuid).collect();
         if let Some(problem) = self.stackup().problem(&copper) {
             return Err(problem);

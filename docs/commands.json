@@ -278,6 +278,11 @@
                 "type": "string"
               },
               {
+                "const": "edge_connector_without_pads",
+                "description": "A bevel or hard gold set in `edge_connector` on a board with no Edge Connector Pads.",
+                "type": "string"
+              },
+              {
                 "const": "keepout",
                 "description": "An object inside a Keepout that forbids it.",
                 "type": "string"
@@ -1612,6 +1617,11 @@
                 "type": "string"
               },
               {
+                "const": "edge_connector_without_pads",
+                "description": "A bevel or hard gold set in `edge_connector` on a board with no Edge Connector Pads.",
+                "type": "string"
+              },
+              {
                 "const": "keepout",
                 "description": "An object inside a Keepout that forbids it.",
                 "type": "string"
@@ -1872,6 +1882,11 @@
               {
                 "const": "edge_clearance",
                 "description": "Copper too close to the Board Outline or a Board Cutout.",
+                "type": "string"
+              },
+              {
+                "const": "edge_connector_without_pads",
+                "description": "A bevel or hard gold set in `edge_connector` on a board with no Edge Connector Pads.",
                 "type": "string"
               },
               {
@@ -2471,6 +2486,11 @@
                 "type": "string"
               },
               {
+                "const": "edge_connector_without_pads",
+                "description": "A bevel or hard gold set in `edge_connector` on a board with no Edge Connector Pads.",
+                "type": "string"
+              },
+              {
                 "const": "keepout",
                 "description": "An object inside a Keepout that forbids it.",
                 "type": "string"
@@ -2786,6 +2806,11 @@
               {
                 "const": "edge_clearance",
                 "description": "Copper too close to the Board Outline or a Board Cutout.",
+                "type": "string"
+              },
+              {
+                "const": "edge_connector_without_pads",
+                "description": "A bevel or hard gold set in `edge_connector` on a board with no Edge Connector Pads.",
                 "type": "string"
               },
               {
@@ -26060,6 +26085,11 @@
                 "default": "error",
                 "description": "Copper too close to the Board Outline or a Board Cutout."
               },
+              "edge_connector_without_pads": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A bevel or hard gold set in `edge_connector` on a board with no Edge Connector Pads."
+              },
               "empty_zone": {
                 "$ref": "#/$defs/Severity",
                 "default": "warning",
@@ -26218,6 +26248,7 @@
               "annular_ring",
               "hole_to_hole",
               "edge_clearance",
+              "edge_connector_without_pads",
               "keepout",
               "footprint_outside_board",
               "unrouted",
@@ -26240,6 +26271,49 @@
               "rule_invalid",
               "rule_outside_preset"
             ],
+            "type": "object"
+          },
+          "EdgeBevel": {
+            "additionalProperties": false,
+            "description": "The chamfer ground on the card edge so it enters its slot.",
+            "properties": {
+              "angle": {
+                "description": "The bevel angle; between 0° and 90°, exclusive.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "depth": {
+                "description": "How far the bevel reaches in from the edge; positive.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "angle",
+              "depth"
+            ],
+            "type": "object"
+          },
+          "EdgeConnector": {
+            "additionalProperties": false,
+            "description": "The board's `edge_connector` property: the bevel ground on the card edge and selective\nhard gold on the Edge Connector Pads. The board finish is unchanged by it.",
+            "properties": {
+              "bevel": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/EdgeBevel"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The bevel; left out for none."
+              },
+              "hard_gold": {
+                "description": "Selective hard gold on the Edge Connector Pads only; left out when false.",
+                "type": "boolean"
+              }
+            },
             "type": "object"
           },
           "EditedFrom": {
@@ -27600,6 +27674,17 @@
           "InDocument2": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
+              "edge_connector": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/EdgeConnector"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "What the fab does to the card edge; left out when unset. Whether the board has an\nedge connector is not stored: any Edge Connector Pad makes one."
+              },
               "fab_notes": {
                 "description": "Free text for the fab, copied into the Fab Notes; left out when unset.",
                 "type": [
@@ -34644,6 +34729,11 @@
                 "default": "error",
                 "description": "Copper too close to the Board Outline or a Board Cutout."
               },
+              "edge_connector_without_pads": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A bevel or hard gold set in `edge_connector` on a board with no Edge Connector Pads."
+              },
               "empty_zone": {
                 "$ref": "#/$defs/Severity",
                 "default": "warning",
@@ -34802,6 +34892,7 @@
               "annular_ring",
               "hole_to_hole",
               "edge_clearance",
+              "edge_connector_without_pads",
               "keepout",
               "footprint_outside_board",
               "unrouted",
@@ -34824,6 +34915,49 @@
               "rule_invalid",
               "rule_outside_preset"
             ],
+            "type": "object"
+          },
+          "EdgeBevel": {
+            "additionalProperties": false,
+            "description": "The chamfer ground on the card edge so it enters its slot.",
+            "properties": {
+              "angle": {
+                "description": "The bevel angle; between 0° and 90°, exclusive.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "depth": {
+                "description": "How far the bevel reaches in from the edge; positive.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "angle",
+              "depth"
+            ],
+            "type": "object"
+          },
+          "EdgeConnector": {
+            "additionalProperties": false,
+            "description": "The board's `edge_connector` property: the bevel ground on the card edge and selective\nhard gold on the Edge Connector Pads. The board finish is unchanged by it.",
+            "properties": {
+              "bevel": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/EdgeBevel"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The bevel; left out for none."
+              },
+              "hard_gold": {
+                "description": "Selective hard gold on the Edge Connector Pads only; left out when false.",
+                "type": "boolean"
+              }
+            },
             "type": "object"
           },
           "EditedFrom": {
@@ -36184,6 +36318,17 @@
           "InDocument2": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
+              "edge_connector": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/EdgeConnector"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "What the fab does to the card edge; left out when unset. Whether the board has an\nedge connector is not stored: any Edge Connector Pad makes one."
+              },
               "fab_notes": {
                 "description": "Free text for the fab, copied into the Fab Notes; left out when unset.",
                 "type": [
@@ -48860,6 +49005,110 @@
     },
     {
       "category": "pcb",
+      "description": "Sets or clears (`null`) the board's `edge_connector` property: the bevel (`angle` between 0° and 90°, `depth`) the fab grinds on the card edge, and `hard_gold` for selective hard gold on the Edge Connector Pads. The board finish is unchanged. The job file and Fab Notes that `output.job.run` writes carry both; DRC warns when either is set on a board with no Edge Connector Pads. One undoable edit.",
+      "icon": "layers",
+      "id": "pcb.edge_connector.set",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Angle": {
+            "description": "An angle, counter-clockwise: integer millidegrees, or degrees such as \"45deg\".",
+            "oneOf": [
+              {
+                "description": "Millidegrees.",
+                "type": "integer"
+              },
+              {
+                "description": "A number of degrees followed by deg.",
+                "format": "angle",
+                "type": "string"
+              }
+            ]
+          },
+          "BevelParam": {
+            "additionalProperties": false,
+            "properties": {
+              "angle": {
+                "$ref": "#/$defs/Angle",
+                "description": "The bevel angle, between 0° and 90°, such as `\"20deg\"`."
+              },
+              "depth": {
+                "$ref": "#/$defs/Length",
+                "description": "How far the bevel reaches in from the edge, such as `\"1.3mm\"`."
+              }
+            },
+            "required": [
+              "angle",
+              "depth"
+            ],
+            "type": "object"
+          },
+          "EdgeConnectorParam": {
+            "additionalProperties": false,
+            "description": "The card edge's bevel and hard gold.",
+            "properties": {
+              "bevel": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/BevelParam"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The bevel ground on the card edge; left out for none."
+              },
+              "hard_gold": {
+                "default": false,
+                "description": "Selective hard gold on the Edge Connector Pads only; the board finish is unchanged.",
+                "type": "boolean"
+              }
+            },
+            "type": "object"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "edge_connector": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/EdgeConnectorParam"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The property; `null` clears it. Required."
+          }
+        },
+        "title": "EdgeConnectorSetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Set Edge Connector"
+    },
+    {
+      "category": "pcb",
       "description": "Sets the board's `fab_notes`: free text for a person at the fab, copied as typed to the end of the Fab Notes that `output.job.run` writes. `null` or blank text clears it.",
       "icon": "layers",
       "id": "pcb.fab_notes.set",
@@ -61002,6 +61251,11 @@
               {
                 "const": "edge_clearance",
                 "description": "Copper too close to the Board Outline or a Board Cutout.",
+                "type": "string"
+              },
+              {
+                "const": "edge_connector_without_pads",
+                "description": "A bevel or hard gold set in `edge_connector` on a board with no Edge Connector Pads.",
                 "type": "string"
               },
               {

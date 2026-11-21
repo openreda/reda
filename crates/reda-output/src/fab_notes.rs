@@ -7,8 +7,8 @@ use std::fmt::Write;
 
 use reda_model::geom::{NM_PER_OZ, Nm, Point, contour_bounds, exact_decimal};
 use reda_model::{
-    ComponentType, CopperRole, DielectricKind, Hole, PadKind, PcbDocument, Project, RuleKind,
-    RuleValues, Side, StackupEntry, ViaDiameter, ViaType,
+    ComponentType, CopperRole, DielectricKind, EdgeBevel, Hole, PadKind, PadRole, PcbDocument,
+    Project, RuleKind, RuleValues, Side, StackupEntry, ViaDiameter, ViaType,
 };
 use reda_pcb::placed;
 
@@ -128,9 +128,43 @@ fn board(out: &mut String, project: &Project, pcb: &PcbDocument, files: &[Output
         if let Some(value) = value {
             lines.push(format!("{label}: {value}"));
         }
+        // The card edge's treatment follows the finish it is an option on.
+        if label == "Finish"
+            && let Some(edge) = pcb.setup().edge_connector
+        {
+            lines.extend(edge.bevel.map(bevel_line));
+            if edge.hard_gold {
+                lines.push(format!(
+                    "Hard gold on edge-connector Pads, {:.2} mm²",
+                    hard_gold_area(pcb)
+                ));
+            }
+        }
     }
     lines.extend(edge_plating(pcb, files));
     section(out, "Board", lines);
+}
+
+/// The bevel for the fab, as Fab Notes and the job file's `Notes` say it: "Bevel
+/// edge-connector edge: 20°, 1.30 mm".
+pub(crate) fn bevel_line(bevel: EdgeBevel) -> String {
+    format!(
+        "Bevel edge-connector edge: {}°, {:.2} mm",
+        exact_decimal(bevel.angle.0, 1_000),
+        bevel.depth.0 as f64 / 1e6
+    )
+}
+
+/// The summed copper area of the Edge Connector Pads, in mm²: where selective hard gold
+/// goes. A finger on each side counts twice, as it is plated twice.
+pub(crate) fn hard_gold_area(pcb: &PcbDocument) -> f64 {
+    let nm2: f64 = pcb
+        .footprints()
+        .flat_map(|instance| placed::placed_pads(pcb, instance))
+        .filter(|pad| pad.role == Some(PadRole::EdgeConnector))
+        .map(|pad| pad.outline.area())
+        .sum();
+    nm2 / 1e12
 }
 
 /// The edge plating line, when any edge is a Plated Edge: where the plated edges are
