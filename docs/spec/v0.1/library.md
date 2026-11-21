@@ -458,7 +458,7 @@ A Command. It reports through the same Violation list and Messages panel as ERC 
 | `duplicate_primitives` | the same graphic, place and Layer twice | W |
 | `origin_off_centroid` | the origin more than 0.1 mm from the [body box's](#body-box) centre | W |
 | `missing_description` | an element with none | W |
-| `missing_pins_in_sequence` | a gap in a Symbol's numeric Pin numbers. A number in the `absent_pins` of a Part's generated Footprint doesn't count. | W |
+| `missing_pins_in_sequence` | a gap in a Symbol's numeric Pin numbers. A number in the `absent_pins` of a Part's generated Footprint doesn't count, nor one that no Footprint of the Symbol's Parts has a Pad for (a card edge's key). | W |
 | `duplicate_part_name`, `duplicate_mpn` | across the registered Libraries | W |
 | `generator_out_of_date` | [stored parameters](#regenerating) that no longer produce this Footprint | W |
 | `missing_pin_name` | a Pin with none | Off |

@@ -12,5 +12,6 @@ The conventions of the Starter Library, checked by tests over it. They also guid
 
 ## Footprints
 
-- The origin is at the body centroid.
+- The origin is at the body centroid. A card edge (a Footprint of Edge Connector Pads) is the exception: its origin is on the finger edge, which a Board Template places on the Board Outline.
+- A card edge draws its Courtyard on top only and gives its fingers no paste.
 - Every Footprint has a closed Courtyard, an Assembly outline, an Assembly Designator and a `height`.

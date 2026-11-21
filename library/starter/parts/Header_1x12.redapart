@@ -1,0 +1,10 @@
+{
+  "format": 2,
+  "part": {"uuid":"a8deb9cf-ac22-40ee-9b46-fa92eabb01d4","name":"Header_1x12","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"a9373323-eea5-490e-8f48-687452852110"},
+  "footprints": [
+    "09c6a332-1b12-4cf4-b4bb-2efd89fec62a",
+    "96818df6-0857-4c4a-b795-301aac5b70e4"
+  ],
+  "fields": {"value":"Header 1x12","description":"1 × 12 pin header, 2.54 or 1.27 mm pitch","keywords":"J connector pin header"},
+  "pin_map": {}
+}

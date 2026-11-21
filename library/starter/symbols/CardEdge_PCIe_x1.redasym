@@ -1,0 +1,48 @@
+{
+  "format": 2,
+  "symbol": {"uuid":"53332ef4-d0d7-4d8e-aedd-98e0f5bc3763","name":"CardEdge_PCIe_x1","designator_prefix":"J","description":"PCI Express x1 card edge, 18 fingers a side"},
+  "units": [
+    {"uuid":"e0720a64-7c45-4deb-8708-110c914d1f2e","name":"A"}
+  ],
+  "pins": [
+    {"uuid":"05db727e-ed5a-42b5-89fd-53fa408f8152","unit":"e0720a64-7c45-4deb-8708-110c914d1f2e","name":"B8","number":"B8","electrical_type":"passive","at":{"x":5080000,"y":5080000},"rotation":180000,"length":2540000,"name_visible":false},
+    {"uuid":"0917de41-c104-437e-a381-460ef3d04d86","unit":"e0720a64-7c45-4deb-8708-110c914d1f2e","name":"B7","number":"B7","electrical_type":"passive","at":{"x":5080000,"y":7620000},"rotation":180000,"length":2540000,"name_visible":false},
+    {"uuid":"0938bcab-b6ad-42b4-a42a-6ca770cdc638","unit":"e0720a64-7c45-4deb-8708-110c914d1f2e","name":"B17","number":"B17","electrical_type":"passive","at":{"x":5080000,"y":-20320000},"rotation":180000,"length":2540000,"name_visible":false},
+    {"uuid":"17e3ed5a-9030-405c-a435-d67a4183a0cd","unit":"e0720a64-7c45-4deb-8708-110c914d1f2e","name":"B14","number":"B14","electrical_type":"passive","at":{"x":5080000,"y":-12700000},"rotation":180000,"length":2540000,"name_visible":false},
+    {"uuid":"1c366efa-b706-4c0f-8e8f-df2957eebe53","unit":"e0720a64-7c45-4deb-8708-110c914d1f2e","name":"A13","number":"A13","electrical_type":"passive","at":{"x":-5080000,"y":-10160000},"rotation":0,"length":2540000,"name_visible":false},
+    {"uuid":"1f23c747-3256-4684-9875-fd73dd77cd92","unit":"e0720a64-7c45-4deb-8708-110c914d1f2e","name":"B2","number":"B2","electrical_type":"passive","at":{"x":5080000,"y":20320000},"rotation":180000,"length":2540000,"name_visible":false},
+    {"uuid":"22f48bfd-ea1f-4f35-bb98-a19fa9d92fb4","unit":"e0720a64-7c45-4deb-8708-110c914d1f2e","name":"B4","number":"B4","electrical_type":"passive","at":{"x":5080000,"y":15240000},"rotation":180000,"length":2540000,"name_visible":false},
+    {"uuid":"24dd0353-695c-420b-80d2-ee1740e41fc9","unit":"e0720a64-7c45-4deb-8708-110c914d1f2e","name":"B10","number":"B10","electrical_type":"passive","at":{"x":5080000,"y":0},"rotation":180000,"length":2540000,"name_visible":false},
+    {"uuid":"2eddc6af-c4f1-4cd2-9e6a-ed79bfbf8d84","unit":"e0720a64-7c45-4deb-8708-110c914d1f2e","name":"B16","number":"B16","electrical_type":"passive","at":{"x":5080000,"y":-17780000},"rotation":180000,"length":2540000,"name_visible":false},
+    {"uuid":"3687332d-4bca-42a1-8354-082ce599b867","unit":"e0720a64-7c45-4deb-8708-110c914d1f2e","name":"B6","number":"B6","electrical_type":"passive","at":{"x":5080000,"y":10160000},"rotation":180000,"length":2540000,"name_visible":false},
+    {"uuid":"37eed026-6d55-41a9-9343-8599b52107df","unit":"e0720a64-7c45-4deb-8708-110c914d1f2e","name":"A4","number":"A4","electrical_type":"passive","at":{"x":-5080000,"y":15240000},"rotation":0,"length":2540000,"name_visible":false},
+    {"uuid":"3a9cd362-e4ac-44b6-b7b6-48f977ff7b06","unit":"e0720a64-7c45-4deb-8708-110c914d1f2e","name":"B5","number":"B5","electrical_type":"passive","at":{"x":5080000,"y":12700000},"rotation":180000,"length":2540000,"name_visible":false},
+    {"uuid":"4450d591-2e8f-4d8a-b12c-c17828bc2f9a","unit":"e0720a64-7c45-4deb-8708-110c914d1f2e","name":"B11","number":"B11","electrical_type":"passive","at":{"x":5080000,"y":-2540000},"rotation":180000,"length":2540000,"name_visible":false},
+    {"uuid":"4c476cba-52ae-4fd6-a3df-6ded6a8d5fd7","unit":"e0720a64-7c45-4deb-8708-110c914d1f2e","name":"B13","number":"B13","electrical_type":"passive","at":{"x":5080000,"y":-10160000},"rotation":180000,"length":2540000,"name_visible":false},
+    {"uuid":"576b5459-b082-4ca3-8880-370b18af04c2","unit":"e0720a64-7c45-4deb-8708-110c914d1f2e","name":"B15","number":"B15","electrical_type":"passive","at":{"x":5080000,"y":-15240000},"rotation":180000,"length":2540000,"name_visible":false},
+    {"uuid":"5860587b-2f3f-4c74-828e-675d0bf22cae","unit":"e0720a64-7c45-4deb-8708-110c914d1f2e","name":"A16","number":"A16","electrical_type":"passive","at":{"x":-5080000,"y":-17780000},"rotation":0,"length":2540000,"name_visible":false},
+    {"uuid":"601d67a0-ac92-46f7-913b-50fa38d4eda6","unit":"e0720a64-7c45-4deb-8708-110c914d1f2e","name":"A17","number":"A17","electrical_type":"passive","at":{"x":-5080000,"y":-20320000},"rotation":0,"length":2540000,"name_visible":false},
+    {"uuid":"69e51f88-0b0d-4206-a54f-95e2dc3f5ec4","unit":"e0720a64-7c45-4deb-8708-110c914d1f2e","name":"A18","number":"A18","electrical_type":"passive","at":{"x":-5080000,"y":-22860000},"rotation":0,"length":2540000,"name_visible":false},
+    {"uuid":"6bb83857-5396-43f3-939b-4f0e56ce30c8","unit":"e0720a64-7c45-4deb-8708-110c914d1f2e","name":"A14","number":"A14","electrical_type":"passive","at":{"x":-5080000,"y":-12700000},"rotation":0,"length":2540000,"name_visible":false},
+    {"uuid":"71f57333-f923-4557-90f3-2647adccd314","unit":"e0720a64-7c45-4deb-8708-110c914d1f2e","name":"B3","number":"B3","electrical_type":"passive","at":{"x":5080000,"y":17780000},"rotation":180000,"length":2540000,"name_visible":false},
+    {"uuid":"7c5c6387-642f-4c0c-b58b-181d443f62db","unit":"e0720a64-7c45-4deb-8708-110c914d1f2e","name":"A12","number":"A12","electrical_type":"passive","at":{"x":-5080000,"y":-7620000},"rotation":0,"length":2540000,"name_visible":false},
+    {"uuid":"84d95e49-c667-4698-8c45-2ad40e99aa29","unit":"e0720a64-7c45-4deb-8708-110c914d1f2e","name":"A2","number":"A2","electrical_type":"passive","at":{"x":-5080000,"y":20320000},"rotation":0,"length":2540000,"name_visible":false},
+    {"uuid":"8c252063-d737-4e43-af6c-077ac8cd8da8","unit":"e0720a64-7c45-4deb-8708-110c914d1f2e","name":"A8","number":"A8","electrical_type":"passive","at":{"x":-5080000,"y":5080000},"rotation":0,"length":2540000,"name_visible":false},
+    {"uuid":"8cfe51df-8788-48a3-82b5-d5311ad74e09","unit":"e0720a64-7c45-4deb-8708-110c914d1f2e","name":"B9","number":"B9","electrical_type":"passive","at":{"x":5080000,"y":2540000},"rotation":180000,"length":2540000,"name_visible":false},
+    {"uuid":"a2938a2e-9439-4e11-802b-497fdbd5bac9","unit":"e0720a64-7c45-4deb-8708-110c914d1f2e","name":"A1","number":"A1","electrical_type":"passive","at":{"x":-5080000,"y":22860000},"rotation":0,"length":2540000,"name_visible":false},
+    {"uuid":"ab8f4924-8ff3-40a7-be7b-bba2b106fb53","unit":"e0720a64-7c45-4deb-8708-110c914d1f2e","name":"A5","number":"A5","electrical_type":"passive","at":{"x":-5080000,"y":12700000},"rotation":0,"length":2540000,"name_visible":false},
+    {"uuid":"c3d5be8c-1812-4cb0-aa42-b2acb58af788","unit":"e0720a64-7c45-4deb-8708-110c914d1f2e","name":"B18","number":"B18","electrical_type":"passive","at":{"x":5080000,"y":-22860000},"rotation":180000,"length":2540000,"name_visible":false},
+    {"uuid":"c3f102b4-b1f7-41e1-9c5c-f86d7dd9dc76","unit":"e0720a64-7c45-4deb-8708-110c914d1f2e","name":"A11","number":"A11","electrical_type":"passive","at":{"x":-5080000,"y":-2540000},"rotation":0,"length":2540000,"name_visible":false},
+    {"uuid":"c4b2cd95-d99d-46a3-be28-0f61e76f2788","unit":"e0720a64-7c45-4deb-8708-110c914d1f2e","name":"B12","number":"B12","electrical_type":"passive","at":{"x":5080000,"y":-7620000},"rotation":180000,"length":2540000,"name_visible":false},
+    {"uuid":"c614a4dc-8066-4399-abae-d3f0639f5c1d","unit":"e0720a64-7c45-4deb-8708-110c914d1f2e","name":"A7","number":"A7","electrical_type":"passive","at":{"x":-5080000,"y":7620000},"rotation":0,"length":2540000,"name_visible":false},
+    {"uuid":"d49675d6-e6e7-4dec-8819-5add5f6bfe16","unit":"e0720a64-7c45-4deb-8708-110c914d1f2e","name":"A3","number":"A3","electrical_type":"passive","at":{"x":-5080000,"y":17780000},"rotation":0,"length":2540000,"name_visible":false},
+    {"uuid":"e02a3609-321c-4822-b9d5-f5812a933fc7","unit":"e0720a64-7c45-4deb-8708-110c914d1f2e","name":"A6","number":"A6","electrical_type":"passive","at":{"x":-5080000,"y":10160000},"rotation":0,"length":2540000,"name_visible":false},
+    {"uuid":"e9425df9-c05f-4390-b015-6b671a1e96c6","unit":"e0720a64-7c45-4deb-8708-110c914d1f2e","name":"A15","number":"A15","electrical_type":"passive","at":{"x":-5080000,"y":-15240000},"rotation":0,"length":2540000,"name_visible":false},
+    {"uuid":"eed5380b-0b8c-4d4c-92b4-d2e3fdb24178","unit":"e0720a64-7c45-4deb-8708-110c914d1f2e","name":"A10","number":"A10","electrical_type":"passive","at":{"x":-5080000,"y":0},"rotation":0,"length":2540000,"name_visible":false},
+    {"uuid":"f0b98cae-a9cc-48a0-9508-d9a2cf2844e0","unit":"e0720a64-7c45-4deb-8708-110c914d1f2e","name":"A9","number":"A9","electrical_type":"passive","at":{"x":-5080000,"y":2540000},"rotation":0,"length":2540000,"name_visible":false},
+    {"uuid":"f9873a1f-3044-41fb-b7e9-df8918b5d395","unit":"e0720a64-7c45-4deb-8708-110c914d1f2e","name":"B1","number":"B1","electrical_type":"passive","at":{"x":5080000,"y":22860000},"rotation":180000,"length":2540000,"name_visible":false}
+  ],
+  "graphics": [
+    {"uuid":"2e8828ef-14bb-4abf-96ef-8b7fea25b5aa","unit":"e0720a64-7c45-4deb-8708-110c914d1f2e","shape":{"kind":"rect","start":{"x":-2540000,"y":-24130000},"end":{"x":2540000,"y":24130000}},"width":254000}
+  ]
+}
