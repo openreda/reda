@@ -1,0 +1,11 @@
+# Points of the exhaustive data test that must fail the frame checks: template<TAB>point.
+# A point lists every parameter in order, lengths in mm. Anything not listed must pass.
+# Custom rectangle: a corner radius over half a side crosses the outline over itself.
+Custom rectangle	width=1,height=1,corner_radius=500
+Custom rectangle	width=1,height=80,corner_radius=500
+Custom rectangle	width=1,height=1000,corner_radius=500
+Custom rectangle	width=100,height=1,corner_radius=500
+Custom rectangle	width=100,height=80,corner_radius=500
+Custom rectangle	width=100,height=1000,corner_radius=500
+Custom rectangle	width=1000,height=1,corner_radius=500
+Custom rectangle	width=1000,height=80,corner_radius=500
