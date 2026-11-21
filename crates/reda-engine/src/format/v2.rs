@@ -62,6 +62,9 @@ fn validate_released(kind: FileKind, file: &Value) -> Result<(), String> {
         FileKind::Part => released!("redapart"),
         FileKind::FabPreset => released!("redafab"),
         FileKind::Rules => released!("redarules"),
+        FileKind::BoardTemplate => {
+            return Err("Board Template files did not exist in format 1".into());
+        }
     };
     reda_command::check_schema(schema, file).map_err(|e| format!("{}: {}", e.pointer, e.message))
 }

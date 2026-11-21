@@ -1,0 +1,25 @@
+{
+  "format": 2,
+  "uuid": "4b5a3569-5fcc-49b3-8af9-5d5fdda27d41",
+  "name": "Custom rectangle",
+  "description": "A plain rectangular board of any size, optionally with rounded corners. Its lower-left corner is at the origin. It has no holes, connectors, Keepouts or drawings.",
+  "category": "Generic",
+  "suggested_layers": 2,
+  "parameters": [
+    {"kind":"length","name":"width","label":"Width","default":"100","min":"1","max":"1000","unit":"mm"},
+    {"kind":"length","name":"height","label":"Height","default":"80","min":"1","max":"1000","unit":"mm"},
+    {"kind":"length","name":"corner_radius","label":"Corner radius","default":"0","min":"0","max":"500","unit":"mm"}
+  ],
+  "outline": [
+    {"uuid":"46545762-f814-4177-bf02-4321128791b9","vertices":[
+      {"x":"corner_radius","y":0},
+      {"x":"width - corner_radius","y":0,"sweep":"90"},
+      {"x":"width","y":"corner_radius"},
+      {"x":"width","y":"height - corner_radius","sweep":"90"},
+      {"x":"width - corner_radius","y":"height"},
+      {"x":"corner_radius","y":"height","sweep":"90"},
+      {"x":0,"y":"height - corner_radius"},
+      {"x":0,"y":"corner_radius","sweep":"90"}
+    ],"locked":true}
+  ]
+}

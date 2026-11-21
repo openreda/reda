@@ -115,6 +115,8 @@ fn check_release_step(kind: FileKind, steps: &[Migration]) {
         FileKind::Part => "standalone/Resistor.redapart",
         FileKind::FabPreset => "standalone/Blinky.redafab",
         FileKind::Rules => "standalone/Blinky.redarules",
+        // Board Templates arrived after format 1: there is no format-1 file to migrate.
+        FileKind::BoardTemplate => return,
     };
     let root = Path::new(V1);
     let read = |path| serde_json::from_slice::<Value>(&std::fs::read(path).unwrap()).unwrap();

@@ -4,6 +4,10 @@
 //! `REDA_BLESS=1 cargo test -p reda-engine --test starter_library` after changing the
 //! script, and review the diff.
 //!
+//! The Board Templates in `board-templates/` are hand-written data, not made by the
+//! script: this comparison leaves them out, and `tests/board_template_catalogue.rs` checks
+//! them.
+//!
 //! Keep UUIDs stable for users who placed starter Parts: they are frozen in `uuids.tsv`
 //! (see [`script::Uuids`]), so renaming an element means renaming its key there too.
 //!
@@ -33,6 +37,16 @@ fn starter() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../library/starter")
 }
 
+/// The folder of hand-written Board Templates, which the script does not make.
+const BOARD_TEMPLATES: &str = "board-templates";
+
+/// The checked-in files the script makes: everything but the Board Templates.
+fn scripted_tree(library: &Path) -> BTreeMap<String, Vec<u8>> {
+    let mut tree = read_tree(library);
+    tree.retain(|rel, _| !rel.starts_with(&format!("{BOARD_TEMPLATES}/")));
+    tree
+}
+
 /// Runs the whole script into a new Library under `dir` and returns its folder and the
 /// UUIDs its elements drew.
 fn build(dir: &Path) -> (PathBuf, Uuids) {
@@ -59,7 +73,9 @@ fn the_checked_in_library_is_what_the_script_builds() {
          removed it, delete its lines."
     );
     if std::env::var_os("REDA_BLESS").is_some() {
-        let _ = std::fs::remove_dir_all(&target);
+        for rel in scripted_tree(&target).keys() {
+            std::fs::remove_file(target.join(rel)).unwrap();
+        }
         for (rel, bytes) in &built {
             let path = target.join(rel);
             std::fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -73,7 +89,7 @@ fn the_checked_in_library_is_what_the_script_builds() {
         "uuids.tsv is not the UUIDs the script draws; run REDA_BLESS=1 cargo test -p \
          reda-engine --test starter_library and review the diff"
     );
-    let checked_in = read_tree(&target);
+    let checked_in = scripted_tree(&target);
     let mut problems = vec![];
     for (rel, bytes) in &built {
         match checked_in.get(rel) {

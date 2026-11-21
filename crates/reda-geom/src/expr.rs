@@ -104,6 +104,40 @@ pub fn evaluate_each(text: &str, field: Field, objects: &[Object]) -> Result<Vec
         .collect()
 }
 
+/// What an expression refers to, found without evaluating it.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct References {
+    /// The attribute names it uses, each once, in the order first used.
+    pub names: Vec<String>,
+    /// Whether it uses the current value `!`.
+    pub current: bool,
+}
+
+/// Parses `text` and lists the names and `!` it uses, so a caller with its own namespace,
+/// such as a Board Template, can check them before any value exists. Syntax errors and
+/// function calls are refused as [`evaluate`] refuses them.
+pub fn references(text: &str) -> Result<References, ExprError> {
+    fn walk(expr: &Expr, out: &mut References) {
+        match expr {
+            Expr::Number(..) => {}
+            Expr::Current => out.current = true,
+            Expr::Attribute(name) => {
+                if !out.names.contains(name) {
+                    out.names.push(name.clone());
+                }
+            }
+            Expr::Neg(inner) => walk(inner, out),
+            Expr::Binary(_, a, b) => {
+                walk(a, out);
+                walk(b, out);
+            }
+        }
+    }
+    let mut out = References::default();
+    walk(&parse(text)?, &mut out);
+    Ok(out)
+}
+
 fn refuse<T>(why: impl Into<String>) -> Result<T, ExprError> {
     Err(ExprError(why.into()))
 }
