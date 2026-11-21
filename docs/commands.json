@@ -6080,6 +6080,1810 @@
     },
     {
       "category": "library",
+      "description": "Scans the registered Libraries (the open Project's, if any, the user's and the starter Library) and returns every usable Board Template with its Library's `origin`, parameters and object rows, plus the scan's problems, including templates that failed their load checks. Works with no Project open.",
+      "icon": "board_outline_rect",
+      "id": "library.board_template.list",
+      "kind": "file",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "library": {
+            "default": null,
+            "description": "Only the templates of the Library with this UUID.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "title": "ListParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "DisplayUnit": {
+            "description": "The unit a length parameter is shown in.",
+            "enum": [
+              "mm",
+              "mil",
+              "in"
+            ],
+            "type": "string"
+          },
+          "ListedObject": {
+            "description": "One template object row. `exclude` may name connectors, holes and drawing groups.",
+            "properties": {
+              "gated": {
+                "description": "Whether this row has a `when` gate, so it may be absent at some values.",
+                "type": "boolean"
+              },
+              "group": {
+                "description": "A drawing's group.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "kind": {
+                "$ref": "#/$defs/ObjectKind"
+              },
+              "name": {
+                "description": "A drawing group's name.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "part": {
+                "description": "A connector's or Mechanical Part hole's Part, by Library element UUID.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "part_name": {
+                "description": "That Part's name, for grouping the Includes.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "protects": {
+                "description": "A Keepout's connector or hole.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "side": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Side"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "uuid": {
+                "description": "The template-local UUID.",
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "kind"
+            ],
+            "type": "object"
+          },
+          "ListedOption": {
+            "properties": {
+              "key": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "key",
+              "label"
+            ],
+            "type": "object"
+          },
+          "ListedParameter": {
+            "description": "One parameter, as the dialog shows it.",
+            "properties": {
+              "default": {
+                "$ref": "#/$defs/ResolvedValue",
+                "description": "A choice's default option key, or a length's default in nm."
+              },
+              "kind": {
+                "$ref": "#/$defs/ParameterKind"
+              },
+              "label": {
+                "type": "string"
+              },
+              "max": {
+                "description": "A length's greatest value.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "min": {
+                "description": "A length's least value.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "name": {
+                "type": "string"
+              },
+              "options": {
+                "description": "A choice's options, in order.",
+                "items": {
+                  "$ref": "#/$defs/ListedOption"
+                },
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "unit": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/DisplayUnit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The unit a length is shown in."
+              },
+              "when": {
+                "additionalProperties": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "description": "The dialog hides the parameter unless this holds.",
+                "type": [
+                  "object",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "name",
+              "kind",
+              "label",
+              "default"
+            ],
+            "type": "object"
+          },
+          "ListedTemplate": {
+            "description": "One Board Template that passed its load checks.",
+            "properties": {
+              "category": {
+                "description": "Groups the picker; `None` lists it under \"Other\".",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "description": {
+                "type": "string"
+              },
+              "element": {
+                "description": "Its Library element UUID: what `board_template.element` names.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "library": {
+                "description": "The Library's UUID.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "objects": {
+                "items": {
+                  "$ref": "#/$defs/ListedObject"
+                },
+                "type": "array"
+              },
+              "origin": {
+                "$ref": "#/$defs/Origin",
+                "description": "The Library's origin. New Project offers only `user` and `starter` templates."
+              },
+              "parameters": {
+                "items": {
+                  "$ref": "#/$defs/ListedParameter"
+                },
+                "type": "array"
+              },
+              "suggested_layers": {
+                "description": "At the default values.",
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "element",
+              "name",
+              "description",
+              "category",
+              "library",
+              "origin",
+              "suggested_layers",
+              "parameters",
+              "objects"
+            ],
+            "type": "object"
+          },
+          "ObjectKind": {
+            "enum": [
+              "outline",
+              "cutout",
+              "keepout",
+              "connector",
+              "hole",
+              "drawing_group",
+              "drawing"
+            ],
+            "type": "string"
+          },
+          "Origin": {
+            "description": "How a Library came to be registered.",
+            "oneOf": [
+              {
+                "const": "starter",
+                "description": "The starter Library that ships with REDA. Read-only.",
+                "type": "string"
+              },
+              {
+                "const": "user",
+                "description": "Listed in the user's Preferences.",
+                "type": "string"
+              },
+              {
+                "const": "project",
+                "description": "Listed in the open Project's `.reda` file.",
+                "type": "string"
+              }
+            ]
+          },
+          "ParameterKind": {
+            "enum": [
+              "choice",
+              "length"
+            ],
+            "type": "string"
+          },
+          "ResolvedValue": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            ],
+            "description": "A parameter's resolved value: an option key for a choice, nanometres for a length."
+          },
+          "ScanProblem": {
+            "description": "A file or folder a scan could not use, and why.",
+            "properties": {
+              "message": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "path",
+              "message"
+            ],
+            "type": "object"
+          },
+          "Side": {
+            "description": "Which face of the board a sided Layer is on.",
+            "enum": [
+              "top",
+              "bottom"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "problems": {
+            "description": "Folders and files the scan could not use, including templates that failed their\nload checks.",
+            "items": {
+              "$ref": "#/$defs/ScanProblem"
+            },
+            "type": "array"
+          },
+          "templates": {
+            "description": "The usable templates: Library by Library in resolution order (Project, user,\nStarter), each Library's by name.",
+            "items": {
+              "$ref": "#/$defs/ListedTemplate"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "templates",
+          "problems"
+        ],
+        "title": "ListResult",
+        "type": "object"
+      },
+      "title": "List Board Templates"
+    },
+    {
+      "category": "library",
+      "description": "Evaluates the Board Template `element` at `values`, leaving out `exclude`, and returns the frame creation would write: outline and cutout vertices with their Plated Edge marks, Keepouts, holes and connectors as placed with their pad outlines, drawings by group, the resolved values and suggested layer count, and the Board Outline, Board Cutout and Keepout problems with their locations. Works with no Project open.",
+      "icon": "board_outline_rect",
+      "id": "library.board_template.preview",
+      "kind": "file",
+      "params": {
+        "$defs": {
+          "TemplateValue": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "An option key for a choice; a length for a length parameter: integer nanometres or a string such as \"65mm\"."
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Which template to use, at which values, without which objects: the `board_template`\nparam of creation and the params of `library.board_template.preview`.",
+        "properties": {
+          "element": {
+            "description": "The template's Library element UUID, from `library.board_template.list`.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "exclude": {
+            "description": "Template connector, hole and drawing-group UUIDs to leave out. A Keepout that\nprotects an excluded object, and a Dimension that follows one, go with it.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "values": {
+            "additionalProperties": {
+              "$ref": "#/$defs/TemplateValue"
+            },
+            "description": "Parameter values by name: an option key for a choice, a length (integer nm or a\nstring such as `\"65mm\"`) for a length. An omitted parameter takes its default.",
+            "type": "object"
+          }
+        },
+        "required": [
+          "element"
+        ],
+        "title": "BoardTemplateChoice",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "ConnectionStyle": {
+            "description": "How a fill meets a Pad or Via.",
+            "oneOf": [
+              {
+                "const": "relief",
+                "description": "Through spokes across a clear ring, so the Pad solders easily.",
+                "type": "string"
+              },
+              {
+                "const": "solid",
+                "description": "The fill runs straight into it.",
+                "type": "string"
+              },
+              {
+                "const": "none",
+                "description": "The fill keeps the gap clear and doesn't connect.",
+                "type": "string"
+              }
+            ]
+          },
+          "Corner": {
+            "description": "A corner of a Pad, in its own frame (+y up).",
+            "enum": [
+              "top_left",
+              "top_right",
+              "bottom_left",
+              "bottom_right"
+            ],
+            "type": "string"
+          },
+          "DrawingKind": {
+            "description": "What a drawing row draws.",
+            "enum": [
+              "line",
+              "arc",
+              "rectangle",
+              "text",
+              "dimension"
+            ],
+            "type": "string"
+          },
+          "DrawingLayer": {
+            "description": "The Layer a drawing group goes on, named symbolically.",
+            "enum": [
+              "mechanical",
+              "documentation"
+            ],
+            "type": "string"
+          },
+          "FrameBevel": {
+            "properties": {
+              "angle": {
+                "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "depth": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "angle",
+              "depth"
+            ],
+            "type": "object"
+          },
+          "FrameBoard": {
+            "description": "Board properties the frame sets.",
+            "properties": {
+              "edge_connector": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/FrameEdgeConnector"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "type": "object"
+          },
+          "FrameContour": {
+            "description": "The Board Outline or a Board Cutout.",
+            "properties": {
+              "locked": {
+                "type": "boolean"
+              },
+              "uuid": {
+                "description": "The template row's UUID.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "vertices": {
+                "items": {
+                  "$ref": "#/$defs/FrameVertex"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "uuid",
+              "vertices",
+              "locked"
+            ],
+            "type": "object"
+          },
+          "FrameDimensionEnd": {
+            "description": "A Dimension end: where it is, and the template object it follows, if any.",
+            "properties": {
+              "follow": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TemplateFollow"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "point": {
+                "$ref": "#/$defs/Point"
+              }
+            },
+            "required": [
+              "point"
+            ],
+            "type": "object"
+          },
+          "FrameDrawing": {
+            "description": "One drawing, with only the fields its kind uses.",
+            "properties": {
+              "a": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/FrameDimensionEnd"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "b": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/FrameDimensionEnd"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "excluded": {
+                "description": "Its group is excluded, or a Dimension end follows an excluded object.",
+                "type": "boolean"
+              },
+              "filled": {
+                "type": "boolean"
+              },
+              "from": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Point"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "height": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "kind": {
+                "$ref": "#/$defs/DrawingKind"
+              },
+              "locked": {
+                "type": "boolean"
+              },
+              "offset": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "position": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Point"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "prefix": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "rotation": {
+                "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "suffix": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "sweep": {
+                "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "text": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "to": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Point"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "uuid",
+              "kind",
+              "locked"
+            ],
+            "type": "object"
+          },
+          "FrameDrawingGroup": {
+            "properties": {
+              "drawings": {
+                "items": {
+                  "$ref": "#/$defs/FrameDrawing"
+                },
+                "type": "array"
+              },
+              "excluded": {
+                "type": "boolean"
+              },
+              "layer": {
+                "$ref": "#/$defs/DrawingLayer"
+              },
+              "name": {
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "name",
+              "layer",
+              "drawings"
+            ],
+            "type": "object"
+          },
+          "FrameDrill": {
+            "properties": {
+              "height": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "width",
+              "height"
+            ],
+            "type": "object"
+          },
+          "FrameEdgeConnector": {
+            "properties": {
+              "bevel": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/FrameBevel"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "hard_gold": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "hard_gold"
+            ],
+            "type": "object"
+          },
+          "FrameHole": {
+            "description": "A hole: a Mechanical Part (`part`, `footprint`, `side`) or a Free Pad (`free_pad`).",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point"
+              },
+              "excluded": {
+                "type": "boolean"
+              },
+              "footprint": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "free_pad": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/FreePad"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The Free Pad as it would be created, its UUID the template row's."
+              },
+              "locked": {
+                "type": "boolean"
+              },
+              "pads": {
+                "items": {
+                  "$ref": "#/$defs/FramePad"
+                },
+                "type": "array"
+              },
+              "part": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "rotation": {
+                "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "side": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Side"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "at",
+              "rotation",
+              "locked",
+              "pads"
+            ],
+            "type": "object"
+          },
+          "FrameKeepout": {
+            "properties": {
+              "excluded": {
+                "description": "It goes with the excluded object it protects.",
+                "type": "boolean"
+              },
+              "layer": {
+                "$ref": "#/$defs/TemplateCopperLayer"
+              },
+              "locked": {
+                "type": "boolean"
+              },
+              "protects": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "restrict": {
+                "items": {
+                  "$ref": "#/$defs/Restriction"
+                },
+                "type": "array",
+                "uniqueItems": true
+              },
+              "shape": {
+                "$ref": "#/$defs/KeepoutShapeKind"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "vertices": {
+                "items": {
+                  "$ref": "#/$defs/Vertex"
+                },
+                "type": "array"
+              },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "uuid",
+              "layer",
+              "restrict",
+              "shape",
+              "vertices",
+              "locked"
+            ],
+            "type": "object"
+          },
+          "FramePad": {
+            "description": "One Pad on the board.",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point",
+                "description": "Its anchor on the board."
+              },
+              "hole": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/FrameDrill"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Its drilled hole's size, if it has one."
+              },
+              "number": {
+                "description": "The Pad number; empty for a Free Pad.",
+                "type": "string"
+              },
+              "outline": {
+                "description": "Its copper outline on the board (its land on the Footprint's side).",
+                "items": {
+                  "$ref": "#/$defs/Vertex"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "number",
+              "at",
+              "outline"
+            ],
+            "type": "object"
+          },
+          "FramePlacement": {
+            "description": "A connector as placed.",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point"
+              },
+              "excluded": {
+                "type": "boolean"
+              },
+              "footprint": {
+                "description": "The template's Footprint copy.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "locked": {
+                "type": "boolean"
+              },
+              "pads": {
+                "description": "Its Footprint's Pads on the board, for drawing and measuring.",
+                "items": {
+                  "$ref": "#/$defs/FramePad"
+                },
+                "type": "array"
+              },
+              "part": {
+                "description": "The template's part-table entry.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "rotation": {
+                "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "side": {
+                "$ref": "#/$defs/Side"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "part",
+              "footprint",
+              "at",
+              "rotation",
+              "side",
+              "locked",
+              "pads"
+            ],
+            "type": "object"
+          },
+          "FrameProblem": {
+            "description": "What a board check found in the frame, and where, so the preview can mark it.",
+            "properties": {
+              "at": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Point"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Where it is, when the check names a point."
+              },
+              "kind": {
+                "$ref": "#/$defs/ProblemObject"
+              },
+              "message": {
+                "type": "string"
+              },
+              "object": {
+                "description": "The template row it is on.",
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "object",
+              "kind",
+              "message"
+            ],
+            "type": "object"
+          },
+          "FrameVertex": {
+            "description": "One contour vertex and the edge that leaves it.",
+            "properties": {
+              "plated": {
+                "description": "The edge this vertex starts is a Plated Edge, with no Net.",
+                "type": "boolean"
+              },
+              "sweep": {
+                "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "FreePad": {
+            "additionalProperties": false,
+            "description": "A Pad placed directly on the board, belonging to no Footprint: a mounting hole, a\nfiducial or a test point. It has the whole Pad model, in board coordinates.",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point",
+                "description": "The Pad's anchor: the hole sits there, Tracks connect there and it turns about it."
+              },
+              "bottom": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/PadCopperShape"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Optional bottom copper, in the Pad's frame. Omitted groups inherit the top."
+              },
+              "chamfer_ratio": {
+                "description": "How deep the chamfers of a `chamfered_rect` are.",
+                "maximum": 100000,
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "corner_ratio": {
+                "description": "How round the corners of a `rounded_rect`, or the uncut corners of a\n`chamfered_rect`, are.",
+                "maximum": 100000,
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "corners": {
+                "description": "Which corners are rounded or chamfered, in the Pad's frame. Left out, all four.",
+                "items": {
+                  "$ref": "#/$defs/Corner"
+                },
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "uniqueItems": true
+              },
+              "height": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "hole": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Hole"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The drilled hole; SMD Pads have none, the others must."
+              },
+              "kind": {
+                "$ref": "#/$defs/PadKind",
+                "description": "SMD (plated, no hole), plated through-hole, or non-plated (a bare hole)."
+              },
+              "locked": {
+                "description": "Locked against geometry changes; left out when false.",
+                "type": "boolean"
+              },
+              "mask": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Mask"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "middle": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/PadCopperShape"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Optional copper on all inner Layers, in the Pad's frame."
+              },
+              "net": {
+                "description": "Its PCB Net; left out for a Pad on no Net. Non-plated Pads have no copper and no\nNet.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "offset": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Point"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Where the copper sits relative to `at`, in the Pad's frame. Left out, on it."
+              },
+              "paste": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Paste"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "rotation": {
+                "description": "Counter-clockwise.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "shape": {
+                "$ref": "#/$defs/PadShape"
+              },
+              "side": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Side"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The board side of an SMD Pad. Left out, the top. Pads with a hole have none."
+              },
+              "teardrop": {
+                "description": "False opts this land out of derived Teardrops on every Layer.",
+                "type": "boolean"
+              },
+              "unused_layers": {
+                "$ref": "#/$defs/UnusedLayers",
+                "description": "Whether unused inner lands of a plated through-hole Pad are removed."
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "zone_connection": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ZoneConnection"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "How Zone fills of its Net join it. Each value left out inherits."
+              }
+            },
+            "required": [
+              "uuid",
+              "kind",
+              "shape",
+              "at",
+              "rotation",
+              "width",
+              "height"
+            ],
+            "type": "object"
+          },
+          "Hole": {
+            "additionalProperties": false,
+            "description": "A drilled hole: round when `width == height`, otherwise a slot along the longer side.\nSizes are the finished diameter.",
+            "properties": {
+              "height": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "rotation": {
+                "description": "Turns a slot in the Pad's frame, counter-clockwise.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "tolerance": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/HoleTolerance"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The allowed deviation from the finished size. Stored and shown; it changes no\ngeometry."
+              },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "width",
+              "height"
+            ],
+            "type": "object"
+          },
+          "HoleTolerance": {
+            "additionalProperties": false,
+            "description": "How far a finished hole may come out larger (`plus`) or smaller (`minus`).",
+            "properties": {
+              "minus": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "plus": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "plus",
+              "minus"
+            ],
+            "type": "object"
+          },
+          "KeepoutShapeKind": {
+            "description": "Which [`KeepoutShape`] a Keepout has, as the file spells it.",
+            "enum": [
+              "polygon",
+              "line"
+            ],
+            "type": "string"
+          },
+          "Mask": {
+            "additionalProperties": false,
+            "properties": {
+              "bottom": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MaskSide"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "from_hole_edge": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "top": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MaskSide"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "type": "object"
+          },
+          "MaskSide": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "expansion": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "expansion"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/Tenting"
+              }
+            ]
+          },
+          "PadCopperShape": {
+            "additionalProperties": false,
+            "description": "The complete copper shape of one Pad Stack group. Its anchor, offset and hole\nbelong to the Pad and are shared by every group.",
+            "properties": {
+              "chamfer_ratio": {
+                "description": "Thousandths of a percent of half the shorter side: 100000 is fully round.",
+                "maximum": 100000,
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "corner_ratio": {
+                "description": "Thousandths of a percent of half the shorter side: 100000 is fully round.",
+                "maximum": 100000,
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "corners": {
+                "items": {
+                  "$ref": "#/$defs/Corner"
+                },
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "uniqueItems": true
+              },
+              "height": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "shape": {
+                "$ref": "#/$defs/PadShape"
+              },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "shape",
+              "width",
+              "height"
+            ],
+            "type": "object"
+          },
+          "PadKind": {
+            "enum": [
+              "smd",
+              "plated_through_hole",
+              "non_plated"
+            ],
+            "type": "string"
+          },
+          "PadShape": {
+            "oneOf": [
+              {
+                "enum": [
+                  "circle",
+                  "rect",
+                  "oval"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "rounded_rect",
+                "description": "A rectangle with rounded corners: `corner_ratio`, on `corners`.",
+                "type": "string"
+              },
+              {
+                "const": "chamfered_rect",
+                "description": "A rectangle with `corners` cut off by `chamfer_ratio`, the others rounded by\n`corner_ratio`. An octagon is one.",
+                "type": "string"
+              }
+            ]
+          },
+          "Paste": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "expansion": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "expansion"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "percent": {
+                    "format": "int32",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "percent"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/PasteMode"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "windows": {
+                    "items": {
+                      "$ref": "#/$defs/PasteWindow"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "windows"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "PasteMode": {
+            "enum": [
+              "none"
+            ],
+            "type": "string"
+          },
+          "PasteWindow": {
+            "additionalProperties": false,
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point"
+              },
+              "corner_ratio": {
+                "description": "Thousandths of a percent of half the shorter side: 100000 is fully round.",
+                "maximum": 100000,
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "height": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "at",
+              "width",
+              "height"
+            ],
+            "type": "object"
+          },
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "ProblemObject": {
+            "description": "Which kind of frame object a problem is on.",
+            "enum": [
+              "outline",
+              "cutout",
+              "keepout"
+            ],
+            "type": "string"
+          },
+          "ResolvedValue": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            ],
+            "description": "A parameter's resolved value: an option key for a choice, nanometres for a length."
+          },
+          "Restriction": {
+            "description": "A kind of object a Keepout keeps out.",
+            "oneOf": [
+              {
+                "enum": [
+                  "tracks",
+                  "vias",
+                  "smd_pads"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "zones",
+                "description": "Zone fills.",
+                "type": "string"
+              },
+              {
+                "const": "tht_pads",
+                "description": "Through-hole Pads, plated or not.",
+                "type": "string"
+              },
+              {
+                "const": "footprints",
+                "description": "Footprints, by their Courtyard (or fallback box) on the Keepout's side, with no\nclearance. REDA's own addition.",
+                "type": "string"
+              }
+            ]
+          },
+          "Side": {
+            "description": "Which face of the board a sided Layer is on.",
+            "enum": [
+              "top",
+              "bottom"
+            ],
+            "type": "string"
+          },
+          "TemplateCopperLayer": {
+            "description": "A copper Layer named symbolically, since a template has no Layer UUIDs.",
+            "enum": [
+              "all_copper",
+              "top_copper",
+              "bottom_copper"
+            ],
+            "type": "string"
+          },
+          "TemplateFollow": {
+            "additionalProperties": false,
+            "description": "The template object a Dimension end follows: an outline or cutout vertex (with\n`vertex`), a Keepout vertex, or a hole's or connector's origin.",
+            "properties": {
+              "object": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "vertex": {
+                "description": "A vertex index, counted from 0, for a contour or Keepout.",
+                "format": "uint",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "object"
+            ],
+            "type": "object"
+          },
+          "Tenting": {
+            "enum": [
+              "tent"
+            ],
+            "type": "string"
+          },
+          "UnusedLayers": {
+            "enum": [
+              "keep",
+              "remove",
+              "remove_keep_ends"
+            ],
+            "type": "string"
+          },
+          "Vertex": {
+            "additionalProperties": false,
+            "description": "One corner of a contour and the edge that leaves it towards the next vertex.",
+            "properties": {
+              "sweep": {
+                "description": "The edge to the next vertex: left out (or 0) for a straight edge, otherwise an arc\nsweeping this angle, counter-clockwise when positive.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "ZoneConnection": {
+            "additionalProperties": false,
+            "description": "How a Zone fill joins a Pad of its own Net. Each value left out inherits from the\n`zone_connection` rule.",
+            "properties": {
+              "angle": {
+                "description": "0, 45 or 90 degrees in the Pad's frame.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "gap": {
+                "description": "The clear ring around a relieved or unconnected Pad.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "spoke_width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "spokes": {
+                "description": "2 or 4.",
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "style": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ConnectionStyle"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "One evaluated Board Template.",
+        "properties": {
+          "board": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/FrameBoard"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "connectors": {
+            "items": {
+              "$ref": "#/$defs/FramePlacement"
+            },
+            "type": "array"
+          },
+          "cutouts": {
+            "items": {
+              "$ref": "#/$defs/FrameContour"
+            },
+            "type": "array"
+          },
+          "drawing_groups": {
+            "items": {
+              "$ref": "#/$defs/FrameDrawingGroup"
+            },
+            "type": "array"
+          },
+          "element": {
+            "description": "The template's Library element UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "holes": {
+            "items": {
+              "$ref": "#/$defs/FrameHole"
+            },
+            "type": "array"
+          },
+          "keepouts": {
+            "items": {
+              "$ref": "#/$defs/FrameKeepout"
+            },
+            "type": "array"
+          },
+          "name": {
+            "type": "string"
+          },
+          "outline": {
+            "$ref": "#/$defs/FrameContour",
+            "description": "The Board Outline. Zero-length edges are dropped."
+          },
+          "problems": {
+            "description": "What the Board Outline, Board Cutout and Keepout checks find. Any problem makes the\nframe invalid: creation refuses it.",
+            "items": {
+              "$ref": "#/$defs/FrameProblem"
+            },
+            "type": "array"
+          },
+          "suggested_layers": {
+            "description": "The copper Layer count the template suggests at these values.",
+            "format": "uint8",
+            "maximum": 255,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "values": {
+            "additionalProperties": {
+              "$ref": "#/$defs/ResolvedValue"
+            },
+            "description": "Every parameter's value, defaults filled in. A parameter hidden by its `when`\ntakes its default.",
+            "type": "object"
+          }
+        },
+        "required": [
+          "element",
+          "name",
+          "values",
+          "suggested_layers",
+          "outline",
+          "cutouts",
+          "keepouts",
+          "connectors",
+          "holes",
+          "drawing_groups",
+          "problems"
+        ],
+        "title": "Frame",
+        "type": "object"
+      },
+      "title": "Preview Board Template"
+    },
+    {
+      "category": "library",
       "description": "Runs the Library check on one element, one Library or every registered Library, and returns its Violations, each at the severity the user set in Preferences (`libraries.severities`; checks set to off do not run): Pin, Pad and pin-map mistakes, shorted copper, Footprint origin and courtyard problems, duplicate primitives, Part names and MPNs, missing descriptions, and generated Footprints their stored params no longer make. Open elements are checked with their unsaved changes. It never blocks saving.",
       "icon": "rule",
       "id": "library.check",

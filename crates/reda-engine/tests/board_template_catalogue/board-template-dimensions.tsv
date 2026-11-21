@@ -1,0 +1,9 @@
+# The built-in catalogue's spec numbers, measured in the evaluated frame by
+# tests/board_template_catalogue.rs. Lengths in mm, angles in degrees. `combination` is
+# `default` or name=value pairs. `sources` needs two independent sources separated by `;`,
+# or one marked `primary:`, `decided #<ticket>:` or `unverified:` (Documentation drawings).
+# Every outline size, hole, connector and cutout of each built-in at default values needs a row.
+template	combination	quantity	expected	tolerance	sources
+Custom rectangle	default	outline/width	100	0	primary: docs/spec/v0.2.5/catalogue.md#custom-rectangle (keeps the old dialog's 100 x 80)
+Custom rectangle	default	outline/height	80	0	primary: docs/spec/v0.2.5/catalogue.md#custom-rectangle (keeps the old dialog's 100 x 80)
+Custom rectangle	default	outline/corner_radius	0	0	primary: docs/spec/v0.2.5/catalogue.md#custom-rectangle

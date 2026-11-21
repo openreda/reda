@@ -1,0 +1,38 @@
+{
+  "connectors": [],
+  "cutouts": [],
+  "drawing_groups": [],
+  "element": "4b5a3569-5fcc-49b3-8af9-5d5fdda27d41",
+  "holes": [],
+  "keepouts": [],
+  "name": "Custom rectangle",
+  "outline": {
+    "locked": true,
+    "uuid": "46545762-f814-4177-bf02-4321128791b9",
+    "vertices": [
+      {
+        "x": 0,
+        "y": 0
+      },
+      {
+        "x": 100000000,
+        "y": 0
+      },
+      {
+        "x": 100000000,
+        "y": 80000000
+      },
+      {
+        "x": 0,
+        "y": 80000000
+      }
+    ]
+  },
+  "problems": [],
+  "suggested_layers": 2,
+  "values": {
+    "corner_radius": 0,
+    "height": 80000000,
+    "width": 100000000
+  }
+}

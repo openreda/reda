@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use reda_model::{Footprint, LibraryElement, LibraryInfo, Part, Symbol};
+use reda_model::{BoardTemplate, Footprint, LibraryElement, LibraryInfo, Part, Symbol};
 use schemars::JsonSchema;
 
 use crate::index::{Element, LibraryIndex, Origin};
@@ -75,6 +75,11 @@ pub trait LibraryFiles {
     fn read_symbol(&mut self, path: &Path) -> Result<Symbol, String>;
     fn read_footprint(&mut self, path: &Path) -> Result<Footprint, String>;
     fn read_part(&mut self, path: &Path) -> Result<Part, String>;
+    /// Reads a `.redaboard` file's shape; the scan runs the template's load checks.
+    fn read_board_template(&mut self, path: &Path) -> Result<BoardTemplate, String> {
+        let _ = path;
+        Err("this Library source cannot read Board Templates".into())
+    }
 }
 
 /// One registered Library folder.
@@ -166,6 +171,56 @@ fn scan_root(root: &LibraryRoot, files: &mut dyn LibraryFiles, index: &mut Libra
                 Err(why) => index.problem(&path, why),
             }
         }
+    }
+    scan_board_templates(root, library, files, index);
+}
+
+/// The Board Templates in `board-templates/`: each must read, pass its load checks and
+/// have a name no other template of the Library has, or it is a problem and is left out.
+fn scan_board_templates(
+    root: &LibraryRoot,
+    library: usize,
+    files: &mut dyn LibraryFiles,
+    index: &mut LibraryIndex,
+) {
+    use crate::board_template::{BOARD_TEMPLATE_EXTENSION, BOARD_TEMPLATE_FOLDER, check};
+    let dir = root.path.join(BOARD_TEMPLATE_FOLDER);
+    let names = match files.list(&dir) {
+        Ok(names) => names,
+        Err(why) => return index.problem(&dir, why),
+    };
+    for name in with_extension(names, BOARD_TEMPLATE_EXTENSION) {
+        let path = dir.join(name);
+        let template = match files.read_board_template(&path) {
+            Ok(template) => template,
+            Err(why) => {
+                index.problem(&path, why);
+                continue;
+            }
+        };
+        let problems = check(&template);
+        if !problems.is_empty() {
+            index.problem(
+                &path,
+                format!(
+                    "Board Template {:?} can't be used: {}",
+                    template.name,
+                    problems.join("; ")
+                ),
+            );
+            continue;
+        }
+        if index.board_template_named(library, &template.name) {
+            index.problem(
+                &path,
+                format!(
+                    "another Board Template of this Library is already named {:?}",
+                    template.name
+                ),
+            );
+            continue;
+        }
+        index.add_element(library, Element::BoardTemplate(template), path);
     }
 }
 

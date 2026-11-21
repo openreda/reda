@@ -7,6 +7,8 @@ use std::path::{Path, PathBuf};
 use reda_command::{
     CommandError, ElementLocation, FootprintCopyData, PartCopy, PartSource, Session, UserDirs,
 };
+/// Board Templates: their load checks, evaluation and frames, for front ends that preview.
+pub use reda_library::board_template;
 /// The Footprint generators' Command ids, and the Footprint one would write, for a
 /// generator form's preview.
 pub use reda_library::generate::{
@@ -22,6 +24,8 @@ pub use reda_library::wizard;
 pub use reda_library::{ComponentUse, ElementKind, components_using};
 /// The scanned Libraries and their search, for front ends that list Parts.
 pub use reda_library::{Library, LibraryIndex, Origin as LibraryOrigin, SearchHit, SearchQuery};
+/// Scanning given Library folders, for tools and tests that name their own.
+pub use reda_library::{LibraryRoot, scan};
 
 /// A [`PartSource`] over Parts already copied out of the Libraries, so a Tool that
 /// previews the same placement many times reads the disk once.
@@ -42,7 +46,7 @@ impl PartSource for ReadyParts {
             .ok_or_else(|| CommandError::not_found(format!("Part {uuid} is not at hand")))
     }
 }
-use reda_library::{LibraryFiles, LibraryRoot, Origin, scan};
+use reda_library::{LibraryFiles, Origin};
 use reda_model::{Footprint, LibraryElement, LibraryInfo, Part, Symbol, Uuid};
 
 use crate::format::library::{
@@ -91,6 +95,10 @@ impl LibraryFiles for DiskLibraryFiles {
 
     fn read_part(&mut self, path: &Path) -> Result<Part, String> {
         read_part(path, &read(path)?).map_err(|e| reason(path, e))
+    }
+
+    fn read_board_template(&mut self, path: &Path) -> Result<reda_model::BoardTemplate, String> {
+        crate::format::read_board_template(path, &read(path)?).map_err(|e| reason(path, e))
     }
 }
 
