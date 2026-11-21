@@ -1,0 +1,10 @@
+{
+  "format": 2,
+  "part": {"uuid":"8aabffb0-19a6-471f-8762-eb8101e0f9c8","name":"Socket_2x20","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"b444f600-4229-45b7-a9be-a37b698e50e2"},
+  "footprints": [
+    "bee1343d-af1c-426d-b678-3ae741957668",
+    "4c374f26-a1c3-4e95-a220-6228e5a2f8a5"
+  ],
+  "fields": {"value":"Socket 2x20","description":"2 × 20 socket, 2.54 or 1.27 mm pitch","keywords":"J connector socket"},
+  "pin_map": {}
+}

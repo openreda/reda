@@ -608,6 +608,31 @@ fn an_origin_more_than_a_tenth_of_a_millimetre_off_the_body_centre_is_reported()
 }
 
 #[test]
+fn a_card_edge_footprint_may_keep_its_origin_on_the_finger_edge() {
+    // A card edge's origin is the edge its fingers start from, not the body's centre:
+    // with Edge Connector Pads the body may sit wholly on one side of it.
+    let mut f = footprint(20, "Fingers");
+    for pad in &mut f.pads {
+        pad.role = Some(reda_model::PadRole::EdgeConnector);
+        pad.at.y = Nm::from_um(1000);
+    }
+    f.graphics[0].shape = Shape::Rect {
+        start: Point::new(Nm::from_um(-1100), Nm(0)),
+        end: Point::new(Nm::from_um(1100), Nm::from_um(2000)),
+    };
+    let index = library_of(vec![], vec![f.clone()], vec![]);
+    assert_eq!(check_of(&index, 20), vec![]);
+
+    // It must still be inside the body.
+    f.graphics[0].shape = Shape::Rect {
+        start: Point::new(Nm::from_um(-1100), Nm::from_um(300)),
+        end: Point::new(Nm::from_um(1100), Nm::from_um(2000)),
+    };
+    let index = library_of(vec![], vec![f], vec![]);
+    assert_eq!(checks(&check_of(&index, 20)), ["origin_outside_body"]);
+}
+
+#[test]
 fn with_no_courtyard_the_body_box_is_around_copper_and_drawing() {
     let mut f = footprint(20, "F");
     f.graphics.clear();
@@ -746,6 +771,28 @@ fn absent_pins_of_a_parts_generated_footprint_are_no_gap() {
         !checks(&found).contains(&"missing_pins_in_sequence"),
         "{found:?}"
     );
+}
+
+#[test]
+fn numbers_no_footprint_of_a_part_has_a_pad_for_are_no_gap() {
+    // A card edge's key removes positions from the Footprint and the Symbol alike.
+    let mut f = footprint(20, "Keyed");
+    f.pads[1].number = "5".into();
+    let p = part(30, "U", 10, &[20]);
+    let index = library_of(vec![numbered(&["1", "5"])], vec![f], vec![p]);
+    let found = check_of(&index, 10);
+    assert!(
+        !checks(&found).contains(&"missing_pins_in_sequence"),
+        "{found:?}"
+    );
+
+    // A Footprint that has the Pad the Symbol lacks still shows the gap.
+    let f = footprint(21, "Full");
+    let p = part(30, "U", 10, &[21]);
+    let index = library_of(vec![numbered(&["1", "3"])], vec![f], vec![p]);
+    let found = check_of(&index, 10);
+    assert_eq!(checks(&found), ["missing_pins_in_sequence"]);
+    assert_eq!(found[0].args["missing"], text("2"));
 }
 
 #[test]

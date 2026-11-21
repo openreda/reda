@@ -1,0 +1,9 @@
+{
+  "format": 2,
+  "part": {"uuid":"9e836ed9-b1cd-4c8f-bb60-3b147d6ebe83","name":"CardEdge_PCIe_x16","component_type":"standard","in_bom":false,"in_cpl":false,"symbol":"ff2d398e-50a8-4f2f-a170-a017160d182e"},
+  "footprints": [
+    "2bae9870-fe94-4979-9f49-3cf0f66c0395"
+  ],
+  "fields": {"value":"PCIe x16","description":"PCI Express x16 card edge, 82 fingers a side","keywords":"J connector card edge fingers PCIe PCI Express"},
+  "pin_map": {}
+}

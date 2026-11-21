@@ -1,0 +1,9 @@
+{
+  "format": 2,
+  "part": {"uuid":"ca46eff0-cc98-449d-ae33-2acd4b3873b2","name":"CardEdge_M.2_Key_M","component_type":"standard","in_bom":false,"in_cpl":false,"symbol":"5fc15162-06f6-405c-ac4f-a2b3fedde74b"},
+  "footprints": [
+    "95ef3180-5a95-453d-982f-2b71f89f3e59"
+  ],
+  "fields": {"value":"M.2 Key M","description":"M.2 card edge, key M, 67 fingers","keywords":"J connector card edge fingers M.2 NGFF"},
+  "pin_map": {}
+}

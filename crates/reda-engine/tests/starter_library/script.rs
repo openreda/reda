@@ -547,9 +547,14 @@ impl Script {
 
     /// Moves the origin of a Footprint whose courtyard box's centre is more than the
     /// Library check's 0.1 mm off it (`origin_off_centroid`) to that centre, and returns
-    /// how far it moved in y. Rectangle, circle and polygon courtyards are read.
+    /// how far it moved in y. Rectangle, circle and polygon courtyards are read. A card
+    /// edge (Edge Connector Pads) keeps its origin on the finger edge.
     fn centre_on_courtyard(&mut self, footprint: &str) -> i64 {
         let object = self.run("object.get", json!({ "uuid": footprint }))["object"].clone();
+        let pads = object["pads"].as_array().unwrap();
+        if pads.iter().any(|p| p["role"] == "edge_connector") {
+            return 0;
+        }
         let mut xs = vec![];
         let mut ys = vec![];
         for g in object["graphics"].as_array().unwrap() {

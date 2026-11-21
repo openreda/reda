@@ -5,9 +5,19 @@ use serde_json::json;
 use crate::passives::fields;
 use crate::script::{Kind, PartSpec, Script, bottom, left, line, mil, mm, rect, right};
 
-/// The single-row sizes, then the double-row ones.
+/// The single-row sizes, then the double-row ones, each made as a header and a socket.
 const SINGLE: [usize; 7] = [2, 3, 4, 5, 6, 8, 10];
 const DOUBLE: [usize; 4] = [3, 5, 8, 10];
+
+/// The larger sizes the built-in Board Templates use, (rows, pins per row) and whether a
+/// header and a socket of each is made: the Feather, Mega, Pico and Pi rows.
+const TEMPLATE_SIZES: [(usize, usize, bool, bool); 5] = [
+    (1, 12, true, false),
+    (1, 16, true, false),
+    (1, 20, true, true),
+    (2, 18, true, false),
+    (2, 20, true, true),
+];
 
 pub fn build(s: &mut Script) {
     for rows in [1, 2] {
@@ -17,6 +27,13 @@ pub fn build(s: &mut Script) {
             for socket in [false, true] {
                 header(s, &sym, rows, count, socket);
             }
+        }
+    }
+    for (rows, count, pins, socket) in TEMPLATE_SIZES {
+        let sym = connector_symbol(s, rows, count);
+        let kinds = [(false, pins), (true, socket)];
+        for (is_socket, _) in kinds.into_iter().filter(|(_, made)| *made) {
+            header(s, &sym, rows, count, is_socket);
         }
     }
     screw_terminals(s);
