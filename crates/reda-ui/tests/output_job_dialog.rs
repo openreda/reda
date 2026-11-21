@@ -31,11 +31,13 @@ fn harness_with_layers(home: &Path, work: &Path, board: bool, layers: u8) -> Har
         .headless(false)
         .build();
     let mut shell = Shell::new(engine);
-    let mut params = json!({"path": work, "name": "Jobs", "layers": layers});
-    if board {
-        params["board"] = json!({"width": "30mm", "height": "20mm"});
-    }
+    let params = json!({"path": work, "name": "Jobs", "layers": layers});
     shell.run("project.new", params).unwrap();
+    if board {
+        let rect = json!({"width": "30mm", "height": "20mm"});
+        shell.run("pcb.board_outline.add_rect", rect).unwrap();
+        shell.run("project.save", json!({})).unwrap();
+    }
     let mut h = Harness::builder()
         .with_size([1100.0, 700.0])
         // A press on a Projects row runs the row's press transition: more frames to settle.
@@ -235,9 +237,12 @@ fn harness_with_parts(home: &Path, work: &Path) -> Harness<'static, App> {
         .build();
     let mut shell = Shell::new(engine);
     shell
+        .run("project.new", json!({"path": work, "name": "Jobs"}))
+        .unwrap();
+    shell
         .run(
-            "project.new",
-            json!({"path": work, "name": "Jobs", "board": {"width": "30mm", "height": "20mm"}}),
+            "pcb.board_outline.add_rect",
+            json!({"width": "30mm", "height": "20mm"}),
         )
         .unwrap();
     let sheet = shell
@@ -481,9 +486,12 @@ fn show_in_folder_on_last_run_asks_for_the_destination() {
         .build();
     let mut shell = Shell::new(engine);
     shell
+        .run("project.new", json!({"path": work.path(), "name": "Jobs"}))
+        .unwrap();
+    shell
         .run(
-            "project.new",
-            json!({"path": work.path(), "name": "Jobs", "board": {"width": "30mm", "height": "20mm"}}),
+            "pcb.board_outline.add_rect",
+            json!({"width": "30mm", "height": "20mm"}),
         )
         .unwrap();
     let job = shell

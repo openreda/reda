@@ -10,12 +10,15 @@ use crate::theme::TokensExt as _;
 use crate::tr;
 use crate::widgets;
 
+/// The starter Library's Custom rectangle Board Template, which the Rectangle choice uses.
+const CUSTOM_RECTANGLE: &str = "4b5a3569-5fcc-49b3-8af9-5d5fdda27d41";
+
 /// The board a new Project starts with.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Board {
     /// No Board Outline yet: it is drawn later.
     DrawLater,
-    /// A rectangular Board Outline of the dialog's size.
+    /// A rectangular Board Outline of the dialog's size, from the Custom rectangle template.
     Rectangle,
 }
 
@@ -76,11 +79,11 @@ impl NewProjectForm {
         if self.board == Board::Rectangle {
             let width = positive_mm(&self.width)?;
             let height = positive_mm(&self.height)?;
-            let mut board = json!({"width": width, "height": height});
+            let mut values = json!({"width": width, "height": height});
             if !self.corner_radius.trim().is_empty() {
-                board["corner_radius"] = json!(positive_mm(&self.corner_radius)?);
+                values["corner_radius"] = json!(positive_mm(&self.corner_radius)?);
             }
-            params["board"] = board;
+            params["board_template"] = json!({"element": CUSTOM_RECTANGLE, "values": values});
         }
         Some(params)
     }

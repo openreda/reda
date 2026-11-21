@@ -256,6 +256,15 @@ impl<'a> Context<'a> {
         self.parts.footprints(uuids)
     }
 
+    /// The Board Template with this Library element UUID from the registered Libraries,
+    /// or `not_found`.
+    pub fn library_board_template(
+        &self,
+        element: Uuid,
+    ) -> Result<reda_model::BoardTemplate, CommandError> {
+        self.parts.board_template(element)
+    }
+
     /// Where each of these Library elements is on disk, in the same order; `None` for one
     /// no registered Library holds.
     pub fn library_locations(&self, elements: &[Uuid]) -> Vec<Option<ElementLocation>> {

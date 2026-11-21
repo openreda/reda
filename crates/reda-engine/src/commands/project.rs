@@ -4,19 +4,22 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use reda_command::{
-    AvailabilityContext, Command, CommandError, Context, Kind, Length, Meta, NO_PROJECT, Registry,
-    Session, Unavailable,
+    AvailabilityContext, Command, CommandError, Context, Kind, Meta, NO_PROJECT, Registry, Session,
+    Unavailable,
 };
-use reda_model::geom::Vertex;
+use reda_library::Origin as LibraryOrigin;
+use reda_library::board_template::{BoardTemplateChoice, Frame};
 use reda_model::{
-    BoardOutline, DocumentEntry, DocumentKind, FabPreset, InDocument, Object, PcbDocument, Project,
+    BoardTemplate, DocumentEntry, DocumentKind, FabPreset, Object, PcbDocument, Project,
     ProjectFabPreset, ProjectProps, Scope, Uuid,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::DocumentRef;
+use super::board_template::{SeededTemplate, create, find_board_template};
 use crate::builders::add_document;
+use crate::library::scan_registered;
 use crate::{fab_presets, state, store};
 
 pub(crate) fn register_all(registry: &mut Registry) {
@@ -65,6 +68,9 @@ pub struct SeededBoard {
     dielectrics: Vec<Uuid>,
     via_types: Vec<Uuid>,
     rules: Vec<Uuid>,
+    /// What the Board Template wrote; left out for a board made without one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) template: Option<SeededTemplate>,
 }
 
 impl SeededBoard {
@@ -81,6 +87,7 @@ impl SeededBoard {
             dielectrics: pcb.stackup().dielectrics().map(|d| d.uuid).collect(),
             via_types: pcb.stackup().via_types.iter().map(|v| v.uuid).collect(),
             rules: rules.into_iter().map(|r| r.uuid).collect(),
+            template: None,
         }
     }
 }
@@ -134,20 +141,11 @@ pub struct ProjectNewParams {
     pub layers: Option<u8>,
     /// Named physical build in the chosen Fab Preset. Defaults to its build for this count.
     pub construction: Option<String>,
-    /// A rectangular Board Outline to start with; left out to draw it later.
+    /// The Board Template to start the board from, by Library element UUID, at these
+    /// values and without these objects; left out for a board with no outline yet. A
+    /// Project Library's template is not available to a new Project.
     #[serde(default)]
-    pub board: Option<BoardParam>,
-}
-
-/// A rectangular Board Outline with its lower left corner at the origin.
-#[derive(Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct BoardParam {
-    pub width: Length,
-    pub height: Length,
-    /// Rounds each corner with this radius; left out for sharp corners.
-    #[serde(default)]
-    pub corner_radius: Option<Length>,
+    pub board_template: Option<BoardTemplateChoice>,
 }
 
 impl Command for ProjectNew {
@@ -157,9 +155,10 @@ impl Command for ProjectNew {
         description: "Creates a Project called `name` in the folder `<path>/<name>/`, writes \
                       it to disk and opens it: a first Schematic Sheet titled \"Sheet 1\", a \
                       PCB Document whose rules are seeded from `fab_preset` (default \
-                      Generic), optionally a rectangular Board Outline (`board`), and one \
-                      Output Job named after the preset. A folder that exists and is not \
-                      empty is refused.",
+                      Generic), optionally a board made from a Board Template \
+                      (`board_template`), and one Output Job named after the preset. With a \
+                      template and no `layers`, the template's suggested layer count is \
+                      used. A folder that exists and is not empty is refused.",
         category: "project",
         icon: "project_new",
         kind: Kind::File,
@@ -176,18 +175,22 @@ impl Command for ProjectNew {
         let folder = p.path.join(&p.name);
         let preset_name = p.fab_preset.as_deref().unwrap_or(reda_output::GENERIC_NAME);
         let preset = fab_presets::find_or_fail("/fab_preset", preset_name, cx.user_dirs())?.preset;
-        let outline = p
-            .board
-            .map(|b| reda_pcb::rect_outline("/board", b.width, b.height, b.corner_radius))
-            .transpose()?;
+        let template = match &p.board_template {
+            None => None,
+            Some(choice) => Some(new_project_template(cx, choice)?),
+        };
+        let layers = p
+            .layers
+            .or(template.as_ref().map(|(_, frame)| frame.suggested_layers))
+            .unwrap_or(2);
         check_free_folder(&folder)?;
 
-        let project = build_project(
+        let (project, seeded_template) = build_project(
             cx,
             p.name,
             preset,
-            outline,
-            p.layers.unwrap_or(2),
+            template.as_ref().map(|(t, f)| (t, f)),
+            layers,
             p.construction.as_deref(),
         )?;
         std::fs::create_dir_all(&folder)
@@ -209,12 +212,37 @@ impl Command for ProjectNew {
         session.location = Some(folder);
         let mut out = summary(session, vec![]);
         let project = session.project.as_ref().expect("just installed");
-        out.seeded = Some(SeededBoard::new(
+        let mut seeded = SeededBoard::new(
             project.pcb().expect("new Project has a PCB"),
             project.fab_presets().next().expect("seeded preset").uuid,
-        ));
+        );
+        seeded.template = seeded_template;
+        out.seeded = Some(seeded);
         Ok(out)
     }
+}
+
+/// The template `choice` names, from the Libraries a new Project can see (user and
+/// Starter), evaluated and validated.
+fn new_project_template(
+    cx: &mut Context<'_>,
+    choice: &BoardTemplateChoice,
+) -> Result<(BoardTemplate, Frame), CommandError> {
+    let index = scan_registered(cx.session()?);
+    let pointer = "/board_template/element";
+    let (library, template) = find_board_template(&index, choice.element)
+        .map_err(|e| CommandError::invalid_params(pointer, e.message))?;
+    if library.origin == LibraryOrigin::Project {
+        return Err(CommandError::invalid_params(
+            pointer,
+            format!(
+                "{} is in the Project Library {}, which is not available to a new Project",
+                template.name, library.info.name
+            ),
+        ));
+    }
+    let frame = create::frame_for(template, choice)?;
+    Ok((template.clone(), frame))
 }
 
 /// Moves the Library elements open in the old Project, or on the workbench, into
@@ -233,10 +261,10 @@ fn build_project(
     cx: &mut Context<'_>,
     name: String,
     preset: FabPreset,
-    outline: Option<Vec<Vertex>>,
+    template: Option<(&BoardTemplate, &Frame)>,
     layers: u8,
     construction: Option<&str>,
-) -> Result<Project, CommandError> {
+) -> Result<(Project, Option<SeededTemplate>), CommandError> {
     let mut project = Project::new(ProjectProps {
         uuid: cx.new_id(),
         name: name.clone(),
@@ -265,21 +293,25 @@ fn build_project(
         reda_pcb::new_board_from_preset(pcb.uuid, &preset, layers, construction, || cx.new_id())?;
     let copy = ProjectFabPreset::new(cx.new_id(), preset);
     let job = reda_output::new_job(cx.new_id(), copy.name.clone(), pcb.uuid, copy.uuid);
-    let outline = outline.map(|vertices| {
-        let outline = BoardOutline::new(cx.new_id(), vertices);
-        Object::BoardOutline(InDocument::new(pcb.uuid, outline))
-    });
+    let document = pcb.uuid;
 
     let mut tx = project.transaction();
     add_document(&mut tx, sheet)?;
     add_document(&mut tx, pcb)?;
-    for object in board.into_iter().chain(outline) {
+    for object in board {
         tx.insert(object)?;
     }
     tx.insert(Object::FabPreset(copy))?;
     tx.insert(Object::OutputJob(job))?;
+    let seeded = match template {
+        None => None,
+        Some((template, frame)) => {
+            let mut w = create::Building { tx: &mut tx, cx };
+            Some(create::write(&mut w, document, template, frame)?)
+        }
+    };
     tx.commit()?;
-    Ok(project)
+    Ok((project, seeded))
 }
 
 pub struct ProjectOpen;

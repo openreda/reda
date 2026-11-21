@@ -17,10 +17,10 @@ const MOUNTING_HOLE_PAD: &str = "1a21d727-dfca-41ae-9639-309d8abf4714";
 /// A Project with an empty 30 × 20 mm board.
 fn board(dir: &TempDir) -> TestEngine {
     let mut engine = test_engine_with_library(&starter_library());
+    engine.run_ok("project.new", json!({"path": dir.path(), "name": "Silk"}));
     engine.run_ok(
-        "project.new",
-        json!({"path": dir.path(), "name": "Silk",
-               "board": {"width": "30mm", "height": "20mm"}}),
+        "pcb.board_outline.add_rect",
+        json!({"width": "30mm", "height": "20mm"}),
     );
     engine
 }

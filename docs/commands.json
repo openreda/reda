@@ -776,12 +776,42 @@
     },
     {
       "category": "project",
-      "description": "Adds a Document of `kind` at the end of the Project. A Schematic Sheet is empty; the PCB Document starts with its Layers, the Generic design rule records and DRC severities, and is available only while the Project has none. Its file is written on save.",
+      "description": "Adds a Document of `kind` at the end of the Project. A Schematic Sheet is empty; the PCB Document starts with its Layers, the Generic design rule records and DRC severities, and is available only while the Project has none; with `board_template` it is made from a Board Template, its connectors' Symbols placed on the first sheet. Its file is written on save.",
       "icon": "document_add",
       "id": "document.add",
       "kind": "edit",
       "params": {
         "$defs": {
+          "BoardTemplateChoice": {
+            "additionalProperties": false,
+            "description": "Which template to use, at which values, without which objects: the `board_template`\nparam of creation and the params of `library.board_template.preview`.",
+            "properties": {
+              "element": {
+                "description": "The template's Library element UUID, from `library.board_template.list`.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "exclude": {
+                "description": "Template connector, hole and drawing-group UUIDs to leave out. A Keepout that\nprotects an excluded object, and a Dimension that follows one, go with it.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "values": {
+                "additionalProperties": {
+                  "$ref": "#/$defs/TemplateValue"
+                },
+                "description": "Parameter values by name: an option key for a choice, a length (integer nm or a\nstring such as `\"65mm\"`) for a length. An omitted parameter takes its default.",
+                "type": "object"
+              }
+            },
+            "required": [
+              "element"
+            ],
+            "type": "object"
+          },
           "DocumentKind": {
             "description": "What kind of Document an entry is.",
             "enum": [
@@ -789,11 +819,34 @@
               "pcb"
             ],
             "type": "string"
+          },
+          "TemplateValue": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "An option key for a choice; a length for a length parameter: integer nanometres or a string such as \"65mm\"."
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "board_template": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/BoardTemplateChoice"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The Board Template to start the PCB Document from, by Library element UUID (from\nany registered Library), at these values and without these objects; left out for\na board with no outline yet."
+          },
           "construction": {
             "description": "The Construction name in that preset. Defaults to its build for this count.",
             "type": [
@@ -813,7 +866,7 @@
           },
           "layers": {
             "default": null,
-            "description": "The PCB Document's copper Layer count, from 2 to 32. Defaults to 2.",
+            "description": "The PCB Document's copper Layer count, from 2 to 32. Defaults to the Board\nTemplate's suggested count, else 2.",
             "format": "uint8",
             "maximum": 32,
             "minimum": 2,
@@ -847,6 +900,19 @@
               "pcb"
             ],
             "type": "string"
+          },
+          "ResolvedValue": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            ],
+            "description": "A parameter's resolved value: an option key for a choice, nanometres for a length."
           },
           "SeededBoard": {
             "description": "The objects seeded by board creation, including children of the Layer and Stackup tables.\nPhysical rows follow board order. Rule rows follow kind and scope, independent of UUIDs.",
@@ -895,6 +961,17 @@
                 "format": "uuid",
                 "type": "string"
               },
+              "template": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/SeededTemplate"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "What the Board Template wrote; left out for a board made without one."
+              },
               "via_types": {
                 "items": {
                   "format": "uuid",
@@ -913,6 +990,77 @@
               "dielectrics",
               "via_types",
               "rules"
+            ],
+            "type": "object"
+          },
+          "SeededObject": {
+            "description": "One template object and what creating the board made of it.",
+            "properties": {
+              "component": {
+                "description": "A connector's Component.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "created": {
+                "description": "The board object it became; absent for a drawing group, which makes none of its own.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "designator": {
+                "description": "A connector's or Mechanical Part hole's Designator.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "template_object": {
+                "description": "The template-local UUID.",
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "template_object"
+            ],
+            "type": "object"
+          },
+          "SeededTemplate": {
+            "description": "What `seeded.template` reports: which template at which values, and what each of its\nobjects became.",
+            "properties": {
+              "element": {
+                "description": "The template's Library element UUID.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "objects": {
+                "description": "One entry per template object created, in creation order. Excluded and gated-out\nobjects are absent.",
+                "items": {
+                  "$ref": "#/$defs/SeededObject"
+                },
+                "type": "array"
+              },
+              "values": {
+                "additionalProperties": {
+                  "$ref": "#/$defs/ResolvedValue"
+                },
+                "description": "Every parameter's value, defaults filled in.",
+                "type": "object"
+              }
+            },
+            "required": [
+              "element",
+              "name",
+              "values",
+              "objects"
             ],
             "type": "object"
           }
@@ -70933,69 +71081,68 @@
     },
     {
       "category": "project",
-      "description": "Creates a Project called `name` in the folder `<path>/<name>/`, writes it to disk and opens it: a first Schematic Sheet titled \"Sheet 1\", a PCB Document whose rules are seeded from `fab_preset` (default Generic), optionally a rectangular Board Outline (`board`), and one Output Job named after the preset. A folder that exists and is not empty is refused.",
+      "description": "Creates a Project called `name` in the folder `<path>/<name>/`, writes it to disk and opens it: a first Schematic Sheet titled \"Sheet 1\", a PCB Document whose rules are seeded from `fab_preset` (default Generic), optionally a board made from a Board Template (`board_template`), and one Output Job named after the preset. With a template and no `layers`, the template's suggested layer count is used. A folder that exists and is not empty is refused.",
       "icon": "project_new",
       "id": "project.new",
       "kind": "file",
       "params": {
         "$defs": {
-          "BoardParam": {
+          "BoardTemplateChoice": {
             "additionalProperties": false,
-            "description": "A rectangular Board Outline with its lower left corner at the origin.",
+            "description": "Which template to use, at which values, without which objects: the `board_template`\nparam of creation and the params of `library.board_template.preview`.",
             "properties": {
-              "corner_radius": {
-                "anyOf": [
-                  {
-                    "$ref": "#/$defs/Length"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "description": "Rounds each corner with this radius; left out for sharp corners."
+              "element": {
+                "description": "The template's Library element UUID, from `library.board_template.list`.",
+                "format": "uuid",
+                "type": "string"
               },
-              "height": {
-                "$ref": "#/$defs/Length"
+              "exclude": {
+                "description": "Template connector, hole and drawing-group UUIDs to leave out. A Keepout that\nprotects an excluded object, and a Dimension that follows one, go with it.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
               },
-              "width": {
-                "$ref": "#/$defs/Length"
+              "values": {
+                "additionalProperties": {
+                  "$ref": "#/$defs/TemplateValue"
+                },
+                "description": "Parameter values by name: an option key for a choice, a length (integer nm or a\nstring such as `\"65mm\"`) for a length. An omitted parameter takes its default.",
+                "type": "object"
               }
             },
             "required": [
-              "width",
-              "height"
+              "element"
             ],
             "type": "object"
           },
-          "Length": {
-            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
-            "oneOf": [
+          "TemplateValue": {
+            "anyOf": [
               {
-                "description": "Nanometres.",
                 "type": "integer"
               },
               {
-                "description": "A number and a unit: nm, um, mm, mil or in.",
-                "format": "length",
                 "type": "string"
               }
-            ]
+            ],
+            "description": "An option key for a choice; a length for a length parameter: integer nanometres or a string such as \"65mm\"."
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
-          "board": {
+          "board_template": {
             "anyOf": [
               {
-                "$ref": "#/$defs/BoardParam"
+                "$ref": "#/$defs/BoardTemplateChoice"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "A rectangular Board Outline to start with; left out to draw it later."
+            "default": null,
+            "description": "The Board Template to start the board from, by Library element UUID, at these\nvalues and without these objects; left out for a board with no outline yet. A\nProject Library's template is not available to a new Project."
           },
           "construction": {
             "description": "Named physical build in the chosen Fab Preset. Defaults to its build for this count.",
@@ -71095,6 +71242,19 @@
             ],
             "type": "object"
           },
+          "ResolvedValue": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            ],
+            "description": "A parameter's resolved value: an option key for a choice, nanometres for a length."
+          },
           "SeededBoard": {
             "description": "The objects seeded by board creation, including children of the Layer and Stackup tables.\nPhysical rows follow board order. Rule rows follow kind and scope, independent of UUIDs.",
             "properties": {
@@ -71142,6 +71302,17 @@
                 "format": "uuid",
                 "type": "string"
               },
+              "template": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/SeededTemplate"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "What the Board Template wrote; left out for a board made without one."
+              },
               "via_types": {
                 "items": {
                   "format": "uuid",
@@ -71160,6 +71331,77 @@
               "dielectrics",
               "via_types",
               "rules"
+            ],
+            "type": "object"
+          },
+          "SeededObject": {
+            "description": "One template object and what creating the board made of it.",
+            "properties": {
+              "component": {
+                "description": "A connector's Component.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "created": {
+                "description": "The board object it became; absent for a drawing group, which makes none of its own.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "designator": {
+                "description": "A connector's or Mechanical Part hole's Designator.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "template_object": {
+                "description": "The template-local UUID.",
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "template_object"
+            ],
+            "type": "object"
+          },
+          "SeededTemplate": {
+            "description": "What `seeded.template` reports: which template at which values, and what each of its\nobjects became.",
+            "properties": {
+              "element": {
+                "description": "The template's Library element UUID.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "objects": {
+                "description": "One entry per template object created, in creation order. Excluded and gated-out\nobjects are absent.",
+                "items": {
+                  "$ref": "#/$defs/SeededObject"
+                },
+                "type": "array"
+              },
+              "values": {
+                "additionalProperties": {
+                  "$ref": "#/$defs/ResolvedValue"
+                },
+                "description": "Every parameter's value, defaults filled in.",
+                "type": "object"
+              }
+            },
+            "required": [
+              "element",
+              "name",
+              "values",
+              "objects"
             ],
             "type": "object"
           }
@@ -71299,6 +71541,19 @@
             ],
             "type": "object"
           },
+          "ResolvedValue": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            ],
+            "description": "A parameter's resolved value: an option key for a choice, nanometres for a length."
+          },
           "SeededBoard": {
             "description": "The objects seeded by board creation, including children of the Layer and Stackup tables.\nPhysical rows follow board order. Rule rows follow kind and scope, independent of UUIDs.",
             "properties": {
@@ -71346,6 +71601,17 @@
                 "format": "uuid",
                 "type": "string"
               },
+              "template": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/SeededTemplate"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "What the Board Template wrote; left out for a board made without one."
+              },
               "via_types": {
                 "items": {
                   "format": "uuid",
@@ -71364,6 +71630,77 @@
               "dielectrics",
               "via_types",
               "rules"
+            ],
+            "type": "object"
+          },
+          "SeededObject": {
+            "description": "One template object and what creating the board made of it.",
+            "properties": {
+              "component": {
+                "description": "A connector's Component.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "created": {
+                "description": "The board object it became; absent for a drawing group, which makes none of its own.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "designator": {
+                "description": "A connector's or Mechanical Part hole's Designator.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "template_object": {
+                "description": "The template-local UUID.",
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "template_object"
+            ],
+            "type": "object"
+          },
+          "SeededTemplate": {
+            "description": "What `seeded.template` reports: which template at which values, and what each of its\nobjects became.",
+            "properties": {
+              "element": {
+                "description": "The template's Library element UUID.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "objects": {
+                "description": "One entry per template object created, in creation order. Excluded and gated-out\nobjects are absent.",
+                "items": {
+                  "$ref": "#/$defs/SeededObject"
+                },
+                "type": "array"
+              },
+              "values": {
+                "additionalProperties": {
+                  "$ref": "#/$defs/ResolvedValue"
+                },
+                "description": "Every parameter's value, defaults filled in.",
+                "type": "object"
+              }
+            },
+            "required": [
+              "element",
+              "name",
+              "values",
+              "objects"
             ],
             "type": "object"
           }

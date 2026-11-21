@@ -19,9 +19,10 @@ fn pt(x: f64, y: f64) -> Value {
 
 fn board(dir: &TempDir) -> TestEngine {
     let mut engine = probe_engine();
+    engine.run_ok("project.new", json!({"path": dir.path(), "name": "Demo"}));
     engine.run_ok(
-        "project.new",
-        json!({"path": dir.path(), "name": "Demo", "board": {"width": "30mm", "height": "20mm"}}),
+        "pcb.board_outline.add_rect",
+        json!({"width": "30mm", "height": "20mm"}),
     );
     engine
 }
@@ -142,10 +143,10 @@ fn plated_and_non_plated_holes_go_to_separate_files() {
 /// turned off the axes, with a hole tolerance), plated and non-plated Free Pads.
 fn demo(dir: &TempDir) -> TestEngine {
     let mut engine = probe_engine();
+    engine.run_ok("project.new", json!({"path": dir.path(), "name": "Demo"}));
     engine.run_ok(
-        "project.new",
-        json!({"path": dir.path(), "name": "Demo",
-               "board": {"width": "30mm", "height": "20mm", "corner_radius": "1mm"}}),
+        "pcb.board_outline.add_rect",
+        json!({"width": "30mm", "height": "20mm", "corner_radius": "1mm"}),
     );
     engine.run_ok("project.properties.set", json!({"revision": "A, first"}));
     let gnd = net(&mut engine, "GND");
@@ -416,9 +417,10 @@ fn a_tool_whose_holes_have_a_tolerance_states_it() {
 fn attribute_values_are_printable_ascii_with_other_characters_escaped() {
     let dir = TempDir::new("drill-ascii");
     let mut engine = probe_engine();
+    engine.run_ok("project.new", json!({"path": dir.path(), "name": "Bühne"}));
     engine.run_ok(
-        "project.new",
-        json!({"path": dir.path(), "name": "Bühne", "board": {"width": "30mm", "height": "20mm"}}),
+        "pcb.board_outline.add_rect",
+        json!({"width": "30mm", "height": "20mm"}),
     );
     engine.run_ok("project.properties.set", json!({"revision": "Ω;1 🙂"}));
     engine.run_ok(

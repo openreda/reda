@@ -17,10 +17,13 @@ fn pt(x: f64, y: f64) -> Value {
 }
 
 fn new_project(engine: &mut TestEngine, dir: &TempDir) {
+    engine.run_ok("project.new", json!({"path": dir.path(), "name": "Demo"}));
     engine.run_ok(
-        "project.new",
-        json!({"path": dir.path(), "name": "Demo", "board": {"width": "30mm", "height": "20mm"}}),
+        "pcb.board_outline.add_rect",
+        json!({"width": "30mm", "height": "20mm"}),
     );
+    // Saved, so the new Project is clean as `project.new` leaves it.
+    engine.run_ok("project.save", json!({}));
 }
 
 /// A plated hole, so the run writes a PTH file.
@@ -952,8 +955,11 @@ fn a_bom_row_missing_a_required_field_warns_naming_its_designators_and_stays() {
     let mut engine = test_engine_with_library(&library);
     engine.run_ok(
         "project.new",
-        json!({"path": dir.path(), "name": "Demo", "fab_preset": "JLCPCB",
-               "board": {"width": "60mm", "height": "60mm"}}),
+        json!({"path": dir.path(), "name": "Demo", "fab_preset": "JLCPCB"}),
+    );
+    engine.run_ok(
+        "pcb.board_outline.add_rect",
+        json!({"width": "60mm", "height": "60mm"}),
     );
     for x in [20.0, 40.0] {
         engine.run_ok(

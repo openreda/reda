@@ -646,10 +646,10 @@ fn a_deleted_component_is_proposed_for_removal() {
 fn new_footprints_cluster_outside_the_board_by_sheet_then_designator() {
     let dir = TempDir::new("sync-place");
     let mut engine = test_engine_with_library(&library());
+    engine.run_ok("project.new", json!({"path": dir.path(), "name": "Demo"}));
     engine.run_ok(
-        "project.new",
-        json!({"path": dir.path(), "name": "Demo",
-               "board": {"width": "50mm", "height": "30mm"}}),
+        "pcb.board_outline.add_rect",
+        json!({"width": "50mm", "height": "30mm"}),
     );
     let sheet_2 =
         engine.run_ok("document.add", json!({"kind": "schematic"}))["result"]["uuid"].clone();

@@ -9,10 +9,12 @@ use reda_command::{
     AvailabilityContext, Command, CommandError, Context, Kind, Meta, NO_PROJECT, Registry,
     Unavailable,
 };
+use reda_library::board_template::BoardTemplateChoice;
 use reda_model::{DocumentEntry, DocumentKind, Object, Project, Scope, Uuid};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use super::board_template::create;
 use super::project::{SeededBoard, check_file_stem};
 use crate::builders::{add_document, remove_document};
 use crate::format::{read_bytes, read_pcb_file, read_sheet_file};
@@ -31,10 +33,16 @@ pub struct DocumentAdd;
 #[serde(deny_unknown_fields)]
 pub struct DocumentAddParams {
     pub kind: DocumentKind,
-    /// The PCB Document's copper Layer count, from 2 to 32. Defaults to 2.
+    /// The PCB Document's copper Layer count, from 2 to 32. Defaults to the Board
+    /// Template's suggested count, else 2.
     #[serde(default)]
     #[schemars(range(min = 2, max = 32))]
     pub layers: Option<u8>,
+    /// The Board Template to start the PCB Document from, by Library element UUID (from
+    /// any registered Library), at these values and without these objects; left out for
+    /// a board with no outline yet.
+    #[serde(default)]
+    pub board_template: Option<BoardTemplateChoice>,
     /// A Project Fab Preset copy by UUID, or a shipped or user preset by name. If its
     /// source is unavailable, a Project copy can also be selected by name. Defaults to Generic.
     pub fab_preset: Option<String>,
@@ -61,7 +69,9 @@ impl Command for DocumentAdd {
         description: "Adds a Document of `kind` at the end of the Project. A Schematic Sheet \
                       is empty; the PCB Document starts with its Layers, the Generic design \
                       rule records and DRC severities, and is available only \
-                      while the Project has none. Its file is written on save.",
+                      while the Project has none; with `board_template` it is made from a \
+                      Board Template, its connectors' Symbols placed on the first sheet. \
+                      Its file is written on save.",
         category: "project",
         icon: "document_add",
         kind: Kind::Edit,
@@ -93,7 +103,14 @@ impl Command for DocumentAdd {
         let uuid = cx.new_id();
         let mut new_copy = None;
         let mut preset_id = None;
+        let mut template_frame = None;
         let contents = match p.kind {
+            DocumentKind::Schematic if p.board_template.is_some() => {
+                return Err(CommandError::invalid_params(
+                    "/board_template",
+                    "only a PCB Document is made from a Board Template",
+                ));
+            }
             DocumentKind::Schematic if p.layers.is_some() => {
                 return Err(CommandError::invalid_params(
                     "/layers",
@@ -112,6 +129,13 @@ impl Command for DocumentAdd {
             }
             DocumentKind::Schematic => vec![],
             DocumentKind::Pcb => {
+                if let Some(choice) = &p.board_template {
+                    let template = cx.library_board_template(choice.element).map_err(|e| {
+                        CommandError::invalid_params("/board_template/element", e.message)
+                    })?;
+                    let frame = create::frame_for(&template, choice)?;
+                    template_frame = Some((template, frame));
+                }
                 let name = p.fab_preset.as_deref().unwrap_or(reda_output::GENERIC_NAME);
                 let project = cx.project()?;
                 let preset = match name.parse().ok().and_then(|id| project.fab_preset(id)) {
@@ -135,7 +159,9 @@ impl Command for DocumentAdd {
                 let objects = reda_pcb::new_board_from_preset(
                     uuid,
                     &preset,
-                    p.layers.unwrap_or(2),
+                    p.layers
+                        .or(template_frame.as_ref().map(|(_, f)| f.suggested_layers))
+                        .unwrap_or(2),
                     p.construction.as_deref(),
                     || cx.new_id(),
                 )?;
@@ -174,8 +200,16 @@ impl Command for DocumentAdd {
                 tx.replace(Object::Project(props))?;
             }
         }
+        let template = match &template_frame {
+            None => None,
+            Some((template, frame)) => Some(create::write(cx, uuid, template, frame)?),
+        };
+        let project = cx.project()?;
         let seeded = preset_id.map(|id| {
-            SeededBoard::new(tx.project().pcb_document(uuid).expect("inserted board"), id)
+            let mut seeded =
+                SeededBoard::new(project.pcb_document(uuid).expect("inserted board"), id);
+            seeded.template = template;
+            seeded
         });
         Ok(AddedDocument {
             document: entry,

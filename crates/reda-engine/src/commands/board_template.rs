@@ -17,6 +17,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::library::scan_registered;
 
+pub(crate) mod create;
+pub use create::{SeededObject, SeededTemplate};
+
 pub(crate) fn register_all(registry: &mut Registry) {
     registry.add(BoardTemplateList);
     registry.add(BoardTemplatePreview);

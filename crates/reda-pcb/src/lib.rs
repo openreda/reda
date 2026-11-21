@@ -41,9 +41,10 @@ pub use board::{
 pub use commands::layer::LayerRef;
 pub use commands::placement::arrange::natural_cmp;
 pub use commands::{
-    AreaParam, BoardInfoResult, DrcRunParams, DrcRunResult, LayerZones, MechanicalSet,
-    MechanicalSetParams, Placed, PlacementOp, SyncCheck, SyncState, ZoneListing, ZoneRow,
-    board_info, drc_run, glob_match, placement_anchor, placement_preview,
+    AreaParam, BoardInfoResult, DEFAULT_GRAPHIC_WIDTH, DEFAULT_TEXT_HEIGHT, DEFAULT_TEXT_THICKNESS,
+    DrcRunParams, DrcRunResult, LayerZones, MechanicalSet, MechanicalSetParams, Placed,
+    PlacementOp, SyncCheck, SyncState, ZoneListing, ZoneRow, board_info, drc_run, glob_match,
+    mechanical_designator, new_dimension, placement_anchor, placement_preview,
     placement_preview_including_locked, rect_outline, register_all, register_all_with_user,
     zone_listing,
 };
