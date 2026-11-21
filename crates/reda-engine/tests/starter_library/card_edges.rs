@@ -66,7 +66,8 @@ fn finger(number: &str, x: f64, width: f64, (near, far): (f64, f64), top: bool) 
 /// The Assembly outline over the fingers from `x0` to `x1` and the edge out to `depth`,
 /// the top-only Courtyard around it, starting at the edge, and the Designator above. The
 /// Courtyard is cut through at each key notch `(left, right)` and has `chamfer` × 45°
-/// corners at the edge, as the finger tab does.
+/// corners at the edge, as the finger tab does. The Designator sits above the Courtyard,
+/// or above `clear` mm where a key notch reaches higher.
 fn finish_card_edge(
     s: &mut Script,
     fp: &str,
@@ -74,6 +75,7 @@ fn finish_card_edge(
     depth: f64,
     notches: &[(f64, f64)],
     chamfer: f64,
+    clear: f64,
 ) -> String {
     s.fp_draw(
         fp,
@@ -104,7 +106,7 @@ fn finish_card_edge(
         points.extend([(mm(b), top), (mm(a), top)]);
         s.fp_draw(fp, "courtyard_top", polygon(&points), mm(0.05));
     }
-    s.finish_footprint(fp, top)
+    s.finish_footprint(fp, top.max(mm(clear)))
 }
 
 /// A card-edge Symbol: `rows` rows 100 mil apart, top down, each with an optional Pin on
@@ -173,7 +175,7 @@ fn m2(s: &mut Script, key: &str, cuts: &[((u32, u32), f64)]) {
     }
     let mut notches: Vec<(f64, f64)> = cuts.iter().map(|&(_, c)| (c - 0.6, c + 0.6)).collect();
     notches.sort_by(|p, q| p.0.total_cmp(&q.0));
-    let fp = finish_card_edge(s, &fp, (-9.425, 9.425), 2.5, &notches, 0.0);
+    let fp = finish_card_edge(s, &fp, (-9.425, 9.425), 2.5, &notches, 0.0, 0.0);
     s.part(PartSpec {
         name: &name,
         symbol: Some(&sym),
@@ -226,9 +228,10 @@ fn pcie(s: &mut Script, lanes: u32, per_side: u32, prsnt2: u32) {
             s.pad(&fp, finger(&format!("{side}{n}"), x(n), 0.7, span, top));
         }
     }
-    // The 1.90 mm key notch on the centreline, and the tab's 0.5 mm chamfers.
+    // The 1.90 mm key notch on the centreline, up to 8.40 mm, and the tab's 0.5 mm
+    // chamfers; the Designator clears the notch by 0.5 mm.
     let span = (x(1) - 0.35, x(per_side) + 0.35);
-    let fp = finish_card_edge(s, &fp, span, 5.6, &[(-0.95, 0.95)], 0.5);
+    let fp = finish_card_edge(s, &fp, span, 5.6, &[(-0.95, 0.95)], 0.5, 8.9);
     s.part(PartSpec {
         name: &name,
         symbol: Some(&sym),

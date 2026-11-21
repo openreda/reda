@@ -70,6 +70,39 @@ fn project_new_writes_the_custom_rectangle_as_a_locked_outline() {
     assert_eq!(err.code, ErrorCode::Unavailable, "{err:?}");
 }
 
+#[test]
+fn every_card_edge_built_in_creates_a_board_drc_passes() {
+    // The fingers sit on the outline, the half-moon crosses it and the Courtyards follow
+    // the key notches and tab chamfers: none of it may fire on a fresh card. On a JLCPCB
+    // board, whose clearance fits the M.2 fingers' 0.15 mm gaps; the starter M3 hole's
+    // 0.12 mm silkscreen ring is under its 0.15 mm silk width, which is not the card's.
+    const M2: &str = "3d513563-914e-4251-97d8-d3f9836240ad";
+    const PCIE: &str = "4ca6b4ca-11f8-45f1-96c1-c610ece56af9";
+    let mut points = vec![];
+    for key in ["a", "b", "e", "m", "ae", "bm"] {
+        points.push((M2, json!({"key": key, "length": "2230"})));
+    }
+    for lanes in ["x1", "x4", "x8", "x16"] {
+        for bracket in ["full", "low_profile"] {
+            points.push((PCIE, json!({"lanes": lanes, "bracket": bracket})));
+        }
+    }
+    for (i, (element, values)) in points.into_iter().enumerate() {
+        let work = TempDir::new(&format!("card-edge-{i}"));
+        let mut engine = test_engine_with_library(&starter_library());
+        engine.run_ok(
+            "project.new",
+            json!({"path": work.path(), "name": "Card", "fab_preset": "JLCPCB",
+                   "board_template": {"element": element, "values": values}}),
+        );
+        let drc = engine.run_ok("drc.run", json!({}));
+        let card: Vec<&Value> = (drc["violations"].as_array().unwrap().iter())
+            .filter(|v| v["check"] != "silk_width")
+            .collect();
+        assert_eq!(card, Vec::<&Value>::new(), "{values}: {drc}");
+    }
+}
+
 /// A Library Part as a template part-table entry `entry`, with its Footprint copies
 /// numbered from `entry + 1`, exactly as the starter Library holds it.
 fn copied_part(
