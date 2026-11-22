@@ -380,9 +380,7 @@ impl Picker {
         ui.add(egui::Label::new(job))
             .on_hover_text(&template.description);
         let input = self.choice().and_then(Result::err);
-        let evaluated = self
-            .frame()
-            .map(|r| r.cloned().map_err(str::to_owned));
+        let evaluated = self.frame().map(|r| r.cloned().map_err(str::to_owned));
         let shown = match &evaluated {
             Some(Ok(frame)) => Some(frame.clone()),
             _ => self.last.get(&template.element).cloned(),
@@ -626,9 +624,13 @@ fn settled(t: &ListedTemplate, texts: &BTreeMap<String, String>) -> Combination 
 }
 
 /// The range a length parameter shows beside its field and is checked against, at the
-/// `settled` choices. The one place both come from.
-pub fn length_range(p: &ListedParameter, _settled: &Combination) -> Option<(Nm, Nm)> {
-    Some((p.min?, p.max?))
+/// `settled` choices: the listed range whose `when` holds, such as PCIe's `card_length`
+/// for the lanes chosen. The one place both come from.
+pub fn length_range(p: &ListedParameter, settled: &Combination) -> Option<(Nm, Nm)> {
+    match (p.ranges.iter().flatten()).find(|r| gate_holds(Some(&r.when), settled)) {
+        Some(range) => Some((range.min, range.max)),
+        None => Some((p.min?, p.max?)),
+    }
 }
 
 /// `text` as a value of the length `p`, in mm, checked against its range.

@@ -23,6 +23,8 @@ const PI_NAME: &str = "Add-on board for Raspberry Pi";
 /// The Pi template's GPIO socket row.
 const PI_GPIO: &str = "bb81444c-0296-459b-afd4-7bf7f8b60ce4";
 const RECTANGLE: &str = "4b5a3569-5fcc-49b3-8af9-5d5fdda27d41";
+const PCIE: &str = "4ca6b4ca-11f8-45f1-96c1-c610ece56af9";
+const PCIE_NAME: &str = "PCI Express add-in card";
 
 fn starter() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../library/starter")
@@ -104,6 +106,48 @@ fn the_preview_marks_an_invalid_frame() {
     );
     assert!(count(&marks, "circle problem") >= 1);
     golden("rectangle_invalid", &marks);
+}
+
+#[test]
+fn the_preview_draws_pcie_x16_at_the_short_end_of_its_range() {
+    // x16's card_length starts where its tab ends: 57.15 + 72.15.
+    let marks = marks(PCIE, json!({"lanes": "x16", "card_length": "129.3mm"}), &[]);
+    assert_eq!(count(&marks, "circle problem"), 0);
+    let text = to_text(&marks);
+    assert!(text.contains("\"129.3 mm\""), "{text}");
+    // The key-to-bracket datum.
+    assert!(text.contains("\"57.15 mm\""), "{text}");
+    golden("pcie_x16_short", &marks);
+}
+
+#[test]
+fn the_dialog_shows_and_checks_the_range_of_the_lanes_chosen() {
+    let (home, work) = (TempDir::new("picker-home"), TempDir::new("picker-work"));
+    let mut h = harness(Shell::new(engine(home.path())));
+    open_new_project(&mut h, work.path());
+    click(&mut h, PCIE_NAME);
+    h.get_by_label("65.3 – 167.65 mm");
+    h.get_by_role_and_label(Role::ComboBox, "Lanes").click();
+    h.run();
+    h.get_all_by_label("x16").last().unwrap().click();
+    h.run();
+    h.get_by_label("129.3 – 167.65 mm");
+    h.get_by_role_and_label(Role::TextInput, "Card length")
+        .set_text_value_accesskit("100");
+    h.run();
+    h.get_by_label("Card length must be from 129.3 to 167.65 mm.");
+    assert!(!create_enabled(&h, "Create"));
+    h.get_by_role_and_label(Role::TextInput, "Card length")
+        .set_text_value_accesskit("129.3");
+    h.run();
+    assert!(create_enabled(&h, "Create"));
+    click(&mut h, "Create");
+    let sent = sent(&h, "project.new");
+    assert_eq!(sent.len(), 1);
+    assert_eq!(
+        sent[0]["board_template"]["values"],
+        json!({"lanes": "x16", "bracket": "full", "card_length": "129.3mm"})
+    );
 }
 
 #[test]
