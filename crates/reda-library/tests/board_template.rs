@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 
 use reda_library::board_template::{
     BoardTemplateChoice, Frame, ProblemObject, ResolvedValue, TemplateValue, check, combinations,
-    evaluate,
+    evaluate, length_ranges,
 };
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{BoardTemplate, FootprintCopy, Side, TemplateParameter, TemplatePart, Uuid};
@@ -144,7 +144,10 @@ fn bad_values_are_refused_with_a_pointer() {
     let t = rectangle();
     let err = at(&t, json!({"width": "2000"})).unwrap_err();
     assert!(err.starts_with("/values/width "), "{err}");
-    assert!(err.contains("from 1 to 1000 mm"), "{err}");
+    assert!(
+        err.contains("out of range: from 1 to 1000 mm, not 2000 mm"),
+        "{err}"
+    );
     let err = at(&t, json!({"depth": "10"})).unwrap_err();
     assert!(err.starts_with("/values/depth "), "{err}");
     assert!(err.contains("unknown parameter"), "{err}");
@@ -497,4 +500,76 @@ fn load_checks_resolve_every_reference() {
     assert!(p.contains("only outline and cutout edges"), "{p}");
     let p = failing(|t| t.holes[0].part = Some(id(30)));
     assert!(p.contains("Mechanical Part row"), "{p}");
+}
+
+/// The card with its length's `min` an expression over the lane width's bound name, as
+/// the PCIe card's is (#416 decision): x1 from 70, x4 from 90.
+fn card_with_lane_min() -> BoardTemplate {
+    let mut t = card();
+    length(&mut t).min = "card_width + 30".into();
+    t
+}
+
+fn length(t: &mut BoardTemplate) -> &mut reda_model::LengthParameter {
+    match &mut t.parameters[2] {
+        TemplateParameter::Length(l) => l,
+        TemplateParameter::Choice(_) => panic!("not a length"),
+    }
+}
+
+#[test]
+fn a_length_bound_may_name_choice_bound_names_and_is_checked_per_combination() {
+    let t = card_with_lane_min();
+    assert_eq!(check(&t), Vec::<String>::new());
+    // 80 mm is in range at x1 (from 70) and out of range at x4 (from 90).
+    assert!(at(&t, json!({"lanes": "x1", "length": "80"})).is_ok());
+    let err = at(&t, json!({"lanes": "x4", "length": "80"})).unwrap_err();
+    assert!(err.starts_with("/values/length "), "{err}");
+    assert!(
+        err.contains("out of range: from 90 to 170 mm at lanes=x4, not 80 mm"),
+        "{err}"
+    );
+    assert!(at(&t, json!({"lanes": "x4", "length": "90"})).is_ok());
+}
+
+#[test]
+fn the_ranges_of_a_length_are_listed_per_option_of_the_choices_it_names() {
+    let t = card_with_lane_min();
+    let ranges = length_ranges(&t, "length").unwrap();
+    let shown: Vec<(String, i64, i64)> = ranges
+        .iter()
+        .map(|r| (format!("{:?}", r.when), r.min.0, r.max.0))
+        .collect();
+    assert_eq!(
+        shown,
+        [
+            (r#"{"lanes": ["x1"]}"#.to_owned(), mm(70).0, mm(170).0),
+            (r#"{"lanes": ["x4"]}"#.to_owned(), mm(90).0, mm(170).0),
+        ]
+    );
+    // A constant range is one range with no gate.
+    let ranges = length_ranges(&rectangle(), "width").unwrap();
+    assert_eq!(ranges.len(), 1);
+    assert!(ranges[0].when.is_empty());
+    assert_eq!((ranges[0].min, ranges[0].max), (mm(1), mm(1000)));
+}
+
+#[test]
+fn load_checks_hold_a_length_bound_to_choice_bound_names_and_its_default_in_every_range() {
+    let p = failing(|t| length(t).min = "length - 30".into());
+    assert!(p.contains("length `length` min"), "{p}");
+    assert!(p.contains("only the names choice options bind"), "{p}");
+    let p = failing(|t| length(t).max = "depth".into());
+    assert!(p.contains("only the names choice options bind"), "{p}");
+    // From 110 at x4, above the 100 default.
+    let p = failing(|t| length(t).min = "card_width + 50".into());
+    assert!(
+        p.contains("length `length` needs min ≤ default ≤ max at lanes=x4"),
+        "{p}"
+    );
+    assert!(!p.contains("lanes=x1"), "{p}");
+    // The default stays a plain value.
+    let p = failing(|t| length(t).default = "card_width + 50".into());
+    assert!(p.contains("length `length` default"), "{p}");
+    assert!(p.contains("must be a plain value"), "{p}");
 }

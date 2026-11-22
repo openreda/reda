@@ -26,7 +26,7 @@ BoardTemplateChoice {
 
 - A choice takes its option `key` (`"x4"`). A length takes a `Length`, either integer nm or a string such as `"65mm"`.
 - An omitted parameter takes its default. A length uses its declared default. A choice uses its `default`, or else its first option.
-- **Errors:** an unknown name, an unknown option key, or a length out of range.
+- **Errors:** an unknown name, an unknown option key, or a length out of range. The range is evaluated at the chosen options, since `min` and `max` may name bound names ([format](template-format.md#parameter-kinds)).
 - A value for a parameter hidden by `when` is accepted and ignored.
 
 ### `exclude`
@@ -85,9 +85,12 @@ Creation is all-or-nothing. An invalid evaluated frame, or bad `values` or `excl
 
 ```
 {element, name, description, category, library, origin, suggested_layers,
- parameters: [{name, kind, label, options | default/min/max/unit, when?}],
+ parameters: [{name, kind, label, options | default/min/max/ranges/unit, when?}],
  objects: [{uuid, kind, part?, side?, protects?, group?}]}
 ```
+
+- A length's `min` and `max` are its range at the default choices, in nm.
+- `ranges: [{when, min, max}]` is its range under each option of the choices its bounds name, such as `{when: {lanes: ["x16"]}, min: 129300000, max: 167650000}` for PCIe `card_length`. The dialog shows the one whose `when` holds for the options chosen. A range that names no choice is one entry with an empty `when` ([#416 decision](https://github.com/openreda/reda/issues/416#issuecomment-7072198747)).
 
 - `kind` is `outline`, `cutout`, `keepout`, `connector`, `hole`, `drawing_group` or `drawing`. A drawing names its `group`.
 - The result also holds the scan's `problems`, including templates that failed their [load checks](template-format.md#when-the-file-loads).

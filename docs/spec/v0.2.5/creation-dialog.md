@@ -29,7 +29,7 @@ It is one page, with no steps.
 ## Parameters
 
 - A choice with 2–3 options is a segmented control, and one with more is a dropdown.
-- A length is a number field in mm, with its min–max range beside it.
+- A length is a number field in mm, with its min–max range beside it. The range is the one for the options chosen, from `library.board_template.list`'s `ranges`, so PCIe x16 shows 129.30–167.65 ([commands](commands.md#libraryboard_templatelist)).
 - A parameter whose `when` does not hold is hidden, such as the cutouts on the micro Pi board.
 - Changing a parameter keeps the Includes ticks. A tick on a row that is now gated out is kept and ignored.
 

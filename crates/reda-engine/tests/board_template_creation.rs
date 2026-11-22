@@ -644,6 +644,22 @@ fn refusals_write_nothing_and_carry_the_preview_s_problems() {
         err.details.unwrap()["pointer"],
         "/board_template/values/width"
     );
+    // A range that depends on a choice: PCIe x16 starts at its tab end, 129.30.
+    let err = refuse(
+        &mut engine,
+        "ShortCard",
+        json!({"element": "4ca6b4ca-11f8-45f1-96c1-c610ece56af9",
+               "values": {"lanes": "x16", "card_length": "100mm"}}),
+    );
+    assert!(
+        err.message
+            .contains("out of range: from 129.3 to 167.65 mm at lanes=x16"),
+        "{err:?}"
+    );
+    assert_eq!(
+        err.details.unwrap()["pointer"],
+        "/board_template/values/card_length"
+    );
     let err = refuse(
         &mut engine,
         "Option",

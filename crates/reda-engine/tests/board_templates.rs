@@ -283,3 +283,70 @@ fn a_template_that_fails_its_load_checks_is_a_problem_and_cannot_be_picked() {
     );
     assert_eq!(err.code, ErrorCode::NotFound, "{err:?}");
 }
+
+const PCIE: &str = "4ca6b4ca-11f8-45f1-96c1-c610ece56af9";
+
+/// The PCIe card's `card_length` starts at the chosen lane width's tab end, 57.15 mm plus
+/// that width's finger run (#416 decision): the list gives one range per lane width, and
+/// preview and creation refuse a length below it as out of range.
+#[test]
+fn a_length_range_that_names_a_choice_is_listed_per_option_and_enforced() {
+    let mut engine = test_engine_with_library(&starter_library());
+    let out = engine.run_ok("library.board_template.list", json!({}));
+    let pcie = out["templates"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["element"] == PCIE)
+        .expect("the starter Library ships the PCIe card");
+    let length = pcie["parameters"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["name"] == "card_length")
+        .unwrap();
+    // At the default x1: from the x1 tab end, 57.15 + 8.15.
+    assert_eq!(length["min"], 65_300_000);
+    assert_eq!(length["max"], 167_650_000);
+    assert_eq!(
+        length["ranges"],
+        json!([
+            {"when": {"lanes": ["x1"]}, "min": 65_300_000, "max": 167_650_000},
+            {"when": {"lanes": ["x4"]}, "min": 79_300_000, "max": 167_650_000},
+            {"when": {"lanes": ["x8"]}, "min": 96_300_000, "max": 167_650_000},
+            {"when": {"lanes": ["x16"]}, "min": 129_300_000, "max": 167_650_000}
+        ])
+    );
+    // A constant range is one range with no gate.
+    let rect = out["templates"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["element"] == CUSTOM_RECTANGLE)
+        .unwrap();
+    assert_eq!(
+        rect["parameters"][0]["ranges"],
+        json!([{"when": {}, "min": 1_000_000, "max": 1_000_000_000}])
+    );
+
+    let err = engine.run_err(
+        "library.board_template.preview",
+        json!({"element": PCIE, "values": {"lanes": "x16", "card_length": "100"}}),
+    );
+    assert_eq!(err.code, ErrorCode::InvalidParams, "{err:?}");
+    assert!(
+        err.message
+            .contains("out of range: from 129.3 to 167.65 mm at lanes=x16, not 100 mm"),
+        "{err:?}"
+    );
+    let frame = engine.run_ok(
+        "library.board_template.preview",
+        json!({"element": PCIE, "values": {"lanes": "x1", "card_length": "100"}}),
+    );
+    assert_eq!(frame["problems"], json!([]));
+    let frame = engine.run_ok(
+        "library.board_template.preview",
+        json!({"element": PCIE, "values": {"lanes": "x16", "card_length": "129.3"}}),
+    );
+    assert_eq!(frame["problems"], json!([]));
+}
