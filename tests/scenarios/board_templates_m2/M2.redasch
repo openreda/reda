@@ -2,7 +2,7 @@
   "format": 2,
   "sheet": {"uuid":"00000000-0000-4000-8000-000000000002"},
   "parts": [
-    {"uuid":"00000000-0000-4000-8000-000000000032","hash":"945de0b347679dafa7c8dd9dcc56ef0b","part":{"uuid":"47a3f16a-73d0-4c69-8340-80c0c66505f9","name":"CardEdge_M.2_Key_AE","component_type":"standard","in_bom":false,"in_cpl":false,"symbol":"bf655d27-48c1-4eee-860c-4ad70aac7b54"},"footprints":["fb2d5026-2247-4cc1-94dd-905a027c637e"],"copies":["00000000-0000-4000-8000-000000000031"],"fields":{"value":"M.2 Key AE","description":"M.2 card edge, key A and E, 59 fingers","keywords":"J connector card edge fingers M.2 NGFF"},"pin_map":{},"symbol":{"uuid":"bf655d27-48c1-4eee-860c-4ad70aac7b54","name":"CardEdge_M.2_Key_AE","designator_prefix":"J","description":"M.2 card edge, key A and E, 59 fingers"},"units":[
+    {"uuid":"00000000-0000-4000-8000-000000000032","hash":"8d1622d8bff4fc575d37ee7cfe740626","part":{"uuid":"47a3f16a-73d0-4c69-8340-80c0c66505f9","name":"CardEdge_M.2_Key_AE","component_type":"standard","in_bom":false,"in_cpl":false,"symbol":"bf655d27-48c1-4eee-860c-4ad70aac7b54"},"footprints":["fb2d5026-2247-4cc1-94dd-905a027c637e"],"copies":["00000000-0000-4000-8000-000000000031"],"fields":{"value":"M.2 Key AE","description":"M.2 card edge, key A and E, 59 fingers","keywords":"J connector card edge fingers M.2 NGFF"},"pin_map":{},"symbol":{"uuid":"bf655d27-48c1-4eee-860c-4ad70aac7b54","name":"CardEdge_M.2_Key_AE","designator_prefix":"J","description":"M.2 card edge, key A and E, 59 fingers"},"units":[
       {"uuid":"c75b75e7-a936-4553-952a-c8924c5ae27d","name":"A"}
     ],"pins":[
       {"uuid":"0206e890-f5f9-4f33-80bc-db8d44f89d6b","unit":"c75b75e7-a936-4553-952a-c8924c5ae27d","name":"48","number":"48","electrical_type":"passive","at":{"x":5080000,"y":-11430000},"rotation":180000,"length":2540000,"name_visible":false},
@@ -69,7 +69,7 @@
     ]}
   ],
   "footprints": [
-    {"uuid":"00000000-0000-4000-8000-000000000031","hash":"b6972e82c0eab477db6176d03cc54988","footprint":{"uuid":"fb2d5026-2247-4cc1-94dd-905a027c637e","name":"CardEdge_M.2_Key_AE","description":"M.2 card edge, key A and E, 59 fingers: Edge Connector Pads 0.35 mm wide on a 0.5 mm pitch per side, set back 0.50 mm from the edge, the common open-hardware value; the origin is the centre of the finger edge","height":35000},"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000031","hash":"5200b78244c29a8f30fa9da6045a608e","footprint":{"uuid":"fb2d5026-2247-4cc1-94dd-905a027c637e","name":"CardEdge_M.2_Key_AE","description":"M.2 card edge, key A and E, 59 fingers: Edge Connector Pads 0.35 mm wide on a 0.5 mm pitch per side, set back 0.50 mm from the edge, the common open-hardware value; the origin is the centre of the finger edge","height":35000},"pads":[
       {"uuid":"02bad75e-7b78-4f3c-b35c-b588ae634968","number":"19","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":4750000,"y":1250000},"rotation":0,"width":350000,"height":1500000,"paste":"none"},
       {"uuid":"0a10ea24-799e-4bdc-8d5c-03f029e857e6","number":"59","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":-5250000,"y":1250000},"rotation":0,"width":350000,"height":1500000,"paste":"none"},
       {"uuid":"102cc457-215e-4493-99ad-d07b73d97aa8","number":"2","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":9000000,"y":1500000},"rotation":0,"width":350000,"height":2000000,"side":"bottom","paste":"none"},
@@ -136,8 +136,8 @@
       {"uuid":"cc6d5f25-00c5-41f7-83da-cfd7417e4063","layer":"courtyard_top","shape":{"kind":"polygon","points":[{"x":-9675000,"y":0},{"x":2025000,"y":0},{"x":2025000,"y":2750000},{"x":-9675000,"y":2750000}]},"width":50000}
     ],"texts":[
       {"uuid":"0239c9a5-bbc2-4be9-8399-8d6e7f428bc1","field":"Designator","at":{"x":0,"y":3550000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
-      {"uuid":"3c03b8b2-7fce-4be6-80b3-d893a2d631d3","field":"Value","at":{"x":0,"y":-700000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
-      {"uuid":"45f11d74-32fb-4ed3-b4df-e47bd0545a17","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
+      {"uuid":"3c03b8b2-7fce-4be6-80b3-d893a2d631d3","field":"Value","at":{"x":0,"y":4750000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+      {"uuid":"45f11d74-32fb-4ed3-b4df-e47bd0545a17","field":"Designator","at":{"x":0,"y":1250000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]}
   ],
   "units": [

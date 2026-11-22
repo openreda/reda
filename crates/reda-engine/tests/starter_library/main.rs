@@ -276,6 +276,29 @@ fn silkscreen_stays_clear_of_every_pad() {
     assert!(problems.is_empty(), "{}", problems.join("\n"));
 }
 
+#[test]
+fn a_card_edge_keeps_its_texts_on_the_card() {
+    // The origin is on the finger edge and the card is at +y: a text below y = 0 would
+    // print past the Board Outline.
+    let mut problems = vec![];
+    for (rel, bytes) in read_tree(&starter().join("footprints")) {
+        let footprint: Value = serde_json::from_slice(&bytes).unwrap();
+        let card_edge = (footprint["pads"].as_array().unwrap().iter())
+            .any(|p| p["role"] == "edge_connector");
+        if !card_edge {
+            continue;
+        }
+        for text in footprint["texts"].as_array().unwrap() {
+            let bottom = text["at"]["y"].as_i64().unwrap()
+                - text["style"]["height"].as_i64().unwrap() / 2;
+            if bottom < 0 {
+                problems.push(format!("{rel}: {} reaches y = {bottom} nm", text["field"]));
+            }
+        }
+    }
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
+}
+
 /// Every Part of the checked-in Library, by name.
 fn parts() -> BTreeMap<String, Value> {
     let mut e = test_engine_with_library(&starter());
