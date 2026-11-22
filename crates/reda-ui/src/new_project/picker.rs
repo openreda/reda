@@ -28,7 +28,7 @@ use super::preview::{self, Look, trim};
 use crate::settings::{self, layout};
 use crate::theme::TokensExt as _;
 use crate::tr;
-use crate::widgets;
+use crate::widgets::{self, Tooltip as _};
 
 /// The category the picker shows first.
 const GENERIC: &str = "Generic";
@@ -377,8 +377,7 @@ impl Picker {
         let mut job = t.ty.body.job(&template.description, t.color.text.muted);
         job.wrap.max_width = size.x;
         job.wrap.max_rows = DESCRIPTION_ROWS;
-        ui.add(egui::Label::new(job))
-            .on_hover_text(&template.description);
+        ui.add(egui::Label::new(job)).tooltip(&template.description);
         let input = self.choice().and_then(Result::err);
         let evaluated = self.frame().map(|r| r.cloned().map_err(str::to_owned));
         let shown = match &evaluated {

@@ -39,6 +39,18 @@ const PROBLEM_RING: f32 = 7.0;
 const BODY_MARGIN: f64 = 0.6;
 /// Arcs are drawn in steps of at most this many degrees.
 const ARC_STEP: f64 = 10.0;
+/// How much of an ink's strength the board fill, a Keepout's fill, an excluded object
+/// and the legend's board swatch keep.
+const BOARD_FILL: f32 = 0.16;
+const KEEPOUT_FILL: f32 = 0.25;
+const FAINT: f32 = 0.2;
+const BOARD_SWATCH: f32 = 0.48;
+
+/// `color` thinned to `share` of its strength, as the canvas thins its overlays.
+fn translucent(color: Color32, share: f32) -> Color32 {
+    // theme-exempt: the preview's inks are Layer colours (data), thinned like the canvas's
+    color.gamma_multiply(share)
+}
 
 /// What a mark is drawn in. [`Look`] gives each its colour.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -710,7 +722,7 @@ impl Look {
         let outline = board(BoardColor::BoardOutline);
         Look {
             background: t.color.surface.well,
-            board: outline.gamma_multiply(0.16),
+            board: translucent(outline, BOARD_FILL),
             outline,
             hole: board(BoardColor::Hole),
             keepout: t.color.warning.solid,
@@ -740,11 +752,11 @@ impl Look {
     fn ink(&self, ink: Ink, faint: bool, fill: bool) -> Color32 {
         let c = self.color(ink);
         let c = if ink == Ink::Keepout && fill {
-            c.gamma_multiply(0.25)
+            translucent(c, KEEPOUT_FILL)
         } else {
             c
         };
-        if faint { c.gamma_multiply(0.2) } else { c }
+        if faint { translucent(c, FAINT) } else { c }
     }
 }
 
@@ -897,7 +909,7 @@ pub fn legend(ui: &mut Ui, look: &Look) {
     ui.horizontal_wrapped(|ui| {
         for (color, text) in [
             (
-                look.board.gamma_multiply(3.0),
+                translucent(look.outline, BOARD_SWATCH),
                 tr!("new-project-legend-board"),
             ),
             (look.outline, tr!("new-project-legend-cutout")),
