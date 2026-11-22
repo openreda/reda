@@ -49730,6 +49730,9 @@
             "description": "The property; `null` clears it. Required."
           }
         },
+        "required": [
+          "edge_connector"
+        ],
         "title": "EdgeConnectorSetParams",
         "type": "object"
       },
@@ -71693,7 +71696,7 @@
           },
           "layers": {
             "default": null,
-            "description": "The PCB Document's copper Layer count, from 2 to 32. Defaults to 2.",
+            "description": "The PCB Document's copper Layer count, from 2 to 32. Left out, it is the\ntemplate's suggested count when `board_template` is given, and 2 otherwise.",
             "format": "uint8",
             "maximum": 32,
             "minimum": 2,

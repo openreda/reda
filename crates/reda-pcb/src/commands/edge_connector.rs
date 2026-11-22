@@ -14,11 +14,25 @@ pub struct EdgeConnectorSet;
 
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+#[schemars(transform = required_key)]
 pub struct EdgeConnectorSetParams {
     /// The property; `null` clears it. Required.
     #[serde(default, deserialize_with = "super::nullable")]
     #[schemars(with = "Option<EdgeConnectorParam>")]
     pub edge_connector: Option<Option<EdgeConnectorParam>>,
+}
+
+/// Lists `edge_connector` as required in the schema: it must be given, though `null` is a
+/// value (it clears the property), which a plain `Option` field would leave optional.
+fn required_key(schema: &mut schemars::Schema) {
+    if let Some(object) = schema.as_object_mut() {
+        let required = object
+            .entry("required")
+            .or_insert_with(|| serde_json::Value::Array(vec![]));
+        if let Some(list) = required.as_array_mut() {
+            list.push("edge_connector".into());
+        }
+    }
 }
 
 /// The card edge's bevel and hard gold.
