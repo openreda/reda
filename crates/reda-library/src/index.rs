@@ -122,7 +122,11 @@ impl LibraryIndex {
             footprint.map(LibraryElement::Footprint)
         };
         let part = || library.parts.get(&uuid).cloned().map(LibraryElement::Part);
-        symbol().or_else(footprint).or_else(part)
+        let template = || {
+            let template = library.board_templates.get(&uuid).cloned();
+            template.map(|t| LibraryElement::BoardTemplate(Box::new(t)))
+        };
+        symbol().or_else(footprint).or_else(part).or_else(template)
     }
 
     /// The Board Template with this UUID, if it loaded.

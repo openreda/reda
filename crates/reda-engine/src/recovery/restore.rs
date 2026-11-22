@@ -49,7 +49,8 @@ pub(crate) fn restore_elements(
         let holder = crate::commands::elements::holder(session);
         if holder.element(uuid).is_some() {
             let mut tx = holder.transaction();
-            tx.replace(element.into())
+            let object = Object::try_from(element).map_err(|e| CommandError::internal(e.to_string()))?;
+            tx.replace(object)
                 .map_err(|e| CommandError::internal(e.to_string()))?;
             let changes = tx
                 .commit()
@@ -116,7 +117,8 @@ pub(crate) fn restore(
     let mut newly_open = Vec::new();
     for (uuid, library, element) in elements {
         if tx.project().element(uuid).is_some() {
-            tx.replace(element.into())
+            let object = Object::try_from(element).map_err(|e| CommandError::internal(e.to_string()))?;
+            tx.replace(object)
                 .map_err(|e| CommandError::internal(e.to_string()))?;
         } else {
             newly_open.push((uuid, library, element));

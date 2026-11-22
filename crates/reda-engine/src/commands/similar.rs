@@ -420,7 +420,7 @@ fn element_parts(element: &LibraryElement) -> Vec<Candidate> {
             );
             out.extend(f.texts.iter().map(|x| (x.uuid, part_attributes("text", x))));
         }
-        LibraryElement::Part(_) => {}
+        LibraryElement::Part(_) | LibraryElement::BoardTemplate(_) => {}
     }
     out.sort_by_key(|(uuid, _)| *uuid);
     out.into_iter()

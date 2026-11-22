@@ -59,14 +59,9 @@ impl Command for ElementDelete {
             CommandError::not_found(format!("no registered Library holds element {}", p.element))
         };
         let held = index.library_of(p.element).ok_or_else(not_found)?;
-        let library = writable_library(&index, held.info.uuid)?;
-        let (kind, name) = match index.board_template(p.element) {
-            Some(t) => (ElementKind::BoardTemplate, t.name.clone()),
-            None => {
-                let e = index.element(p.element).ok_or_else(not_found)?;
-                (ElementKind::of(&e), e.name().to_owned())
-            }
-        };
+        let element = index.element(p.element).ok_or_else(not_found)?;
+        let (kind, name) = (ElementKind::of(&element), element.name().to_owned());
+        let library = writable_library(&index, held.info.uuid, kind)?;
         if session
             .elements_mut()
             .is_some_and(|e| e.element(p.element).is_some())

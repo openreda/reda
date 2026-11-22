@@ -279,6 +279,8 @@ impl View {
                     LibraryElement::Symbol(s) => encode(write_symbol(s))?,
                     LibraryElement::Footprint(f) => encode(write_footprint(f))?,
                     LibraryElement::Part(p) => encode(write_part(p))?,
+                    // Never open, so never recovered.
+                    LibraryElement::BoardTemplate(_) => return Ok(None),
                 };
                 Content {
                     file: format!("{uuid}.{}", kind.extension()),

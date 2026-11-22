@@ -51,7 +51,7 @@ use reda_model::{Footprint, LibraryElement, LibraryInfo, Part, Symbol, Uuid};
 
 use crate::format::library::{
     encode_footprint, encode_part, encode_symbol, read_footprint, read_library_info, read_part,
-    read_symbol, write_footprint, write_part, write_symbol,
+    read_symbol, write_element, write_footprint,
 };
 use crate::fs::write_atomic;
 use crate::preferences;
@@ -163,19 +163,24 @@ pub fn store_footprint(
 
 /// The file `element` gets in `library`: `<library>/<folder>/<name>.<extension>`.
 pub(crate) fn element_file(library: &Library, element: &LibraryElement) -> PathBuf {
-    let kind = ElementKind::of(element);
+    kind_file(library, ElementKind::of(element), element.name())
+}
+
+/// The file a `kind` element called `name` gets in `library` (see [`element_file`]).
+pub(crate) fn kind_file(library: &Library, kind: ElementKind, name: &str) -> PathBuf {
     library
         .root
         .join(kind.folder())
-        .join(format!("{}.{}", element.name(), kind.extension()))
+        .join(format!("{name}.{}", kind.extension()))
 }
 
-/// Writes a new element to its file in `library` (see [`element_file`]), refusing a file
-/// that exists already.
+/// Writes a new element to its file in `library` (see [`element_file`]), refusing a
+/// Library it may not write ([`ensure_writable`]) and a file that exists already.
 pub(crate) fn write_new_element(
     library: &Library,
     element: &LibraryElement,
 ) -> Result<PathBuf, CommandError> {
+    ensure_writable(library, ElementKind::of(element))?;
     let path = element_file(library, element);
     if path.exists() {
         return Err(CommandError::rejected(format!(
@@ -183,12 +188,7 @@ pub(crate) fn write_new_element(
             path.display()
         )));
     }
-    let bytes = match element {
-        LibraryElement::Symbol(s) => write_symbol(s),
-        LibraryElement::Footprint(f) => write_footprint(f),
-        LibraryElement::Part(p) => write_part(p),
-    }
-    .map_err(|e| CommandError::internal(e.to_string()))?;
+    let bytes = write_element(element).map_err(|e| CommandError::internal(e.to_string()))?;
     let io = |e: std::io::Error| CommandError::internal(format!("writing {}: {e}", path.display()));
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir).map_err(io)?;
@@ -197,17 +197,41 @@ pub(crate) fn write_new_element(
     Ok(path)
 }
 
-/// The registered Library `uuid`, which must be writable: not the Starter Library.
-pub(crate) fn writable_library(index: &LibraryIndex, uuid: Uuid) -> Result<&Library, CommandError> {
+/// The registered Library `uuid`, which must take `kind` elements ([`ensure_writable`]).
+pub(crate) fn writable_library(
+    index: &LibraryIndex,
+    uuid: Uuid,
+    kind: ElementKind,
+) -> Result<&Library, CommandError> {
     let library = index
         .library(uuid)
         .ok_or_else(|| CommandError::not_found(format!("no registered Library has UUID {uuid}")))?;
+    ensure_writable(library, kind)?;
+    Ok(library)
+}
+
+/// The one writability rule for writing `kind` elements into `library` (save, copy,
+/// delete, extract): the Starter Library is read-only, and so is a folder the filesystem
+/// won't let us write: the kind's folder when it exists, else the Library's own.
+pub(crate) fn ensure_writable(library: &Library, kind: ElementKind) -> Result<(), CommandError> {
     if library.origin == Origin::Starter {
         return Err(CommandError::rejected(
             "the starter Library is read-only; choose your own Library",
         ));
     }
-    Ok(library)
+    let folder = library.root.join(kind.folder());
+    let dir = if folder.is_dir() {
+        folder
+    } else {
+        library.root.clone()
+    };
+    if std::fs::metadata(dir).is_ok_and(|m| m.permissions().readonly()) {
+        return Err(CommandError::rejected(format!(
+            "Library {} is read-only; choose a Library you can write to",
+            library.info.name
+        )));
+    }
+    Ok(())
 }
 
 /// The engine's [`PartSource`]: the registered Libraries on disk, as they were when the

@@ -75,6 +75,7 @@ impl ElementKind {
             LibraryElement::Symbol(_) => ElementKind::Symbol,
             LibraryElement::Footprint(_) => ElementKind::Footprint,
             LibraryElement::Part(_) => ElementKind::Part,
+            LibraryElement::BoardTemplate(_) => ElementKind::BoardTemplate,
         }
     }
 

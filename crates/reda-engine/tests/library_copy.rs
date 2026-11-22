@@ -272,3 +272,38 @@ fn library_element_new_refuses_a_board_template() {
     );
     assert_eq!(err.code, ErrorCode::InvalidParams, "{err:?}");
 }
+
+#[test]
+fn copying_into_a_read_only_library_folder_is_refused_for_every_kind() {
+    // One writability rule for save and copy: the Starter Library, and a folder the
+    // filesystem won't let us write.
+    let dir = TempDir::new("element-copy-read-only");
+    let (mut engine, mine) = engine(dir.path());
+    for (element, folder) in [(PI_TEMPLATE, "board-templates"), (NPN_SYMBOL, "symbols")] {
+        let folder = dir.path().join("mine").join(folder);
+        std::fs::create_dir_all(&folder).unwrap();
+        set_read_only(&folder, true);
+        let err = engine.run_err(
+            "library.element.copy",
+            json!({"element": element, "library": mine}),
+        );
+        set_read_only(&folder, false);
+        assert_eq!(err.code, ErrorCode::Rejected, "{err:?}");
+        assert!(err.message.contains("read-only"), "{err:?}");
+        assert_eq!(std::fs::read_dir(&folder).unwrap().count(), 0);
+    }
+}
+
+#[test]
+fn a_board_template_does_not_open_in_an_element_editor() {
+    let dir = TempDir::new("element-open-template");
+    let (mut engine, _) = engine(dir.path());
+    let err = engine.run_err("library.element.open", json!({"element": PI_TEMPLATE}));
+    assert_ne!(err.code, ErrorCode::Internal, "{err:?}");
+}
+
+fn set_read_only(folder: &Path, on: bool) {
+    let mut permissions = std::fs::metadata(folder).unwrap().permissions();
+    permissions.set_readonly(on);
+    std::fs::set_permissions(folder, permissions).unwrap();
+}

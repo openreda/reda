@@ -17,7 +17,7 @@ use reda_model::{
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::format::library::{write_footprint, write_part, write_symbol};
+use crate::format::library::write_element;
 use crate::fs::write_atomic;
 use crate::library::scan_registered;
 
@@ -284,6 +284,13 @@ impl Command for ElementOpen {
                 p.element
             )));
         };
+        if let LibraryElement::BoardTemplate(t) = &element {
+            return Err(CommandError::rejected(format!(
+                "Board Template {} has no editor; preview it with \
+                 library.board_template.preview",
+                t.name
+            )));
+        }
         let source = ElementSource {
             library: library.info.uuid,
             read_only: library.origin == Origin::Starter,
@@ -368,12 +375,7 @@ impl Command for ElementSave {
         let mut written = vec![];
         for (source, element) in &wanted {
             let path = element_path(&index, *source, element)?;
-            let bytes = match element {
-                LibraryElement::Symbol(s) => write_symbol(s),
-                LibraryElement::Footprint(f) => write_footprint(f),
-                LibraryElement::Part(p) => write_part(p),
-            }
-            .map_err(|e| CommandError::internal(e.to_string()))?;
+            let bytes = write_element(element).map_err(|e| CommandError::internal(e.to_string()))?;
             let io = |e: std::io::Error| {
                 CommandError::internal(format!("writing {}: {e}", path.display()))
             };

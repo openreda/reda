@@ -4,12 +4,11 @@
 use std::path::PathBuf;
 
 use reda_command::{Command, CommandError, Context, Kind, Meta, Registry};
-use reda_library::{ElementKind, Library, copy_element, free_name};
-use reda_model::{BoardTemplate, Uuid};
+use reda_library::{ElementKind, copy_element, free_name};
+use reda_model::Uuid;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::fs::write_atomic;
 use crate::library::{element_file, scan_registered, writable_library, write_new_element};
 
 pub(crate) fn register_all(registry: &mut Registry) {
@@ -61,15 +60,11 @@ impl Command for ElementCopy {
     ) -> Result<ElementCopyResult, CommandError> {
         let uuid = cx.new_id();
         let index = scan_registered(cx.session()?);
-        if let Some(template) = index.board_template(p.element) {
-            let library = writable_library(&index, p.library)?;
-            return copy_template(library, template, uuid);
-        }
         let original = index.element(p.element).ok_or_else(|| {
             CommandError::not_found(format!("no registered Library holds element {}", p.element))
         })?;
-        let library = writable_library(&index, p.library)?;
         let kind = ElementKind::of(&original);
+        let library = writable_library(&index, p.library, kind)?;
         let name = free_name(original.name(), |name| {
             let candidate = copy_element(&original, uuid, name);
             library.holds_name(kind, name) || element_file(library, &candidate).exists()
@@ -83,42 +78,4 @@ impl Command for ElementCopy {
             path,
         })
     }
-}
-
-/// The file a Board Template called `name` gets in `library`.
-fn template_file(library: &Library, name: &str) -> PathBuf {
-    let kind = ElementKind::BoardTemplate;
-    library
-        .root
-        .join(kind.folder())
-        .join(format!("{name}.{}", kind.extension()))
-}
-
-/// `template` written into `library` as element `uuid`, under a free name.
-fn copy_template(
-    library: &Library,
-    template: &BoardTemplate,
-    uuid: Uuid,
-) -> Result<ElementCopyResult, CommandError> {
-    let kind = ElementKind::BoardTemplate;
-    let name = free_name(&template.name, |name| {
-        library.holds_name(kind, name) || template_file(library, name).exists()
-    });
-    let mut copy = template.clone();
-    copy.uuid = uuid;
-    copy.name = name.clone();
-    let bytes = crate::format::write_board_template(&copy)
-        .map_err(|e| CommandError::internal(e.to_string()))?;
-    let path = template_file(library, &name);
-    let io = |e: std::io::Error| CommandError::internal(format!("writing {}: {e}", path.display()));
-    if let Some(dir) = path.parent() {
-        std::fs::create_dir_all(dir).map_err(io)?;
-    }
-    write_atomic(&path, &bytes).map_err(io)?;
-    Ok(ElementCopyResult {
-        element: uuid,
-        kind,
-        name,
-        path,
-    })
 }

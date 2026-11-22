@@ -312,12 +312,19 @@ impl Object {
     }
 }
 
-impl From<LibraryElement> for Object {
-    fn from(element: LibraryElement) -> Object {
+/// A Board Template is a Library element but no editable object: it is never opened, so
+/// it never takes part in a transaction.
+impl TryFrom<LibraryElement> for Object {
+    type Error = crate::transaction::TxError;
+
+    fn try_from(element: LibraryElement) -> Result<Object, Self::Error> {
         match element {
-            LibraryElement::Symbol(s) => Object::Symbol(s),
-            LibraryElement::Footprint(f) => Object::Footprint(f),
-            LibraryElement::Part(p) => Object::Part(p),
+            LibraryElement::Symbol(s) => Ok(Object::Symbol(s)),
+            LibraryElement::Footprint(f) => Ok(Object::Footprint(f)),
+            LibraryElement::Part(p) => Ok(Object::Part(p)),
+            LibraryElement::BoardTemplate(t) => Err(crate::transaction::TxError::Invalid(
+                format!("Board Template {} is not an editable object", t.name),
+            )),
         }
     }
 }

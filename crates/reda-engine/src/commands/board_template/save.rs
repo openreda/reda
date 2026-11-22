@@ -10,14 +10,14 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use reda_command::{AvailabilityContext, Command, CommandError, Context, Kind, Meta, Unavailable};
-use reda_library::board_template::{BOARD_TEMPLATE_EXTENSION, BOARD_TEMPLATE_FOLDER, check};
-use reda_library::{Library, LibraryIndex, check_element_name};
+use reda_library::board_template::check;
+use reda_library::{ElementKind, LibraryIndex, check_element_name};
 use reda_model::geom::{Millideg, Nm, Point, Vertex, contour_bounds};
 use reda_model::local_edit::local_edits;
 use reda_model::{
     BoardTemplate, ComponentType, Dimension, DimensionEnd, DrawingKind, DrawingLayer,
     FootprintCopy, FootprintInstance, FreePad, GraphicShape, Hotspot, Keepout, KeepoutShape,
-    KeepoutShapeKind, LayerKind, PartEntry, PcbDocument, PlatedEdges, Project, SchematicSheet,
+    KeepoutShapeKind, LayerKind, LibraryElement, PartEntry, PcbDocument, PlatedEdges, Project, SchematicSheet,
     Side, TemplateBevel, TemplateBoard, TemplateContour, TemplateCopperLayer, TemplateDimensionEnd,
     TemplateDrawing, TemplateDrawingGroup, TemplateDrill, TemplateEdgeConnector, TemplateFollow,
     TemplateHole, TemplateKeepout, TemplateNumber, TemplatePad, TemplatePart, TemplatePlacement,
@@ -26,8 +26,7 @@ use reda_model::{
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::fs::write_atomic;
-use crate::library::{copy_part, scan_registered, writable_library};
+use crate::library::{copy_part, kind_file, scan_registered, writable_library, write_new_element};
 
 /// Why an inner-layer Keepout can't be ticked.
 pub const INNER_KEEPOUT: &str = "inner-layer Keepouts can't go in a template yet";
@@ -106,19 +105,13 @@ impl Command for BoardTemplateSave {
             .clone()
             .ok_or_else(|| CommandError::unavailable("no Project is open"))?;
         let index = scan_registered(session);
-        let library = writable_library(&index, p.library)?;
-        let path = template_file(library, &p.name);
-        if library.board_templates.values().any(|t| t.name == p.name) || path.exists() {
+        let kind = ElementKind::BoardTemplate;
+        let library = writable_library(&index, p.library, kind)?;
+        if library.holds_name(kind, &p.name) || kind_file(library, kind, &p.name).exists() {
             return Err(CommandError::rejected(format!(
                 "Library {} already has a Board Template named {:?}; choose another name, \
                  or delete the old template in the Library panel first",
                 library.info.name, p.name
-            )));
-        }
-        if read_only(library) {
-            return Err(CommandError::rejected(format!(
-                "Library {} is read-only; choose a Library you can write to",
-                library.info.name
             )));
         }
         let mut ids = || cx.new_id();
@@ -130,39 +123,14 @@ impl Command for BoardTemplateSave {
                 problems.join("; ")
             )));
         }
-        let bytes = crate::format::write_board_template(&captured.template)
-            .map_err(|e| CommandError::internal(e.to_string()))?;
-        let io =
-            |e: std::io::Error| CommandError::internal(format!("writing {}: {e}", path.display()));
-        if let Some(dir) = path.parent() {
-            std::fs::create_dir_all(dir).map_err(io)?;
-        }
-        write_atomic(&path, &bytes).map_err(io)?;
+        let template = LibraryElement::BoardTemplate(Box::new(captured.template));
+        let path = write_new_element(library, &template)?;
         Ok(SaveResult {
             element,
             path,
             warnings: captured.warnings,
         })
     }
-}
-
-/// `<library>/board-templates/<name>.redaboard`.
-fn template_file(library: &Library, name: &str) -> PathBuf {
-    library
-        .root
-        .join(BOARD_TEMPLATE_FOLDER)
-        .join(format!("{name}.{BOARD_TEMPLATE_EXTENSION}"))
-}
-
-/// Whether the Library's folder (or its `board-templates/`) can't be written.
-fn read_only(library: &Library) -> bool {
-    let folder = library.root.join(BOARD_TEMPLATE_FOLDER);
-    let dir = if folder.is_dir() {
-        folder
-    } else {
-        library.root.clone()
-    };
-    std::fs::metadata(dir).is_ok_and(|m| m.permissions().readonly())
 }
 
 /// What a candidate object is.

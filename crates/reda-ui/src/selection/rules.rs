@@ -74,7 +74,7 @@ fn object_kind(shell: &Shell, document: Uuid, object: Uuid) -> Option<FilterKind
                 None
             }
         }
-        LibraryElement::Part(_) => None,
+        LibraryElement::Part(_) | LibraryElement::BoardTemplate(_) => None,
     }
 }
 

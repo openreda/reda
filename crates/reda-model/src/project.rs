@@ -418,7 +418,7 @@ impl Project {
             return Some(Object::OutputJob(job.clone()));
         }
         if let Some(element) = self.element(uuid) {
-            return Some(element.clone().into());
+            return Object::try_from(element.clone()).ok();
         }
         if let Some(object) = self.pcb_documents.values().find_map(|pcb| pcb.object(uuid)) {
             return Some(object);
@@ -505,7 +505,9 @@ impl Project {
             .chain(self.entries.values().cloned().map(Object::Document))
             .chain(self.fab_presets.values().cloned().map(Object::FabPreset))
             .chain(self.output_jobs.values().cloned().map(Object::OutputJob))
-            .chain(self.elements.values().map(|(_, e)| e.clone().into()))
+            .chain(
+                (self.elements.values()).filter_map(|(_, e)| Object::try_from(e.clone()).ok()),
+            )
             .chain(self.pcb_documents.values().flat_map(PcbDocument::objects))
             .chain(
                 self.schematic_sheets
