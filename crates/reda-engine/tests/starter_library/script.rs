@@ -495,20 +495,26 @@ impl Script {
             .find(|t| t["field"] == "Designator")
             .unwrap()["uuid"]
             .clone();
+        let designator_y = top + mm(0.8);
         self.edit(
             "library.footprint.text.edit",
-            json!({"footprint": footprint, "text": designator, "at": pt(0, top + mm(0.8))}),
+            json!({"footprint": footprint, "text": designator, "at": pt(0, designator_y)}),
         );
-        self.assembly_designator(footprint);
+        self.assembly_designator(footprint, designator_y);
         self.save(footprint);
         footprint.to_owned()
     }
 
     /// Adds the Assembly Designator in the middle of the body and moves the Value below the
     /// courtyard, both sized as the generators size them: half the Assembly outline's
-    /// shorter side, at most 1 mm, in 0.01 mm steps.
-    fn assembly_designator(&mut self, footprint: &str) {
+    /// shorter side, at most 1 mm, in 0.01 mm steps. A card edge, whose origin is on the
+    /// finger edge with the card at +y, centres the Assembly Designator on its Assembly
+    /// outline and puts the Value above the Designator at `designator_y`, so both stay on
+    /// the card.
+    fn assembly_designator(&mut self, footprint: &str, designator_y: i64) {
         let object = self.run("object.get", json!({ "uuid": footprint }))["object"].clone();
+        let card_edge =
+            (object["pads"].as_array().unwrap().iter()).any(|p| p["role"] == "edge_connector");
         let extent = |prefix: &str| {
             let (mut xs, mut ys) = (vec![], vec![]);
             for g in object["graphics"].as_array().unwrap() {
@@ -523,25 +529,32 @@ impl Script {
             (xs, ys)
         };
         let span = |v: &[i64]| v.iter().max().unwrap() - v.iter().min().unwrap();
+        let middle = |v: &[i64]| (v.iter().max().unwrap() + v.iter().min().unwrap()) / 2;
         let (xs, ys) = extent("assembly");
         let size = (span(&xs).min(span(&ys)) / 2).min(mm(1.0)) / 10_000 * 10_000;
+        let body = if card_edge {
+            pt(middle(&xs), middle(&ys))
+        } else {
+            pt(0, 0)
+        };
         self.edit(
             "library.footprint.text.add",
-            json!({"footprint": footprint, "field": "Designator", "at": pt(0, 0),
+            json!({"footprint": footprint, "field": "Designator", "at": body,
                    "layer": "assembly_top", "height": size}),
         );
-        let bottom = *extent("courtyard").1.iter().min().unwrap();
-        let value = object["texts"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|t| t["field"] == "Value")
-            .unwrap()["uuid"]
-            .clone();
+        let texts = object["texts"].as_array().unwrap();
+        let field = |name: &str| texts.iter().find(|t| t["field"] == name).unwrap();
+        let value_y = if card_edge {
+            let designator = field("Designator")["style"]["height"].as_i64().unwrap();
+            designator_y + designator / 2 + mm(0.2) + size / 2
+        } else {
+            let bottom = *extent("courtyard").1.iter().min().unwrap();
+            bottom - mm(0.2) - size / 2
+        };
         self.edit(
             "library.footprint.text.edit",
-            json!({"footprint": footprint, "text": value, "height": size,
-                   "at": pt(0, bottom - mm(0.2) - size / 2)}),
+            json!({"footprint": footprint, "text": field("Value")["uuid"].clone(),
+                   "height": size, "at": pt(0, value_y)}),
         );
     }
 

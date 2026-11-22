@@ -9,7 +9,7 @@ Source: [How are Board Templates tested?](https://github.com/openreda/reda/issue
 
 ### Exhaustive data test
 
-The test walks every choice combination of every built-in, with each length at its min, default and max as evaluated under that combination, since `min` and `max` may name bound names ([format](template-format.md#parameter-kinds)). For each point it checks that:
+The test walks every choice combination of every built-in (a choice hidden by its `when` adds none, so the micro Pi board is one combination per GPIO header), with each length at its min, default and max as evaluated under that combination, since `min` and `max` may name bound names ([format](template-format.md#parameter-kinds)). For each point it checks that:
 
 - the template loads and passes the schema and expression checks;
 - exactly one Board Outline survives;
@@ -35,7 +35,7 @@ There are full PCB and Schematic goldens for one combination per template, from 
 A checked-in `board-template-dimensions.tsv` has these columns: template, combination, quantity, expected value, tolerance and sources.
 
 - **The data test** measures each quantity in the evaluated frame.
-- **Sources:** a row needs two independent sources, or one primary spec marked `primary`. A single-source value that a ticket accepted knowingly is marked `decided` and names that ticket: the PCIe bevel (20°, 1.30), the PCIe pad near end (1.40), and the M.2 pad setback (0.50) and lands (Ø5.5 / Ø6.0).
+- **Sources:** a row needs two independent sources, or one primary spec marked `primary`. A single-source value that a ticket accepted knowingly is marked `decided` and names that ticket: the PCIe bevel (20°, 1.30), the PCIe pad near end (1.40), and the M.2 pad setback (0.50) and lands (Ø5.5 / Ø6.0) (all `decided #399`); the Eurocard outline sizes (100 × 160, 233.35 × 400 and the rest of the IEC 60297-3-101 grid, whose text is paywalled), the Pi header Pad 1 and Pad 2 Y (51.23 / 53.77, the header on the top-hole row), the Feather hole drills (Ø2.7, the starter `MountingHole_M2.5`) and the Pico hole drills (Ø2.2, the starter `MountingHole_M2`) (all `decided #397`).
 - **Coverage:** every hole, notch, connector and outline dimension of each built-in at default values must have a row. Variants derived by expression are covered by the frame goldens.
 - **Exempt:** Documentation drawings, such as "Host board outline (approximate)" and "Bracket outline (approximate)", are marked `unverified`.
 

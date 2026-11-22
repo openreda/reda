@@ -135,7 +135,8 @@ pub struct ProjectNewParams {
     /// Defaults to Generic.
     #[serde(default)]
     pub fab_preset: Option<String>,
-    /// The PCB Document's copper Layer count, from 2 to 32. Defaults to 2.
+    /// The PCB Document's copper Layer count, from 2 to 32. Left out, it is the
+    /// template's suggested count when `board_template` is given, and 2 otherwise.
     #[serde(default)]
     #[schemars(range(min = 2, max = 32))]
     pub layers: Option<u8>,

@@ -5,6 +5,7 @@ pub mod board_template;
 pub mod checks_report;
 pub mod document;
 pub mod element_copy;
+pub mod element_delete;
 pub mod elements;
 pub mod export_pdf;
 pub mod extract;
@@ -56,6 +57,7 @@ pub fn register_all(registry: &mut Registry) {
     library::register_all(registry);
     where_used::register_all(registry);
     element_copy::register_all(registry);
+    element_delete::register_all(registry);
     extract::register_all(registry);
     library_check::register_all(registry);
     local_edits::register_all(registry);

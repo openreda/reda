@@ -53,7 +53,7 @@ See [save-as-template](save-as-template.md#drawings).
 Every built-in except Custom rectangle has a **Key dimensions** group on the Mechanical Layer. It holds:
 
 - the board width and height, driven by expressions;
-- the hole pitch;
+- the hole pitch, where the template has a regular hole pattern (Feather, Pi, Pico);
 - the connector datum, where there is one: GPIO pin 1, the PCIe key, the M.2 notch.
 
 Each template's set is listed in the [catalogue](catalogue.md). The M.2 group also holds the labelled far-end 3.80 zone.

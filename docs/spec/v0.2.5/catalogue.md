@@ -149,6 +149,7 @@ Both templates use the exact outline from Arduino's CAD files: the 45° chamfere
 - **The far-end 3.80 zone is a drawing, not a Keepout.** It is a labelled region from Y = `card_length` − 3.80 to `card_length` in the Key dimensions group, reading "RF receptacles or components". The source allows components there ([decisions taken while writing this spec](scope.md#decisions-taken-while-writing-this-spec)).
 - **Board properties:** no `edge_connector` bevel, because no source gives one.
 - **Description:** says the card is 0.8 mm thick, so the Fab Preset must match, and that the template doesn't set the thickness. It says no bevel figure is published, and recommends hard gold for cards that are inserted often.
+  - It advises a Fab Preset with clearance ≤ 0.15 mm (JLCPCB's is 0.10 mm), because the fingers are 0.15 mm apart. Under the Generic preset's 0.16 mm, DRC fires `clearance` between fingers. That is correct DRC behaviour: the Fab Preset stays the user's choice.
 - **Key dimensions:** width (22), length (`card_length`) and the notch centre from the centreline for the chosen key.
 
 ### PCI Express add-in card

@@ -25,7 +25,8 @@ use std::path::Path;
 use reda_model::text;
 use reda_model::{
     ComponentType, Fields, Footprint, FootprintGenerator, FootprintGraphic, FootprintText,
-    LibraryInfo, Pad, Part, Pin, PinMap, Provenance, Symbol, SymbolGraphic, Unit, Uuid,
+    LibraryElement, LibraryInfo, Pad, Part, Pin, PinMap, Provenance, Symbol, SymbolGraphic, Unit,
+    Uuid,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -364,6 +365,16 @@ impl PartRow {
 
 pub fn write_part(part: &Part) -> Result<Vec<u8>, CanonicalError> {
     encode_part(part, FORMAT)
+}
+
+/// Any Library element as its file's canonical bytes.
+pub fn write_element(element: &LibraryElement) -> Result<Vec<u8>, CanonicalError> {
+    match element {
+        LibraryElement::Symbol(s) => write_symbol(s),
+        LibraryElement::Footprint(f) => write_footprint(f),
+        LibraryElement::Part(p) => write_part(p),
+        LibraryElement::BoardTemplate(t) => super::write_board_template(t),
+    }
 }
 
 pub(crate) fn encode_part(part: &Part, format: u32) -> Result<Vec<u8>, CanonicalError> {

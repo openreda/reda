@@ -293,10 +293,9 @@ fn a_choice_binds_names_picks_rows_and_overrides_the_layer_count() {
 fn a_value_for_a_hidden_parameter_is_accepted_and_ignored() {
     let t = card();
     let frame = at(&t, json!({"lanes": "x1", "bracket": "full"})).unwrap();
-    assert_eq!(
-        frame.values["bracket"],
-        ResolvedValue::Choice("none".into())
-    );
+    // Hidden, `bracket` gates at its default but is no resolved value of the frame.
+    assert!(!frame.values.contains_key("bracket"), "{:?}", frame.values);
+    assert_eq!(frame.values.keys().collect::<Vec<_>>(), ["lanes", "length"]);
     assert!(frame.cutouts.is_empty());
     let frame = at(&t, json!({"lanes": "x4", "bracket": "full"})).unwrap();
     assert_eq!(frame.cutouts.len(), 1);
@@ -379,13 +378,22 @@ fn a_keepout_with_nothing_to_restrict_is_a_frame_problem() {
 }
 
 #[test]
-fn combinations_walk_every_choice_option() {
+fn combinations_walk_every_shown_choice_option_once() {
+    // `bracket` is hidden at x1, so x1 is one combination, not one per bracket option.
     let combos = combinations(&card());
     let shown: Vec<String> = combos
         .iter()
-        .map(|c| format!("{}/{}", c["lanes"], c["bracket"]))
+        .map(|c| {
+            c.iter()
+                .map(|(k, v)| format!("{k}={v}"))
+                .collect::<Vec<_>>()
+                .join(",")
+        })
         .collect();
-    assert_eq!(shown, ["x1/none", "x1/full", "x4/none", "x4/full"]);
+    assert_eq!(
+        shown,
+        ["lanes=x1", "bracket=none,lanes=x4", "bracket=full,lanes=x4"]
+    );
     assert_eq!(combinations(&rectangle()), [BTreeMap::new()]);
 }
 

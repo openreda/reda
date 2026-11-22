@@ -55,7 +55,7 @@ Creation is all-or-nothing. An invalid evaluated frame, or bad `values` or `excl
 
 `seeded` gains `template: {element, name, values, objects}`:
 
-- `values` is fully resolved, with the defaults filled in.
+- `values` is fully resolved, with the defaults filled in. A parameter hidden by its `when` is left out: it gates and binds at its default, but it is not a value of this board.
 - `objects` holds one entry per created template object: `{template_object, created, designator?, component?}`.
   - It covers the outline, cutouts, Keepouts, holes, connectors, drawing groups and drawings. A drawing group's `created` is absent, because it creates no board object of its own.
   - `designator` is given for connectors and Mechanical Part holes, and `component` for connectors.
@@ -104,7 +104,7 @@ Creation is all-or-nothing. An invalid evaluated frame, or bad `values` or `excl
 - the Keepouts;
 - the holes and connectors as placed, in integer nm, with pad outlines for drawing;
 - the drawings, by group;
-- the resolved `values` and `suggested_layers`;
+- the resolved `values` (hidden parameters left out, as in [reporting](#reporting)) and `suggested_layers`;
 - `problems`: Board Outline, Board Cutout and Keepout validation, with locations so the preview can mark them.
 
 The dialog's egui painter draws from this output, and creation runs the same evaluation function.
@@ -118,5 +118,6 @@ The dialog's egui painter draws from this output, and creation runs the same eva
 - **`pcb.contour.edge.set {contour, edge, plated: {net?} | null}`** marks or clears a Plated Edge. See [plated edges](plated-edges.md#marking).
   - `contour` is the Board Outline's or a Board Cutout's UUID.
   - `edge` is the index of the vertex that starts the edge.
+- **`pcb.contour.edge.set_all {contour, plated: {net?} | null}`** marks or clears every edge of one contour in one undoable edit: the "Plate all edges" and "Unplate all" shortcuts. See [plated edges](plated-edges.md#marking).
 - **`pcb.edge_connector.set {edge_connector: {bevel?: {angle, depth}, hard_gold?} | null}`** sets or clears the board's `edge_connector` property. It is one undoable edit. No Command sets board-level properties today (finish lives on the Stackup and goes through `pcb.stackup.set`), so this one is new. See [edge connectors](edge-connectors.md#the-edge_connector-board-property).
 - **The Pad `role: edge_connector` and `castellated` fields** are set through the Footprint editor's Pad Commands and `pcb.pad.*` like any other Pad field.

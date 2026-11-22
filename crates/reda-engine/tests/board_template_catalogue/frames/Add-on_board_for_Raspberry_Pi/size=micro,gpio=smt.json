@@ -1797,7 +1797,6 @@
   "problems": [],
   "suggested_layers": 2,
   "values": {
-    "cutouts": "display_camera",
     "gpio": "smt",
     "size": "micro"
   }

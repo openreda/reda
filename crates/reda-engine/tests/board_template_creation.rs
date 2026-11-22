@@ -74,8 +74,8 @@ fn project_new_writes_the_custom_rectangle_as_a_locked_outline() {
 fn every_card_edge_built_in_creates_a_board_drc_passes() {
     // The fingers sit on the outline, the half-moon crosses it and the Courtyards follow
     // the key notches and tab chamfers: none of it may fire on a fresh card. On a JLCPCB
-    // board, whose clearance fits the M.2 fingers' 0.15 mm gaps; the starter M3 hole's
-    // 0.12 mm silkscreen ring is under its 0.15 mm silk width, which is not the card's.
+    // board, whose clearance fits the M.2 fingers' 0.15 mm gaps and whose 0.15 mm silk
+    // width the starter mounting holes' rings meet.
     const M2: &str = "3d513563-914e-4251-97d8-d3f9836240ad";
     const PCIE: &str = "4ca6b4ca-11f8-45f1-96c1-c610ece56af9";
     let mut points = vec![];
@@ -96,10 +96,49 @@ fn every_card_edge_built_in_creates_a_board_drc_passes() {
                    "board_template": {"element": element, "values": values}}),
         );
         let drc = engine.run_ok("drc.run", json!({}));
-        let card: Vec<&Value> = (drc["violations"].as_array().unwrap().iter())
-            .filter(|v| v["check"] != "silk_width")
-            .collect();
-        assert_eq!(card, Vec::<&Value>::new(), "{values}: {drc}");
+        let card = drc["violations"].as_array().unwrap();
+        assert!(card.is_empty(), "{values}: {drc}");
+    }
+}
+
+#[test]
+fn an_m2_card_on_the_generic_preset_fires_clearance_between_its_fingers() {
+    // The fingers are 0.15 mm apart, under Generic's 0.16 mm clearance. DRC is right to
+    // flag them: the Fab Preset is the user's choice, and the description advises one
+    // with a clearance of 0.15 mm or less.
+    let work = TempDir::new("m2-generic");
+    let mut engine = test_engine_with_library(&starter_library());
+    engine.run_ok(
+        "project.new",
+        json!({"path": work.path(), "name": "Card", "fab_preset": "Generic",
+               "board_template": {"element": "3d513563-914e-4251-97d8-d3f9836240ad",
+                                  "values": {"key": "m", "length": "2230"}}}),
+    );
+    let drc = engine.run_ok("drc.run", json!({}));
+    let clearance: Vec<&Value> = (drc["violations"].as_array().unwrap().iter())
+        .filter(|v| v["check"] == "clearance")
+        .collect();
+    assert!(!clearance.is_empty(), "{drc}");
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let card = pcb.footprints().next().unwrap();
+    let fingers: Vec<String> = pcb
+        .footprint_copy(card.footprint)
+        .unwrap()
+        .footprint
+        .pads
+        .iter()
+        .map(|p| p.uuid.to_string())
+        .collect();
+    for v in &clearance {
+        // Each one is between two fingers of the card-edge Footprint.
+        let objects = v["objects"].as_array().unwrap();
+        let pads = (objects.iter())
+            .filter(|o| fingers.iter().any(|f| o.as_str() == Some(f)))
+            .count();
+        assert!(
+            objects.contains(&json!(card.uuid.to_string())) && pads == 2,
+            "{v}"
+        );
     }
 }
 
@@ -319,10 +358,11 @@ fn project_new_writes_every_kind_of_template_object() {
                "board_template": {"element": s(100), "values": {"finish": "fancy"}}}),
     );
     let seeded = &out["seeded"];
-    // Omitted `layers` takes the suggestion: 4 copper Layers.
+    // Omitted `layers` takes the suggestion: 4 copper Layers. `finish` is hidden at
+    // `size: small`, so the value given for it is ignored and it is no resolved value.
     assert_eq!(
         seeded["template"]["values"],
-        json!({"finish": "plain", "height": 40_000_000, "size": "small"})
+        json!({"height": 40_000_000, "size": "small"})
     );
     let objects = created(seeded);
     let order: Vec<&str> = seeded["template"]["objects"]

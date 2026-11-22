@@ -35,7 +35,7 @@ pub use footprint::{
     FootprintInstance, FootprintTextRef, PadNet, PadRef, TextAutoposition, TextOverride,
 };
 pub use placement::{FreePad, OutputOrigin};
-pub use plated::{PlatedEdge, PlatedEdgeRef, PlatedEdges};
+pub use plated::{PlatedEdge, PlatedEdges};
 pub use rules::{
     AspectRatioLimit, Bounds, ConnectionTarget, ConnectionValue, DesignRule, HoleRuleValues,
     LayerGroup, PortableClass, PortableLayers, PortableRule, PortableSpan, RuleField, RuleKind,
@@ -373,11 +373,6 @@ macro_rules! contour_rows {
                     plated: PlatedEdges::new(),
                 }
             }
-
-            /// This contour's Plated Edges, in vertex order.
-            pub fn plated_edges(&self) -> Vec<PlatedEdgeRef> {
-                plated::edges_of(self.uuid, &self.vertices, &self.plated)
-            }
         }
     )*};
 }
@@ -592,14 +587,6 @@ impl PcbDocument {
 
     pub fn cutout(&self, uuid: Uuid) -> Option<&BoardCutout> {
         self.cutouts.get(&uuid)
-    }
-
-    /// Every Plated Edge on the board: the Board Outline's, then each Board Cutout's.
-    pub fn plated_edges(&self) -> Vec<PlatedEdgeRef> {
-        let mut out: Vec<PlatedEdgeRef> =
-            self.outline().map(|o| o.plated_edges()).unwrap_or_default();
-        out.extend(self.cutouts().flat_map(|c| c.plated_edges()));
-        out
     }
 
     pub fn net_classes(&self) -> impl Iterator<Item = &NetClass> {

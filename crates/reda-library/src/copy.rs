@@ -44,6 +44,7 @@ pub fn copy_element(element: &LibraryElement, uuid: Uuid, name: &str) -> Library
         LibraryElement::Symbol(s) => (s.uuid, s.name) = (uuid, name.to_owned()),
         LibraryElement::Footprint(f) => (f.uuid, f.name) = (uuid, name.to_owned()),
         LibraryElement::Part(p) => (p.uuid, p.name) = (uuid, name.to_owned()),
+        LibraryElement::BoardTemplate(t) => (t.uuid, t.name) = (uuid, name.to_owned()),
     }
     copy
 }

@@ -57,6 +57,9 @@ pub fn check(
         LibraryElement::Symbol(s) => check_symbol(elements, s, &mut report),
         LibraryElement::Footprint(f) => check_footprint(f, &mut report),
         LibraryElement::Part(p) => check_part(elements, p, &mut report),
+        // A Board Template that fails its load checks never loads, so a loaded one has
+        // nothing left to report here.
+        LibraryElement::BoardTemplate(_) => {}
     }
     report.found
 }

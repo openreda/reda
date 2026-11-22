@@ -116,12 +116,14 @@ impl std::error::Error for TemplateError {}
 /// One choice combination: each choice parameter's option key, by name.
 pub type Combination = BTreeMap<String, String>;
 
-/// Every combination of the template's choice options, the first parameter varying
-/// slowest, in option order. A template without choices has one, empty combination.
+/// Every distinct combination of the template's shown choices, the first parameter
+/// varying slowest, in option order. A choice hidden by its `when` is left out, so it adds
+/// no combination of its own (the micro Pi board is one combination per GPIO header, not
+/// one per cutout option). A template without choices has one, empty combination.
 pub fn combinations(template: &BoardTemplate) -> Vec<Combination> {
-    let mut out = vec![Combination::new()];
+    let mut every = vec![Combination::new()];
     for choice in choices(template) {
-        out = out
+        every = every
             .into_iter()
             .flat_map(|combo| {
                 choice.options.iter().map(move |option| {
@@ -132,7 +134,60 @@ pub fn combinations(template: &BoardTemplate) -> Vec<Combination> {
             })
             .collect();
     }
+    let mut out: Vec<Combination> = vec![];
+    for combo in every {
+        let settled = settle(template, &combo);
+        let shown: Combination = settled
+            .iter()
+            .filter(|(name, _)| shown(template, name, &settled))
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+        if !out.contains(&shown) {
+            out.push(shown);
+        }
+    }
     out
+}
+
+/// The choices as evaluation settles them: each choice at the key `given` names, else at
+/// its default, and a choice hidden by its `when` at its default, which may hide or show
+/// another. Unknown names and keys are kept as given; [`evaluate`] reports them.
+pub fn settle(template: &BoardTemplate, given: &Combination) -> Combination {
+    let mut combination: Combination = choices(template)
+        .map(|c| {
+            let key = given
+                .get(&c.name)
+                .cloned()
+                .unwrap_or_else(|| c.default_key().unwrap_or_default().to_owned());
+            (c.name.clone(), key)
+        })
+        .collect();
+    for _ in 0..=template.parameters.len() {
+        let mut changed = false;
+        for choice in choices(template) {
+            let default = choice.default_key().unwrap_or_default();
+            if !gate_holds(choice.when.as_ref(), &combination)
+                && combination.get(&choice.name).map(String::as_str) != Some(default)
+            {
+                combination.insert(choice.name.clone(), default.to_owned());
+                changed = true;
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+    combination
+}
+
+/// Whether parameter `name` is shown (its own `when` holds) under `settled` choices.
+/// Hidden parameters gate at their defaults but are no resolved value of the frame.
+pub fn shown(template: &BoardTemplate, name: &str, settled: &Combination) -> bool {
+    template
+        .parameters
+        .iter()
+        .find(|p| p.name() == name)
+        .is_some_and(|p| gate_holds(p.when(), settled))
 }
 
 fn choices(template: &BoardTemplate) -> impl Iterator<Item = &ChoiceParameter> {

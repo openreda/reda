@@ -6,7 +6,7 @@
   ],
   "graphics": [
     {"uuid":"3e27e2d4-3538-4eaa-bf30-367501613866","layer":"assembly_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":1900000},"width":100000},
-    {"uuid":"bd02590a-9c7a-433d-bf42-47bd8d9cdbb8","layer":"silkscreen_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2220000},"width":120000},
+    {"uuid":"bd02590a-9c7a-433d-bf42-47bd8d9cdbb8","layer":"silkscreen_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2220000},"width":150000},
     {"uuid":"f213fe62-e052-4067-b104-083a882e5aa1","layer":"courtyard_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2400000},"width":50000}
   ],
   "texts": [

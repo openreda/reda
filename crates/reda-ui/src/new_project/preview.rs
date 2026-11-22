@@ -14,7 +14,8 @@ use egui::{
     Align2, Color32, Pos2, Rect, Role, Sense, Shape, Stroke, Ui, Vec2, WidgetInfo, pos2, vec2,
 };
 use reda_engine::library::board_template::{Frame, FrameDrawing, FramePad};
-use reda_engine::model::geom::{Bounds, Millideg, Nm, Point, Vertex, arc_centre, contour_bounds};
+use reda_engine::model::geom::grown::arc_points;
+use reda_engine::model::geom::{Bounds, Millideg, Nm, Point, Vertex, contour_bounds};
 use reda_engine::model::{DrawingKind, KeepoutShapeKind, Side};
 use reda_engine::render::{BoardColor, ColorKey, Palette};
 
@@ -37,8 +38,6 @@ const THIN: f32 = 1.0;
 const PROBLEM_RING: f32 = 7.0;
 /// How far a connector body reaches past its pads, in mm.
 const BODY_MARGIN: f64 = 0.6;
-/// Arcs are drawn in steps of at most this many degrees.
-const ARC_STEP: f64 = 10.0;
 /// How much of an ink's strength the board fill, a Keepout's fill, an excluded object
 /// and the legend's board swatch keep.
 const BOARD_FILL: f32 = 0.16;
@@ -192,27 +191,13 @@ fn contour_points(vertices: &[Vertex]) -> Vec<(f64, f64)> {
     out
 }
 
-/// The points of one edge from `from` to `to`, both ends included.
+/// The points of one edge from `from` to `to`, both ends included: an arc flattened by
+/// `reda-geom`, as every other contour is.
 fn edge_points(from: Point, to: Point, sweep: Millideg) -> Vec<(f64, f64)> {
-    let a = (mm(from.x), mm(from.y));
-    let b = (mm(to.x), mm(to.y));
-    if sweep == Millideg::ZERO || from == to {
-        return vec![a, b];
-    }
-    let c = arc_centre(from, to, sweep);
-    let c = (mm(c.x), mm(c.y));
-    let r = (a.0 - c.0).hypot(a.1 - c.1);
-    let start = (a.1 - c.1).atan2(a.0 - c.0);
-    let degrees = sweep.0 as f64 / 1000.0;
-    let steps = (degrees.abs() / ARC_STEP).ceil().max(2.0) as usize;
-    let mut out: Vec<_> = (0..steps)
-        .map(|i| {
-            let angle = start + (degrees * i as f64 / steps as f64).to_radians();
-            (c.0 + r * angle.cos(), c.1 + r * angle.sin())
-        })
-        .collect();
-    out.push(b);
-    out
+    arc_points(from, to, sweep)
+        .into_iter()
+        .map(|p| (mm(p.x), mm(p.y)))
+        .collect()
 }
 
 fn pad_points(pad: &FramePad) -> Vec<(f64, f64)> {

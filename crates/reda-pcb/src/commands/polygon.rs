@@ -6,7 +6,9 @@ use reda_command::{
     AvailabilityContext, Command, CommandError, Context, Kind, Length, Meta, Registry, Unavailable,
 };
 use reda_model::geom::{self, CornerError, Nm, Vertex};
-use reda_model::{InDocument, KeepoutShape, Object, PcbDocument, PlatedEdges, Uuid, plated};
+use reda_model::{InDocument, KeepoutShape, Object, PcbDocument, PlatedEdges, Uuid};
+
+use crate::plated;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::json;

@@ -341,9 +341,9 @@ fn document_type(cx: &mut Context<'_>, document: Uuid) -> Result<DocumentType, C
     match project.element(document) {
         Some(LibraryElement::Symbol(_)) => Ok(DocumentType::Symbol),
         Some(LibraryElement::Footprint(_)) => Ok(DocumentType::Footprint),
-        Some(LibraryElement::Part(_)) => Err(CommandError::rejected(
-            "the Part editor has no Selection Filter or snapping",
-        )),
+        Some(LibraryElement::Part(_) | LibraryElement::BoardTemplate(_)) => Err(
+            CommandError::rejected("the Part editor has no Selection Filter or snapping"),
+        ),
         None => Err(missing()),
     }
 }

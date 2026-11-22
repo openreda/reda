@@ -395,7 +395,7 @@ fn castellated_module_is_clean_with_its_plating_joined_to_gnd() {
     let (_work, engine) = open_copy("castellated_module", "Castellated.reda");
     let pcb = engine.project().unwrap().pcb().unwrap();
     let gnd = pcb.nets().find(|n| n.name == "GND").unwrap().uuid;
-    let edges = pcb.plated_edges();
+    let edges = reda_engine::pcb::plated::board_edges(pcb);
     // The bottom edge and the chamfer meet at a corner, both on GND.
     assert_eq!(edges.len(), 2);
     assert_eq!(edges[0].to, edges[1].from);

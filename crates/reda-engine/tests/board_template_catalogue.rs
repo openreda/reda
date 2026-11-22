@@ -23,7 +23,7 @@ use std::path::{Path, PathBuf};
 use reda_engine::format::{read_board_template, write_board_template};
 use reda_engine::library::board_template::{
     BoardTemplateChoice, Combination, Frame, ResolvedValue, TemplateValue, check, combinations,
-    constant_length, evaluate, gate_holds, length_ranges,
+    constant_length, evaluate, gate_holds, length_ranges, settle, shown as parameter_shown,
 };
 use reda_engine::library::{DiskLibraryFiles, LibraryOrigin, LibraryRoot, copy_part, scan};
 use reda_engine::model::geom::expr::{self, Field, Kind, Object};
@@ -100,21 +100,12 @@ fn choice(template: &BoardTemplate, values: &Values) -> BoardTemplateChoice {
 /// chosen options bind (#416 decision).
 fn points(template: &BoardTemplate, combo: &Combination) -> Vec<Values> {
     // The choices as evaluation settles them: a hidden choice takes its default.
-    let only_choices: Values = combo
-        .iter()
-        .map(|(k, v)| (k.clone(), TemplateValue::Text(v.clone())))
-        .collect();
-    let settled: Combination = evaluate(template, &choice(template, &only_choices))
-        .unwrap_or_else(|e| panic!("{} at {combo:?}: {}", template.name, e.message))
-        .values
-        .into_iter()
-        .filter_map(|(name, v)| match v {
-            ResolvedValue::Choice(key) => Some((name, key)),
-            ResolvedValue::Length(_) => None,
-        })
-        .collect();
+    let settled = settle(template, combo);
     let mut out: Vec<Values> = vec![vec![]];
-    for param in &template.parameters {
+    // A hidden parameter is no part of the point: evaluation ignores a value for it.
+    for param in
+        (template.parameters.iter()).filter(|p| parameter_shown(template, p.name(), &settled))
+    {
         let options: Vec<TemplateValue> = match param {
             TemplateParameter::Choice(c) => vec![TemplateValue::Text(combo[&c.name].clone())],
             TemplateParameter::Length(l) => {
@@ -224,9 +215,7 @@ fn every_point_of_every_builtin_is_valid_except_the_expected_invalid_ones() {
                 let outlines = template
                     .outline
                     .iter()
-                    .filter(|r| {
-                        reda_engine::library::board_template::gate_holds(r.when.as_ref(), &combo)
-                    })
+                    .filter(|r| gate_holds(r.when.as_ref(), &settle(&template, &combo)))
                     .count();
                 assert_eq!(outlines, 1, "{} at {}", point.0, point.1);
                 if !frame.is_valid() {
@@ -720,7 +709,8 @@ fn every_spec_number_is_measured_in_its_frame_and_sourced() {
         }
     }
 
-    // Coverage at default values: the outline's size and every hole, connector and cutout.
+    // Coverage at default values: the outline's size and every hole, connector, cutout
+    // and Keepout.
     for (name, template) in &templates {
         let frame = frame_at(template, "default").unwrap();
         let rows = named.get(name).cloned().unwrap_or_default();
@@ -739,10 +729,18 @@ fn every_spec_number_is_measured_in_its_frame_and_sourced() {
                     .iter()
                     .map(|c| format!("connector:{}", c.uuid)),
             )
-            .chain(frame.cutouts.iter().map(|c| format!("cutout:{}", c.uuid)));
+            .chain(frame.cutouts.iter().map(|c| format!("cutout:{}", c.uuid)))
+            .chain(frame.keepouts.iter().map(|k| format!("keepout:{}", k.uuid)));
         for object in objects {
             if !rows.contains(&format!("{object}/")) {
                 failures.push(format!("{name}: no default row measures {object}"));
+            }
+        }
+        // Each hole's size, not only its position.
+        for hole in &frame.holes {
+            let drill = format!("hole:{}/drill", hole.uuid);
+            if !rows.lines().any(|l| l.trim() == drill) {
+                failures.push(format!("{name}: no default row measures {drill}"));
             }
         }
     }

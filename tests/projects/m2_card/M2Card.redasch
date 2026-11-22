@@ -2,7 +2,7 @@
   "format": 2,
   "sheet": {"uuid":"00000000-0000-4000-8000-000000000002"},
   "parts": [
-    {"uuid":"00000000-0000-4000-8000-000000000032","hash":"bc3ade55ff2b73ab65bd2d0c0c40b115","part":{"uuid":"ca46eff0-cc98-449d-ae33-2acd4b3873b2","name":"CardEdge_M.2_Key_M","component_type":"standard","in_bom":false,"in_cpl":false,"symbol":"5fc15162-06f6-405c-ac4f-a2b3fedde74b"},"footprints":["95ef3180-5a95-453d-982f-2b71f89f3e59"],"copies":["00000000-0000-4000-8000-000000000031"],"fields":{"value":"M.2 Key M","description":"M.2 card edge, key M, 67 fingers","keywords":"J connector card edge fingers M.2 NGFF"},"pin_map":{},"symbol":{"uuid":"5fc15162-06f6-405c-ac4f-a2b3fedde74b","name":"CardEdge_M.2_Key_M","designator_prefix":"J","description":"M.2 card edge, key M, 67 fingers"},"units":[
+    {"uuid":"00000000-0000-4000-8000-000000000032","hash":"c756962d4fd2c9de6fcdf9a8bb639bb5","part":{"uuid":"ca46eff0-cc98-449d-ae33-2acd4b3873b2","name":"CardEdge_M.2_Key_M","component_type":"standard","in_bom":false,"in_cpl":false,"symbol":"5fc15162-06f6-405c-ac4f-a2b3fedde74b"},"footprints":["95ef3180-5a95-453d-982f-2b71f89f3e59"],"copies":["00000000-0000-4000-8000-000000000031"],"fields":{"value":"M.2 Key M","description":"M.2 card edge, key M, 67 fingers","keywords":"J connector card edge fingers M.2 NGFF"},"pin_map":{},"symbol":{"uuid":"5fc15162-06f6-405c-ac4f-a2b3fedde74b","name":"CardEdge_M.2_Key_M","designator_prefix":"J","description":"M.2 card edge, key M, 67 fingers"},"units":[
       {"uuid":"c4db97de-e1d4-4633-91d5-2cb941ec1ead","name":"A"}
     ],"pins":[
       {"uuid":"00c8eded-5d6f-4e3b-9ca4-58511a5453a5","unit":"c4db97de-e1d4-4633-91d5-2cb941ec1ead","name":"1","number":"1","electrical_type":"passive","at":{"x":-5080000,"y":46990000},"rotation":0,"length":2540000,"name_visible":false},
@@ -77,7 +77,7 @@
     ]}
   ],
   "footprints": [
-    {"uuid":"00000000-0000-4000-8000-000000000031","hash":"daa2a1a87fd8e369dd99e894571a72aa","footprint":{"uuid":"95ef3180-5a95-453d-982f-2b71f89f3e59","name":"CardEdge_M.2_Key_M","description":"M.2 card edge, key M, 67 fingers: Edge Connector Pads 0.35 mm wide on a 0.5 mm pitch per side, set back 0.50 mm from the edge, the common open-hardware value; the origin is the centre of the finger edge","height":35000},"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000031","hash":"c808fb6b7fe75c911a48a17ff5848350","footprint":{"uuid":"95ef3180-5a95-453d-982f-2b71f89f3e59","name":"CardEdge_M.2_Key_M","description":"M.2 card edge, key M, 67 fingers: Edge Connector Pads 0.35 mm wide on a 0.5 mm pitch per side, set back 0.50 mm from the edge, the common open-hardware value; the origin is the centre of the finger edge","height":35000},"pads":[
       {"uuid":"02204c1a-5088-492f-a4d5-a5176fdab2a7","number":"19","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":4750000,"y":1250000},"rotation":0,"width":350000,"height":1500000,"paste":"none"},
       {"uuid":"0331908a-ab92-4d7a-b522-176756d9fd58","number":"13","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":6250000,"y":1250000},"rotation":0,"width":350000,"height":1500000,"paste":"none"},
       {"uuid":"06e8b69f-5cb5-4bcd-ab87-d306283a0556","number":"74","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":-9000000,"y":1500000},"rotation":0,"width":350000,"height":2000000,"side":"bottom","paste":"none"},
@@ -150,9 +150,9 @@
       {"uuid":"509bb787-3e5f-4d17-9354-9f7e80330031","layer":"courtyard_top","shape":{"kind":"polygon","points":[{"x":-9675000,"y":0},{"x":-6725000,"y":0},{"x":-6725000,"y":2750000},{"x":-9675000,"y":2750000}]},"width":50000},
       {"uuid":"c627caf1-d894-49a6-ad00-e3007372b950","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-9425000,"y":0},"end":{"x":9425000,"y":2500000}},"width":100000}
     ],"texts":[
-      {"uuid":"3af5fa98-277e-433b-9867-3f6e082bb6f1","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+      {"uuid":"3af5fa98-277e-433b-9867-3f6e082bb6f1","field":"Designator","at":{"x":0,"y":1250000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
       {"uuid":"902bd5ad-b68d-4018-a66f-4e0fbffe100a","field":"Designator","at":{"x":0,"y":3550000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
-      {"uuid":"cdb76a35-dde5-4157-936d-5b5e39dfdfa5","field":"Value","at":{"x":0,"y":-700000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
+      {"uuid":"cdb76a35-dde5-4157-936d-5b5e39dfdfa5","field":"Value","at":{"x":0,"y":4750000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]}
   ],
   "units": [

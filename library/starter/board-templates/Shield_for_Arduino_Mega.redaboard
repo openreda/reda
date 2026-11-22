@@ -22,7 +22,7 @@
     ],"locked":true}
   ],
   "parts": [
-    {"uuid":"1febece4-178d-451e-a3e2-8bc609abb4ba","hash":"8b25d2e1d17ae5e0ad7fb33baa8cf79c","part":{"uuid":"326ace02-ef44-4af4-8f9d-21d6c65a74ef","name":"MountingHole_M3","component_type":"mechanical","in_bom":false,"in_cpl":false},"footprints":["5b59cdab-565f-4f43-8563-7b49605b64f5"],"copies":["8dad3a3a-095e-4466-b3ca-b355dd4b3567"],"fields":{"value":"M3","description":"Mounting hole for M3, 3.2 mm, not plated","keywords":"H mounting hole screw mechanical"},"pin_map":{},"units":[],"pins":[],"graphics":[]},
+    {"uuid":"1febece4-178d-451e-a3e2-8bc609abb4ba","hash":"6759b6ca0cdf25732c5d0d8726abf266","part":{"uuid":"326ace02-ef44-4af4-8f9d-21d6c65a74ef","name":"MountingHole_M3","component_type":"mechanical","in_bom":false,"in_cpl":false},"footprints":["5b59cdab-565f-4f43-8563-7b49605b64f5"],"copies":["8dad3a3a-095e-4466-b3ca-b355dd4b3567"],"fields":{"value":"M3","description":"Mounting hole for M3, 3.2 mm, not plated","keywords":"H mounting hole screw mechanical"},"pin_map":{},"units":[],"pins":[],"graphics":[]},
     {"uuid":"380a4acd-0e3b-4204-bc46-c683770730bb","hash":"69ffde44c5d9b8ac7309ba8633f3755e","part":{"uuid":"ab307b83-86d4-4cea-9966-0e1de5d3258f","name":"Header_2x18","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"a6eb8b5c-fbec-46be-b549-4e5157169861"},"footprints":["f719c7b8-42e1-410f-9ca1-ed92fb8df876","074512c1-a093-44f7-a902-ade615328e56","4005293b-1887-440b-a353-4c19db0ab92d"],"copies":["a26d4829-1851-4e00-a8fa-4e55a3028750","e1e57cef-eb2a-4c76-9001-62a794dd1600","8588bd1c-0268-4fd5-89ac-659259501612"],"fields":{"value":"Header 2x18","description":"2 × 18 pin header, 2.54 or 1.27 mm pitch, or 2.54 mm mirror-numbered for the bottom side","keywords":"J connector pin header"},"pin_map":{},"symbol":{"uuid":"a6eb8b5c-fbec-46be-b549-4e5157169861","name":"Conn_2x18","designator_prefix":"J","description":"Generic connector, 2 × 18 pins"},"units":[
       {"uuid":"976a5272-34b4-4032-9931-150f74dde164","name":"A"}
     ],"pins":[
@@ -167,12 +167,12 @@
       {"uuid":"5c7771fb-d5af-42b5-b06e-be80468f86c7","field":"Designator","at":{"x":0,"y":23850000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
       {"uuid":"a1af21c9-3460-42b5-a7ec-7e9d25444456","field":"Value","at":{"x":0,"y":-23850000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]},
-    {"uuid":"8dad3a3a-095e-4466-b3ca-b355dd4b3567","hash":"67289e378ee6eb01f1b615ecfdebd99d","footprint":{"uuid":"5b59cdab-565f-4f43-8563-7b49605b64f5","name":"MountingHole_M3","description":"Mounting hole for M3, 3.2 mm, not plated. Hole per ISO 273 fine, head per ISO 4762","height":3000000},"pads":[
+    {"uuid":"8dad3a3a-095e-4466-b3ca-b355dd4b3567","hash":"3aa9def4c62e778f25fd750fa085a1fe","footprint":{"uuid":"5b59cdab-565f-4f43-8563-7b49605b64f5","name":"MountingHole_M3","description":"Mounting hole for M3, 3.2 mm, not plated. Hole per ISO 273 fine, head per ISO 4762","height":3000000},"pads":[
       {"uuid":"4b5efa83-470e-4f52-b548-506a36d274ea","number":"","kind":"non_plated","shape":"circle","at":{"x":0,"y":0},"rotation":0,"width":3200000,"height":3200000,"hole":{"width":3200000,"height":3200000}}
     ],"graphics":[
       {"uuid":"5e771c7c-f442-40c2-a129-51230861d7ba","layer":"assembly_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2750000},"width":100000},
       {"uuid":"6f0b6cfc-748f-4f24-9119-26bea6487e1a","layer":"courtyard_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":3250000},"width":50000},
-      {"uuid":"a380f050-8ebf-4e83-aa14-6c81b57e57d8","layer":"silkscreen_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":3070000},"width":120000}
+      {"uuid":"a380f050-8ebf-4e83-aa14-6c81b57e57d8","layer":"silkscreen_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":3070000},"width":150000}
     ],"texts":[
       {"uuid":"63e425a8-5232-4ae9-bbe4-7dc6f22e2aa0","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
       {"uuid":"732e356d-ae3f-4ac3-9110-707295538d10","field":"Value","at":{"x":0,"y":-3950000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},

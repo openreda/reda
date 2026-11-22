@@ -104,11 +104,11 @@
       {"uuid":"9c7c9dad-35e2-4673-a8e2-a804f2539ec2","field":"Value","at":{"x":0,"y":-26350000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
       {"uuid":"d981b890-ab6e-48f8-ad3f-addbc056ae38","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000003a","hash":"1e642e19f750613b2ce9ceae1e0dab72","footprint":{"uuid":"fa52c198-bd89-43fa-8c5c-25cd76d48bdf","name":"MountingHole_M2","description":"Mounting hole for M2, 2.2 mm, not plated. Hole per ISO 273 fine, head per ISO 4762","height":2000000},"pads":[
+    {"uuid":"00000000-0000-4000-8000-00000000003a","hash":"8971ae1227643512d58b7ce9395c5833","footprint":{"uuid":"fa52c198-bd89-43fa-8c5c-25cd76d48bdf","name":"MountingHole_M2","description":"Mounting hole for M2, 2.2 mm, not plated. Hole per ISO 273 fine, head per ISO 4762","height":2000000},"pads":[
       {"uuid":"1a944a2b-0983-4ac8-90e0-b576c2c41f44","number":"","kind":"non_plated","shape":"circle","at":{"x":0,"y":0},"rotation":0,"width":2200000,"height":2200000,"hole":{"width":2200000,"height":2200000}}
     ],"graphics":[
       {"uuid":"3e27e2d4-3538-4eaa-bf30-367501613866","layer":"assembly_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":1900000},"width":100000},
-      {"uuid":"bd02590a-9c7a-433d-bf42-47bd8d9cdbb8","layer":"silkscreen_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2220000},"width":120000},
+      {"uuid":"bd02590a-9c7a-433d-bf42-47bd8d9cdbb8","layer":"silkscreen_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2220000},"width":150000},
       {"uuid":"f213fe62-e052-4067-b104-083a882e5aa1","layer":"courtyard_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2400000},"width":50000}
     ],"texts":[
       {"uuid":"847068a0-7dab-44a1-9e91-7b14a59b19b3","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},

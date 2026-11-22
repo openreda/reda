@@ -8,7 +8,7 @@
 use reda_command::{Command, CommandError, Context, Kind, Meta, Registry};
 use reda_library::board_template::{
     BoardTemplateChoice, Combination, Frame, LengthRange, ResolvedValue, TemplateError,
-    constant_length, evaluate, gate_holds, length_ranges,
+    constant_length, evaluate, gate_holds, length_ranges, settle,
 };
 use reda_library::{Library, LibraryIndex, Origin, ScanProblem};
 use reda_model::geom::Nm;
@@ -214,14 +214,8 @@ fn listed(library: &Library, t: &BoardTemplate) -> ListedTemplate {
     let value = |name: &str| defaults.as_ref().and_then(|f| f.values.get(name).cloned());
     // The load checks evaluated every range, so none fails here.
     let ranges = |name: &str| length_ranges(t, name).unwrap_or_default();
-    let chosen: Combination = defaults
-        .iter()
-        .flat_map(|f| &f.values)
-        .filter_map(|(name, v)| match v {
-            ResolvedValue::Choice(key) => Some((name.clone(), key.clone())),
-            ResolvedValue::Length(_) => None,
-        })
-        .collect();
+    // The choices at their defaults, settled as evaluation settles them.
+    let chosen = settle(t, &Combination::new());
     let at_defaults = |ranges: &[LengthRange]| {
         ranges
             .iter()

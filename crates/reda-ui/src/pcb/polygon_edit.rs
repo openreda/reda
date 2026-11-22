@@ -22,8 +22,9 @@
 
 use reda_engine::model::geom::{self, Millideg, Nm, Point, Vertex};
 use reda_engine::model::{
-    InDocument, KeepoutShape, Object, PcbDocument, PlatedEdges, Project, Uuid, plated,
+    InDocument, KeepoutShape, Object, PcbDocument, PlatedEdges, Project, Uuid,
 };
+use reda_engine::pcb::plated;
 use serde_json::{Value, json};
 
 use crate::shell::Shell;
