@@ -118,5 +118,6 @@ The dialog's egui painter draws from this output, and creation runs the same eva
 - **`pcb.contour.edge.set {contour, edge, plated: {net?} | null}`** marks or clears a Plated Edge. See [plated edges](plated-edges.md#marking).
   - `contour` is the Board Outline's or a Board Cutout's UUID.
   - `edge` is the index of the vertex that starts the edge.
+- **`pcb.contour.edge.set_all {contour, plated: {net?} | null}`** marks or clears every edge of one contour in one undoable edit: the "Plate all edges" and "Unplate all" shortcuts. See [plated edges](plated-edges.md#marking).
 - **`pcb.edge_connector.set {edge_connector: {bevel?: {angle, depth}, hard_gold?} | null}`** sets or clears the board's `edge_connector` property. It is one undoable edit. No Command sets board-level properties today (finish lives on the Stackup and goes through `pcb.stackup.set`), so this one is new. See [edge connectors](edge-connectors.md#the-edge_connector-board-property).
 - **The Pad `role: edge_connector` and `castellated` fields** are set through the Footprint editor's Pad Commands and `pcb.pad.*` like any other Pad field.

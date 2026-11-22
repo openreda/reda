@@ -8,7 +8,7 @@ This file says how edges of the Board Outline or a Board Cutout are marked for e
 
 - **Plating is set per edge.** A stored vertex already holds the edge that leaves it, so the mark is stored there as `plated: {net?}`.
 - There is no board-wide flag and no per-contour flag.
-- **"Plate all edges" and "Unplate all"** on a contour are just shortcuts that set or clear every edge.
+- **"Plate all edges" and "Unplate all"** on a contour are just shortcuts that set or clear every edge. They run `pcb.contour.edge.set_all {contour, plated: {net?} | null}`, one undoable edit, beside the per-edge `pcb.contour.edge.set` ([Commands](commands.md#board-commands)).
 
 ### Editing the contour
 
