@@ -8161,6 +8161,91 @@
     },
     {
       "category": "library",
+      "description": "Writes the active board's outline and the chosen `objects` (Board Cutouts, Keepouts, Components, Mechanical Parts, Free Pads, and the Mechanical and Documentation Layers' drawings) as a new Board Template `board-templates/<name>.redaboard` in a writable Library: shifted so the outline's bounding box starts at (0,0), as literal numbers with each object's Locked state and fresh UUIDs. Parts and Footprints are the unedited copies; Plated Edges keep their mark without a Net; Keepout Layers become `all_copper`, `top_copper` or `bottom_copper`. Refuses a name the Library already has, the Starter or a read-only Library, a board with no outline and an inner-layer Keepout. Returns the element, its path and warnings.",
+      "icon": "board_outline_rect",
+      "id": "library.board_template.save",
+      "kind": "file",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "default": null,
+            "description": "Groups the picker; left out, the template is listed under \"Other\".",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "description": {
+            "default": null,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "library": {
+            "description": "The writable registered Library to write into; not the Starter Library.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "description": "The template's name, unique within the Library; also its file stem.",
+            "type": "string"
+          },
+          "objects": {
+            "default": null,
+            "description": "The board objects to capture beyond the outline, which always comes: Board\nCutouts, Keepouts, Components, Mechanical Parts and Free Pads by UUID, and a\nMechanical or Documentation Layer's UUID for every graphic, text and Dimension on\nit. Left out, the dialog's defaults: everything but inner-layer Keepouts, with\nComponents, Mechanical Parts and Free Pads only when Locked.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "library",
+          "name"
+        ],
+        "title": "SaveParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "element": {
+            "description": "The new template's Library element UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "path": {
+            "description": "The file written.",
+            "type": "string"
+          },
+          "warnings": {
+            "description": "What the template leaves behind, such as a Footprint's local Pad edits.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "element",
+          "path",
+          "warnings"
+        ],
+        "title": "SaveResult",
+        "type": "object"
+      },
+      "title": "Save Board as Template"
+    },
+    {
+      "category": "library",
       "description": "Runs the Library check on one element, one Library or every registered Library, and returns its Violations, each at the severity the user set in Preferences (`libraries.severities`; checks set to off do not run): Pin, Pad and pin-map mistakes, shorted copper, Footprint origin and courtyard problems, duplicate primitives, Part names and MPNs, missing descriptions, and generated Footprints their stored params no longer make. Open elements are checked with their unsaved changes. It never blocks saving.",
       "icon": "rule",
       "id": "library.check",
@@ -8579,12 +8664,21 @@
         "$defs": {
           "ElementKind": {
             "description": "The kinds of element a Library holds, each in its own sub-folder.",
-            "enum": [
-              "symbol",
-              "footprint",
-              "part"
-            ],
-            "type": "string"
+            "oneOf": [
+              {
+                "enum": [
+                  "symbol",
+                  "footprint",
+                  "part"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "board_template",
+                "description": "A Board Template (ADR-0016): copied, duplicated and deleted like the others, but\nwith no editor and never a [`LibraryElement`].",
+                "type": "string"
+              }
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -8625,7 +8719,7 @@
     },
     {
       "category": "library",
-      "description": "Copies a Symbol, Footprint or Part into a writable registered Library under a new UUID, adding `_1`, `_2`… to a name already taken there. A copied Part still references its original Symbol and Footprints, since Parts can reference across Libraries.",
+      "description": "Copies a Symbol, Footprint, Part or Board Template into a writable registered Library under a new UUID, adding `_1`, `_2`… to a name already taken there. A copied Part still references its original Symbol and Footprints, since Parts can reference across Libraries; a copied Board Template carries its own Part copies.",
       "icon": "duplicate",
       "id": "library.element.copy",
       "kind": "file",
@@ -8634,7 +8728,7 @@
         "additionalProperties": false,
         "properties": {
           "element": {
-            "description": "The Symbol, Footprint or Part to copy, from any registered Library.",
+            "description": "The Symbol, Footprint, Part or Board Template to copy, from any registered Library.",
             "format": "uuid",
             "type": "string"
           },
@@ -8656,12 +8750,21 @@
         "$defs": {
           "ElementKind": {
             "description": "The kinds of element a Library holds, each in its own sub-folder.",
-            "enum": [
-              "symbol",
-              "footprint",
-              "part"
-            ],
-            "type": "string"
+            "oneOf": [
+              {
+                "enum": [
+                  "symbol",
+                  "footprint",
+                  "part"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "board_template",
+                "description": "A Board Template (ADR-0016): copied, duplicated and deleted like the others, but\nwith no editor and never a [`LibraryElement`].",
+                "type": "string"
+              }
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -8696,6 +8799,73 @@
     },
     {
       "category": "library",
+      "description": "Deletes a Symbol, Footprint, Part or Board Template from its writable Library by removing its file. It can't be undone. Refuses the Starter Library, an element open in its editor, and a Symbol or Footprint a Part of a registered Library still uses. Placed copies in Projects are unchanged.",
+      "icon": "delete",
+      "id": "library.element.delete",
+      "kind": "file",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "element": {
+            "description": "The Symbol, Footprint, Part or Board Template to delete.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "element"
+        ],
+        "title": "ElementDeleteParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "ElementKind": {
+            "description": "The kinds of element a Library holds, each in its own sub-folder.",
+            "oneOf": [
+              {
+                "enum": [
+                  "symbol",
+                  "footprint",
+                  "part"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "board_template",
+                "description": "A Board Template (ADR-0016): copied, duplicated and deleted like the others, but\nwith no editor and never a [`LibraryElement`].",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "kind": {
+            "$ref": "#/$defs/ElementKind"
+          },
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "description": "The file removed.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "name",
+          "path"
+        ],
+        "title": "ElementDeleteResult",
+        "type": "object"
+      },
+      "title": "Delete from Library"
+    },
+    {
+      "category": "library",
       "description": "Creates a Symbol (with one Unit, A), a Footprint or a Part called `name` in a registered Library and opens it for editing on its own undo stack. Nothing is written until `library.element.save`. The starter Library is read-only.",
       "icon": "library_element_new",
       "id": "library.element.new",
@@ -8704,12 +8874,21 @@
         "$defs": {
           "ElementKind": {
             "description": "The kinds of element a Library holds, each in its own sub-folder.",
-            "enum": [
-              "symbol",
-              "footprint",
-              "part"
-            ],
-            "type": "string"
+            "oneOf": [
+              {
+                "enum": [
+                  "symbol",
+                  "footprint",
+                  "part"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "board_template",
+                "description": "A Board Template (ADR-0016): copied, duplicated and deleted like the others, but\nwith no editor and never a [`LibraryElement`].",
+                "type": "string"
+              }
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -8741,12 +8920,21 @@
         "$defs": {
           "ElementKind": {
             "description": "The kinds of element a Library holds, each in its own sub-folder.",
-            "enum": [
-              "symbol",
-              "footprint",
-              "part"
-            ],
-            "type": "string"
+            "oneOf": [
+              {
+                "enum": [
+                  "symbol",
+                  "footprint",
+                  "part"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "board_template",
+                "description": "A Board Template (ADR-0016): copied, duplicated and deleted like the others, but\nwith no editor and never a [`LibraryElement`].",
+                "type": "string"
+              }
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -8813,12 +9001,21 @@
         "$defs": {
           "ElementKind": {
             "description": "The kinds of element a Library holds, each in its own sub-folder.",
-            "enum": [
-              "symbol",
-              "footprint",
-              "part"
-            ],
-            "type": "string"
+            "oneOf": [
+              {
+                "enum": [
+                  "symbol",
+                  "footprint",
+                  "part"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "board_template",
+                "description": "A Board Template (ADR-0016): copied, duplicated and deleted like the others, but\nwith no editor and never a [`LibraryElement`].",
+                "type": "string"
+              }
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -8939,12 +9136,21 @@
         "$defs": {
           "ElementKind": {
             "description": "The kinds of element a Library holds, each in its own sub-folder.",
-            "enum": [
-              "symbol",
-              "footprint",
-              "part"
-            ],
-            "type": "string"
+            "oneOf": [
+              {
+                "enum": [
+                  "symbol",
+                  "footprint",
+                  "part"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "board_template",
+                "description": "A Board Template (ADR-0016): copied, duplicated and deleted like the others, but\nwith no editor and never a [`LibraryElement`].",
+                "type": "string"
+              }
+            ]
           },
           "ExtractedElement": {
             "description": "One element written.",
@@ -25121,12 +25327,21 @@
         "$defs": {
           "ElementKind": {
             "description": "The kinds of element a Library holds, each in its own sub-folder.",
-            "enum": [
-              "symbol",
-              "footprint",
-              "part"
-            ],
-            "type": "string"
+            "oneOf": [
+              {
+                "enum": [
+                  "symbol",
+                  "footprint",
+                  "part"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "board_template",
+                "description": "A Board Template (ADR-0016): copied, duplicated and deleted like the others, but\nwith no editor and never a [`LibraryElement`].",
+                "type": "string"
+              }
+            ]
           },
           "LibrarySummary": {
             "description": "One scanned Library.",

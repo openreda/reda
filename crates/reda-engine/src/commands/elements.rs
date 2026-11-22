@@ -114,6 +114,12 @@ impl Command for ElementNew {
         p: ElementNewParams,
     ) -> Result<ElementSummary, CommandError> {
         check_element_name(&p.name).map_err(|why| CommandError::invalid_params("/name", why))?;
+        if p.kind == ElementKind::BoardTemplate {
+            return Err(CommandError::invalid_params(
+                "/kind",
+                "a Board Template has no editor; make one with library.board_template.save",
+            ));
+        }
         // A Symbol's second UUID is its Unit's; a Footprint's second and third are its
         // Designator and value texts'.
         let (uuid, second) = (cx.new_id(), cx.new_id());
@@ -227,6 +233,9 @@ pub(crate) fn new_element(
             pin_map: PinMap::default(),
             provenance: None,
         }),
+        ElementKind::BoardTemplate => {
+            unreachable!("library.element.new refuses Board Templates")
+        }
     }
 }
 

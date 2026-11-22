@@ -209,11 +209,7 @@ fn edit_element<T>(
     let tx = cx.tx()?;
     let project = tx.project();
     let not_open = || {
-        let kind = match kind {
-            ElementKind::Symbol => "Symbol",
-            ElementKind::Footprint => "Footprint",
-            ElementKind::Part => "Part",
-        };
+        let kind = kind.name();
         CommandError::not_found(format!(
             "no open {kind} has UUID {uuid}; open it with library.element.open"
         ))

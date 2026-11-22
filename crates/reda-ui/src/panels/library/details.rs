@@ -29,6 +29,23 @@ pub(super) fn show(
     ui.weak(tr!("library-in", library = entry.library_name.clone()));
     match (&entry.part, entry.kind) {
         (Some(part), _) => out.extend(part_previews(ui, panel, &index, target, part)),
+        (None, ElementKind::BoardTemplate) => {
+            if let Some(template) = index.board_template(entry.uuid) {
+                if !template.description.is_empty() {
+                    ui.label(&template.description);
+                }
+                if let Some(category) = &template.category {
+                    ui.weak(tr!(
+                        "library-template-category",
+                        category = category.clone()
+                    ));
+                }
+                let layers = i64::from(template.suggested_layers);
+                ui.weak(tr!("library-template-layers", count = layers));
+                ui.weak(tr!("library-template-no-editor"));
+            }
+            return out;
+        }
         (None, ElementKind::Symbol) => {
             if let Some(symbol) = index.symbol(entry.uuid) {
                 unit_tabs(ui, panel, symbol);

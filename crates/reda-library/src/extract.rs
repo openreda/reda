@@ -44,11 +44,7 @@ impl std::fmt::Display for ExtractError {
                 "the Library already holds Part {part} of {designator}; nothing was extracted"
             ),
             ExtractError::NameTaken { kind, name } => {
-                let kind = match kind {
-                    ElementKind::Symbol => "Symbol",
-                    ElementKind::Footprint => "Footprint",
-                    ElementKind::Part => "Part",
-                };
+                let kind = kind.name();
                 write!(
                     f,
                     "another {kind} is already called {name}; nothing was extracted"
