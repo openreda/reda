@@ -76,7 +76,7 @@ pub struct ListParams {
 }
 
 /// One Board Template that passed its load checks.
-#[derive(Debug, Serialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, JsonSchema)]
 pub struct ListedTemplate {
     /// Its Library element UUID: what `board_template.element` names.
     pub element: Uuid,
@@ -94,7 +94,7 @@ pub struct ListedTemplate {
     pub objects: Vec<ListedObject>,
 }
 
-#[derive(Debug, Serialize, JsonSchema)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ParameterKind {
     Choice,
@@ -102,7 +102,7 @@ pub enum ParameterKind {
 }
 
 /// One parameter, as the dialog shows it.
-#[derive(Debug, Serialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, JsonSchema)]
 pub struct ListedParameter {
     pub name: String,
     pub kind: ParameterKind,
@@ -131,13 +131,13 @@ pub struct ListedParameter {
     pub when: Option<When>,
 }
 
-#[derive(Debug, Serialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, JsonSchema)]
 pub struct ListedOption {
     pub key: String,
     pub label: String,
 }
 
-#[derive(Debug, Serialize, JsonSchema)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ObjectKind {
     Outline,
@@ -150,7 +150,7 @@ pub enum ObjectKind {
 }
 
 /// One template object row. `exclude` may name connectors, holes and drawing groups.
-#[derive(Debug, Serialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, JsonSchema)]
 pub struct ListedObject {
     /// The template-local UUID.
     pub uuid: Uuid,
@@ -177,7 +177,7 @@ pub struct ListedObject {
     pub gated: bool,
 }
 
-#[derive(Debug, Serialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, JsonSchema)]
 pub struct ListResult {
     /// The usable templates: Library by Library in resolution order (Project, user,
     /// Starter), each Library's by name.
@@ -185,6 +185,21 @@ pub struct ListResult {
     /// Folders and files the scan could not use, including templates that failed their
     /// load checks.
     pub problems: Vec<ScanProblem>,
+}
+
+/// What `library.board_template.list` returns for the scanned `index`: every usable
+/// template (only `library`'s, when given) and the scan's problems. The creation dialog
+/// lists from this too.
+pub fn list(index: &LibraryIndex, library: Option<Uuid>) -> ListResult {
+    let templates = index
+        .board_templates()
+        .filter(|(lib, _)| library.is_none_or(|l| l == lib.info.uuid))
+        .map(|(lib, t)| listed(lib, t))
+        .collect();
+    ListResult {
+        templates,
+        problems: index.problems().to_vec(),
+    }
 }
 
 fn listed(library: &Library, t: &BoardTemplate) -> ListedTemplate {
@@ -343,15 +358,7 @@ impl Command for BoardTemplateList {
 
     fn run(&self, cx: &mut Context<'_>, p: ListParams) -> Result<ListResult, CommandError> {
         let index = scan_registered(cx.session()?);
-        let templates = index
-            .board_templates()
-            .filter(|(library, _)| p.library.is_none_or(|l| l == library.info.uuid))
-            .map(|(library, t)| listed(library, t))
-            .collect();
-        Ok(ListResult {
-            templates,
-            problems: index.problems().to_vec(),
-        })
+        Ok(list(&index, p.library))
     }
 }
 
