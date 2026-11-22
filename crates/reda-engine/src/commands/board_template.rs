@@ -18,11 +18,14 @@ use serde::{Deserialize, Serialize};
 use crate::library::scan_registered;
 
 pub(crate) mod create;
+pub(crate) mod save;
 pub use create::{SeededObject, SeededTemplate};
+pub use save::{Candidate, CandidateKind, INNER_KEEPOUT, SaveParams, SaveResult, candidates};
 
 pub(crate) fn register_all(registry: &mut Registry) {
     registry.add(BoardTemplateList);
     registry.add(BoardTemplatePreview);
+    registry.add(save::BoardTemplateSave);
 }
 
 /// The template with this element UUID in the scanned Libraries, and its Library.
