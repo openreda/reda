@@ -52,7 +52,7 @@ A Castellated Pad is a plated Pad with the property `castellated`: a plated hole
 | `bevel` is set | `EdgeConnectorBevelled: true`, and the angle and depth in `Notes` | "Bevel edge-connector edge: 20°, 1.30 mm" |
 | `hard_gold` is set | `HardGoldArea`: the summed copper area of the Edge Connector Pads, in mm² | "Hard gold on edge-connector Pads, N mm²" |
 
-- Neither Gerber spec has a field for the bevel's angle or depth, which is why they go in `Notes` and Fab Notes.
+- Neither Gerber spec has a field for the bevel's angle or depth. `GeneralSpecs.Notes` is the job file's own free field for informal information (Gerber Job File 2020.08 §2.4, and a `string` in schema 2023.06, whose `GeneralSpecs` allows no other keys), so the figures go there and in Fab Notes.
 - No Goldmask Gerber is written, because `ConnectorPad` already shows the fab where the gold goes.
 
 ### DRC

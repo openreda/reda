@@ -67,7 +67,8 @@ struct GeneralSpecs {
     /// `true` when any Pad is a Castellated Pad; left out otherwise.
     #[serde(skip_serializing_if = "Option::is_none")]
     castellated: Option<bool>,
-    /// What the spec has no field for: the bevel's angle and depth. Left out when unset.
+    /// The spec's free field for informal information (Job File §2.4): the
+    /// bevel's angle and depth, which no other field holds. Left out when unset.
     #[serde(skip_serializing_if = "Option::is_none")]
     notes: Option<String>,
 }
