@@ -456,7 +456,8 @@ impl App {
         }
 
         if let Some(form) = &mut self.new_project {
-            match form.show(&ctx) {
+            let palette = (self.shell.palette()).palette(crate::theme::canvas_theme(ctx.theme()));
+            match form.show(&ctx, &palette) {
                 FormAction::None => {}
                 FormAction::Browse => self.files.start(&ctx, Pick::NewProjectLocation),
                 FormAction::Cancel => self.new_project = None,
@@ -969,7 +970,8 @@ impl App {
 
     fn open_new_project(&mut self) {
         let (presets, default) = self.shell.fab_preset_choices();
-        self.new_project = Some(NewProjectForm::new(presets, default));
+        let index = self.shell.library_index();
+        self.new_project = Some(NewProjectForm::new(presets, default, index));
     }
 
     fn collect_picked_files(&mut self) {

@@ -1,41 +1,42 @@
-//! The New Project dialog: name, location, Fab Preset and the board. It builds the
-//! params of one `project.new` Command.
+//! The New Project dialog: name, location, the Board Template picker with its preview,
+//! Fab Preset and the board's copper Layers. It builds the params of one `project.new`
+//! Command. Add PCB Document ([`NewPcbForm`]) shows the same picker without the name and
+//! location, for one `document.add`.
+
+pub mod picker;
+pub mod preview;
+
+use std::sync::Arc;
 
 use egui::{Id, Ui};
+use reda_engine::library::LibraryIndex;
 use reda_engine::model::FabPreset;
+use reda_engine::render::Palette;
 use serde_json::{Value, json};
 
+use self::picker::Picker;
+use self::preview::Look;
 use crate::settings::{self, layout};
 use crate::theme::TokensExt as _;
 use crate::tr;
 use crate::widgets;
 
-/// The starter Library's Custom rectangle Board Template, which the Rectangle choice uses.
-const CUSTOM_RECTANGLE: &str = "4b5a3569-5fcc-49b3-8af9-5d5fdda27d41";
-
-/// The board a new Project starts with.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Board {
-    /// No Board Outline yet: it is drawn later.
-    DrawLater,
-    /// A rectangular Board Outline of the dialog's size, from the Custom rectangle template.
-    Rectangle,
-}
+/// The width of the creation dialogs.
+const DIALOG_WIDTH: f32 = 1010.0;
+/// The widths of the Name and Location fields.
+const NAME_WIDTH: f32 = 220.0;
+const LOCATION_WIDTH: f32 = 460.0;
 
 /// The New Project dialog's fields.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone)]
 pub struct NewProjectForm {
     pub name: String,
     pub location: String,
     /// The Fab Presets to pick from: the shipped ones, then the user's.
     pub presets: Vec<FabPreset>,
     pub preset: String,
-    pub board: Board,
     pub layers: LayerCount,
-    /// The rectangle's size and corner radius in mm, as typed. The radius may be blank.
-    pub width: String,
-    pub height: String,
-    pub corner_radius: String,
+    pub picker: Picker,
 }
 
 /// What the user did with the dialog this frame.
@@ -49,8 +50,12 @@ pub enum FormAction {
 
 impl NewProjectForm {
     /// A dialog with a suggested name in the user's home folder, offering `presets` with
-    /// `default` picked.
-    pub fn new(presets: Vec<FabPreset>, default: String) -> NewProjectForm {
+    /// `default` picked, and the Board Templates of `index` but its Project Libraries'.
+    pub fn new(
+        presets: Vec<FabPreset>,
+        default: String,
+        index: Arc<LibraryIndex>,
+    ) -> NewProjectForm {
         NewProjectForm {
             name: tr!("new-project-default-name"),
             location: std::env::home_dir()
@@ -58,87 +63,70 @@ impl NewProjectForm {
                 .unwrap_or_default(),
             presets,
             preset: default,
-            board: Board::DrawLater,
             layers: LayerCount::default(),
-            width: "100".into(),
-            height: "80".into(),
-            corner_radius: String::new(),
+            picker: Picker::new(index, false),
         }
     }
 
-    /// The `project.new` params, or `None` while a field is missing or invalid.
-    pub fn params(&self) -> Option<Value> {
+    /// The `project.new` params, or `None` while a field is missing or invalid, or the
+    /// template's frame is.
+    pub fn params(&mut self) -> Option<Value> {
         let (name, location) = (self.name.trim(), self.location.trim());
         if name.is_empty() || location.is_empty() {
             return None;
         }
-        let mut params = json!({"path": location, "name": name, "fab_preset": self.preset, "layers": self.layers.value()?});
+        let mut params = json!({"path": location, "name": name, "fab_preset": self.preset});
+        let template = self.picker.board_template().ok()?;
+        self.layers.suggest(self.picker.suggested_layers());
+        if let Some(layers) = self.layers.param()? {
+            params["layers"] = json!(layers);
+        }
         if let Some(name) = &self.layers.construction {
             params["construction"] = json!(name);
         }
-        if self.board == Board::Rectangle {
-            let width = positive_mm(&self.width)?;
-            let height = positive_mm(&self.height)?;
-            let mut values = json!({"width": width, "height": height});
-            if !self.corner_radius.trim().is_empty() {
-                values["corner_radius"] = json!(positive_mm(&self.corner_radius)?);
-            }
-            params["board_template"] = json!({"element": CUSTOM_RECTANGLE, "values": values});
+        if let Some(template) = template {
+            params["board_template"] = template;
         }
         Some(params)
     }
 
-    /// Shows the dialog as a modal.
-    pub fn show(&mut self, ctx: &egui::Context) -> FormAction {
+    /// Shows the dialog as a modal, its preview in `palette`'s Layer colours.
+    pub fn show(&mut self, ctx: &egui::Context, palette: &Palette) -> FormAction {
         let mut action = FormAction::None;
         let modal =
             crate::modal::Dialog::new(Id::NULL.with("new-project"), tr!("new-project-title"))
-                .width(380.0)
+                .width(DIALOG_WIDTH)
                 .show(ctx, |ui| {
                     let t = ui.tokens();
-                    widgets::form("new-project-fields").show(ui, |ui| {
-                        labelled_field(ui, &tr!("new-project-name"), &mut self.name, true);
-                        ui.end_row();
-                        labelled_field(ui, &tr!("new-project-location"), &mut self.location, true);
-                        ui.end_row();
-                        ui.label("");
+                    let look = Look::new(ui, palette);
+                    ui.horizontal(|ui| {
+                        labelled_field(ui, &tr!("new-project-name"), &mut self.name, NAME_WIDTH);
+                        ui.add_space(t.space.section);
+                        labelled_field(
+                            ui,
+                            &tr!("new-project-location"),
+                            &mut self.location,
+                            LOCATION_WIDTH,
+                        );
                         if ui.add(widgets::button(tr!("new-project-browse"))).clicked() {
                             action = FormAction::Browse;
                         }
-                        ui.end_row();
                     });
                     ui.add_space(t.space.section);
-                    settings::strong(ui, tr!("new-project-fab-preset"));
-                    for preset in &self.presets {
-                        radio(ui, &mut self.preset, preset.name.clone(), &preset.name);
-                    }
-                    layout::muted(ui, tr!("new-project-fab-preset-note"));
-                    ui.add_space(t.space.section);
-                    settings::strong(ui, tr!("new-project-board"));
-                    if let Some(preset) = self.presets.iter().find(|p| p.name == self.preset) {
-                        self.layers.show(ui, preset);
-                    }
-                    radio(
-                        ui,
-                        &mut self.board,
-                        Board::DrawLater,
-                        tr!("new-project-draw-later"),
-                    );
-                    radio(
-                        ui,
-                        &mut self.board,
-                        Board::Rectangle,
-                        tr!("new-project-rectangle"),
-                    );
-                    let rectangle = self.board == Board::Rectangle;
-                    widgets::form("new-project-board").show(ui, |ui| {
-                        for (label, value) in [
-                            (tr!("new-project-width"), &mut self.width),
-                            (tr!("new-project-height"), &mut self.height),
-                            (tr!("new-project-corner-radius"), &mut self.corner_radius),
-                        ] {
-                            labelled_field(ui, &label, value, rectangle);
-                            ui.end_row();
+                    self.layers.suggest(self.picker.suggested_layers());
+                    let (presets, preset, layers) =
+                        (&self.presets, &mut self.preset, &mut self.layers);
+                    self.picker.show(ui, &look, |ui| {
+                        settings::strong(ui, tr!("new-project-fab-preset"));
+                        ui.horizontal_wrapped(|ui| {
+                            for p in presets {
+                                radio(ui, preset, p.name.clone(), &p.name);
+                            }
+                        });
+                        layout::muted(ui, tr!("new-project-fab-preset-note"));
+                        ui.add_space(t.space.stack);
+                        if let Some(p) = presets.iter().find(|p| p.name == *preset) {
+                            layers.show(ui, p);
                         }
                     });
                     crate::modal::buttons(ui, |ui| {
@@ -164,20 +152,12 @@ impl NewProjectForm {
     }
 }
 
-/// `text` as a length in mm for a Command (`"12.5mm"`), if it is a positive number.
-fn positive_mm(text: &str) -> Option<String> {
-    let value: f64 = text.trim().parse().ok()?;
-    (value.is_finite() && value > 0.0).then(|| format!("{value}mm"))
-}
-
-fn labelled_field(ui: &mut Ui, label: &str, value: &mut String, enabled: bool) {
+fn labelled_field(ui: &mut Ui, label: &str, value: &mut String, width: f32) {
     let label = ui.add(widgets::form_name(label));
-    ui.add_enabled(enabled, widgets::text_field(value).width(FIELD_WIDTH))
+    let width = ui.tokens().size.of(width);
+    ui.add(widgets::text_field(value).width(width))
         .labelled_by(label.id);
 }
-
-/// The width of the dialog's text fields.
-const FIELD_WIDTH: f32 = 240.0;
 
 /// A radio button for `choice`: clicking it sets `value` to `choice`.
 fn radio<T: PartialEq>(ui: &mut Ui, value: &mut T, choice: T, text: impl Into<String>) {
@@ -186,23 +166,33 @@ fn radio<T: PartialEq>(ui: &mut Ui, value: &mut T, choice: T, text: impl Into<St
     }
 }
 
-/// The copper Layer count entered when creating a board.
+/// The copper Layer count entered when creating a board. A Board Template's suggestion
+/// fills it until the user types their own.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LayerCount {
     text: String,
     context: Option<(String, Option<u8>)>,
     pub construction: Option<String>,
+    /// The picked template's suggestion, if there is one.
+    suggested: Option<u8>,
+    /// The user typed or picked a count: suggestions no longer change it.
+    typed: bool,
 }
 
 impl Default for LayerCount {
     fn default() -> Self {
         Self {
-            text: "2".into(),
+            text: DEFAULT_LAYERS.to_string(),
             context: None,
             construction: None,
+            suggested: None,
+            typed: false,
         }
     }
 }
+
+/// The copper Layer count of a board made without a template.
+const DEFAULT_LAYERS: u8 = 2;
 
 impl LayerCount {
     pub fn value(&self) -> Option<u8> {
@@ -213,7 +203,24 @@ impl LayerCount {
             .filter(|n| (2..=32).contains(n))
     }
 
+    /// Takes the picked template's suggestion (`None` for no template): it fills the
+    /// field until the user types their own count.
+    pub fn suggest(&mut self, suggested: Option<u8>) {
+        self.suggested = suggested;
+        if !self.typed {
+            self.text = suggested.unwrap_or(DEFAULT_LAYERS).to_string();
+        }
+    }
+
+    /// The `layers` param: `Some(None)` while the field holds the template's suggestion,
+    /// which the Command then takes itself, and `None` while the count is invalid.
+    pub fn param(&self) -> Option<Option<u8>> {
+        let value = self.value()?;
+        Some((self.suggested != Some(value)).then_some(value))
+    }
+
     pub fn show(&mut self, ui: &mut Ui, preset: &FabPreset) {
+        let before = self.text.clone();
         ui.horizontal(|ui| {
             let label = ui.add(widgets::form_name(tr!("stackup-copper-layers")));
             let width = ui.tokens().size.of(60.0);
@@ -221,6 +228,12 @@ impl LayerCount {
                 .labelled_by(label.id);
             layout::muted(ui, tr!("stackup-layer-range"));
         });
+        if let Some(n) = self.suggested {
+            layout::muted(
+                ui,
+                tr!("new-project-suggested-layers", count = i64::from(n)),
+            );
+        }
         let counts: std::collections::BTreeSet<_> = preset
             .constructions
             .iter()
@@ -233,6 +246,9 @@ impl LayerCount {
                 }
             }
         });
+        if self.text != before {
+            self.typed = true;
+        }
         let count = self.value();
         let context = (preset.name.clone(), count);
         if self.context.as_ref() != Some(&context) {
@@ -273,18 +289,21 @@ impl LayerCount {
     }
 }
 
-/// Preset and physical build for the Project panel's Add PCB Document dialog.
+/// The Project panel's Add PCB Document dialog: the same picker, listing the Project's
+/// Libraries too, with the Fab Preset (the Project's copies first) and the build.
 #[derive(Clone, Debug)]
 pub struct NewPcbForm {
     presets: Vec<(Option<reda_engine::model::Uuid>, FabPreset)>,
     selected: usize,
     layers: LayerCount,
+    pub picker: Picker,
 }
 
 impl NewPcbForm {
     pub fn new(
         project: &reda_engine::model::Project,
         dirs: Option<&reda_engine::command::UserDirs>,
+        index: Arc<LibraryIndex>,
     ) -> Self {
         let mut presets: Vec<_> = project
             .fab_presets()
@@ -301,10 +320,16 @@ impl NewPcbForm {
             presets,
             selected,
             layers: LayerCount::default(),
+            picker: Picker::new(index, true),
         }
     }
 
-    pub fn show(&mut self, ui: &mut Ui) {
+    /// The dialog's width.
+    pub const WIDTH: f32 = DIALOG_WIDTH;
+
+    /// Draws the picker, with the Fab Preset and the build under its parameters.
+    pub fn show(&mut self, ui: &mut Ui, palette: &Palette) {
+        let look = Look::new(ui, palette);
         let choices: Vec<_> = self
             .presets
             .iter()
@@ -318,35 +343,42 @@ impl NewPcbForm {
                 (index, label)
             })
             .collect();
-        ui.horizontal(|ui| {
-            let label = tr!("new-project-fab-preset");
-            ui.add(widgets::form_name(&label));
-            let old = self.selected;
-            settings::dropdown(
-                ui,
-                "pcb-fab-preset",
-                &label,
-                &mut self.selected,
-                &choices,
-                200.,
-            );
-            if self.selected != old {
-                self.layers.context = None;
+        self.layers.suggest(self.picker.suggested_layers());
+        let (presets, selected, layers) = (&self.presets, &mut self.selected, &mut self.layers);
+        self.picker.show(ui, &look, |ui| {
+            ui.horizontal(|ui| {
+                let label = tr!("new-project-fab-preset");
+                ui.add(widgets::form_name(&label));
+                let old = *selected;
+                settings::dropdown(ui, "pcb-fab-preset", &label, selected, &choices, 200.);
+                if *selected != old {
+                    layers.context = None;
+                }
+            });
+            if let Some((_, preset)) = presets.get(*selected) {
+                layers.show(ui, preset);
             }
         });
-        if let Some((_, preset)) = self.presets.get(self.selected) {
-            self.layers.show(ui, preset);
-        }
     }
 
-    pub fn params(&self) -> Option<Value> {
+    /// The `document.add` params, or `None` while a field or the template's frame is
+    /// invalid.
+    pub fn params(&mut self) -> Option<Value> {
+        let template = self.picker.board_template().ok()?;
+        self.layers.suggest(self.picker.suggested_layers());
         let (copy, preset) = self.presets.get(self.selected)?;
         let key = copy
             .map(|id| id.to_string())
             .unwrap_or_else(|| preset.name.clone());
-        let mut params = json!({"kind":"pcb","fab_preset":key,"layers":self.layers.value()?});
+        let mut params = json!({"kind": "pcb", "fab_preset": key});
+        if let Some(layers) = self.layers.param()? {
+            params["layers"] = json!(layers);
+        }
         if let Some(name) = &self.layers.construction {
             params["construction"] = json!(name);
+        }
+        if let Some(template) = template {
+            params["board_template"] = template;
         }
         Some(params)
     }
