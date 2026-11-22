@@ -513,8 +513,8 @@ impl Script {
     /// the card.
     fn assembly_designator(&mut self, footprint: &str, designator_y: i64) {
         let object = self.run("object.get", json!({ "uuid": footprint }))["object"].clone();
-        let card_edge = (object["pads"].as_array().unwrap().iter())
-            .any(|p| p["role"] == "edge_connector");
+        let card_edge =
+            (object["pads"].as_array().unwrap().iter()).any(|p| p["role"] == "edge_connector");
         let extent = |prefix: &str| {
             let (mut xs, mut ys) = (vec![], vec![]);
             for g in object["graphics"].as_array().unwrap() {

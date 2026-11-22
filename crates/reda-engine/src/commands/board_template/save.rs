@@ -17,11 +17,11 @@ use reda_model::local_edit::local_edits;
 use reda_model::{
     BoardTemplate, ComponentType, Dimension, DimensionEnd, DrawingKind, DrawingLayer,
     FootprintCopy, FootprintInstance, FreePad, GraphicShape, Hotspot, Keepout, KeepoutShape,
-    KeepoutShapeKind, LayerKind, LibraryElement, PartEntry, PcbDocument, PlatedEdges, Project, SchematicSheet,
-    Side, TemplateBevel, TemplateBoard, TemplateContour, TemplateCopperLayer, TemplateDimensionEnd,
-    TemplateDrawing, TemplateDrawingGroup, TemplateDrill, TemplateEdgeConnector, TemplateFollow,
-    TemplateHole, TemplateKeepout, TemplateNumber, TemplatePad, TemplatePart, TemplatePlacement,
-    TemplatePoint, TemplateVertex, Uuid,
+    KeepoutShapeKind, LayerKind, LibraryElement, PartEntry, PcbDocument, PlatedEdges, Project,
+    SchematicSheet, Side, TemplateBevel, TemplateBoard, TemplateContour, TemplateCopperLayer,
+    TemplateDimensionEnd, TemplateDrawing, TemplateDrawingGroup, TemplateDrill,
+    TemplateEdgeConnector, TemplateFollow, TemplateHole, TemplateKeepout, TemplateNumber,
+    TemplatePad, TemplatePart, TemplatePlacement, TemplatePoint, TemplateVertex, Uuid,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};

@@ -126,7 +126,9 @@ pub fn scene(
         }
         LibraryElement::Symbol(_) => Some((crate::symbol_editor::scene(engine, uuid)?, None)),
         // The Part editor draws no canvas.
-        LibraryElement::Part(_) | LibraryElement::BoardTemplate(_) => Some((Scene::default(), None)),
+        LibraryElement::Part(_) | LibraryElement::BoardTemplate(_) => {
+            Some((Scene::default(), None))
+        }
     }
 }
 

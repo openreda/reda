@@ -322,9 +322,10 @@ impl TryFrom<LibraryElement> for Object {
             LibraryElement::Symbol(s) => Ok(Object::Symbol(s)),
             LibraryElement::Footprint(f) => Ok(Object::Footprint(f)),
             LibraryElement::Part(p) => Ok(Object::Part(p)),
-            LibraryElement::BoardTemplate(t) => Err(crate::transaction::TxError::Invalid(
-                format!("Board Template {} is not an editable object", t.name),
-            )),
+            LibraryElement::BoardTemplate(t) => Err(crate::transaction::TxError::Invalid(format!(
+                "Board Template {} is not an editable object",
+                t.name
+            ))),
         }
     }
 }

@@ -21,7 +21,9 @@
 //! A Zone that follows the Board Outline, and a line Keepout, have no handles.
 
 use reda_engine::model::geom::{self, Millideg, Nm, Point, Vertex};
-use reda_engine::model::{InDocument, KeepoutShape, Object, PcbDocument, PlatedEdges, Project, Uuid};
+use reda_engine::model::{
+    InDocument, KeepoutShape, Object, PcbDocument, PlatedEdges, Project, Uuid,
+};
 use reda_engine::pcb::plated;
 use serde_json::{Value, json};
 

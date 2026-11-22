@@ -239,7 +239,7 @@ pub fn gerber_job_file(plot: &Plot<'_>, files: &[OutputFile]) -> OutputFile {
             edge_plating: plot
                 .instances
                 .iter()
-                .any(|i| !reda_pcb::plated::board_edges(&i.pcb).is_empty())
+                .any(|i| !reda_pcb::plated::board_edges(i.pcb).is_empty())
                 .then_some(true),
             edge_connector: pcb
                 .is_some_and(PcbDocument::has_edge_connector_pads)

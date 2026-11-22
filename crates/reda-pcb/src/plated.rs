@@ -145,7 +145,10 @@ pub fn board_edges(pcb: &PcbDocument) -> Vec<PlatedEdgeRef> {
         .outline()
         .map(|o| edges_of(o.uuid, &o.vertices, &o.plated))
         .unwrap_or_default();
-    out.extend(pcb.cutouts().flat_map(|c| edges_of(c.uuid, &c.vertices, &c.plated)));
+    out.extend(
+        pcb.cutouts()
+            .flat_map(|c| edges_of(c.uuid, &c.vertices, &c.plated)),
+    );
     out
 }
 
@@ -163,8 +166,8 @@ pub fn contour_edges(pcb: &PcbDocument, contour: Uuid) -> Vec<PlatedEdgeRef> {
 
 #[cfg(test)]
 mod tests {
-    use reda_model::geom::{self, Nm};
     use reda_model::PlatedEdge;
+    use reda_model::geom::{self, Nm};
 
     use super::*;
 

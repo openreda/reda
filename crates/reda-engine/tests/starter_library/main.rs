@@ -283,14 +283,14 @@ fn a_card_edge_keeps_its_texts_on_the_card() {
     let mut problems = vec![];
     for (rel, bytes) in read_tree(&starter().join("footprints")) {
         let footprint: Value = serde_json::from_slice(&bytes).unwrap();
-        let card_edge = (footprint["pads"].as_array().unwrap().iter())
-            .any(|p| p["role"] == "edge_connector");
+        let card_edge =
+            (footprint["pads"].as_array().unwrap().iter()).any(|p| p["role"] == "edge_connector");
         if !card_edge {
             continue;
         }
         for text in footprint["texts"].as_array().unwrap() {
-            let bottom = text["at"]["y"].as_i64().unwrap()
-                - text["style"]["height"].as_i64().unwrap() / 2;
+            let bottom =
+                text["at"]["y"].as_i64().unwrap() - text["style"]["height"].as_i64().unwrap() / 2;
             if bottom < 0 {
                 problems.push(format!("{rel}: {} reaches y = {bottom} nm", text["field"]));
             }

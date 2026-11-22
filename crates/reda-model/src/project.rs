@@ -505,9 +505,7 @@ impl Project {
             .chain(self.entries.values().cloned().map(Object::Document))
             .chain(self.fab_presets.values().cloned().map(Object::FabPreset))
             .chain(self.output_jobs.values().cloned().map(Object::OutputJob))
-            .chain(
-                (self.elements.values()).filter_map(|(_, e)| Object::try_from(e.clone()).ok()),
-            )
+            .chain((self.elements.values()).filter_map(|(_, e)| Object::try_from(e.clone()).ok()))
             .chain(self.pcb_documents.values().flat_map(PcbDocument::objects))
             .chain(
                 self.schematic_sheets

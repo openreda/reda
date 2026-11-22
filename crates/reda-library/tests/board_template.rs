@@ -295,10 +295,7 @@ fn a_value_for_a_hidden_parameter_is_accepted_and_ignored() {
     let frame = at(&t, json!({"lanes": "x1", "bracket": "full"})).unwrap();
     // Hidden, `bracket` gates at its default but is no resolved value of the frame.
     assert!(!frame.values.contains_key("bracket"), "{:?}", frame.values);
-    assert_eq!(
-        frame.values.keys().collect::<Vec<_>>(),
-        ["lanes", "length"]
-    );
+    assert_eq!(frame.values.keys().collect::<Vec<_>>(), ["lanes", "length"]);
     assert!(frame.cutouts.is_empty());
     let frame = at(&t, json!({"lanes": "x4", "bracket": "full"})).unwrap();
     assert_eq!(frame.cutouts.len(), 1);

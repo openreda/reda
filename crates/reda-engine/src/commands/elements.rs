@@ -375,7 +375,8 @@ impl Command for ElementSave {
         let mut written = vec![];
         for (source, element) in &wanted {
             let path = element_path(&index, *source, element)?;
-            let bytes = write_element(element).map_err(|e| CommandError::internal(e.to_string()))?;
+            let bytes =
+                write_element(element).map_err(|e| CommandError::internal(e.to_string()))?;
             let io = |e: std::io::Error| {
                 CommandError::internal(format!("writing {}: {e}", path.display()))
             };

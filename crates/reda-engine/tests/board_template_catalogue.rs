@@ -103,7 +103,9 @@ fn points(template: &BoardTemplate, combo: &Combination) -> Vec<Values> {
     let settled = settle(template, combo);
     let mut out: Vec<Values> = vec![vec![]];
     // A hidden parameter is no part of the point: evaluation ignores a value for it.
-    for param in (template.parameters.iter()).filter(|p| parameter_shown(template, p.name(), &settled)) {
+    for param in
+        (template.parameters.iter()).filter(|p| parameter_shown(template, p.name(), &settled))
+    {
         let options: Vec<TemplateValue> = match param {
             TemplateParameter::Choice(c) => vec![TemplateValue::Text(combo[&c.name].clone())],
             TemplateParameter::Length(l) => {
