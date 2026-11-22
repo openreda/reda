@@ -658,25 +658,50 @@ fn m2_card_edges_have_75_positions_less_the_keyed_pins_set_back_half_a_millimetr
         let mut pins: Vec<String> = pads.keys().cloned().collect();
         pins.sort();
         assert_eq!(pin_numbers(&mut e, &part["symbol"]), pins, "{name}");
-        top_only_courtyard_from_the_edge(&name, &footprint);
+        // The 1.20 mm notch of each key, centred toward Pin 1 from the centreline.
+        let notches: Vec<(f64, f64)> = key
+            .chars()
+            .map(|k| match k {
+                'A' => 6.625,
+                'B' => 5.625,
+                'E' => 2.625,
+                _ => -6.125,
+            })
+            .map(|c| (c - 0.6, c + 0.6))
+            .collect();
+        top_only_courtyard_from_the_edge(&name, &footprint, &notches);
     }
 }
 
 /// The courtyard is drawn on top only, so a bottom Keepout doesn't flag the card's own
-/// fingers, and starts at the finger edge, the origin.
-fn top_only_courtyard_from_the_edge(name: &str, footprint: &Value) {
+/// fingers, and starts at the finger edge, the origin. It stops at each key notch
+/// `(left, right)` (mm), one polygon per stretch of the tab, so it stays on the board.
+fn top_only_courtyard_from_the_edge(name: &str, footprint: &Value, notches: &[(f64, f64)]) {
     let courtyards: Vec<&Value> = footprint["graphics"]
         .as_array()
         .unwrap()
         .iter()
         .filter(|g| g["layer"].as_str().unwrap().starts_with("courtyard"))
         .collect();
-    assert!(!courtyards.is_empty(), "{name}");
+    assert_eq!(courtyards.len(), notches.len() + 1, "{name}");
     for g in courtyards {
         assert_eq!(g["layer"], "courtyard_top", "{name}");
-        let ys = [&g["shape"]["start"]["y"], &g["shape"]["end"]["y"]];
-        let min = ys.iter().map(|y| y.as_i64().unwrap()).min().unwrap();
+        // One polygon per stretch of the tab between key notches.
+        assert_eq!(g["shape"]["kind"], "polygon", "{name}");
+        let points = g["shape"]["points"].as_array().unwrap();
+        let min = points
+            .iter()
+            .map(|p| p["y"].as_i64().unwrap())
+            .min()
+            .unwrap();
         assert_eq!(min, 0, "{name}: the courtyard starts at the edge");
+        for p in points {
+            let x = p["x"].as_f64().unwrap() / 1e6;
+            assert!(
+                notches.iter().all(|&(l, r)| x <= l + 1e-6 || x >= r - 1e-6),
+                "{name}: the courtyard reaches into a key notch at x {x}"
+            );
+        }
     }
 }
 
@@ -725,7 +750,8 @@ fn pcie_card_edges_put_b_on_top_and_a_below_set_back_1_40_with_short_present_pin
         let mut pins: Vec<String> = pads.keys().cloned().collect();
         pins.sort();
         assert_eq!(pin_numbers(&mut e, &part["symbol"]), pins, "{name}");
-        top_only_courtyard_from_the_edge(&name, &footprint);
+        // The 1.90 mm key notch on the centreline.
+        top_only_courtyard_from_the_edge(&name, &footprint, &[(-0.95, 0.95)]);
     }
 }
 

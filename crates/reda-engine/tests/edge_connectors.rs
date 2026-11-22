@@ -379,3 +379,81 @@ fn edge_clearance_spares_edge_connector_pads_at_the_outline_but_not_across_it() 
         text.as_bytes(),
     );
 }
+
+/// A Footprint at `at` whose Pads are each `(x, y, castellated)` mm from its origin: a
+/// Ø5.5 plated land on a Ø3.5 hole for a castellated one, a 1 × 2 mm SMD Pad otherwise,
+/// with an optional R3.25 top courtyard round the origin.
+fn hole_footprint(
+    engine: &mut TestEngine,
+    designator: &str,
+    at: (f64, f64),
+    pads: &[(f64, f64, bool)],
+    courtyard: bool,
+) -> Value {
+    let pads: Vec<Value> = pads
+        .iter()
+        .map(|&(x, y, castellated)| {
+            if castellated {
+                json!({"at": pt(x, y), "width": "5.5mm", "height": "5.5mm", "shape": "circle",
+                       "kind": "plated_through_hole", "castellated": true,
+                       "hole": {"width": 3_500_000, "height": 3_500_000}})
+            } else {
+                json!({"at": pt(x, y), "width": "1mm", "height": "2mm"})
+            }
+        })
+        .collect();
+    let graphics: Vec<Value> = if courtyard {
+        vec![json!({"layer": "courtyard_top", "width": "0.05mm",
+                    "shape": {"kind": "circle", "center": pt(0.0, 0.0), "radius": mm(3.25)}})]
+    } else {
+        vec![]
+    };
+    engine.run_ok(
+        "test.footprint.add",
+        json!({"at": pt(at.0, at.1), "designator": designator, "pads": pads,
+               "graphics": graphics}),
+    )["result"]["footprint"]
+        .clone()
+}
+
+#[test]
+fn a_castellated_pad_the_outline_cuts_may_take_its_footprint_across_the_outline() {
+    // edge-connectors.md#castellated-pads: a Castellated Pad is meant to cross the outline,
+    // so `footprint_outside_board` spares each piece of its Footprint that sticks out with
+    // it. A piece outside the board with no such Pad in it still fires.
+    let dir = TempDir::new("castellated-outside");
+    let mut engine = board(&dir);
+    // H1: a half-moon centred on the right edge, its Pad and courtyard both cut in half.
+    let on_edge = hole_footprint(&mut engine, "H1", (30.0, 10.0), &[(0.0, 0.0, true)], true);
+    // H2: the same, wholly off the board: the outline cuts nothing.
+    let off_board = hole_footprint(&mut engine, "H2", (40.0, 10.0), &[(0.0, 0.0, true)], true);
+    // H3: a Castellated Pad on the top edge and a plain Pad below the bottom edge. With no
+    // courtyard its extent is the box round both, which sticks out at the top and bottom.
+    let two_ends = hole_footprint(
+        &mut engine,
+        "H3",
+        (15.0, 20.0),
+        &[(0.0, 0.0, true), (0.0, -25.0, false)],
+        false,
+    );
+    // H4: a plain plated Pad centred on the left edge is still outside the board.
+    let plain = engine.run_ok(
+        "test.footprint.add",
+        json!({"at": pt(0.0, 10.0), "designator": "H4", "pads": [
+            {"at": pt(0.0, 0.0), "width": "5.5mm", "height": "5.5mm", "shape": "circle",
+             "kind": "plated_through_hole", "hole": {"width": 3_500_000, "height": 3_500_000}}]}),
+    )["result"]["footprint"]
+        .clone();
+    let report = engine.run_ok("drc.run", json!({"checks": ["footprint_outside_board"]}));
+    let mut hits: Vec<Value> = report["violations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v["objects"][0].clone())
+        .collect();
+    hits.sort_by_key(|v| v.to_string());
+    let mut expected = vec![off_board, two_ends, plain];
+    expected.sort_by_key(|v| v.to_string());
+    assert_eq!(hits, expected, "{report:#}");
+    assert!(!hits.contains(&on_edge));
+}

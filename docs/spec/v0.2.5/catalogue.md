@@ -142,6 +142,7 @@ Both templates use the exact outline from Arduino's CAD files: the 45° chamfere
 - **Half-moon:** `MountingHole_M2_Castellated`, a Mechanical Part at (11, `card_length`) and centred on the far edge ([new Parts](#new-starter-parts)).
   - The outline stays straight there. The fab's drill-then-rout makes the half-moon.
   - It is its own Includes tick. Its Pad has no Net until the user sets one, usually GND.
+  - It is turned 180°, so its Designator lands on the card rather than past the far edge.
 - **Keepout:** the component-free band on the bottom, `bottom_copper`, `restrict: [footprints]`, from Y = 0 to 5.20 across the full width. The card-edge Footprints draw their Courtyard on the top side only, so the band doesn't flag the card's own fingers.
 - **The far-end 3.80 zone is a drawing, not a Keepout.** It is a labelled region from Y = `card_length` − 3.80 to `card_length` in the Key dimensions group, reading "RF receptacles or components". The source allows components there ([decisions taken while writing this spec](scope.md#decisions-taken-while-writing-this-spec)).
 - **Board properties:** no `edge_connector` bevel, because no source gives one.
@@ -250,6 +251,7 @@ Each new Part has a Symbol, a Footprint and a Part file in the Starter Library. 
   - Top pads run from Y = 0.50 to 2.00, and bottom pads from Y = 0.50 to 2.50.
   - The 0.50 setback is the most common open value.
 - **Keys remove pins:** A 8–15, B 12–19, E 24–31 and M 59–66. A dual key removes both ranges.
+- **Courtyard:** top side only, from the finger edge, and cut through at each key's 1.20 notch, so it stays on the board.
 - **Symbol:** one pin per remaining pad, named by M.2 pin number.
 
 ### PCIe card edges
@@ -264,6 +266,7 @@ Each new Part has a Symbol, a Footprint and a Part file in the Starter Library. 
 - **Pads:** SMD, 0.70 wide, from Y = 1.40 to 5.60.
   - The open-library values are used because they are proven on open boards and clear of the 1.30 bevel. TE's Gen5 values are 0.60 / 2.60.
   - The short present-detect pins, A1 and that width's PRSNT2# pin (B17, B31, B48 or B81), run from Y = 2.40 to 5.60.
+- **Courtyard:** top side only, from the finger edge, cut through at the 1.90 key notch and chamfered at the tab's two bottom corners, so it stays on the board. The Designator sits above the notch tip.
 - **Symbol:** one pin per pad, named A*n* / B*n*.
 
 ### M.2 half-moon

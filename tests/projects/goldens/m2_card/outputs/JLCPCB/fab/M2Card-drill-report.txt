@@ -1,0 +1,12 @@
+Drill report for M2Card
+Sizes in mm. Tool travel is left out: the fab plans its own drill path.
+
+M2Card-PTH.drl (L1-L2, through)
+  Tool     Size  Plating    Kind       Holes Slots  Tolerance
+  T1      3.500  plated     castellated     1     0  -
+  Total                                    1     0
+
+M2Card-NPTH.drl (L1-L2, through)
+  No holes: the file is not written.
+
+All files: 1 holes, 0 slots

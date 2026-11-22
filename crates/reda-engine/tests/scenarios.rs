@@ -19,6 +19,7 @@ const REFERENCE_PROJECTS: &[&str] = &[
     "four_layer",
     "six_layer_hdi",
     "castellated_module",
+    "m2_card",
 ];
 
 fn repo() -> PathBuf {

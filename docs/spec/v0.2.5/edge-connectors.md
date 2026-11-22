@@ -23,6 +23,7 @@ An Edge Connector Pad is a Pad role, `role: edge_connector`.
 A Castellated Pad is a plated Pad with the property `castellated`: a plated hole that the Board Outline cuts through.
 
 - **Edge clearance:** it is exempt from `edge_clearance` against the outline.
+- **Footprint outside board:** a piece of its Footprint that sticks out of the board with a Castellated Pad the outline cuts, such as the M.2 half-moon's courtyard, passes `footprint_outside_board`. Any other piece outside still fires.
 - **Gerber and drill:** it plots `CastellatedPad` on copper and `CastellatedDrill` on the drill file.
 - **Job file:** it sets `"Castellated": true`.
 - **Which Pads:** only plated through-hole Pads can be castellated. The property is set in the Footprint editor's Pad properties, and on a Free Pad.
