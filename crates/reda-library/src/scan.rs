@@ -29,10 +29,21 @@ pub enum ElementKind {
     Symbol,
     Footprint,
     Part,
+    /// A Board Template (ADR-0016): copied, duplicated and deleted like the others, but
+    /// with no editor and never a [`LibraryElement`].
+    BoardTemplate,
 }
 
 impl ElementKind {
-    pub const ALL: [ElementKind; 3] = [
+    pub const ALL: [ElementKind; 4] = [
+        ElementKind::Symbol,
+        ElementKind::Footprint,
+        ElementKind::Part,
+        ElementKind::BoardTemplate,
+    ];
+
+    /// The kinds an element editor opens: every kind but Board Templates.
+    pub const EDITABLE: [ElementKind; 3] = [
         ElementKind::Symbol,
         ElementKind::Footprint,
         ElementKind::Part,
@@ -44,6 +55,17 @@ impl ElementKind {
             ElementKind::Symbol => "symbols",
             ElementKind::Footprint => "footprints",
             ElementKind::Part => "parts",
+            ElementKind::BoardTemplate => crate::board_template::BOARD_TEMPLATE_FOLDER,
+        }
+    }
+
+    /// The kind's name in messages: "Symbol", "Board Template".
+    pub const fn name(self) -> &'static str {
+        match self {
+            ElementKind::Symbol => "Symbol",
+            ElementKind::Footprint => "Footprint",
+            ElementKind::Part => "Part",
+            ElementKind::BoardTemplate => "Board Template",
         }
     }
 
@@ -62,6 +84,7 @@ impl ElementKind {
             ElementKind::Symbol => "redasym",
             ElementKind::Footprint => "redafp",
             ElementKind::Part => "redapart",
+            ElementKind::BoardTemplate => crate::board_template::BOARD_TEMPLATE_EXTENSION,
         }
     }
 }
@@ -150,7 +173,7 @@ fn scan_root(root: &LibraryRoot, files: &mut dyn LibraryFiles, index: &mut Libra
         return;
     };
 
-    for kind in ElementKind::ALL {
+    for kind in ElementKind::EDITABLE {
         let dir = root.path.join(kind.folder());
         let names = match files.list(&dir) {
             Ok(names) => names,
@@ -165,6 +188,7 @@ fn scan_root(root: &LibraryRoot, files: &mut dyn LibraryFiles, index: &mut Libra
                 ElementKind::Symbol => files.read_symbol(&path).map(Element::Symbol),
                 ElementKind::Footprint => files.read_footprint(&path).map(Element::Footprint),
                 ElementKind::Part => files.read_part(&path).map(Element::Part),
+                ElementKind::BoardTemplate => unreachable!("scanned by scan_board_templates"),
             };
             match element {
                 Ok(element) => index.add_element(library, element, path),

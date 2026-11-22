@@ -9,7 +9,7 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-use reda_command::{Command, CommandError, Context, Kind, Meta};
+use reda_command::{AvailabilityContext, Command, CommandError, Context, Kind, Meta, Unavailable};
 use reda_library::board_template::{BOARD_TEMPLATE_EXTENSION, BOARD_TEMPLATE_FOLDER, check};
 use reda_library::{Library, LibraryIndex, check_element_name};
 use reda_model::geom::{Millideg, Nm, Point, Vertex, contour_bounds};
@@ -86,6 +86,16 @@ impl Command for BoardTemplateSave {
     };
     type Params = SaveParams;
     type Output = SaveResult;
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        if cx.project.is_some_and(|p| p.pcb().is_some()) {
+            Ok(())
+        } else {
+            Err(Unavailable {
+                reason: "no Project with a PCB is open".into(),
+            })
+        }
+    }
 
     fn run(&self, cx: &mut Context<'_>, p: SaveParams) -> Result<SaveResult, CommandError> {
         check_element_name(&p.name).map_err(|why| CommandError::invalid_params("/name", why))?;

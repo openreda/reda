@@ -9,6 +9,7 @@ mod import;
 mod new_library;
 mod paste;
 pub mod paste_array;
+mod save_template;
 mod to_library;
 mod wizard;
 
@@ -27,11 +28,12 @@ pub use import::ImportDialog;
 pub use new_library::{For as NewLibraryFor, NewLibraryDialog};
 pub use paste::{PasteMapping, PasteOutcome};
 pub use paste_array::{ArrayOptions, PasteArrayDialog};
+pub use save_template::{CaptureRow, SaveTemplateDialog};
 pub use to_library::ToLibraryDialog;
 pub use wizard::{SymbolWizardDialog, Target as WizardTarget};
 
-/// The window's hand-written dialogs: New Library's, Import part's, every generator's, and
-/// Copy to Library's and Extract's (Make Project Library).
+/// The window's hand-written dialogs: New Library's, Import part's, every generator's,
+/// Copy to Library's and Extract's (Make Project Library), and Save Board as Template's.
 pub fn dialogs() -> Dialogs {
     let mut dialogs = Dialogs::new();
     dialogs.register("library.create", |shell, params| {
@@ -42,6 +44,9 @@ pub fn dialogs() -> Dialogs {
     });
     dialogs.register_always(paste_array::COMMAND, |shell, params| {
         Box::new(PasteArrayDialog::new(shell, &params))
+    });
+    dialogs.register_always(save_template::COMMAND, |shell, params| {
+        Box::new(SaveTemplateDialog::new(shell, &params))
     });
     dialogs.register("library.import_part", |_, params| {
         Box::new(ImportDialog::new(&params))
