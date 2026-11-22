@@ -9,14 +9,17 @@ Source: [How are Board Templates tested?](https://github.com/openreda/reda/issue
 
 ### Exhaustive data test
 
-The test walks every choice combination of every built-in, with each length at its min, default and max. For each point it checks that:
+The test walks every choice combination of every built-in, with each length at its min, default and max as evaluated under that combination, since `min` and `max` may name bound names ([format](template-format.md#parameter-kinds)). For each point it checks that:
 
 - the template loads and passes the schema and expression checks;
 - exactly one Board Outline survives;
 - the evaluated frame passes the outline, cutout and Keepout checks;
 - each Part `hash` matches the Starter Library copy.
 
-**Expected failures.** A PCIe `card_length` shorter than the lanes need is invalid by design. The test holds a list of the expected-invalid points and asserts that each one fails, and nothing else does. The list must include PCIe x16 at a short `card_length`.
+**Expected failures.** The test holds a list of the expected-invalid points, such as a Custom rectangle corner radius over half a side. It asserts that each one fails and nothing else does.
+
+- **The list has no PCIe entry** ([#416 decision](https://github.com/openreda/reda/issues/416#issuecomment-7072198747)). A PCIe `card_length` shorter than the finger tab is not an invalid frame: the tab sticks out past the body and the outline stays simple.
+- Instead, `card_length`'s `min` is the chosen lane width's tab end. The walk starts there, so x16 starts at 129.30. A shorter length is refused as out of range, which the `library.board_template.list` and preview tests cover.
 
 ### Frame goldens
 
@@ -54,7 +57,7 @@ A `.jsonl` scenario runs `project.new` and `document.add` with `board_template`.
 - **Refusals**, each writing nothing:
   - an invalid frame;
   - an unknown template UUID;
-  - an out-of-range length;
+  - an out-of-range length, including one below a range that depends on a choice (PCIe x16 under 129.30);
   - an unknown option;
   - an unknown `exclude` id;
   - an `exclude` naming a Keepout;
@@ -70,7 +73,8 @@ A `.jsonl` scenario runs `project.new` and `document.add` with `board_template`.
 - **Draw-list text snapshots** of the egui preview painter:
   - Pi full with cutouts;
   - Pi micro;
-  - PCIe x16 with a short, invalid frame marked;
+  - an invalid frame marked, such as Custom rectangle with a corner radius over half a side (no PCIe point is invalid since the [#416 decision](https://github.com/openreda/reda/issues/416#issuecomment-7072198747));
+  - PCIe x16 showing its own `card_length` range, from 129.30;
   - one with an unticked connector drawn faint.
 - **`egui_kittest` tests that assert on the Journal:**
   - changing a parameter and unticking an Include, then Create, gives exactly one `project.new` with the expected `board_template`;

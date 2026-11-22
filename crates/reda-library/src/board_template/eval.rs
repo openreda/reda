@@ -14,6 +14,7 @@ use super::frame::{
     FrameDrawingGroup, FrameDrill, FrameEdgeConnector, FrameHole, FrameKeepout, FramePad,
     FramePlacement, FrameProblem, FrameVertex, ProblemObject, ResolvedValue,
 };
+use super::range::{range_at, range_gate, shown_gate};
 use super::{
     BoardTemplateChoice, Combination, Namespace, TemplateError, TemplateValue, gate_holds,
 };
@@ -129,16 +130,12 @@ pub(crate) fn resolve(
                 values.insert(choice.name.clone(), ResolvedValue::Choice(key.clone()));
             }
             TemplateParameter::Length(length) => {
-                let at = |field: &str, n: &TemplateNumber| {
-                    constants.length(n).map_err(|e| {
-                        TemplateError::template(format!("`{}` {field}: {e}", length.name))
-                    })
-                };
-                let (default, min, max) = (
-                    at("default", &length.default)?,
-                    at("min", &length.min)?,
-                    at("max", &length.max)?,
-                );
+                let default = constants.length(&length.default).map_err(|e| {
+                    TemplateError::template(format!("`{}` default: {e}", length.name))
+                })?;
+                // The range may name the chosen options' bound names.
+                let (min, max) = range_at(template, length, &combination)
+                    .map_err(|e| TemplateError::template(format!("`{}` {e}", length.name)))?;
                 let hidden = !gate_holds(length.when.as_ref(), &combination);
                 let value = match given.get(&length.name) {
                     Some(given) if !hidden => {
@@ -152,10 +149,11 @@ pub(crate) fn resolve(
                             return Err(TemplateError::input(
                                 pointer(&length.name),
                                 format!(
-                                    "`{}` must be from {} to {} mm, not {} mm",
+                                    "`{}` is out of range: from {} to {} mm{}, not {} mm",
                                     length.name,
                                     geom::exact_decimal(min.0, 1_000_000),
                                     geom::exact_decimal(max.0, 1_000_000),
+                                    shown_gate(&range_gate(template, length, &combination)),
                                     geom::exact_decimal(value.0, 1_000_000),
                                 ),
                             ));

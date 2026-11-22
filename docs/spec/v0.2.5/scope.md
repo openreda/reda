@@ -49,7 +49,7 @@ These fill gaps the tickets left. None changes a decision, and each can be overt
 - **Ranges and defaults:**
   - Custom rectangle: width and height 1–1000, corner radius 0–500.
   - Pico `height` up to 150.
-  - PCIe `card_length` from 70, with x1 and full height as defaults.
+  - PCIe `card_length` from the lane width's tab end (the [#416 decision](https://github.com/openreda/reda/issues/416#issuecomment-7072198747) replaced a flat 70), with x1 and full height as defaults.
   - Eurocard defaults to 3U.
 - **Format:**
   - Function calls are refused in expressions, as `expr.rs` already refuses them.

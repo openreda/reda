@@ -7,7 +7,8 @@
 
 use reda_command::{Command, CommandError, Context, Kind, Meta, Registry};
 use reda_library::board_template::{
-    BoardTemplateChoice, Frame, ResolvedValue, TemplateError, constant_length, evaluate,
+    BoardTemplateChoice, Combination, Frame, LengthRange, ResolvedValue, TemplateError,
+    constant_length, evaluate, gate_holds, length_ranges,
 };
 use reda_library::{Library, LibraryIndex, Origin, ScanProblem};
 use reda_model::geom::Nm;
@@ -111,12 +112,17 @@ pub struct ListedParameter {
     pub options: Option<Vec<ListedOption>>,
     /// A choice's default option key, or a length's default in nm.
     pub default: ResolvedValue,
-    /// A length's least value.
+    /// A length's least value at the default choices.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub min: Option<Nm>,
-    /// A length's greatest value.
+    /// A length's greatest value at the default choices.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max: Option<Nm>,
+    /// A length's range under each option of the choices its `min` and `max` name, so
+    /// the dialog can show the range for the options chosen: the one range whose `when`
+    /// holds. A range that names no choice is one entry with an empty `when`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ranges: Option<Vec<LengthRange>>,
     /// The unit a length is shown in.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub unit: Option<DisplayUnit>,
@@ -206,6 +212,22 @@ fn listed(library: &Library, t: &BoardTemplate) -> ListedTemplate {
     )
     .ok();
     let value = |name: &str| defaults.as_ref().and_then(|f| f.values.get(name).cloned());
+    // The load checks evaluated every range, so none fails here.
+    let ranges = |name: &str| length_ranges(t, name).unwrap_or_default();
+    let chosen: Combination = defaults
+        .iter()
+        .flat_map(|f| &f.values)
+        .filter_map(|(name, v)| match v {
+            ResolvedValue::Choice(key) => Some((name.clone(), key.clone())),
+            ResolvedValue::Length(_) => None,
+        })
+        .collect();
+    let at_defaults = |ranges: &[LengthRange]| {
+        ranges
+            .iter()
+            .find(|r| gate_holds(Some(&r.when), &chosen))
+            .cloned()
+    };
     let parameters = t
         .parameters
         .iter()
@@ -226,6 +248,7 @@ fn listed(library: &Library, t: &BoardTemplate) -> ListedTemplate {
                 default: ResolvedValue::Choice(c.default_key().unwrap_or_default().to_owned()),
                 min: None,
                 max: None,
+                ranges: None,
                 unit: None,
                 when: c.when.clone(),
             },
@@ -236,8 +259,9 @@ fn listed(library: &Library, t: &BoardTemplate) -> ListedTemplate {
                 options: None,
                 default: value(&l.name)
                     .unwrap_or_else(|| ResolvedValue::Length(length_of(&l.default))),
-                min: Some(length_of(&l.min)),
-                max: Some(length_of(&l.max)),
+                min: at_defaults(&ranges(&l.name)).map(|r| r.min),
+                max: at_defaults(&ranges(&l.name)).map(|r| r.max),
+                ranges: Some(ranges(&l.name)),
                 unit: Some(l.unit),
                 when: l.when.clone(),
             },
@@ -311,7 +335,7 @@ fn listed(library: &Library, t: &BoardTemplate) -> ListedTemplate {
     }
 }
 
-/// A length bound, which the load checks made a constant.
+/// A length's default, which the load checks made a constant.
 fn length_of(n: &reda_model::TemplateNumber) -> Nm {
     constant_length(n).unwrap_or(Nm(0))
 }
