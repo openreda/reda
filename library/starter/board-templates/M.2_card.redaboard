@@ -2,7 +2,7 @@
   "format": 2,
   "uuid": "3d513563-914e-4251-97d8-d3f9836240ad",
   "name": "M.2 card",
-  "description": "An M.2 card, 22 mm wide, in the 2230 to 22110 lengths and with the key you pick. The fingers are on the bottom edge (Y = 0), pin 1 toward +X, odd pins on the top side. The far end carries a castellated half-moon for the M2 screw: the outline stays straight and the fab drills the plated hole, then routes through it. Give its Pad a Net, usually GND. The card is 0.8 mm thick, so pick a Fab Preset for 0.8 mm boards: the template does not set the thickness. No bevel figure is published for M.2 fingers, so none is set; hard gold on the fingers is recommended for a card that is inserted often. The numbers follow the SATA-IO M.2 figures and open M.2 card designs.",
+  "description": "An M.2 card, 22 mm wide, in the 2230 to 22110 lengths and with the key you pick. The fingers are on the bottom edge (Y = 0), pin 1 toward +X, odd pins on the top side. The far end carries a castellated half-moon for the M2 screw: the outline stays straight and the fab drills the plated hole, then routes through it. Give its Pad a Net, usually GND. The card is 0.8 mm thick, so pick a Fab Preset for 0.8 mm boards: the template does not set the thickness. The fingers are 0.15 mm apart, so pick a Fab Preset with a clearance of 0.15 mm or less (JLCPCB's is 0.10 mm); under a wider clearance, DRC flags the gaps between fingers. No bevel figure is published for M.2 fingers, so none is set; hard gold on the fingers is recommended for a card that is inserted often. The numbers follow the SATA-IO M.2 figures and open M.2 card designs.",
   "category": "PC expansion",
   "suggested_layers": 2,
   "parameters": [

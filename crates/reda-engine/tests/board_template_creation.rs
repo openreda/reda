@@ -103,6 +103,47 @@ fn every_card_edge_built_in_creates_a_board_drc_passes() {
     }
 }
 
+#[test]
+fn an_m2_card_on_the_generic_preset_fires_clearance_between_its_fingers() {
+    // The fingers are 0.15 mm apart, under Generic's 0.16 mm clearance. DRC is right to
+    // flag them: the Fab Preset is the user's choice, and the description advises one
+    // with a clearance of 0.15 mm or less.
+    let work = TempDir::new("m2-generic");
+    let mut engine = test_engine_with_library(&starter_library());
+    engine.run_ok(
+        "project.new",
+        json!({"path": work.path(), "name": "Card", "fab_preset": "Generic",
+               "board_template": {"element": "3d513563-914e-4251-97d8-d3f9836240ad",
+                                  "values": {"key": "m", "length": "2230"}}}),
+    );
+    let drc = engine.run_ok("drc.run", json!({}));
+    let clearance: Vec<&Value> = (drc["violations"].as_array().unwrap().iter())
+        .filter(|v| v["check"] == "clearance")
+        .collect();
+    assert!(!clearance.is_empty(), "{drc}");
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let card = pcb.footprints().next().unwrap();
+    let fingers: Vec<String> = pcb
+        .footprint_copy(card.footprint)
+        .unwrap()
+        .footprint
+        .pads
+        .iter()
+        .map(|p| p.uuid.to_string())
+        .collect();
+    for v in &clearance {
+        // Each one is between two fingers of the card-edge Footprint.
+        let objects = v["objects"].as_array().unwrap();
+        let pads = (objects.iter())
+            .filter(|o| fingers.iter().any(|f| o.as_str() == Some(f)))
+            .count();
+        assert!(
+            objects.contains(&json!(card.uuid.to_string())) && pads == 2,
+            "{v}"
+        );
+    }
+}
+
 /// A Library Part as a template part-table entry `entry`, with its Footprint copies
 /// numbered from `entry + 1`, exactly as the starter Library holds it.
 fn copied_part(
