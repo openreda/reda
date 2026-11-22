@@ -58,7 +58,8 @@ fn mounting_hole(s: &mut Script, screw: &str, hole: f64, head: f64, plated: bool
     );
     let r = head / 2.0;
     s.fp_draw(&fp, "assembly_top", circle(0, 0, mm(r)), mm(0.1));
-    s.fp_draw(&fp, "silkscreen_top", circle(0, 0, mm(r + 0.32)), mm(0.12));
+    // 0.15 mm, the common fab minimum silk width (JLCPCB's), so a hole prints anywhere.
+    s.fp_draw(&fp, "silkscreen_top", circle(0, 0, mm(r + 0.32)), mm(0.15));
     s.fp_draw(&fp, "courtyard_top", circle(0, 0, mm(r + 0.5)), mm(0.05));
     let fp = s.finish_footprint(&fp, mm(r + 0.5));
     s.part(PartSpec {

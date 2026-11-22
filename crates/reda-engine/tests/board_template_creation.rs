@@ -74,8 +74,8 @@ fn project_new_writes_the_custom_rectangle_as_a_locked_outline() {
 fn every_card_edge_built_in_creates_a_board_drc_passes() {
     // The fingers sit on the outline, the half-moon crosses it and the Courtyards follow
     // the key notches and tab chamfers: none of it may fire on a fresh card. On a JLCPCB
-    // board, whose clearance fits the M.2 fingers' 0.15 mm gaps; the starter M3 hole's
-    // 0.12 mm silkscreen ring is under its 0.15 mm silk width, which is not the card's.
+    // board, whose clearance fits the M.2 fingers' 0.15 mm gaps and whose 0.15 mm silk
+    // width the starter mounting holes' rings meet.
     const M2: &str = "3d513563-914e-4251-97d8-d3f9836240ad";
     const PCIE: &str = "4ca6b4ca-11f8-45f1-96c1-c610ece56af9";
     let mut points = vec![];
@@ -96,10 +96,8 @@ fn every_card_edge_built_in_creates_a_board_drc_passes() {
                    "board_template": {"element": element, "values": values}}),
         );
         let drc = engine.run_ok("drc.run", json!({}));
-        let card: Vec<&Value> = (drc["violations"].as_array().unwrap().iter())
-            .filter(|v| v["check"] != "silk_width")
-            .collect();
-        assert_eq!(card, Vec::<&Value>::new(), "{values}: {drc}");
+        let card = drc["violations"].as_array().unwrap();
+        assert!(card.is_empty(), "{values}: {drc}");
     }
 }
 

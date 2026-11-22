@@ -129,10 +129,10 @@
       {"uuid":"0aade1fe-5f79-4e5f-81e9-dda98807732b","field":"Designator","at":{"x":0,"y":21300000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
       {"uuid":"6175c3c6-9af0-4a06-8fdf-2625f35ec9ec","field":"Value","at":{"x":0,"y":-21300000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000003e","hash":"97b93fcac0f6f271779966184342b315","footprint":{"uuid":"e5327c47-451f-4774-8c20-2fb374d28712","name":"MountingHole_M2.5","description":"Mounting hole for M2.5, 2.7 mm, not plated. Hole per ISO 273 fine, head per ISO 4762","height":2500000},"pads":[
+    {"uuid":"00000000-0000-4000-8000-00000000003e","hash":"d959c581e3deb88d5ad65ed0a14db9d6","footprint":{"uuid":"e5327c47-451f-4774-8c20-2fb374d28712","name":"MountingHole_M2.5","description":"Mounting hole for M2.5, 2.7 mm, not plated. Hole per ISO 273 fine, head per ISO 4762","height":2500000},"pads":[
       {"uuid":"442904a3-35fb-4ac2-a25b-1fb5c222df7e","number":"","kind":"non_plated","shape":"circle","at":{"x":0,"y":0},"rotation":0,"width":2700000,"height":2700000,"hole":{"width":2700000,"height":2700000}}
     ],"graphics":[
-      {"uuid":"a33d477d-c391-4f50-9c6f-7e274cc51a98","layer":"silkscreen_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2570000},"width":120000},
+      {"uuid":"a33d477d-c391-4f50-9c6f-7e274cc51a98","layer":"silkscreen_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2570000},"width":150000},
       {"uuid":"ad2a9b0c-9110-4ba6-a08d-67ea95208d34","layer":"courtyard_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2750000},"width":50000},
       {"uuid":"bc47949f-9342-4e7a-9b99-781a4700f43e","layer":"assembly_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2250000},"width":100000}
     ],"texts":[

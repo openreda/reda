@@ -18,7 +18,7 @@
     ],"locked":true}
   ],
   "parts": [
-    {"uuid":"0d4bedcc-2958-489d-8dca-b70bc7331d84","hash":"e8fed125324f69f543d8f2a2d7986d03","part":{"uuid":"71438ee5-73f1-4018-bb56-b367ce93e9ba","name":"MountingHole_M2.5","component_type":"mechanical","in_bom":false,"in_cpl":false},"footprints":["e5327c47-451f-4774-8c20-2fb374d28712"],"copies":["14be95b0-342d-4078-bc29-e85250b4c997"],"fields":{"value":"M2.5","description":"Mounting hole for M2.5, 2.7 mm, not plated","keywords":"H mounting hole screw mechanical"},"pin_map":{},"units":[],"pins":[],"graphics":[]},
+    {"uuid":"0d4bedcc-2958-489d-8dca-b70bc7331d84","hash":"c3dcc150fb7ec1df792a26ef3ecf804f","part":{"uuid":"71438ee5-73f1-4018-bb56-b367ce93e9ba","name":"MountingHole_M2.5","component_type":"mechanical","in_bom":false,"in_cpl":false},"footprints":["e5327c47-451f-4774-8c20-2fb374d28712"],"copies":["14be95b0-342d-4078-bc29-e85250b4c997"],"fields":{"value":"M2.5","description":"Mounting hole for M2.5, 2.7 mm, not plated","keywords":"H mounting hole screw mechanical"},"pin_map":{},"units":[],"pins":[],"graphics":[]},
     {"uuid":"6e4a584c-aa9f-4038-9021-55e5852231c6","hash":"ff9cacb73c7913adf5b6ca00c7b5e48f","part":{"uuid":"7dfe1bdf-6de3-4f50-a828-9f4334528068","name":"Header_1x16","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"5ac5a2a9-1bb5-4622-bbc7-902e3b95a1a6"},"footprints":["706bcf13-966e-4b7d-883d-51a374488b64","76a50645-a708-4e71-bb72-07984571daa9"],"copies":["4b9f5e20-825d-4cd7-9e83-d2dfcf5b25b2","ef3ba1ab-1a5a-4b05-ad89-132e5dc4e515"],"fields":{"value":"Header 1x16","description":"1 × 16 pin header, 2.54 or 1.27 mm pitch","keywords":"J connector pin header"},"pin_map":{},"symbol":{"uuid":"5ac5a2a9-1bb5-4622-bbc7-902e3b95a1a6","name":"Conn_1x16","designator_prefix":"J","description":"Generic connector, 1 × 16 pins"},"units":[
       {"uuid":"ee6c3c94-de52-40ce-9497-5f61cd9e8dc7","name":"A"}
     ],"pins":[
@@ -86,10 +86,10 @@
       {"uuid":"daa0423e-61f4-43f6-9a93-c2f45b65528e","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":630000,"thickness":94500,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
       {"uuid":"f2fc11fd-c5ec-40bb-a99b-48f5a4790b13","field":"Designator","at":{"x":0,"y":8600000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
     ]},
-    {"uuid":"14be95b0-342d-4078-bc29-e85250b4c997","hash":"97b93fcac0f6f271779966184342b315","footprint":{"uuid":"e5327c47-451f-4774-8c20-2fb374d28712","name":"MountingHole_M2.5","description":"Mounting hole for M2.5, 2.7 mm, not plated. Hole per ISO 273 fine, head per ISO 4762","height":2500000},"pads":[
+    {"uuid":"14be95b0-342d-4078-bc29-e85250b4c997","hash":"d959c581e3deb88d5ad65ed0a14db9d6","footprint":{"uuid":"e5327c47-451f-4774-8c20-2fb374d28712","name":"MountingHole_M2.5","description":"Mounting hole for M2.5, 2.7 mm, not plated. Hole per ISO 273 fine, head per ISO 4762","height":2500000},"pads":[
       {"uuid":"442904a3-35fb-4ac2-a25b-1fb5c222df7e","number":"","kind":"non_plated","shape":"circle","at":{"x":0,"y":0},"rotation":0,"width":2700000,"height":2700000,"hole":{"width":2700000,"height":2700000}}
     ],"graphics":[
-      {"uuid":"a33d477d-c391-4f50-9c6f-7e274cc51a98","layer":"silkscreen_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2570000},"width":120000},
+      {"uuid":"a33d477d-c391-4f50-9c6f-7e274cc51a98","layer":"silkscreen_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2570000},"width":150000},
       {"uuid":"ad2a9b0c-9110-4ba6-a08d-67ea95208d34","layer":"courtyard_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2750000},"width":50000},
       {"uuid":"bc47949f-9342-4e7a-9b99-781a4700f43e","layer":"assembly_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2250000},"width":100000}
     ],"texts":[

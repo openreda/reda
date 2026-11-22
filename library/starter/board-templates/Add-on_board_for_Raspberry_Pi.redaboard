@@ -121,13 +121,13 @@
     ],"graphics":[
       {"uuid":"9a302105-cfb0-47ef-bfa9-62fb93d9e782","unit":"1eb90f86-6fce-4139-963d-a2b87b963029","shape":{"kind":"rect","start":{"x":-2540000,"y":-25400000},"end":{"x":2540000,"y":25400000}},"width":254000}
     ]},
-    {"uuid":"bacd1e2f-fb11-4a76-8817-a3d11b0556b8","hash":"e8fed125324f69f543d8f2a2d7986d03","part":{"uuid":"71438ee5-73f1-4018-bb56-b367ce93e9ba","name":"MountingHole_M2.5","component_type":"mechanical","in_bom":false,"in_cpl":false},"footprints":["e5327c47-451f-4774-8c20-2fb374d28712"],"copies":["0bb4b3c6-8fce-40d6-a43a-3f640cc9baee"],"fields":{"value":"M2.5","description":"Mounting hole for M2.5, 2.7 mm, not plated","keywords":"H mounting hole screw mechanical"},"pin_map":{},"units":[],"pins":[],"graphics":[]}
+    {"uuid":"bacd1e2f-fb11-4a76-8817-a3d11b0556b8","hash":"c3dcc150fb7ec1df792a26ef3ecf804f","part":{"uuid":"71438ee5-73f1-4018-bb56-b367ce93e9ba","name":"MountingHole_M2.5","component_type":"mechanical","in_bom":false,"in_cpl":false},"footprints":["e5327c47-451f-4774-8c20-2fb374d28712"],"copies":["0bb4b3c6-8fce-40d6-a43a-3f640cc9baee"],"fields":{"value":"M2.5","description":"Mounting hole for M2.5, 2.7 mm, not plated","keywords":"H mounting hole screw mechanical"},"pin_map":{},"units":[],"pins":[],"graphics":[]}
   ],
   "footprint_copies": [
-    {"uuid":"0bb4b3c6-8fce-40d6-a43a-3f640cc9baee","hash":"97b93fcac0f6f271779966184342b315","footprint":{"uuid":"e5327c47-451f-4774-8c20-2fb374d28712","name":"MountingHole_M2.5","description":"Mounting hole for M2.5, 2.7 mm, not plated. Hole per ISO 273 fine, head per ISO 4762","height":2500000},"pads":[
+    {"uuid":"0bb4b3c6-8fce-40d6-a43a-3f640cc9baee","hash":"d959c581e3deb88d5ad65ed0a14db9d6","footprint":{"uuid":"e5327c47-451f-4774-8c20-2fb374d28712","name":"MountingHole_M2.5","description":"Mounting hole for M2.5, 2.7 mm, not plated. Hole per ISO 273 fine, head per ISO 4762","height":2500000},"pads":[
       {"uuid":"442904a3-35fb-4ac2-a25b-1fb5c222df7e","number":"","kind":"non_plated","shape":"circle","at":{"x":0,"y":0},"rotation":0,"width":2700000,"height":2700000,"hole":{"width":2700000,"height":2700000}}
     ],"graphics":[
-      {"uuid":"a33d477d-c391-4f50-9c6f-7e274cc51a98","layer":"silkscreen_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2570000},"width":120000},
+      {"uuid":"a33d477d-c391-4f50-9c6f-7e274cc51a98","layer":"silkscreen_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2570000},"width":150000},
       {"uuid":"ad2a9b0c-9110-4ba6-a08d-67ea95208d34","layer":"courtyard_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2750000},"width":50000},
       {"uuid":"bc47949f-9342-4e7a-9b99-781a4700f43e","layer":"assembly_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2250000},"width":100000}
     ],"texts":[

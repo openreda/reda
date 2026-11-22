@@ -17,7 +17,7 @@
     ],"locked":true}
   ],
   "parts": [
-    {"uuid":"0a156b8f-edf7-401a-a6b2-ab9c02cc4992","hash":"9c61d255a64657ef64ffa27a7029cad6","part":{"uuid":"ec6ea5e4-2d3b-4247-9629-311d27ea0c7b","name":"MountingHole_M2","component_type":"mechanical","in_bom":false,"in_cpl":false},"footprints":["fa52c198-bd89-43fa-8c5c-25cd76d48bdf"],"copies":["f57f4428-70f2-4222-98b7-f22226153fd2"],"fields":{"value":"M2","description":"Mounting hole for M2, 2.2 mm, not plated","keywords":"H mounting hole screw mechanical"},"pin_map":{},"units":[],"pins":[],"graphics":[]},
+    {"uuid":"0a156b8f-edf7-401a-a6b2-ab9c02cc4992","hash":"1fe69c2ae4df7b44fc2c7e465efcce96","part":{"uuid":"ec6ea5e4-2d3b-4247-9629-311d27ea0c7b","name":"MountingHole_M2","component_type":"mechanical","in_bom":false,"in_cpl":false},"footprints":["fa52c198-bd89-43fa-8c5c-25cd76d48bdf"],"copies":["f57f4428-70f2-4222-98b7-f22226153fd2"],"fields":{"value":"M2","description":"Mounting hole for M2, 2.2 mm, not plated","keywords":"H mounting hole screw mechanical"},"pin_map":{},"units":[],"pins":[],"graphics":[]},
     {"uuid":"6e0150a8-eb0d-46d5-915f-e8c4dfff0c1b","hash":"a1b29d776aad41898fcea0261a9b3983","part":{"uuid":"84b18b44-b34e-4e89-b6ee-f3fe5128db97","name":"Socket_1x20","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"6035bfb4-5c53-4ef3-a6db-628ea953b9f4"},"footprints":["d2ffb3f2-2260-4f88-9b02-27b4a0cb0949","faf19069-7635-45a5-b9b3-17f3c9fd2d0d"],"copies":["12552d46-19ad-4a43-a629-eda7cd6124dd","7a5922b9-274e-42d8-9117-96c90e65705a"],"fields":{"value":"Socket 1x20","description":"1 × 20 socket, 2.54 or 1.27 mm pitch","keywords":"J connector socket"},"pin_map":{},"symbol":{"uuid":"6035bfb4-5c53-4ef3-a6db-628ea953b9f4","name":"Conn_1x20","designator_prefix":"J","description":"Generic connector, 1 × 20 pins"},"units":[
       {"uuid":"4aefbaa0-2490-489b-bc54-e653c411ef00","name":"A"}
     ],"pins":[
@@ -112,11 +112,11 @@
       {"uuid":"98092b27-d2f6-4dc0-a939-3128e3b6e049","field":"Value","at":{"x":0,"y":-13465000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":630000,"thickness":94500,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
       {"uuid":"f04b553e-8e55-4cc9-8dda-3899fe82817e","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":630000,"thickness":94500,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]},
-    {"uuid":"f57f4428-70f2-4222-98b7-f22226153fd2","hash":"1e642e19f750613b2ce9ceae1e0dab72","footprint":{"uuid":"fa52c198-bd89-43fa-8c5c-25cd76d48bdf","name":"MountingHole_M2","description":"Mounting hole for M2, 2.2 mm, not plated. Hole per ISO 273 fine, head per ISO 4762","height":2000000},"pads":[
+    {"uuid":"f57f4428-70f2-4222-98b7-f22226153fd2","hash":"8971ae1227643512d58b7ce9395c5833","footprint":{"uuid":"fa52c198-bd89-43fa-8c5c-25cd76d48bdf","name":"MountingHole_M2","description":"Mounting hole for M2, 2.2 mm, not plated. Hole per ISO 273 fine, head per ISO 4762","height":2000000},"pads":[
       {"uuid":"1a944a2b-0983-4ac8-90e0-b576c2c41f44","number":"","kind":"non_plated","shape":"circle","at":{"x":0,"y":0},"rotation":0,"width":2200000,"height":2200000,"hole":{"width":2200000,"height":2200000}}
     ],"graphics":[
       {"uuid":"3e27e2d4-3538-4eaa-bf30-367501613866","layer":"assembly_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":1900000},"width":100000},
-      {"uuid":"bd02590a-9c7a-433d-bf42-47bd8d9cdbb8","layer":"silkscreen_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2220000},"width":120000},
+      {"uuid":"bd02590a-9c7a-433d-bf42-47bd8d9cdbb8","layer":"silkscreen_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2220000},"width":150000},
       {"uuid":"f213fe62-e052-4067-b104-083a882e5aa1","layer":"courtyard_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2400000},"width":50000}
     ],"texts":[
       {"uuid":"847068a0-7dab-44a1-9e91-7b14a59b19b3","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},

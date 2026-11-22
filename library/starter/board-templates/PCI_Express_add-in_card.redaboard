@@ -36,7 +36,7 @@
     ],"locked":true}
   ],
   "parts": [
-    {"uuid":"0aab2c2c-7257-4067-a4d1-87611042f8a8","hash":"8b25d2e1d17ae5e0ad7fb33baa8cf79c","part":{"uuid":"326ace02-ef44-4af4-8f9d-21d6c65a74ef","name":"MountingHole_M3","component_type":"mechanical","in_bom":false,"in_cpl":false},"footprints":["5b59cdab-565f-4f43-8563-7b49605b64f5"],"copies":["a63ccb3f-486c-4a05-8994-9418cd35a516"],"fields":{"value":"M3","description":"Mounting hole for M3, 3.2 mm, not plated","keywords":"H mounting hole screw mechanical"},"pin_map":{},"units":[],"pins":[],"graphics":[]},
+    {"uuid":"0aab2c2c-7257-4067-a4d1-87611042f8a8","hash":"6759b6ca0cdf25732c5d0d8726abf266","part":{"uuid":"326ace02-ef44-4af4-8f9d-21d6c65a74ef","name":"MountingHole_M3","component_type":"mechanical","in_bom":false,"in_cpl":false},"footprints":["5b59cdab-565f-4f43-8563-7b49605b64f5"],"copies":["a63ccb3f-486c-4a05-8994-9418cd35a516"],"fields":{"value":"M3","description":"Mounting hole for M3, 3.2 mm, not plated","keywords":"H mounting hole screw mechanical"},"pin_map":{},"units":[],"pins":[],"graphics":[]},
     {"uuid":"677f1241-e6b0-41d3-a1b4-6f7803fbc5da","hash":"d5c0bffb5bc4dd57c0e1fa7f4cc47f4f","part":{"uuid":"6b9cc867-0bd0-411e-a375-d43075785a90","name":"CardEdge_PCIe_x8","component_type":"standard","in_bom":false,"in_cpl":false,"symbol":"bc1f08e5-71cb-4283-a7ff-df0e83c022fc"},"footprints":["ef0d2c1e-f85d-4108-8a97-9d51e0f98547"],"copies":["51d86c22-41d9-4194-b481-57fe952c58b7"],"fields":{"value":"PCIe x8","description":"PCI Express x8 card edge, 49 fingers a side","keywords":"J connector card edge fingers PCIe PCI Express"},"pin_map":{},"symbol":{"uuid":"bc1f08e5-71cb-4283-a7ff-df0e83c022fc","name":"CardEdge_PCIe_x8","designator_prefix":"J","description":"PCI Express x8 card edge, 49 fingers a side"},"units":[
       {"uuid":"cccab6f9-e73a-43dc-9e8d-c8ddcbda3708","name":"A"}
     ],"pins":[
@@ -607,12 +607,12 @@
       {"uuid":"d8428ffc-e904-4c03-ab83-d6f586a4067c","field":"Designator","at":{"x":0,"y":9700000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
       {"uuid":"ec134d40-27b7-4ea4-85e9-3a8bdc72d2b3","field":"Designator","at":{"x":13500000,"y":2800000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]},
-    {"uuid":"a63ccb3f-486c-4a05-8994-9418cd35a516","hash":"67289e378ee6eb01f1b615ecfdebd99d","footprint":{"uuid":"5b59cdab-565f-4f43-8563-7b49605b64f5","name":"MountingHole_M3","description":"Mounting hole for M3, 3.2 mm, not plated. Hole per ISO 273 fine, head per ISO 4762","height":3000000},"pads":[
+    {"uuid":"a63ccb3f-486c-4a05-8994-9418cd35a516","hash":"3aa9def4c62e778f25fd750fa085a1fe","footprint":{"uuid":"5b59cdab-565f-4f43-8563-7b49605b64f5","name":"MountingHole_M3","description":"Mounting hole for M3, 3.2 mm, not plated. Hole per ISO 273 fine, head per ISO 4762","height":3000000},"pads":[
       {"uuid":"4b5efa83-470e-4f52-b548-506a36d274ea","number":"","kind":"non_plated","shape":"circle","at":{"x":0,"y":0},"rotation":0,"width":3200000,"height":3200000,"hole":{"width":3200000,"height":3200000}}
     ],"graphics":[
       {"uuid":"5e771c7c-f442-40c2-a129-51230861d7ba","layer":"assembly_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2750000},"width":100000},
       {"uuid":"6f0b6cfc-748f-4f24-9119-26bea6487e1a","layer":"courtyard_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":3250000},"width":50000},
-      {"uuid":"a380f050-8ebf-4e83-aa14-6c81b57e57d8","layer":"silkscreen_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":3070000},"width":120000}
+      {"uuid":"a380f050-8ebf-4e83-aa14-6c81b57e57d8","layer":"silkscreen_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":3070000},"width":150000}
     ],"texts":[
       {"uuid":"63e425a8-5232-4ae9-bbe4-7dc6f22e2aa0","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
       {"uuid":"732e356d-ae3f-4ac3-9110-707295538d10","field":"Value","at":{"x":0,"y":-3950000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},

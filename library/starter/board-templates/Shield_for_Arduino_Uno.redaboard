@@ -22,7 +22,7 @@
     ],"locked":true}
   ],
   "parts": [
-    {"uuid":"11ca5eaf-9b84-4184-9cdc-205eb443582c","hash":"8b25d2e1d17ae5e0ad7fb33baa8cf79c","part":{"uuid":"326ace02-ef44-4af4-8f9d-21d6c65a74ef","name":"MountingHole_M3","component_type":"mechanical","in_bom":false,"in_cpl":false},"footprints":["5b59cdab-565f-4f43-8563-7b49605b64f5"],"copies":["101fb868-1cdb-4890-a0b1-d82d8f973ce8"],"fields":{"value":"M3","description":"Mounting hole for M3, 3.2 mm, not plated","keywords":"H mounting hole screw mechanical"},"pin_map":{},"units":[],"pins":[],"graphics":[]},
+    {"uuid":"11ca5eaf-9b84-4184-9cdc-205eb443582c","hash":"6759b6ca0cdf25732c5d0d8726abf266","part":{"uuid":"326ace02-ef44-4af4-8f9d-21d6c65a74ef","name":"MountingHole_M3","component_type":"mechanical","in_bom":false,"in_cpl":false},"footprints":["5b59cdab-565f-4f43-8563-7b49605b64f5"],"copies":["101fb868-1cdb-4890-a0b1-d82d8f973ce8"],"fields":{"value":"M3","description":"Mounting hole for M3, 3.2 mm, not plated","keywords":"H mounting hole screw mechanical"},"pin_map":{},"units":[],"pins":[],"graphics":[]},
     {"uuid":"18efcd66-4b29-4c10-825c-34ffac4925ca","hash":"0ea00ed040880a37813be1d121d98045","part":{"uuid":"37d54f1b-62de-4001-88c1-d637cd1da4a1","name":"Header_1x10","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"d9a8adcb-0853-418a-bb67-cc2cc6286b83"},"footprints":["9553b550-db0e-4ca1-8867-6ded2db7e327","8266b905-dc11-4359-812a-69b8d546065a"],"copies":["cb527915-6b92-47e6-ba7c-0c0faf88f31a","385a041e-118e-446a-8463-ad5143837436"],"fields":{"value":"Header 1x10","description":"1 × 10 pin header, 2.54 or 1.27 mm pitch","keywords":"J connector pin header"},"pin_map":{},"symbol":{"uuid":"d9a8adcb-0853-418a-bb67-cc2cc6286b83","name":"Conn_1x10","designator_prefix":"J","description":"Generic connector, 1 × 10 pins"},"units":[
       {"uuid":"e4b4e284-0236-49b3-972b-dba52a9eb97a","name":"A"}
     ],"pins":[
@@ -67,12 +67,12 @@
     ]}
   ],
   "footprint_copies": [
-    {"uuid":"101fb868-1cdb-4890-a0b1-d82d8f973ce8","hash":"67289e378ee6eb01f1b615ecfdebd99d","footprint":{"uuid":"5b59cdab-565f-4f43-8563-7b49605b64f5","name":"MountingHole_M3","description":"Mounting hole for M3, 3.2 mm, not plated. Hole per ISO 273 fine, head per ISO 4762","height":3000000},"pads":[
+    {"uuid":"101fb868-1cdb-4890-a0b1-d82d8f973ce8","hash":"3aa9def4c62e778f25fd750fa085a1fe","footprint":{"uuid":"5b59cdab-565f-4f43-8563-7b49605b64f5","name":"MountingHole_M3","description":"Mounting hole for M3, 3.2 mm, not plated. Hole per ISO 273 fine, head per ISO 4762","height":3000000},"pads":[
       {"uuid":"4b5efa83-470e-4f52-b548-506a36d274ea","number":"","kind":"non_plated","shape":"circle","at":{"x":0,"y":0},"rotation":0,"width":3200000,"height":3200000,"hole":{"width":3200000,"height":3200000}}
     ],"graphics":[
       {"uuid":"5e771c7c-f442-40c2-a129-51230861d7ba","layer":"assembly_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2750000},"width":100000},
       {"uuid":"6f0b6cfc-748f-4f24-9119-26bea6487e1a","layer":"courtyard_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":3250000},"width":50000},
-      {"uuid":"a380f050-8ebf-4e83-aa14-6c81b57e57d8","layer":"silkscreen_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":3070000},"width":120000}
+      {"uuid":"a380f050-8ebf-4e83-aa14-6c81b57e57d8","layer":"silkscreen_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":3070000},"width":150000}
     ],"texts":[
       {"uuid":"63e425a8-5232-4ae9-bbe4-7dc6f22e2aa0","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
       {"uuid":"732e356d-ae3f-4ac3-9110-707295538d10","field":"Value","at":{"x":0,"y":-3950000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
