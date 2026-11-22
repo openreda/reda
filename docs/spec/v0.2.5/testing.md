@@ -35,7 +35,7 @@ There are full PCB and Schematic goldens for one combination per template, from 
 A checked-in `board-template-dimensions.tsv` has these columns: template, combination, quantity, expected value, tolerance and sources.
 
 - **The data test** measures each quantity in the evaluated frame.
-- **Sources:** a row needs two independent sources, or one primary spec marked `primary`. A single-source value that a ticket accepted knowingly is marked `decided` and names that ticket: the PCIe bevel (20°, 1.30), the PCIe pad near end (1.40), and the M.2 pad setback (0.50) and lands (Ø5.5 / Ø6.0).
+- **Sources:** a row needs two independent sources, or one primary spec marked `primary`. A single-source value that a ticket accepted knowingly is marked `decided` and names that ticket: the PCIe bevel (20°, 1.30), the PCIe pad near end (1.40), and the M.2 pad setback (0.50) and lands (Ø5.5 / Ø6.0) (all `decided #399`); the Feather hole drills (Ø2.7, the starter `MountingHole_M2.5`) and the Pico hole drills (Ø2.2, the starter `MountingHole_M2`) (`decided #397`).
 - **Coverage:** every hole, notch, connector and outline dimension of each built-in at default values must have a row. Variants derived by expression are covered by the frame goldens.
 - **Exempt:** Documentation drawings, such as "Host board outline (approximate)" and "Bracket outline (approximate)", are marked `unverified`.
 

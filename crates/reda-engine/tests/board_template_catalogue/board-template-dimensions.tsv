@@ -2,7 +2,8 @@
 # tests/board_template_catalogue.rs. Lengths in mm, angles in degrees. `combination` is
 # `default` or name=value pairs. `sources` needs two independent sources separated by `;`,
 # or one marked `primary:`, `decided #<ticket>:` or `unverified:` (Documentation drawings).
-# Every outline size, hole, connector and cutout of each built-in at default values needs a row.
+# Every outline size, hole (position and drill), connector, cutout and Keepout of each built-in
+# at default values needs a row.
 template	combination	quantity	expected	tolerance	sources
 Custom rectangle	default	outline/width	100	0	primary: docs/spec/v0.2.5/catalogue.md#custom-rectangle (keeps the old dialog's 100 x 80)
 Custom rectangle	default	outline/height	80	0	primary: docs/spec/v0.2.5/catalogue.md#custom-rectangle (keeps the old dialog's 100 x 80)
@@ -33,6 +34,10 @@ Board in Adafruit Feather format	default	connector:a9adbe98-c51f-4922-9c1a-c3ca6
 Board in Adafruit Feather format	default	connector:a9adbe98-c51f-4922-9c1a-c3ca6df01002/pad:12/x	44.45	0	Adafruit Feather Specification (learn.adafruit.com/adafruit-feather/feather-specification) (12-pin strip centred 1.2 in from the USB edge, 0.8 in above the 16-pin strip); Adafruit Feather M0 Basic Proto rev C .brd (pad 1 VBAT nearest USB)
 Board in Adafruit Feather format	default	connector:a9adbe98-c51f-4922-9c1a-c3ca6df01002/pad:12/y	21.59	0	Adafruit Feather Specification (learn.adafruit.com/adafruit-feather/feather-specification) (12-pin strip centred 1.2 in from the USB edge, 0.8 in above the 16-pin strip); Adafruit Feather M0 Basic Proto rev C .brd (pad 1 VBAT nearest USB)
 Board in Adafruit Feather format	default	connector:a9adbe98-c51f-4922-9c1a-c3ca6df01002/pad:1/y - connector:f45fe053-e718-49c1-8d17-3eb79ff59408/pad:1/y	20.32	0	Adafruit Feather Specification (learn.adafruit.com/adafruit-feather/feather-specification) (strips 0.8 in apart); Adafruit Feather M0 Basic Proto rev C .brd
+Board in Adafruit Feather format	default	hole:43170474-b8e0-4dca-a68c-a9a67f55f9e5/drill	2.7	0	decided #397: 4x starter MountingHole_M2.5 (2.7 clearance drill for M2.5 screws), Adafruit's own boards drill 2.5 plated / 2.54 unplated (Adafruit Feather M0 Basic Proto rev C .brd)
+Board in Adafruit Feather format	default	hole:a0aed85a-d8fc-4070-8c4e-076e1e38ece0/drill	2.7	0	decided #397: 4x starter MountingHole_M2.5 (2.7 clearance drill for M2.5 screws), Adafruit's own boards drill 2.5 plated / 2.54 unplated (Adafruit Feather M0 Basic Proto rev C .brd)
+Board in Adafruit Feather format	default	hole:b38b5d67-e813-4067-a90b-87a1f16adfe2/drill	2.7	0	decided #397: 4x starter MountingHole_M2.5 (2.7 clearance drill for M2.5 screws), Adafruit's own boards drill 2.5 plated / 2.54 unplated (Adafruit Feather M0 Basic Proto rev C .brd)
+Board in Adafruit Feather format	default	hole:d521eace-de0f-4b01-8882-b9cd1c7cda37/drill	2.7	0	decided #397: 4x starter MountingHole_M2.5 (2.7 clearance drill for M2.5 screws), Adafruit's own boards drill 2.5 plated / 2.54 unplated (Adafruit Feather M0 Basic Proto rev C .brd)
 Shield for Arduino Uno	default	outline/width	68.58	0	primary: Arduino UNO R3 CAD file UNO-TH_Rev3e.brd (A000066) layer 20
 Shield for Arduino Uno	default	outline/height	53.34	0	primary: Arduino UNO R3 CAD file UNO-TH_Rev3e.brd (A000066) layer 20
 Shield for Arduino Uno	default	outline/corner_radius	1	0	primary: Arduino UNO R3 CAD file UNO-TH_Rev3e.brd (A000066) layer 20
@@ -75,6 +80,9 @@ Shield for Arduino Uno	default	connector:9490f39e-4046-4c50-982a-9e973e63cdc9/pa
 Shield for Arduino Uno	default	connector:9490f39e-4046-4c50-982a-9e973e63cdc9/pad:1/y	2.54	0	Arduino UNO R3 CAD file UNO-TH_Rev3e.brd (A000066) pads and nets; Arduino UNO R4 Minima CAD drill file PCB-RoundHoles.TXT (ABX00080) (the same hole positions)
 Shield for Arduino Uno	default	connector:9490f39e-4046-4c50-982a-9e973e63cdc9/pad:6/x	63.5	0	Arduino UNO R3 CAD file UNO-TH_Rev3e.brd (A000066) pads and nets; Arduino UNO R4 Minima CAD drill file PCB-RoundHoles.TXT (ABX00080) (the same hole positions)
 Shield for Arduino Uno	default	connector:9490f39e-4046-4c50-982a-9e973e63cdc9/pad:6/y	2.54	0	Arduino UNO R3 CAD file UNO-TH_Rev3e.brd (A000066) pads and nets; Arduino UNO R4 Minima CAD drill file PCB-RoundHoles.TXT (ABX00080) (the same hole positions)
+Shield for Arduino Uno	default	hole:1a8c066b-e944-47fd-a41f-150ef7f61cff/drill	3.2	0	Arduino UNO R3 CAD file UNO-TH_Rev3e.brd (A000066) <hole>; Arduino UNO R4 Minima CAD drill file PCB-RoundHoles.TXT (ABX00080)
+Shield for Arduino Uno	default	hole:2d7b0b7e-40fb-40ab-bf8d-8cc972939bd7/drill	3.2	0	Arduino UNO R3 CAD file UNO-TH_Rev3e.brd (A000066) <hole>; Arduino UNO R4 Minima CAD drill file PCB-RoundHoles.TXT (ABX00080)
+Shield for Arduino Uno	default	hole:cf3a6ae2-3a1c-4265-926b-999e1795afc9/drill	3.2	0	Arduino UNO R3 CAD file UNO-TH_Rev3e.brd (A000066) <hole>; Arduino UNO R4 Minima CAD drill file PCB-RoundHoles.TXT (ABX00080)
 Shield for Arduino Mega	default	outline/width	101.6	0.03	primary: Arduino Mega 2560 Rev3 CAD file MEGA2560_Rev3e.brd (A000067) layer 20 (its outline sits 0.0256 / 0.0128 off the hole grid; re-based to (0,0))
 Shield for Arduino Mega	default	outline/height	53.34	0.03	primary: Arduino Mega 2560 Rev3 CAD file MEGA2560_Rev3e.brd (A000067) layer 20 (its outline sits 0.0256 / 0.0128 off the hole grid; re-based to (0,0))
 Shield for Arduino Mega	default	outline/corner_radius	1	0	primary: Arduino Mega 2560 Rev3 CAD file MEGA2560_Rev3e.brd (A000067) layer 20 (its outline sits 0.0256 / 0.0128 off the hole grid; re-based to (0,0))
@@ -137,6 +145,11 @@ Shield for Arduino Mega	default	connector:3011dc16-2fab-4982-8f8a-741a921d95cb/p
 Shield for Arduino Mega	default	connector:3011dc16-2fab-4982-8f8a-741a921d95cb/pad:35/y	7.62	0	primary: Arduino Mega 2560 Rev3 CAD file MEGA2560_Rev3e.brd (A000067) pads and nets
 Shield for Arduino Mega	default	connector:3011dc16-2fab-4982-8f8a-741a921d95cb/pad:36/x	96.52	0	primary: Arduino Mega 2560 Rev3 CAD file MEGA2560_Rev3e.brd (A000067) pads and nets
 Shield for Arduino Mega	default	connector:3011dc16-2fab-4982-8f8a-741a921d95cb/pad:36/y	7.62	0	primary: Arduino Mega 2560 Rev3 CAD file MEGA2560_Rev3e.brd (A000067) pads and nets
+Shield for Arduino Mega	default	hole:7d4f8c9a-4490-4d7c-b4fe-a99c3ab2b0f5/drill	3.2	0	Arduino Mega 2560 Rev3 CAD file MEGA2560_Rev3e.brd (A000067) <hole>; Arduino UNO R3 CAD file UNO-TH_Rev3e.brd (A000066) <hole>
+Shield for Arduino Mega	default	hole:7e2a8e6d-08f3-4587-b01e-39cf60caa40a/drill	3.2	0	Arduino Mega 2560 Rev3 CAD file MEGA2560_Rev3e.brd (A000067) <hole>; Arduino UNO R3 CAD file UNO-TH_Rev3e.brd (A000066) <hole>
+Shield for Arduino Mega	default	hole:7fc52f83-3403-46d0-8b93-08f43632c5f3/drill	3.2	0	Arduino Mega 2560 Rev3 CAD file MEGA2560_Rev3e.brd (A000067) <hole>; Arduino UNO R3 CAD file UNO-TH_Rev3e.brd (A000066) <hole>
+Shield for Arduino Mega	default	hole:ea0af672-6e5f-4b55-b396-3c6aac19e11e/drill	3.2	0	Arduino Mega 2560 Rev3 CAD file MEGA2560_Rev3e.brd (A000067) <hole>; Arduino UNO R3 CAD file UNO-TH_Rev3e.brd (A000066) <hole>
+Shield for Arduino Mega	default	hole:f73e68ab-ba46-4433-82c7-e46af7b43ec3/drill	3.2	0	Arduino Mega 2560 Rev3 CAD file MEGA2560_Rev3e.brd (A000067) <hole>; Arduino UNO R3 CAD file UNO-TH_Rev3e.brd (A000066) <hole>
 Add-on board for Raspberry Pi	default	outline/width	65	0	Raspberry Pi HAT Board Mechanical Specification (raspberrypi/hats at 348dbf88); Raspberry Pi HAT+ Specification RP-008281-DS-1 Fig 2
 Add-on board for Raspberry Pi	default	outline/height	56.5	0	Raspberry Pi HAT Board Mechanical Specification (raspberrypi/hats at 348dbf88) (56.5 for an SMT GPIO header); Raspberry Pi HAT+ Specification RP-008281-DS-1 Fig 2 (65 x 56.5)
 Add-on board for Raspberry Pi	size=full,gpio=through_hole,cutouts=none	outline/height	56	0	primary: Raspberry Pi HAT Board Mechanical Specification (raspberrypi/hats at 348dbf88) (56 for a through-hole GPIO header)
@@ -187,6 +200,12 @@ Add-on board for Raspberry Pi	default	connector:bb81444c-0296-459b-afd4-7bf7f8b6
 Add-on board for Raspberry Pi	default	connector:bb81444c-0296-459b-afd4-7bf7f8b60ce4/pad:39/x	56.63	0	Raspberry Pi 5 mechanical drawing RP-008347-DS-1 (pin 1 the square pad at the left end, inner row); Raspberry Pi HAT+ Specification RP-008281-DS-1 Fig 2 (2 x 20 at 2.54, centre X 32.5)
 Add-on board for Raspberry Pi	default	drawing:7a048c5f-8f9b-4258-9dcb-e91d480047af/from/x	85	0	unverified: Raspberry Pi 5 mechanical drawing RP-008347-DS-1 (approximate host outline, Documentation Layer)
 Add-on board for Raspberry Pi	default	drawing:57bff2c4-afe4-4938-ac80-db5c2a0f1935/to/y	56	0	unverified: Raspberry Pi 5 mechanical drawing RP-008347-DS-1 (approximate host outline, Documentation Layer)
+Add-on board for Raspberry Pi	default	outline/arc:8/radius	1	0	primary: Raspberry Pi HAT Board Mechanical Specification (raspberrypi/hats at 348dbf88) (display cutout depth 5, Y 19.5 to 36.5, inner corners R1)
+Add-on board for Raspberry Pi	default	outline/arc:10/radius	1	0	primary: Raspberry Pi HAT Board Mechanical Specification (raspberrypi/hats at 348dbf88) (display cutout depth 5, Y 19.5 to 36.5, inner corners R1)
+Add-on board for Raspberry Pi	default	keepout:183732f7-5100-4a50-8531-c741ace65f3e/arc:0/radius	3.1	0	primary: Raspberry Pi HAT Board Mechanical Specification (raspberrypi/hats at 348dbf88) (land min 6.2 diameter, isolated copper or bare board)
+Add-on board for Raspberry Pi	default	keepout:925c5d57-07a8-4f32-a11d-e5b888d8d295/arc:0/radius	3.1	0	primary: Raspberry Pi HAT Board Mechanical Specification (raspberrypi/hats at 348dbf88) (land min 6.2 diameter, isolated copper or bare board)
+Add-on board for Raspberry Pi	default	keepout:be80bc6b-3cc0-4f95-be20-148920fc751d/arc:0/radius	3.1	0	primary: Raspberry Pi HAT Board Mechanical Specification (raspberrypi/hats at 348dbf88) (land min 6.2 diameter, isolated copper or bare board)
+Add-on board for Raspberry Pi	default	keepout:cc26dc61-17fe-4971-a34c-076ea5adc8c5/arc:0/radius	3.1	0	primary: Raspberry Pi HAT Board Mechanical Specification (raspberrypi/hats at 348dbf88) (land min 6.2 diameter, isolated copper or bare board)
 Add-on board for Raspberry Pi Pico	default	outline/width	21	0	Raspberry Pi Pico datasheet Fig 3 (RP-008307-DS-2); Raspberry Pi Pico 2 datasheet Fig 3 (RP-008299-DS-3)
 Add-on board for Raspberry Pi Pico	default	outline/height	51	0	Raspberry Pi Pico datasheet Fig 3 (RP-008307-DS-2); Raspberry Pi Pico 2 datasheet Fig 3 (RP-008299-DS-3)
 Add-on board for Raspberry Pi Pico	default	hole:b2c5c437-cb9d-49e6-b4cf-68ba422612ec/x	4.8	0	Raspberry Pi Pico datasheet Fig 3 (RP-008307-DS-2); Raspberry Pi Pico 2 datasheet Fig 3 (RP-008299-DS-3)
@@ -209,6 +228,10 @@ Add-on board for Raspberry Pi Pico	default	connector:26a01272-80e3-4774-ae0f-023
 Add-on board for Raspberry Pi Pico	default	connector:26a01272-80e3-4774-ae0f-0234537638a4/pad:20/y	49.63	0	Raspberry Pi Pico datasheet Fig 3 (RP-008307-DS-2) (columns 1.61 from each long edge, 48.26 span centred); Raspberry Pi Pico 2 datasheet Fig 3 (RP-008299-DS-3) (the same)
 Add-on board for Raspberry Pi Pico	default	connector:26a01272-80e3-4774-ae0f-0234537638a4/pad:1/x - connector:b9ee8213-0df4-47f5-b105-3ab5c1048d7b/pad:1/x	17.78	0	Raspberry Pi Pico datasheet Fig 3 (RP-008307-DS-2); Raspberry Pi Pico 2 datasheet Fig 3 (RP-008299-DS-3)
 Add-on board for Raspberry Pi Pico	height=150	connector:b9ee8213-0df4-47f5-b105-3ab5c1048d7b/pad:1/y	148.63	0	Raspberry Pi Pico datasheet Fig 3 (RP-008307-DS-2); Raspberry Pi Pico 2 datasheet Fig 3 (RP-008299-DS-3)
+Add-on board for Raspberry Pi Pico	default	hole:91a8205b-37af-4206-a7e0-25bf28bb8415/drill	2.2	0	decided #397: 4x starter MountingHole_M2 (2.2 clearance drill for M2 screws) for the Pico's 4x 2.1 +/- 0.05 holes (Raspberry Pi Pico datasheet section 2 Fig 3)
+Add-on board for Raspberry Pi Pico	default	hole:b2c5c437-cb9d-49e6-b4cf-68ba422612ec/drill	2.2	0	decided #397: 4x starter MountingHole_M2 (2.2 clearance drill for M2 screws) for the Pico's 4x 2.1 +/- 0.05 holes (Raspberry Pi Pico datasheet section 2 Fig 3)
+Add-on board for Raspberry Pi Pico	default	hole:f653f5d7-1404-4e8b-9d20-d3feb8540651/drill	2.2	0	decided #397: 4x starter MountingHole_M2 (2.2 clearance drill for M2 screws) for the Pico's 4x 2.1 +/- 0.05 holes (Raspberry Pi Pico datasheet section 2 Fig 3)
+Add-on board for Raspberry Pi Pico	default	hole:fad5e40c-230a-4f60-80b5-8bde910dbe2a/drill	2.2	0	decided #397: 4x starter MountingHole_M2 (2.2 clearance drill for M2 screws) for the Pico's 4x 2.1 +/- 0.05 holes (Raspberry Pi Pico datasheet section 2 Fig 3)
 M.2 card	default	outline/width	22	0	KiCad Connector_PCBEdge M.2 footprints (kicad-footprints a0dcd398e7); antmicro/m2-oculink-adapter (067f607270); SATA-IO TP053v11 M.2 figures
 M.2 card	default	outline/height	80	0	KiCad Connector_PCBEdge M.2 footprints (kicad-footprints a0dcd398e7); antmicro/m2-oculink-adapter (067f607270); SATA-IO TP053v11 M.2 figures
 M.2 card	default	outline/vertex:0/x	1.075	0	KiCad Connector_PCBEdge M.2 footprints (kicad-footprints a0dcd398e7); antmicro/m2-oculink-adapter (067f607270); gralco/m2-sd-card (d48d5e87dd) (19.85 tab, centred); SATA-IO TP053v11 M.2 figures

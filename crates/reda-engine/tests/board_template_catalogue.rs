@@ -720,7 +720,8 @@ fn every_spec_number_is_measured_in_its_frame_and_sourced() {
         }
     }
 
-    // Coverage at default values: the outline's size and every hole, connector and cutout.
+    // Coverage at default values: the outline's size and every hole, connector, cutout
+    // and Keepout.
     for (name, template) in &templates {
         let frame = frame_at(template, "default").unwrap();
         let rows = named.get(name).cloned().unwrap_or_default();
@@ -739,10 +740,18 @@ fn every_spec_number_is_measured_in_its_frame_and_sourced() {
                     .iter()
                     .map(|c| format!("connector:{}", c.uuid)),
             )
-            .chain(frame.cutouts.iter().map(|c| format!("cutout:{}", c.uuid)));
+            .chain(frame.cutouts.iter().map(|c| format!("cutout:{}", c.uuid)))
+            .chain(frame.keepouts.iter().map(|k| format!("keepout:{}", k.uuid)));
         for object in objects {
             if !rows.contains(&format!("{object}/")) {
                 failures.push(format!("{name}: no default row measures {object}"));
+            }
+        }
+        // Each hole's size, not only its position.
+        for hole in &frame.holes {
+            let drill = format!("hole:{}/drill", hole.uuid);
+            if !rows.lines().any(|l| l.trim() == drill) {
+                failures.push(format!("{name}: no default row measures {drill}"));
             }
         }
     }
