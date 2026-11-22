@@ -97,4 +97,15 @@ fn the_m2_card_fab_files_read_back_as_its_fingers_half_moon_and_bevel() {
     let fab_notes = fs::read_to_string(fab.join("M2Card-fab-notes.txt")).unwrap();
     assert!(fab_notes.contains("Bevel edge-connector edge: 20°, 1.30 mm"));
     assert!(fab_notes.contains("Hard gold on edge-connector Pads, 40.95 mm²"));
+
+    // A consistent 0.8 mm build: the Stackup entries add up to the ordered thickness, so
+    // the Fab Notes name its Construction and the thickness check passes.
+    let stackup = pcb.stackup();
+    assert_eq!(stackup.info().totals.total, stackup.thickness);
+    assert!(fab_notes.contains("Thickness: 0.8 mm"), "{fab_notes}");
+    assert!(fab_notes.contains("Construction: "), "{fab_notes}");
+    assert!(
+        fab_notes.contains("Thickness check: Within 10% tolerance"),
+        "{fab_notes}"
+    );
 }

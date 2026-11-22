@@ -75,7 +75,7 @@
     },
     {
       "Type": "Dielectric",
-      "Thickness": 1.53
+      "Thickness": 0.73
     },
     {
       "Type": "Copper",

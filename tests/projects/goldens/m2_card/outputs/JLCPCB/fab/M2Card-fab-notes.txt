@@ -6,15 +6,16 @@ Board
   Size: 22 x 80 mm
   Copper layers: 2
   Thickness: 0.8 mm
+  Construction: 2 Layer 0.8 mm
   Symmetry: Symmetric
-  Thickness check: Outside 10% tolerance
+  Thickness check: Within 10% tolerance
   Bevel edge-connector edge: 20°, 1.30 mm
   Hard gold on edge-connector Pads, 40.95 mm²
 
 Stackup
   | Layer       | Kind   | Role   | Thickness    | Material | Dk |
   | L1 (top)    | Copper | Signal | 1 oz (35 µm) |          |    |
-  |             | Core   |        | 1.53 mm      |          |    |
+  |             | Core   |        | 0.73 mm      |          |    |
   | L2 (bottom) | Copper | Signal | 1 oz (35 µm) |          |    |
 
 Via types
