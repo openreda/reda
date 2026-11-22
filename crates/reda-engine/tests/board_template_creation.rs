@@ -319,10 +319,11 @@ fn project_new_writes_every_kind_of_template_object() {
                "board_template": {"element": s(100), "values": {"finish": "fancy"}}}),
     );
     let seeded = &out["seeded"];
-    // Omitted `layers` takes the suggestion: 4 copper Layers.
+    // Omitted `layers` takes the suggestion: 4 copper Layers. `finish` is hidden at
+    // `size: small`, so the value given for it is ignored and it is no resolved value.
     assert_eq!(
         seeded["template"]["values"],
-        json!({"finish": "plain", "height": 40_000_000, "size": "small"})
+        json!({"height": 40_000_000, "size": "small"})
     );
     let objects = created(seeded);
     let order: Vec<&str> = seeded["template"]["objects"]

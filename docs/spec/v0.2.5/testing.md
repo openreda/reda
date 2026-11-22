@@ -9,7 +9,7 @@ Source: [How are Board Templates tested?](https://github.com/openreda/reda/issue
 
 ### Exhaustive data test
 
-The test walks every choice combination of every built-in, with each length at its min, default and max as evaluated under that combination, since `min` and `max` may name bound names ([format](template-format.md#parameter-kinds)). For each point it checks that:
+The test walks every choice combination of every built-in (a choice hidden by its `when` adds none, so the micro Pi board is one combination per GPIO header), with each length at its min, default and max as evaluated under that combination, since `min` and `max` may name bound names ([format](template-format.md#parameter-kinds)). For each point it checks that:
 
 - the template loads and passes the schema and expression checks;
 - exactly one Board Outline survives;

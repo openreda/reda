@@ -558,10 +558,11 @@ impl Checker {
                     )
                 }
             };
+            let settled = super::settle(t, &combo);
             let outlines = t
                 .outline
                 .iter()
-                .filter(|r| gate_holds(r.when.as_ref(), &combo))
+                .filter(|r| gate_holds(r.when.as_ref(), &settled))
                 .count();
             if outlines != 1 {
                 self.problem(format!(

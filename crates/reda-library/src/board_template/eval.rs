@@ -16,7 +16,7 @@ use super::frame::{
 };
 use super::range::{range_at, range_gate, shown_gate};
 use super::{
-    BoardTemplateChoice, Combination, Namespace, TemplateError, TemplateValue, gate_holds,
+    BoardTemplateChoice, Combination, Namespace, TemplateError, TemplateValue, gate_holds, settle,
 };
 
 /// The template's parameters resolved at the values given.
@@ -29,7 +29,7 @@ pub(crate) struct Resolved {
 
 /// Resolves `given` against the template's parameters: defaults for what is left out or
 /// hidden by a `when`, errors for unknown names, unknown option keys and lengths out of
-/// range.
+/// range. A hidden parameter gates and binds at its default but is left out of `values`.
 pub(crate) fn resolve(
     template: &BoardTemplate,
     given: &BTreeMap<String, TemplateValue>,
@@ -54,16 +54,13 @@ pub(crate) fn resolve(
     }
 
     // Choices first: a `when` names choices only.
-    let mut combination = Combination::new();
     for param in &template.parameters {
         let TemplateParameter::Choice(choice) = param else {
             continue;
         };
-        let key = match given.get(&choice.name) {
-            None => choice.default_key().unwrap_or_default().to_owned(),
-            Some(TemplateValue::Text(key)) if choice.options.iter().any(|o| &o.key == key) => {
-                key.clone()
-            }
+        match given.get(&choice.name) {
+            None => {}
+            Some(TemplateValue::Text(key)) if choice.options.iter().any(|o| &o.key == key) => {}
             Some(value) => {
                 let keys: Vec<&str> = choice.options.iter().map(|o| o.key.as_str()).collect();
                 let shown = match value {
@@ -79,28 +76,16 @@ pub(crate) fn resolve(
                     ),
                 ));
             }
-        };
-        combination.insert(choice.name.clone(), key);
-    }
-    // A hidden choice takes its default, which may hide or show another.
-    for _ in 0..=template.parameters.len() {
-        let mut changed = false;
-        for param in &template.parameters {
-            let TemplateParameter::Choice(choice) = param else {
-                continue;
-            };
-            let default = choice.default_key().unwrap_or_default();
-            if !gate_holds(choice.when.as_ref(), &combination)
-                && combination.get(&choice.name).map(String::as_str) != Some(default)
-            {
-                combination.insert(choice.name.clone(), default.to_owned());
-                changed = true;
-            }
-        }
-        if !changed {
-            break;
         }
     }
+    let given_keys: Combination = given
+        .iter()
+        .filter_map(|(name, v)| match v {
+            TemplateValue::Text(key) => Some((name.clone(), key.clone())),
+            TemplateValue::Number(_) => None,
+        })
+        .collect();
+    let combination = settle(template, &given_keys);
 
     let constants = Namespace::empty();
     let mut names = Namespace::empty();
@@ -127,7 +112,9 @@ pub(crate) fn resolve(
                     names.insert(name, value);
                 }
                 suggested_layers = suggested_layers.or(option.suggested_layers);
-                values.insert(choice.name.clone(), ResolvedValue::Choice(key.clone()));
+                if gate_holds(choice.when.as_ref(), &combination) {
+                    values.insert(choice.name.clone(), ResolvedValue::Choice(key.clone()));
+                }
             }
             TemplateParameter::Length(length) => {
                 let default = constants.length(&length.default).map_err(|e| {
@@ -163,7 +150,9 @@ pub(crate) fn resolve(
                     _ => default,
                 };
                 names.insert(&length.name, reda_model::geom::expr::Attr::Length(value));
-                values.insert(length.name.clone(), ResolvedValue::Length(value));
+                if !hidden {
+                    values.insert(length.name.clone(), ResolvedValue::Length(value));
+                }
             }
         }
     }
