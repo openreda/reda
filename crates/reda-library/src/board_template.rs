@@ -11,6 +11,7 @@
 mod check;
 mod eval;
 mod frame;
+mod range;
 
 use std::collections::BTreeMap;
 
@@ -27,6 +28,7 @@ pub use frame::{
     FrameDrawingGroup, FrameDrill, FrameEdgeConnector, FrameHole, FrameKeepout, FramePad,
     FramePlacement, FrameProblem, FrameVertex, ProblemObject, ResolvedValue,
 };
+pub use range::{LengthRange, length_ranges};
 
 /// The folder of a Library that holds its Board Templates.
 pub const BOARD_TEMPLATE_FOLDER: &str = "board-templates";

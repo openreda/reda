@@ -2,7 +2,7 @@
 //! every `.redaboard` in the starter Library's `board-templates/`, checked as data.
 //!
 //! - **Exhaustive data test:** every choice combination of every built-in, with each
-//!   length at its min, default and max, must load, keep exactly one outline, pass the
+//!   length at its min, default and max as evaluated under that combination, must load, keep exactly one outline, pass the
 //!   outline, cutout and Keepout checks, and embed Part copies whose `hash` matches the
 //!   starter Library's. The points listed in `board_template_catalogue/expected_invalid.tsv`
 //!   must fail instead, and nothing else may.
@@ -23,7 +23,7 @@ use std::path::{Path, PathBuf};
 use reda_engine::format::{read_board_template, write_board_template};
 use reda_engine::library::board_template::{
     BoardTemplateChoice, Combination, Frame, ResolvedValue, TemplateValue, check, combinations,
-    constant_length, evaluate,
+    constant_length, evaluate, gate_holds, length_ranges,
 };
 use reda_engine::library::{DiskLibraryFiles, LibraryOrigin, LibraryRoot, copy_part, scan};
 use reda_engine::model::geom::expr::{self, Field, Kind, Object};
@@ -95,17 +95,39 @@ fn choice(template: &BoardTemplate, values: &Values) -> BoardTemplateChoice {
     }
 }
 
-/// The combination's choices, then every length at its min, default and max.
+/// The combination's choices, then every length at its min, default and max as
+/// evaluated under those choices: a length's `min` and `max` may name the names the
+/// chosen options bind (#416 decision).
 fn points(template: &BoardTemplate, combo: &Combination) -> Vec<Values> {
+    // The choices as evaluation settles them: a hidden choice takes its default.
+    let only_choices: Values = combo
+        .iter()
+        .map(|(k, v)| (k.clone(), TemplateValue::Text(v.clone())))
+        .collect();
+    let settled: Combination = evaluate(template, &choice(template, &only_choices))
+        .unwrap_or_else(|e| panic!("{} at {combo:?}: {}", template.name, e.message))
+        .values
+        .into_iter()
+        .filter_map(|(name, v)| match v {
+            ResolvedValue::Choice(key) => Some((name, key)),
+            ResolvedValue::Length(_) => None,
+        })
+        .collect();
     let mut out: Vec<Values> = vec![vec![]];
     for param in &template.parameters {
         let options: Vec<TemplateValue> = match param {
             TemplateParameter::Choice(c) => vec![TemplateValue::Text(combo[&c.name].clone())],
             TemplateParameter::Length(l) => {
-                let mut v: Vec<i64> = [&l.min, &l.default, &l.max]
-                    .iter()
-                    .map(|n| constant_length(n).unwrap().0)
-                    .collect();
+                let range = length_ranges(template, &l.name)
+                    .unwrap()
+                    .into_iter()
+                    .find(|r| gate_holds(Some(&r.when), &settled))
+                    .unwrap_or_else(|| panic!("{}: no range of `{}` holds", template.name, l.name));
+                let mut v: Vec<i64> = vec![
+                    range.min.0,
+                    constant_length(&l.default).unwrap().0,
+                    range.max.0,
+                ];
                 v.dedup();
                 v.into_iter().map(TemplateValue::Number).collect()
             }

@@ -1,6 +1,6 @@
 # v0.2.5 Board Template format
 
-Source: [Board Template file format, parameter model and where templates live](https://github.com/openreda/reda/issues/396), recorded as ADR [0016](../../adr/0016-board-templates-are-parametric-library-elements.md). It is extended by [how holes and connectors enter the design](https://github.com/openreda/reda/issues/395), the [command surface](https://github.com/openreda/reda/issues/401) (choice `default`), [card-edge fingers](https://github.com/openreda/reda/issues/399) (`edge_connector`), [plated edges](https://github.com/openreda/reda/issues/403) (`plated` marks) and [drawings](https://github.com/openreda/reda/issues/404) (drawing groups).
+Source: [Board Template file format, parameter model and where templates live](https://github.com/openreda/reda/issues/396), recorded as ADR [0016](../../adr/0016-board-templates-are-parametric-library-elements.md). It is extended by [how holes and connectors enter the design](https://github.com/openreda/reda/issues/395), the [command surface](https://github.com/openreda/reda/issues/401) (choice `default`), [card-edge fingers](https://github.com/openreda/reda/issues/399) (`edge_connector`), [plated edges](https://github.com/openreda/reda/issues/403) (`plated` marks) and [drawings](https://github.com/openreda/reda/issues/404) (drawing groups). The [#416 decision](https://github.com/openreda/reda/issues/416#issuecomment-7072198747) lets a length's `min` and `max` name bound names.
 
 This file says what a `.redaboard` file holds, how its parameters shape the geometry, where templates live, and what is checked when one loads.
 
@@ -50,6 +50,9 @@ There is no author or licence field. The Library carries those.
   - Every option of one choice binds **the same set of names**.
   - `default` is an option `key`. Without it, the first option is the default.
 - **length:** `{name, kind: "length", label, default, min, max, unit}`. `unit` is a display hint (`mm`, `mil` or `in`). It does not change how the file is read.
+  - `default` is a plain value.
+  - **`min` and `max` may be expressions over the names choice options bind** ([#416 decision](https://github.com/openreda/reda/issues/416#issuecomment-7072198747)). They may not name length parameters. So a length's range depends on the options chosen. For example, PCIe `card_length` has `min: "57.15 + finger_long"`, the chosen lane width's tab end ([catalogue](catalogue.md#pci-express-add-in-card)).
+  - A value outside the range evaluated at the chosen options is refused as out of range, by preview and creation alike ([commands](commands.md#values)). The dialog shows the range for the options chosen ([`library.board_template.list`](commands.md#libraryboard_templatelist)).
 - Parameter `name`s are `snake_case`. `label`s are what the dialog shows.
 - Length `min` and `max` are the only declared constraints. There are no custom constraint expressions. Anything else is caught by [validation](#validation) of the evaluated frame.
 
@@ -114,6 +117,7 @@ These checks run on every load. A template that fails any of them is listed in t
 - the schema and `deny_unknown_fields`;
 - expression syntax, and that every name resolves;
 - that every option of a choice binds the same names, and that `default` names an option;
+- that a length's `default` is a plain value, its `min` and `max` name only bound names, and `min ≤ default ≤ max` holds under every choice combination;
 - that every `when` names a choice parameter and its keys;
 - that every `part`, `footprint`, `protects`, drawing `group` and Dimension `follow` reference resolves;
 - that exactly one `outline` row survives every choice combination;

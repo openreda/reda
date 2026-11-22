@@ -2,14 +2,14 @@
   "format": 2,
   "uuid": "4ca6b4ca-11f8-45f1-96c1-c610ece56af9",
   "name": "PCI Express add-in card",
-  "description": "A PCI Express add-in card in x1, x4, x8 or x16, full height (111.15 mm) or low profile (68.90 mm), from 70 mm up to half length (167.65 mm). Seen from the component side with the fingers down, the bracket is on the left: the bracket-side card edge is at X = 0 and the key 57.15 mm along. The B-side fingers are on the top copper and the A-side on the bottom. The finger edge is bevelled 20 degrees, 1.30 mm deep, after TE Connectivity drawing 2364427, the only published figure; hard gold on the fingers is recommended for a card that is inserted often. The lower bracket screw hole is included. The bracket outline is approximate, after the open lucanastasio PCIexpress-KiCad bracket footprints, and sits on the Documentation Layer only. A card too short for its lanes cuts the finger tab and can't be created. PCI Express and PCIe are trademarks of PCI-SIG, used here only to describe compatibility.",
+  "description": "A PCI Express add-in card in x1, x4, x8 or x16, full height (111.15 mm) or low profile (68.90 mm), from the end of the finger tab (65.30 mm for x1, 79.30 for x4, 96.30 for x8, 129.30 for x16) up to half length (167.65 mm). Seen from the component side with the fingers down, the bracket is on the left: the bracket-side card edge is at X = 0 and the key 57.15 mm along. The B-side fingers are on the top copper and the A-side on the bottom. The finger edge is bevelled 20 degrees, 1.30 mm deep, after TE Connectivity drawing 2364427, the only published figure; hard gold on the fingers is recommended for a card that is inserted often. The lower bracket screw hole is included. The bracket outline is approximate, after the open lucanastasio PCIexpress-KiCad bracket footprints, and sits on the Documentation Layer only. PCI Express and PCIe are trademarks of PCI-SIG, used here only to describe compatibility.",
   "category": "PC expansion",
   "suggested_layers": 2,
   "board": {"edge_connector":{"bevel":{"angle":"20","depth":"1.3"}}},
   "parameters": [
     {"kind":"choice","name":"lanes","label":"Lanes","default":"x1","options":[{"key":"x1","label":"x1","bind":{"finger_long":"8.15"}},{"key":"x4","label":"x4","bind":{"finger_long":"22.15"}},{"key":"x8","label":"x8","bind":{"finger_long":"39.15"}},{"key":"x16","label":"x16","bind":{"finger_long":"72.15"}}]},
     {"kind":"choice","name":"bracket","label":"Bracket","default":"full","options":[{"key":"full","label":"Full height","bind":{"card_height":"111.15"}},{"key":"low_profile","label":"Low profile","bind":{"card_height":"68.90"}}]},
-    {"kind":"length","name":"card_length","label":"Card length","default":"167.65","min":"70","max":"167.65","unit":"mm"}
+    {"kind":"length","name":"card_length","label":"Card length","default":"167.65","min":"57.15 + finger_long","max":"167.65","unit":"mm"}
   ],
   "outline": [
     {"uuid":"d92bd04d-4631-4e2f-8da7-0d9b81dc9de9","vertices":[

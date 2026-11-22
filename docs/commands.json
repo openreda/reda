@@ -6386,6 +6386,37 @@
             ],
             "type": "string"
           },
+          "LengthRange": {
+            "description": "A length's range under the options its `when` names.",
+            "properties": {
+              "max": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "min": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "when": {
+                "additionalProperties": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "description": "One option key per choice the range depends on; empty for a constant range.",
+                "type": "object"
+              }
+            },
+            "required": [
+              "when",
+              "min",
+              "max"
+            ],
+            "type": "object"
+          },
           "ListedObject": {
             "description": "One template object row. `exclude` may name connectors, holes and drawing groups.",
             "properties": {
@@ -6485,7 +6516,7 @@
                 "type": "string"
               },
               "max": {
-                "description": "A length's greatest value.",
+                "description": "A length's greatest value at the default choices.",
                 "format": "int64",
                 "type": [
                   "integer",
@@ -6493,7 +6524,7 @@
                 ]
               },
               "min": {
-                "description": "A length's least value.",
+                "description": "A length's least value at the default choices.",
                 "format": "int64",
                 "type": [
                   "integer",
@@ -6507,6 +6538,16 @@
                 "description": "A choice's options, in order.",
                 "items": {
                   "$ref": "#/$defs/ListedOption"
+                },
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "ranges": {
+                "description": "A length's range under each option of the choices its `min` and `max` name, so\nthe dialog can show the range for the options chosen: the one range whose `when`\nholds. A range that names no choice is one entry with an empty `when`.",
+                "items": {
+                  "$ref": "#/$defs/LengthRange"
                 },
                 "type": [
                   "array",

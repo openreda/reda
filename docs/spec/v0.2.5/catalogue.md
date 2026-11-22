@@ -155,7 +155,7 @@ Both templates use the exact outline from Arduino's CAD files: the 45° chamfere
 |---|---|---|---|
 | `lanes` | choice | x1, x4, x8, x16 (binding `finger_long` = 8.15, 22.15, 39.15, 72.15) | x1 |
 | `bracket` | choice | full height (binding `card_height` = 111.15), low profile (68.90) | full height |
-| `card_length` | length | 70 to 167.65 | 167.65 (half length) |
+| `card_length` | length | 57.15 + `finger_long` (the tab end: 65.30, 79.30, 96.30, 129.30) to 167.65 | 167.65 (half length) |
 
 - **Orientation:** seen from the component side with the fingers down, the bracket is on the left. The B-side fingers are on top copper and the A-side on bottom copper.
   - The research's `u` axis runs from the key centreline toward the bracket, so X = 57.15 − `u`.
@@ -174,7 +174,7 @@ Both templates use the exact outline from Arduino's CAD files: the 45° chamfere
   | Top edge | `card_length` to 0 | `card_height` |
 
   - Corners are square apart from the chamfers and the notch radius.
-  - A `card_length` too short for the lanes makes the far end cut the finger tab. That fails validation under the preview.
+  - `card_length` starts at the chosen lane width's tab end, so a shorter length is refused as out of range ([#416 decision](https://github.com/openreda/reda/issues/416#issuecomment-7072198747)). A shorter card would still be a simple outline, with the tab sticking out past the body.
 - **Key notch:** 1.90 wide at X = 57.15, cut from Y = 0 to its tip at Y = 8.40, with a full-radius R0.95 end.
 - **Hole:** the lower bracket hole, `MountingHole_M3` (Ø3.2) at (7.50, 9.35).
   - The low-profile upper hole (7.50, 63.25) is verified but was not decided, so it is not included.

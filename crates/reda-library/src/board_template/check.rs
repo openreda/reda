@@ -10,6 +10,7 @@ use reda_model::{
 };
 
 use super::eval::resolve;
+use super::range::{length_ranges, shown_gate};
 use super::{BoardTemplateChoice, combinations, evaluate, gate_holds};
 
 /// Every load-check failure of `template`, in file order; empty when it loads.
@@ -18,7 +19,9 @@ use super::{BoardTemplateChoice, combinations, evaluate, gate_holds};
 /// option of a choice binds the same names and `default` names an option, that every
 /// `when` names a choice and its keys, that every `part`, `footprint`, `protects`, drawing
 /// `group` and Dimension `follow` resolves, that exactly one outline row survives every
-/// choice combination, and that `suggested_layers` is from 2 to 32. Each combination is
+/// choice combination, that a length's `min` and `max` name only bound names and hold
+/// `min ≤ default ≤ max` under every combination of the options they depend on, and that
+/// `suggested_layers` is from 2 to 32. Each combination is
 /// then evaluated at default lengths, so an expression that can't give its field's kind
 /// is caught here too.
 pub fn check(template: &BoardTemplate) -> Vec<String> {
@@ -139,13 +142,24 @@ impl Checker {
                 TemplateParameter::Length(length) => {
                     let what = format!("length `{}`", length.name);
                     self.name(&length.name, "parameter");
-                    for (field, value) in [
-                        ("default", &length.default),
-                        ("min", &length.min),
-                        ("max", &length.max),
-                    ] {
-                        self.constant(value, &format!("{what} {field}"));
-                    }
+                    self.constant(&length.default, &format!("{what} default"));
+                }
+            }
+        }
+        // A length's `min` and `max` may name bound names (#416), now all are known.
+        let bound: BTreeSet<&String> = t
+            .parameters
+            .iter()
+            .filter_map(|p| match p {
+                TemplateParameter::Choice(c) => c.options.first(),
+                TemplateParameter::Length(_) => None,
+            })
+            .flat_map(|o| o.bind.keys())
+            .collect();
+        for param in &t.parameters {
+            if let TemplateParameter::Length(length) = param {
+                for (field, value) in [("min", &length.min), ("max", &length.max)] {
+                    self.bound_only(value, &bound, &format!("length `{}` {field}", length.name));
                 }
             }
         }
@@ -161,14 +175,46 @@ impl Checker {
         if self.problems.is_empty() {
             for param in &t.parameters {
                 if let TemplateParameter::Length(l) = param {
-                    let ns = super::Namespace::empty();
-                    let (Ok(d), Ok(min), Ok(max)) =
-                        (ns.length(&l.default), ns.length(&l.min), ns.length(&l.max))
-                    else {
+                    let Ok(d) = super::Namespace::empty().length(&l.default) else {
                         continue;
                     };
-                    if min > max || d < min || d > max {
-                        self.problem(format!("length `{}` needs min ≤ default ≤ max", l.name));
+                    let ranges = match length_ranges(t, &l.name) {
+                        Ok(ranges) => ranges,
+                        Err(e) => {
+                            self.problem(e);
+                            continue;
+                        }
+                    };
+                    for r in ranges {
+                        if r.min > r.max || d < r.min || d > r.max {
+                            self.problem(format!(
+                                "length `{}` needs min ≤ default ≤ max{}",
+                                l.name,
+                                shown_gate(&r.when)
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// A length's bound: a plain value or an expression over names choice options bind.
+    fn bound_only(&mut self, value: &TemplateNumber, bound: &BTreeSet<&String>, what: &str) {
+        if let Some(text) = value.expression() {
+            match expr::references(text) {
+                Err(e) => self.problem(format!("{what}: `{text}`: {e}")),
+                Ok(r) if r.current => {
+                    self.problem(format!(
+                        "{what}: `{text}`: `!` is not allowed in a template"
+                    ));
+                }
+                Ok(r) => {
+                    if let Some(name) = r.names.iter().find(|n| !bound.contains(n)) {
+                        self.problem(format!(
+                            "{what}: `{text}` names `{name}`; a length's min and max may \
+                             name only the names choice options bind"
+                        ));
                     }
                 }
             }

@@ -2129,7 +2129,8 @@
           "description": "A free length between `min` and `max`.",
           "properties": {
             "default": {
-              "$ref": "#/$defs/TemplateNumber"
+              "$ref": "#/$defs/TemplateNumber",
+              "description": "A plain value."
             },
             "kind": {
               "const": "length",
@@ -2140,10 +2141,12 @@
               "type": "string"
             },
             "max": {
-              "$ref": "#/$defs/TemplateNumber"
+              "$ref": "#/$defs/TemplateNumber",
+              "description": "As `min`."
             },
             "min": {
-              "$ref": "#/$defs/TemplateNumber"
+              "$ref": "#/$defs/TemplateNumber",
+              "description": "A plain value, or an expression over the names choice options bind, so the range\ncan follow the options chosen (a PCIe card starts at its lane width's tab end)."
             },
             "name": {
               "description": "`snake_case`, unique across the template's names.",

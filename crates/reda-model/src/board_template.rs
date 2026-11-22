@@ -244,8 +244,12 @@ pub struct LengthParameter {
     pub name: String,
     /// What the dialog shows.
     pub label: String,
+    /// A plain value.
     pub default: TemplateNumber,
+    /// A plain value, or an expression over the names choice options bind, so the range
+    /// can follow the options chosen (a PCIe card starts at its lane width's tab end).
     pub min: TemplateNumber,
+    /// As `min`.
     pub max: TemplateNumber,
     /// How the dialog shows it. It does not change how the file is read.
     pub unit: DisplayUnit,
