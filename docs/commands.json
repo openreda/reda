@@ -11997,6 +11997,10 @@
             "format": "uuid",
             "type": "string"
           },
+          "mirrored": {
+            "description": "Mirror-numbered, for a header fitted on the bottom side: pin 1 at the upper right\nand the rows swapped, so that the Footprint, mirrored onto the bottom, puts each\nPad where the standard Footprint puts it on top. The name ends in `_Mirrored`.",
+            "type": "boolean"
+          },
           "name": {
             "description": "The Footprint's name. Omitted, it is\n`HDRV<row span>W<post width>P<pitch>R<rows>L<length>T<width>H<height>B`, such as\n`HDRV254W64P254R2L1270T508H850B`, or `SKTV…` for a socket.",
             "type": [

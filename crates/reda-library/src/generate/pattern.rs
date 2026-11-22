@@ -438,6 +438,14 @@ impl FootprintPlan {
     }
 
     /// The Footprint called `name`, taking UUIDs from `new_id` in a fixed order.
+    /// Whether pin 1 is right of the centre line, as on a mirror-numbered header.
+    fn pin_one_right(&self) -> bool {
+        self.pad_specs
+            .iter()
+            .find(|spec| spec.number == "1")
+            .is_some_and(|spec| spec.at.x.0 > 0)
+    }
+
     pub fn into_footprint(self, name: String, mut new_id: impl FnMut() -> Uuid) -> Footprint {
         let uuid = new_id();
         let pads: Vec<Pad> = self
@@ -463,7 +471,7 @@ impl FootprintPlan {
             graphics.push(FootprintGraphic {
                 uuid: new_id(),
                 layer: FootprintLayer::AssemblyTop,
-                shape: assembly_outline(self.body),
+                shape: assembly_outline(self.body, self.pin_one_right()),
                 width,
                 fill: false,
             });
@@ -562,8 +570,9 @@ pub fn paste_split(width: Nm, height: Nm, finish: &Finish) -> PasteSplit {
 }
 
 /// The nominal body outline; a polarised body has its upper-left corner chamfered by a
-/// quarter of its shorter side, at most 1 mm.
-fn assembly_outline(body: Body) -> Shape {
+/// quarter of its shorter side, at most 1 mm, or its upper-right one when pin 1 is on the
+/// right (a mirror-numbered Footprint).
+fn assembly_outline(body: Body, pin_one_right: bool) -> Shape {
     let (x, y) = (body.nominal.0.0 / 2, body.nominal.1.0 / 2);
     if !body.chamfered {
         return Shape::Rect {
@@ -572,16 +581,20 @@ fn assembly_outline(body: Body) -> Shape {
         };
     }
     let chamfer = (x.min(y) / 2).min(1_000_000);
-    let p = |x: i64, y: i64| Point::new(Nm(x), Nm(y));
-    Shape::Polygon {
-        points: vec![
-            p(-x + chamfer, y),
-            p(x, y),
-            p(x, -y),
-            p(-x, -y),
-            p(-x, y - chamfer),
-        ],
+    let side = if pin_one_right { -1 } else { 1 };
+    let p = |x: i64, y: i64| Point::new(Nm(side * x), Nm(y));
+    let mut points = vec![
+        p(-x + chamfer, y),
+        p(x, y),
+        p(x, -y),
+        p(-x, -y),
+        p(-x, y - chamfer),
+    ];
+    if pin_one_right {
+        // Mirroring reverses the winding; keep it the same as the left-hand outline's.
+        points.reverse();
     }
+    Shape::Polygon { points }
 }
 
 /// The value text fits the body: half its shorter side, at most `largest`, on a 0.01 mm
