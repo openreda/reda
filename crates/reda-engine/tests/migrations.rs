@@ -7,6 +7,7 @@
 
 use std::path::{Path, PathBuf};
 
+use proptest::strategy::Strategy;
 use reda_engine::format::{FORMAT, FileKind, MIGRATIONS, Migration, migrate, migrate_with};
 use reda_testkit::{TempDir, assert_golden, read_tree, test_engine};
 use serde_json::{Value, json};
@@ -305,7 +306,10 @@ proptest::proptest! {
         dielectric in proptest::option::of(100_000i64..1_500_000),
         start in 510_000i64..5_000_000,
         hole in 150_000i64..500_001,
-        seeds in (proptest::option::of(400_000i64..3_000_000), proptest::option::of(10_000i64..210_000)),
+        // The preset's thickness is its two copper seeds plus a positive core, so the
+        // migrated "2 Layer" Construction always leaves room for its blank dielectric.
+        seeds in (proptest::option::of(100_000i64..2_600_000), proptest::option::of(10_000i64..210_000))
+            .prop_map(|(core, copper)| (core.map(|c| c + 2 * copper.unwrap_or(35_000)), copper)),
     ) {
         let mut files = read_tree(&Path::new(V1).join("blinky_555"));
         let mut pcb: Value = serde_json::from_slice(&files["Blinky.redapcb"]).unwrap();
