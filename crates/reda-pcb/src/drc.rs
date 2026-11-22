@@ -18,6 +18,7 @@ mod hdi;
 pub mod health;
 mod holes;
 pub(crate) mod placement;
+mod plated;
 mod plated_clearance;
 pub(crate) mod silkscreen;
 mod zones;
@@ -63,6 +64,8 @@ pub fn check_only(
     copper::check(&board, &mut report);
     holes::check(&board, &mut report);
     edge::check(&board, &mut report);
+    edge_connector_without_pads(pcb, &mut report);
+    plated::check(&board, &mut report);
     placement::check(&board, &mut report);
     silkscreen::check(&board, fonts, &mut report);
     connections::check(&board, &mut report);
@@ -133,6 +136,25 @@ pub fn health(pcb: &PcbDocument, only: Option<&[DrcCheck]>) -> Vec<Violation> {
         .collect();
     found.sort_by_key(|(check, _)| *check);
     found.into_iter().map(|(_, v)| v).collect()
+}
+
+/// `edge_connector_without_pads` when the board's `edge_connector` asks for a bevel or hard
+/// gold but no Pad is an Edge Connector Pad: the fab would be asked for work on no fingers.
+/// It sits at the middle of the board and names the Board Outline, if any.
+fn edge_connector_without_pads(pcb: &PcbDocument, report: &mut Report) {
+    let Some(edge) = pcb.setup().edge_connector else {
+        return;
+    };
+    if (edge.bevel.is_none() && !edge.hard_gold) || pcb.has_edge_connector_pads() {
+        return;
+    }
+    report.add(DrcCheck::EdgeConnectorWithoutPads, |v| {
+        let v = v.located(pcb.uuid, board_center(pcb));
+        match pcb.outline() {
+            Some(outline) => v.object(outline.uuid),
+            None => v,
+        }
+    });
 }
 
 /// One `rule_invalid` per rule record with a blocking problem: its first, with the

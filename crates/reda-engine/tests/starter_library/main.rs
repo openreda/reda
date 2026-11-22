@@ -4,6 +4,10 @@
 //! `REDA_BLESS=1 cargo test -p reda-engine --test starter_library` after changing the
 //! script, and review the diff.
 //!
+//! The Board Templates in `board-templates/` are hand-written data, not made by the
+//! script: this comparison leaves them out, and `tests/board_template_catalogue.rs` checks
+//! them.
+//!
 //! Keep UUIDs stable for users who placed starter Parts: they are frozen in `uuids.tsv`
 //! (see [`script::Uuids`]), so renaming an element means renaming its key there too.
 //!
@@ -12,6 +16,7 @@
 //! follow IPC-2222 Level B unless the datasheet recommends a hole: hole = largest lead
 //! (or lead diagonal) + 0.20 mm, pad = hole + 0.60 mm at least.
 
+mod card_edges;
 mod connectors;
 mod ics;
 mod mechanical;
@@ -33,6 +38,16 @@ fn starter() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../library/starter")
 }
 
+/// The folder of hand-written Board Templates, which the script does not make.
+const BOARD_TEMPLATES: &str = "board-templates";
+
+/// The checked-in files the script makes: everything but the Board Templates.
+fn scripted_tree(library: &Path) -> BTreeMap<String, Vec<u8>> {
+    let mut tree = read_tree(library);
+    tree.retain(|rel, _| !rel.starts_with(&format!("{BOARD_TEMPLATES}/")));
+    tree
+}
+
 /// Runs the whole script into a new Library under `dir` and returns its folder and the
 /// UUIDs its elements drew.
 fn build(dir: &Path) -> (PathBuf, Uuids) {
@@ -41,6 +56,7 @@ fn build(dir: &Path) -> (PathBuf, Uuids) {
     semis::build(&mut s);
     ics::build(&mut s);
     connectors::build(&mut s);
+    card_edges::build(&mut s);
     mechanical::build(&mut s);
     (s.library().to_owned(), s.uuids())
 }
@@ -59,7 +75,9 @@ fn the_checked_in_library_is_what_the_script_builds() {
          removed it, delete its lines."
     );
     if std::env::var_os("REDA_BLESS").is_some() {
-        let _ = std::fs::remove_dir_all(&target);
+        for rel in scripted_tree(&target).keys() {
+            std::fs::remove_file(target.join(rel)).unwrap();
+        }
         for (rel, bytes) in &built {
             let path = target.join(rel);
             std::fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -73,7 +91,7 @@ fn the_checked_in_library_is_what_the_script_builds() {
         "uuids.tsv is not the UUIDs the script draws; run REDA_BLESS=1 cargo test -p \
          reda-engine --test starter_library and review the diff"
     );
-    let checked_in = read_tree(&target);
+    let checked_in = scripted_tree(&target);
     let mut problems = vec![];
     for (rel, bytes) in &built {
         match checked_in.get(rel) {
@@ -258,6 +276,29 @@ fn silkscreen_stays_clear_of_every_pad() {
     assert!(problems.is_empty(), "{}", problems.join("\n"));
 }
 
+#[test]
+fn a_card_edge_keeps_its_texts_on_the_card() {
+    // The origin is on the finger edge and the card is at +y: a text below y = 0 would
+    // print past the Board Outline.
+    let mut problems = vec![];
+    for (rel, bytes) in read_tree(&starter().join("footprints")) {
+        let footprint: Value = serde_json::from_slice(&bytes).unwrap();
+        let card_edge =
+            (footprint["pads"].as_array().unwrap().iter()).any(|p| p["role"] == "edge_connector");
+        if !card_edge {
+            continue;
+        }
+        for text in footprint["texts"].as_array().unwrap() {
+            let bottom =
+                text["at"]["y"].as_i64().unwrap() - text["style"]["height"].as_i64().unwrap() / 2;
+            if bottom < 0 {
+                problems.push(format!("{rel}: {} reaches y = {bottom} nm", text["field"]));
+            }
+        }
+    }
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
+}
+
 /// Every Part of the checked-in Library, by name.
 fn parts() -> BTreeMap<String, Value> {
     let mut e = test_engine_with_library(&starter());
@@ -404,6 +445,7 @@ fn mounting_holes_and_fiducials_are_mechanical_with_no_symbol_out_of_the_bom_and
         "MountingHole_M2.5",
         "MountingHole_M3",
         "MountingHole_M3_Pad",
+        "MountingHole_M2_Castellated",
         "Fiducial",
     ] {
         let part = &parts[name];
@@ -501,6 +543,8 @@ fn every_part_has_its_types_flags_and_fiducials_have_no_paste() {
     for (name, part) in parts() {
         let expected = match (part["component_type"].as_str().unwrap(), name.as_str()) {
             ("standard", "TestPoint") => (false, false),
+            // A card edge is the board's own copper: nothing to buy or place.
+            ("standard", card) if card.starts_with("CardEdge_") => (false, false),
             ("standard", _) => (true, true),
             ("mechanical", _) | ("net_tie", _) => (false, false),
             (other, _) => panic!("{name}: {other}"),
@@ -513,4 +557,278 @@ fn every_part_has_its_types_flags_and_fiducials_have_no_paste() {
     }
     let fiducial = footprint_file("Fiducial_1mm_Mask2mm");
     assert_eq!(fiducial["pads"][0]["paste"], "none");
+}
+
+/// A checked-in Footprint's Pads, by number.
+fn pads_by_number(footprint: &Value) -> BTreeMap<String, Value> {
+    footprint["pads"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|pad| (pad["number"].as_str().unwrap().to_owned(), pad.clone()))
+        .collect()
+}
+
+/// A Pad's copper extent along y, in mm: (near end, far end).
+fn pad_y_span(pad: &Value) -> (f64, f64) {
+    let mm = |v: &Value| v.as_f64().unwrap() / 1e6;
+    let (y, h) = (mm(&pad["at"]["y"]), mm(&pad["height"]));
+    (y - h / 2.0, y + h / 2.0)
+}
+
+fn close(a: f64, b: f64) -> bool {
+    (a - b).abs() < 1e-6
+}
+
+/// The numbers of a Symbol's Pins, sorted.
+fn pin_numbers(e: &mut reda_testkit::TestEngine, symbol: &Value) -> Vec<String> {
+    e.run_ok("library.element.open", json!({ "element": symbol }));
+    let symbol = e.run_ok("object.get", json!({ "uuid": symbol }))["object"].clone();
+    let mut numbers: Vec<String> = symbol["pins"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| p["number"].as_str().unwrap().to_owned())
+        .collect();
+    numbers.sort();
+    numbers
+}
+
+#[test]
+fn the_board_template_headers_and_sockets_exist_in_both_pitches_and_the_bottom_ones_mirrored() {
+    let parts = parts();
+    let mut e = test_engine_with_library(&starter());
+    let dir = TempDir::new("starter-template-headers");
+    e.run_ok("project.new", json!({"path": dir.path(), "name": "Open"}));
+    for (name, rows, count) in [
+        ("Socket_2x20", 2, 20),
+        ("Header_2x20", 2, 20),
+        ("Socket_1x20", 1, 20),
+        ("Header_1x20", 1, 20),
+        ("Header_1x12", 1, 12),
+        ("Header_1x16", 1, 16),
+        ("Header_2x18", 2, 18),
+    ] {
+        let part = &parts[name];
+        assert_eq!(part["component_type"], "standard", "{name}");
+        let footprints = footprint_names(&mut e, part);
+        let bottom_mount = ["Socket_2x20", "Header_2x18"].contains(&name);
+        let expected = if bottom_mount { 3 } else { 2 };
+        assert_eq!(footprints.len(), expected, "{name}: {footprints:?}");
+        if bottom_mount {
+            // The third is the 2.54 mm one mirror-numbered: flipped onto the bottom, each
+            // Pad lands on the standard Footprint's Pad of the same number.
+            assert_eq!(footprints[2], format!("{}_Mirrored", footprints[0]));
+            let pads = |name: &str, sign: i64| {
+                let mut pads: Vec<(String, i64, i64)> = footprint_file(name)["pads"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|p| {
+                        (
+                            p["number"].as_str().unwrap().to_owned(),
+                            sign * p["at"]["x"].as_i64().unwrap(),
+                            p["at"]["y"].as_i64().unwrap(),
+                        )
+                    })
+                    .collect();
+                pads.sort();
+                pads
+            };
+            assert_eq!(pads(&footprints[2], -1), pads(&footprints[0], 1), "{name}");
+            assert_ne!(pads(&footprints[2], 1), pads(&footprints[0], 1), "{name}");
+        }
+        let prefix = if name.starts_with("Socket") {
+            "SKTV"
+        } else {
+            "HDRV"
+        };
+        assert!(footprints[0].starts_with(prefix), "{name}: {footprints:?}");
+        assert!(footprints[0].contains("P254"), "{name}: {footprints:?}");
+        let pads = footprint_file(&footprints[0])["pads"]
+            .as_array()
+            .unwrap()
+            .len();
+        assert_eq!(pads, rows * count, "{name}");
+        let pins = pin_numbers(&mut e, &part["symbol"]);
+        assert_eq!(pins.len(), rows * count, "{name}");
+    }
+}
+
+/// Each M.2 key and the Pins it removes.
+const M2_KEYS: [(&str, &[(u32, u32)]); 6] = [
+    ("A", &[(8, 15)]),
+    ("B", &[(12, 19)]),
+    ("E", &[(24, 31)]),
+    ("M", &[(59, 66)]),
+    ("AE", &[(8, 15), (24, 31)]),
+    ("BM", &[(12, 19), (59, 66)]),
+];
+
+#[test]
+fn m2_card_edges_have_75_positions_less_the_keyed_pins_set_back_half_a_millimetre() {
+    let parts = parts();
+    let mut e = test_engine_with_library(&starter());
+    let dir = TempDir::new("starter-m2");
+    e.run_ok("project.new", json!({"path": dir.path(), "name": "Open"}));
+    for (key, removed) in M2_KEYS {
+        let name = format!("CardEdge_M.2_Key_{key}");
+        let part = &parts[&name];
+        assert_eq!(part["component_type"], "standard", "{name}");
+        let footprints = footprint_names(&mut e, part);
+        assert_eq!(footprints.len(), 1, "{name}");
+        let footprint = footprint_file(&footprints[0]);
+        let pads = pads_by_number(&footprint);
+        let expected: Vec<u32> = (1..=75)
+            .filter(|n| !removed.iter().any(|(a, b)| (a..=b).contains(&n)))
+            .collect();
+        let mut numbers: Vec<u32> = pads.keys().map(|n| n.parse().unwrap()).collect();
+        numbers.sort();
+        assert_eq!(numbers, expected, "{name}");
+        for (number, pad) in &pads {
+            let n: u32 = number.parse().unwrap();
+            let top = n % 2 == 1;
+            assert_eq!(pad["kind"], "smd", "{name} {number}");
+            assert_eq!(pad["role"], "edge_connector", "{name} {number}");
+            assert_eq!(pad["paste"], "none", "{name} {number}");
+            let side = if top { Value::Null } else { json!("bottom") };
+            assert_eq!(pad["side"], side, "{name} {number}");
+            let x = pad["at"]["x"].as_f64().unwrap() / 1e6;
+            assert!(
+                close(x, 9.25 - (n as f64 - 1.0) * 0.25),
+                "{name} {number}: x {x}"
+            );
+            assert!(close(pad["width"].as_f64().unwrap() / 1e6, 0.35));
+            let far = if top { 2.0 } else { 2.5 };
+            let (near, end) = pad_y_span(pad);
+            assert!(close(near, 0.5) && close(end, far), "{name} {number}");
+        }
+        let mut pins: Vec<String> = pads.keys().cloned().collect();
+        pins.sort();
+        assert_eq!(pin_numbers(&mut e, &part["symbol"]), pins, "{name}");
+        // The 1.20 mm notch of each key, centred toward Pin 1 from the centreline.
+        let notches: Vec<(f64, f64)> = key
+            .chars()
+            .map(|k| match k {
+                'A' => 6.625,
+                'B' => 5.625,
+                'E' => 2.625,
+                _ => -6.125,
+            })
+            .map(|c| (c - 0.6, c + 0.6))
+            .collect();
+        top_only_courtyard_from_the_edge(&name, &footprint, &notches);
+    }
+}
+
+/// The courtyard is drawn on top only, so a bottom Keepout doesn't flag the card's own
+/// fingers, and starts at the finger edge, the origin. It stops at each key notch
+/// `(left, right)` (mm), one polygon per stretch of the tab, so it stays on the board.
+fn top_only_courtyard_from_the_edge(name: &str, footprint: &Value, notches: &[(f64, f64)]) {
+    let courtyards: Vec<&Value> = footprint["graphics"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|g| g["layer"].as_str().unwrap().starts_with("courtyard"))
+        .collect();
+    assert_eq!(courtyards.len(), notches.len() + 1, "{name}");
+    for g in courtyards {
+        assert_eq!(g["layer"], "courtyard_top", "{name}");
+        // One polygon per stretch of the tab between key notches.
+        assert_eq!(g["shape"]["kind"], "polygon", "{name}");
+        let points = g["shape"]["points"].as_array().unwrap();
+        let min = points
+            .iter()
+            .map(|p| p["y"].as_i64().unwrap())
+            .min()
+            .unwrap();
+        assert_eq!(min, 0, "{name}: the courtyard starts at the edge");
+        for p in points {
+            let x = p["x"].as_f64().unwrap() / 1e6;
+            assert!(
+                notches.iter().all(|&(l, r)| x <= l + 1e-6 || x >= r - 1e-6),
+                "{name}: the courtyard reaches into a key notch at x {x}"
+            );
+        }
+    }
+}
+
+#[test]
+fn pcie_card_edges_put_b_on_top_and_a_below_set_back_1_40_with_short_present_pins() {
+    let parts = parts();
+    let mut e = test_engine_with_library(&starter());
+    let dir = TempDir::new("starter-pcie");
+    e.run_ok("project.new", json!({"path": dir.path(), "name": "Open"}));
+    for (lanes, per_side, prsnt2) in [
+        ("x1", 18, "B17"),
+        ("x4", 32, "B31"),
+        ("x8", 49, "B48"),
+        ("x16", 82, "B81"),
+    ] {
+        let name = format!("CardEdge_PCIe_{lanes}");
+        let part = &parts[&name];
+        assert_eq!(part["component_type"], "standard", "{name}");
+        let footprints = footprint_names(&mut e, part);
+        assert_eq!(footprints.len(), 1, "{name}");
+        let footprint = footprint_file(&footprints[0]);
+        let pads = pads_by_number(&footprint);
+        assert_eq!(pads.len(), 2 * per_side, "{name}");
+        for n in 1..=per_side {
+            let x = if n <= 11 {
+                -11.5 + (n as f64 - 1.0)
+            } else {
+                1.5 + (n as f64 - 12.0)
+            };
+            for (row, side) in [("A", json!("bottom")), ("B", Value::Null)] {
+                let number = format!("{row}{n}");
+                let pad = &pads[&number];
+                assert_eq!(pad["kind"], "smd", "{name} {number}");
+                assert_eq!(pad["role"], "edge_connector", "{name} {number}");
+                assert_eq!(pad["paste"], "none", "{name} {number}");
+                assert_eq!(pad["side"], side, "{name} {number}");
+                let at = pad["at"]["x"].as_f64().unwrap() / 1e6;
+                assert!(close(at, x), "{name} {number}: x {at}");
+                assert!(close(pad["width"].as_f64().unwrap() / 1e6, 0.7));
+                let short = number == "A1" || number == prsnt2;
+                let near = if short { 2.4 } else { 1.4 };
+                let (start, end) = pad_y_span(pad);
+                assert!(close(start, near) && close(end, 5.6), "{name} {number}");
+            }
+        }
+        let mut pins: Vec<String> = pads.keys().cloned().collect();
+        pins.sort();
+        assert_eq!(pin_numbers(&mut e, &part["symbol"]), pins, "{name}");
+        // The 1.90 mm key notch on the centreline.
+        top_only_courtyard_from_the_edge(&name, &footprint, &[(-0.95, 0.95)]);
+    }
+}
+
+#[test]
+fn the_m2_half_moon_is_one_castellated_pad_with_the_sata_io_lands() {
+    let parts = parts();
+    let part = &parts["MountingHole_M2_Castellated"];
+    let mut e = test_engine_with_library(&starter());
+    let dir = TempDir::new("starter-half-moon");
+    e.run_ok("project.new", json!({"path": dir.path(), "name": "Open"}));
+    let footprints = footprint_names(&mut e, part);
+    let footprint = footprint_file(&footprints[0]);
+    let pads = footprint["pads"].as_array().unwrap();
+    assert_eq!(pads.len(), 1);
+    let pad = &pads[0];
+    assert_eq!(pad["kind"], "plated_through_hole");
+    assert_eq!(pad["castellated"], true);
+    assert_eq!(pad["at"], json!({"x": 0, "y": 0}));
+    assert_eq!(pad["shape"], "circle");
+    assert_eq!(
+        pad["hole"],
+        json!({"width": 3_500_000, "height": 3_500_000})
+    );
+    assert_eq!(
+        (&pad["width"], &pad["height"]),
+        (&json!(5_500_000), &json!(5_500_000))
+    );
+    assert_eq!(
+        pad["bottom"],
+        json!({"shape": "circle", "width": 6_000_000, "height": 6_000_000})
+    );
 }

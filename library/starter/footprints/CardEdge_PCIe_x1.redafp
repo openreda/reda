@@ -1,0 +1,52 @@
+{
+  "format": 2,
+  "footprint": {"uuid":"f67dd609-2ee8-4c9c-9ad1-a212bc15aeca","name":"CardEdge_PCIe_x1","description":"PCI Express x1 card edge, 18 fingers a side: Edge Connector Pads 0.70 mm wide on a 1.0 mm pitch, B side on top and A side below, from 1.40 mm off the edge (clear of a 1.30 mm bevel; present-detect A1 and B17 from 2.40 mm), the open-hardware values; the origin is the key centreline on the finger edge","height":35000},
+  "pads": [
+    {"uuid":"124959f2-706d-4abf-8726-4d0af1093525","number":"A12","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":1500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"side":"bottom","paste":"none"},
+    {"uuid":"13fd0bf6-a51a-4bfc-bf69-464244a5b2ba","number":"B6","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":-6500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"paste":"none"},
+    {"uuid":"19b0090e-b448-4ce5-816d-0b09169db9be","number":"B13","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":2500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"paste":"none"},
+    {"uuid":"1a08629a-e3a0-4eb2-a397-9758c5bb9df3","number":"A10","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":-2500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"side":"bottom","paste":"none"},
+    {"uuid":"21243f84-636f-4dff-bd8a-f1db367065c6","number":"A16","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":5500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"side":"bottom","paste":"none"},
+    {"uuid":"224cd904-e015-44be-8091-5fc348d0f77c","number":"A6","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":-6500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"side":"bottom","paste":"none"},
+    {"uuid":"28e0b1c7-7add-40f8-93fc-35aa6c466a8d","number":"A15","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":4500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"side":"bottom","paste":"none"},
+    {"uuid":"2f419665-cb98-437c-adbd-bc2221b8af02","number":"B18","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":7500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"paste":"none"},
+    {"uuid":"3b831eb6-c337-48e2-b60b-81e1d45f7f18","number":"B14","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":3500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"paste":"none"},
+    {"uuid":"4d7eba48-8025-4902-9a52-e23062442e84","number":"A13","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":2500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"side":"bottom","paste":"none"},
+    {"uuid":"56a3a682-da5b-411b-bba1-bda6e271ad67","number":"A9","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":-3500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"side":"bottom","paste":"none"},
+    {"uuid":"593229c2-5493-4970-9393-45eeb679b53b","number":"A3","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":-9500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"side":"bottom","paste":"none"},
+    {"uuid":"5dedfa41-372c-46d4-90b4-20baf778b9ef","number":"B9","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":-3500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"paste":"none"},
+    {"uuid":"68633d52-dd34-4563-9a0e-bb6b04ff7800","number":"A4","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":-8500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"side":"bottom","paste":"none"},
+    {"uuid":"72c53d64-733c-4a38-9968-b56d722940d9","number":"B15","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":4500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"paste":"none"},
+    {"uuid":"786a19b5-446f-4c2e-b23d-06199506f593","number":"A7","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":-5500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"side":"bottom","paste":"none"},
+    {"uuid":"7ca74c54-98f8-4fd4-bb51-e4da18c09ea0","number":"B8","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":-4500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"paste":"none"},
+    {"uuid":"7d0018bd-172f-418d-83eb-0ccc9502a619","number":"B2","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":-10500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"paste":"none"},
+    {"uuid":"9097a3d4-8480-4981-9ecf-7ecca6057075","number":"A1","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":-11500000,"y":4000000},"rotation":0,"width":700000,"height":3200000,"side":"bottom","paste":"none"},
+    {"uuid":"925863e4-a89a-4b9c-955a-3fc37fa64c27","number":"B17","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":6500000,"y":4000000},"rotation":0,"width":700000,"height":3200000,"paste":"none"},
+    {"uuid":"93a22b53-f3cd-49a1-9474-a14549bce2e8","number":"B10","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":-2500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"paste":"none"},
+    {"uuid":"a63cc831-a23a-4003-9147-72754b46f295","number":"B16","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":5500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"paste":"none"},
+    {"uuid":"b35b64bc-9547-4bf1-a4ba-73edddfa2274","number":"A8","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":-4500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"side":"bottom","paste":"none"},
+    {"uuid":"b63507e2-a9b1-41a3-b8c7-f72d9c2aef56","number":"B4","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":-8500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"paste":"none"},
+    {"uuid":"b8411ab0-dea4-4847-8b16-d7f8a232f2c2","number":"A2","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":-10500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"side":"bottom","paste":"none"},
+    {"uuid":"b8b4fa15-b1df-4bf1-9406-6bb03dacfca9","number":"B11","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":-1500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"paste":"none"},
+    {"uuid":"b9b06247-557d-4e75-868a-1a09e27201c7","number":"A5","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":-7500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"side":"bottom","paste":"none"},
+    {"uuid":"d454b1a4-71d5-4549-962d-a0fe2a1f48e0","number":"B1","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":-11500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"paste":"none"},
+    {"uuid":"d85a5155-924c-4230-962e-1caab4e72853","number":"A14","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":3500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"side":"bottom","paste":"none"},
+    {"uuid":"dc10cdef-6b56-40e6-ab6b-0f22592a33fd","number":"B3","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":-9500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"paste":"none"},
+    {"uuid":"df0fb94e-567c-488d-b381-634e04847c1c","number":"A11","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":-1500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"side":"bottom","paste":"none"},
+    {"uuid":"e1b03ecc-6cbf-4439-95ba-efadb845ed2f","number":"A18","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":7500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"side":"bottom","paste":"none"},
+    {"uuid":"ea50eb38-8167-4044-a3f2-1d81ff802607","number":"A17","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":6500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"side":"bottom","paste":"none"},
+    {"uuid":"f3f29480-76db-4fa7-a4a4-06d5e5dd9e82","number":"B7","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":-5500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"paste":"none"},
+    {"uuid":"fdeae3cf-a9ad-43b0-885d-a99964a04ecd","number":"B12","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":1500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"paste":"none"},
+    {"uuid":"ff7fe5db-37be-41c6-a0b4-1f0eaac91010","number":"B5","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":-7500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"paste":"none"}
+  ],
+  "graphics": [
+    {"uuid":"1cc9e6dc-7f15-4e88-9ff8-c097e96a9dc0","layer":"courtyard_top","shape":{"kind":"polygon","points":[{"x":950000,"y":0},{"x":7600000,"y":0},{"x":8100000,"y":500000},{"x":8100000,"y":5850000},{"x":950000,"y":5850000}]},"width":50000},
+    {"uuid":"5b0863e1-ad3f-4c2a-9bfe-6481ef357227","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-11850000,"y":0},"end":{"x":7850000,"y":5600000}},"width":100000},
+    {"uuid":"f7483502-dc8a-463b-b5d5-728f2558b30a","layer":"courtyard_top","shape":{"kind":"polygon","points":[{"x":-12100000,"y":500000},{"x":-11600000,"y":0},{"x":-950000,"y":0},{"x":-950000,"y":5850000},{"x":-12100000,"y":5850000}]},"width":50000}
+  ],
+  "texts": [
+    {"uuid":"03d75643-e6c6-46d6-adeb-2d7dc7b335ee","field":"Designator","at":{"x":0,"y":9700000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
+    {"uuid":"0b38a6fc-f26b-4e4c-9d12-be0d0c2ef20b","field":"Value","at":{"x":0,"y":10900000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+    {"uuid":"d38c0142-a7a4-4e5e-b1ec-db4d2ef800dc","field":"Designator","at":{"x":-2000000,"y":2800000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
+  ]
+}

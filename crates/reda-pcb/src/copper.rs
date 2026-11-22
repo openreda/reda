@@ -77,6 +77,14 @@ pub enum Item {
         zone: Uuid,
         island: u32,
     },
+    /// A Plated Edge: the plating along one edge of the Board Outline or a Board Cutout,
+    /// copper of its Net on every copper Layer.
+    PlatedEdge {
+        /// The Board Outline or Board Cutout.
+        contour: Uuid,
+        /// The index of the vertex that starts the edge.
+        edge: u32,
+    },
 }
 
 impl Item {
@@ -95,7 +103,13 @@ impl Item {
             | Item::Text { uuid }
             | Item::Graphic { uuid } => uuid,
             Item::Zone { zone, .. } => zone,
+            Item::PlatedEdge { contour, .. } => contour,
         }
+    }
+
+    /// Whether it is a Plated Edge, which is no object of its own to pick or move.
+    pub fn is_plated_edge(self) -> bool {
+        matches!(self, Self::PlatedEdge { .. })
     }
 }
 
@@ -230,6 +244,9 @@ impl Copper {
         for graphic in pcb.graphics() {
             copper.add_artwork(pcb, Item::Graphic { uuid: graphic.uuid });
         }
+        for contour in contours(pcb) {
+            copper.add_plated_edges(pcb, contour);
+        }
         copper
     }
 
@@ -245,6 +262,7 @@ impl Copper {
         let mut tracks = BTreeSet::new();
         let mut vias = BTreeSet::new();
         let mut zones = BTreeSet::new();
+        let mut contours = BTreeSet::new();
         let mut artwork = Vec::new();
         for (uuid, change) in changes.iter() {
             let object = change.after.as_ref().or(change.before.as_ref());
@@ -278,6 +296,9 @@ impl Copper {
                 }
                 Some(Object::Via(_)) => {
                     vias.insert(*uuid);
+                }
+                Some(Object::BoardOutline(_) | Object::BoardCutout(_)) => {
+                    contours.insert(*uuid);
                 }
                 _ => {}
             }
@@ -328,6 +349,10 @@ impl Copper {
         for uuid in zones {
             self.remove_zone(uuid);
             self.add_zone(pcb, uuid);
+        }
+        for uuid in contours {
+            self.remove_plated_edges(uuid);
+            self.add_plated_edges(pcb, uuid);
         }
     }
 
@@ -711,6 +736,41 @@ impl Copper {
         }
     }
 
+    /// The Plated Edges of the Board Outline or Board Cutout `contour`, each a line of no
+    /// width along the edge (arcs as chords) on every copper Layer.
+    fn add_plated_edges(&mut self, pcb: &PcbDocument, contour: Uuid) {
+        let edges = crate::plated::contour_edges(pcb, contour);
+        let layers: Vec<Uuid> = pcb.copper_layers().map(|l| l.uuid).collect();
+        for edge in edges {
+            let shape = shape::plated_edge_shape(&edge);
+            let item = Item::PlatedEdge {
+                contour,
+                edge: edge.edge as u32,
+            };
+            let info = Info {
+                net: edge.net,
+                anchors: Vec::new(),
+            };
+            self.insert(item, info, layers.iter().map(|l| (*l, shape.clone())));
+        }
+    }
+
+    fn remove_plated_edges(&mut self, contour: Uuid) {
+        let edges: Vec<Item> = self
+            .slots
+            .range(
+                Item::PlatedEdge { contour, edge: 0 }..=Item::PlatedEdge {
+                    contour,
+                    edge: u32::MAX,
+                },
+            )
+            .map(|(item, _)| *item)
+            .collect();
+        for item in edges {
+            self.remove(item);
+        }
+    }
+
     fn remove_zone(&mut self, uuid: Uuid) {
         let islands: Vec<Item> = self
             .slots
@@ -790,6 +850,13 @@ impl Copper {
         }
         self.info.remove(&item);
     }
+}
+
+/// The Board Outline and every Board Cutout, by UUID.
+fn contours(pcb: &PcbDocument) -> Vec<Uuid> {
+    (pcb.outline().map(|o| o.uuid).into_iter())
+        .chain(pcb.cutouts().map(|c| c.uuid))
+        .collect()
 }
 
 impl PartialEq for Copper {

@@ -131,7 +131,9 @@ pub fn batch(
                 }
             }
         }
-        LibraryElement::Part(_) => return Err(tr!("paste-array-not-here")),
+        LibraryElement::Part(_) | LibraryElement::BoardTemplate(_) => {
+            return Err(tr!("paste-array-not-here"));
+        }
     }
     if steps.is_empty() {
         return Err(tr!("paste-array-nothing"));

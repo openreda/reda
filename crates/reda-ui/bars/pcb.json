@@ -74,7 +74,9 @@
         { "id": "design.move_board_shape", "command": "tool.move_board_shape" },
         { "id": "design.move_board", "command": "tool.move_board" },
         "separator",
-        { "id": "design.update_from_library", "command": "pcb.update_from_library.open" }
+        { "id": "design.update_from_library", "command": "pcb.update_from_library.open" },
+        "separator",
+        { "id": "design.save_board_template", "command": "library.board_template.save", "title": "menu-design-save-board-template" }
       ]
     },
     {

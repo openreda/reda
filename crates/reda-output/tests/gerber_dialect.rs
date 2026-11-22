@@ -22,9 +22,10 @@ fn pt(x: f64, y: f64) -> Value {
 
 fn board(dir: &TempDir) -> TestEngine {
     let mut engine = probe_engine();
+    engine.run_ok("project.new", json!({"path": dir.path(), "name": "Demo"}));
     engine.run_ok(
-        "project.new",
-        json!({"path": dir.path(), "name": "Demo", "board": {"width": "30mm", "height": "20mm"}}),
+        "pcb.board_outline.add_rect",
+        json!({"width": "30mm", "height": "20mm"}),
     );
     engine
 }

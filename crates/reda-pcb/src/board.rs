@@ -465,6 +465,7 @@ fn build_board(
         severities: DrcSeverities::DEFAULT,
         zone_name_scheme: ZoneNameScheme::default(),
         fab_notes: None,
+        edge_connector: None,
     };
     let mut objects = vec![
         Object::LayerSet(InDocument::new(document, layers.clone())),

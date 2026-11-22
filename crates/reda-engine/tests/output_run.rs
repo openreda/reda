@@ -17,10 +17,13 @@ fn pt(x: f64, y: f64) -> Value {
 }
 
 fn new_project(engine: &mut TestEngine, dir: &TempDir) {
+    engine.run_ok("project.new", json!({"path": dir.path(), "name": "Demo"}));
     engine.run_ok(
-        "project.new",
-        json!({"path": dir.path(), "name": "Demo", "board": {"width": "30mm", "height": "20mm"}}),
+        "pcb.board_outline.add_rect",
+        json!({"width": "30mm", "height": "20mm"}),
     );
+    // Saved, so the new Project is clean as `project.new` leaves it.
+    engine.run_ok("project.save", json!({}));
 }
 
 /// A plated hole, so the run writes a PTH file.
@@ -303,6 +306,55 @@ fn each_run_overwrites_the_last_and_drops_files_it_no_longer_writes() {
         b"mine",
         "files REDA does not write are left alone"
     );
+}
+
+#[test]
+fn a_plated_edge_adds_the_plated_edges_file_to_the_zip_job_file_and_manifest() {
+    let dir = TempDir::new("output-plated-edges");
+    let mut engine = board(&dir);
+    let outline = engine
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .outline()
+        .unwrap()
+        .uuid;
+    engine.run_ok(
+        "pcb.contour.edge.set",
+        json!({"contour": outline, "edge": 0, "plated": {}}),
+    );
+    let out = run(&mut engine);
+    let names = names(&out, "files");
+    assert!(
+        names.contains(&"Demo-plated_edges.gbr".to_owned()),
+        "{names:?}"
+    );
+    let folder = dir.path().join("Demo/outputs/Generic");
+    let manifest = std::fs::read_to_string(folder.join("manifest.json")).unwrap();
+    assert!(
+        manifest.contains("fab/Demo-plated_edges.gbr"),
+        "the Output Manifest lists it: {manifest}"
+    );
+    let job: Value =
+        serde_json::from_slice(&std::fs::read(folder.join("fab/Demo-job.gbrjob")).unwrap())
+            .unwrap();
+    assert_eq!(job["GeneralSpecs"]["EdgePlating"], json!(true));
+    assert!(
+        job["FilesAttributes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|f| f["Path"] == "Demo-plated_edges.gbr")
+    );
+
+    // Unplated again, the next run drops the last run's file.
+    engine.run_ok(
+        "pcb.contour.edge.set",
+        json!({"contour": outline, "edge": 0, "plated": null}),
+    );
+    run(&mut engine);
+    assert!(!folder.join("fab/Demo-plated_edges.gbr").exists());
 }
 
 #[test]
@@ -903,8 +955,11 @@ fn a_bom_row_missing_a_required_field_warns_naming_its_designators_and_stays() {
     let mut engine = test_engine_with_library(&library);
     engine.run_ok(
         "project.new",
-        json!({"path": dir.path(), "name": "Demo", "fab_preset": "JLCPCB",
-               "board": {"width": "60mm", "height": "60mm"}}),
+        json!({"path": dir.path(), "name": "Demo", "fab_preset": "JLCPCB"}),
+    );
+    engine.run_ok(
+        "pcb.board_outline.add_rect",
+        json!({"width": "60mm", "height": "60mm"}),
     );
     for x in [20.0, 40.0] {
         engine.run_ok(

@@ -1,0 +1,96 @@
+[
+  {
+    "destination": "outputs/JLCPCB",
+    "files": [
+      {
+        "function": "copper_top",
+        "path": "fab/M2Card.gtl"
+      },
+      {
+        "function": "copper_bottom",
+        "path": "fab/M2Card.gbl"
+      },
+      {
+        "function": "solder_mask_top",
+        "path": "fab/M2Card.gts"
+      },
+      {
+        "function": "solder_mask_bottom",
+        "path": "fab/M2Card.gbs"
+      },
+      {
+        "function": "silkscreen_top",
+        "path": "fab/M2Card.gto"
+      },
+      {
+        "function": "profile",
+        "path": "fab/M2Card.gm1"
+      },
+      {
+        "function": "drill_plated",
+        "path": "fab/M2Card-PTH.drl"
+      },
+      {
+        "function": "fab_notes",
+        "path": "fab/M2Card-fab-notes.txt"
+      },
+      {
+        "function": "drill_report",
+        "path": "fab/M2Card-drill-report.txt"
+      },
+      {
+        "function": "gerber_job",
+        "path": "fab/M2Card-job.gbrjob"
+      },
+      {
+        "function": "zip",
+        "path": "M2Card-JLCPCB.zip"
+      },
+      {
+        "function": "bom",
+        "path": "M2Card-JLCPCB-BOM.csv"
+      },
+      {
+        "function": "cpl",
+        "path": "M2Card-JLCPCB-CPL.csv"
+      },
+      {
+        "function": "schematic_pdf",
+        "path": "M2Card-JLCPCB-schematic.pdf"
+      },
+      {
+        "function": "erc_report",
+        "path": "reports/M2Card-erc.json"
+      },
+      {
+        "function": "drc_report",
+        "path": "reports/M2Card-drc.json"
+      },
+      {
+        "function": "change_list_report",
+        "path": "reports/M2Card-change-list.json"
+      }
+    ],
+    "manifest": "outputs/JLCPCB/manifest.json",
+    "skipped": [
+      {
+        "function": "paste_top",
+        "name": "M2Card.gtp"
+      },
+      {
+        "function": "paste_bottom",
+        "name": "M2Card.gbp"
+      },
+      {
+        "function": "silkscreen_bottom",
+        "name": "M2Card.gbo"
+      },
+      {
+        "function": "drill_non_plated",
+        "name": "M2Card-NPTH.drl"
+      }
+    ],
+    "warnings": [],
+    "zip": "outputs/JLCPCB/M2Card-JLCPCB.zip"
+  }
+]

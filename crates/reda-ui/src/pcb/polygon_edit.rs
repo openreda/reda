@@ -21,7 +21,10 @@
 //! A Zone that follows the Board Outline, and a line Keepout, have no handles.
 
 use reda_engine::model::geom::{self, Millideg, Nm, Point, Vertex};
-use reda_engine::model::{InDocument, KeepoutShape, Object, PcbDocument, Project, Uuid};
+use reda_engine::model::{
+    InDocument, KeepoutShape, Object, PcbDocument, PlatedEdges, Project, Uuid,
+};
+use reda_engine::pcb::plated;
 use serde_json::{Value, json};
 
 use crate::shell::Shell;
@@ -68,6 +71,8 @@ pub struct PolygonEdit {
     pub(super) document: Uuid,
     object: Uuid,
     original: Vec<Vertex>,
+    /// The committed Plated Edges of a Board Outline or Board Cutout; empty otherwise.
+    marks: PlatedEdges,
     grab: Grab,
     mode: Mode,
     /// The point on the grabbed handle or edge the cursor's offset counts from.
@@ -178,12 +183,25 @@ impl PolygonEdit {
         self.shape = reshape(&self.original, self.grab, self.mode, self.from, at)
             .unwrap_or_else(|| self.original.clone());
         self.valid = valid(&self.shape);
-        show(shell, self.document, self.object, &self.shape);
+        let marks = self.shape_marks();
+        show(shell, self.document, self.object, &self.shape, &marks);
+    }
+
+    /// The Plated Edges of the shape as it now stands.
+    pub fn shape_marks(&self) -> PlatedEdges {
+        marks_after(
+            &self.original,
+            &self.marks,
+            self.grab,
+            self.mode,
+            &self.shape,
+        )
     }
 
     /// The Command a release runs, when the shape is valid and changed.
     pub(super) fn command(&self) -> Option<(&'static str, Value)> {
-        (self.valid && self.changed()).then(|| set_vertices(self.object, &self.shape))
+        (self.valid && self.changed())
+            .then(|| set_vertices(self.object, &self.shape, &self.shape_marks()))
     }
 
     /// Del while holding a vertex: the shape without it, when enough is left.
@@ -193,19 +211,51 @@ impl PolygonEdit {
         };
         let mut shape = self.original.clone();
         shape.remove(i);
+        let marks = plated::after_delete(&self.marks, i);
         (geom::check_contour(&shape).is_ok() && valid(&shape))
-            .then(|| set_vertices(self.object, &shape))
+            .then(|| set_vertices(self.object, &shape, &marks))
     }
 }
 
-/// `pcb.polygon.set_vertices` giving `object` the shape `vertices`.
-fn set_vertices(object: Uuid, vertices: &[Vertex]) -> (&'static str, Value) {
+/// The Plated Edges after a grab of `original` (with `marks`) in `mode` made `shape`, as
+/// the edit table has them: a split edge keeps its mark on both halves, a cut corner
+/// keeps the marks along its edges, and a move keeps every mark.
+pub fn marks_after(
+    original: &[Vertex],
+    marks: &PlatedEdges,
+    grab: Grab,
+    mode: Mode,
+    shape: &[Vertex],
+) -> PlatedEdges {
+    if marks.is_empty() {
+        return PlatedEdges::new();
+    }
+    match (grab, mode) {
+        (Grab::Midpoint(i) | Grab::Edge(i), Mode::Edge(EdgeMode::Split))
+            if shape.len() == original.len() + 1 =>
+        {
+            plated::after_insert(marks, i + 1, original.len())
+        }
+        (Grab::Corner(_), Mode::Corner(CornerMode::Chamfer | CornerMode::Fillet)) => {
+            plated::after_cut(original, marks, shape)
+        }
+        _ => marks.clone(),
+    }
+}
+
+/// `pcb.polygon.set_vertices` giving `object` the shape `vertices`, with the Plated Edges
+/// `marks` (always empty but on a Board Outline or Board Cutout).
+fn set_vertices(object: Uuid, vertices: &[Vertex], marks: &PlatedEdges) -> (&'static str, Value) {
     let vertices: Vec<Value> = vertices
         .iter()
-        .map(|v| {
+        .enumerate()
+        .map(|(i, v)| {
             let mut p = json!({"x": v.x.0, "y": v.y.0});
             if v.sweep != Millideg::ZERO {
                 p["sweep"] = json!(v.sweep.0);
+            }
+            if let Some(mark) = marks.get(&i) {
+                p["plated"] = json!(mark);
             }
             p
         })
@@ -235,6 +285,22 @@ pub fn editable(pcb: &PcbDocument, uuid: Uuid) -> Option<&[Vertex]> {
         KeepoutShape::Polygon { vertices } => Some(vertices),
         KeepoutShape::Line { .. } => None,
     }
+}
+
+/// The Plated Edges of `uuid`: a Board Outline's or Board Cutout's marks, and none for
+/// anything else.
+pub fn marks_of(pcb: &PcbDocument, uuid: Uuid) -> PlatedEdges {
+    if let Some(o) = pcb.outline().filter(|o| o.uuid == uuid) {
+        return o.plated.clone();
+    }
+    pcb.cutout(uuid)
+        .map(|c| c.plated.clone())
+        .unwrap_or_default()
+}
+
+/// Whether `uuid` is the Board Outline or a Board Cutout, whose edges can be plated.
+pub fn is_board_contour(pcb: &PcbDocument, uuid: Uuid) -> bool {
+    pcb.outline().is_some_and(|o| o.uuid == uuid) || pcb.cutout(uuid).is_some()
 }
 
 /// The polygon whose handles show: the one selected object, when it is editable.
@@ -330,9 +396,16 @@ pub(super) fn start(
         }
     };
     let targets = super::tool::board_hotspots(shell);
+    let marks = shell
+        .engine()
+        .project()
+        .and_then(|p| p.pcb())
+        .map(|pcb| marks_of(pcb, object))
+        .unwrap_or_default();
     PolygonEdit {
         document,
         object,
+        marks,
         guides: guides(&vertices, grab, mode),
         shape: vertices.clone(),
         original: vertices,
@@ -346,13 +419,10 @@ pub(super) fn start(
     }
 }
 
-/// `Mod`+click on edge `i` of `object` at `at`: the shape with a vertex there.
-pub(super) fn insert(
-    object: Uuid,
-    vertices: &[Vertex],
-    i: usize,
-    at: Point,
-) -> (&'static str, Value) {
+/// `Mod`+click on edge `i` of the polygon `edit` reshapes, at `at`: the shape with a vertex
+/// there. Both halves of a Plated Edge stay plated.
+pub(super) fn insert(edit: &PolygonEdit, i: usize, at: Point) -> (&'static str, Value) {
+    let vertices = &edit.original;
     let (a, b) = (
         vertices[i].point(),
         vertices[(i + 1) % vertices.len()].point(),
@@ -361,7 +431,8 @@ pub(super) fn insert(
     let mut shape = vertices.to_vec();
     shape[i].sweep = Millideg::ZERO;
     shape.insert(i + 1, Vertex::at(p));
-    set_vertices(object, &shape)
+    let marks = plated::after_insert(&edit.marks, i + 1, vertices.len());
+    set_vertices(edit.object, &shape, &marks)
 }
 
 /// The alignment guides of a grab in `mode`: through every vertex but the one moved.
@@ -478,29 +549,37 @@ fn valid(vertices: &[Vertex]) -> bool {
 }
 
 /// Draws the board with `object` shaped as `vertices`.
-fn show(shell: &mut Shell, document: Uuid, object: Uuid, vertices: &[Vertex]) {
+fn show(shell: &mut Shell, document: Uuid, object: Uuid, vertices: &[Vertex], marks: &PlatedEdges) {
     let Some(project) = shell
         .engine()
         .project()
-        .and_then(|p| with_vertices(p, object, vertices))
+        .and_then(|p| with_vertices(p, object, vertices, marks))
     else {
         return;
     };
     shell.show_preview(document, &project);
 }
 
-/// `project` with polygon object `object` shaped as `vertices`.
-fn with_vertices(project: &Project, object: Uuid, vertices: &[Vertex]) -> Option<Project> {
+/// `project` with polygon object `object` shaped as `vertices`, a board contour with the
+/// Plated Edges `marks`.
+fn with_vertices(
+    project: &Project,
+    object: Uuid,
+    vertices: &[Vertex],
+    marks: &PlatedEdges,
+) -> Option<Project> {
     let pcb = project.pcb()?;
     let document = pcb.uuid;
     let v = vertices.to_vec();
     let replaced = if let Some(o) = pcb.outline().filter(|o| o.uuid == object) {
         let mut o = o.clone();
         o.vertices = v;
+        o.plated = marks.clone();
         Object::BoardOutline(InDocument::new(document, o))
     } else if let Some(c) = pcb.cutout(object) {
         let mut c = c.clone();
         c.vertices = v;
+        c.plated = marks.clone();
         Object::BoardCutout(InDocument::new(document, c))
     } else if let Some(z) = pcb.zone(object) {
         let mut z = z.clone();

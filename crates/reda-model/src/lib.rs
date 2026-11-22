@@ -6,6 +6,7 @@
 
 pub mod annotate;
 pub mod auto_increment;
+mod board_template;
 mod change;
 mod check;
 mod derived;
@@ -28,6 +29,14 @@ pub mod text;
 mod transaction;
 mod uuid;
 
+pub use board_template::{
+    BoardTemplate, ChoiceOption, ChoiceParameter, DisplayUnit, DrawingKind, DrawingLayer,
+    LengthParameter, TemplateBevel, TemplateBoard, TemplateContour, TemplateCopperLayer,
+    TemplateDimensionEnd, TemplateDrawing, TemplateDrawingGroup, TemplateDrill,
+    TemplateEdgeConnector, TemplateFollow, TemplateHole, TemplateKeepout, TemplateNumber,
+    TemplatePad, TemplateParameter, TemplatePart, TemplatePlacement, TemplatePoint, TemplateVertex,
+    When,
+};
 pub use change::{Change, ChangeSet, Object, ObjectType, Scope, ScopeSummary};
 pub use check::{
     Cell, CheckKind, ErcCheck, ErcSettings, ErcSeverities, LENGTH_ARGS, LibraryCheck,
@@ -53,23 +62,25 @@ pub use output::{
 };
 pub use pad::{
     ConnectionStyle, Corner, Corners, Hole, HoleTolerance, MaskExpansion, Pad, PadCopperShape,
-    PadForm, PadKind, PadShape, PasteExpansion, Ratio, ZoneConnection,
+    PadForm, PadKind, PadRole, PadShape, PasteExpansion, Ratio, ZoneConnection,
 };
+pub use pcb::plated;
 pub use pcb::{
     ArrowPosition, AspectRatioLimit, BoardCutout, BoardOutline, BoardSetup, Bounds,
     ConnectionTarget, ConnectionValue, CopperEntry, CopperRole, DEFAULT_BOARD_THICKNESS,
     DEFAULT_COPPER, DesignRule, DielectricEntry, DielectricKind, Dimension, DimensionEnd,
-    DimensionFormat, DimensionTextPosition, DimensionUnits, DrcCheck, DrcSeverities, FillShape,
-    FootprintInstance, FootprintTextRef, FreePad, GraphicShape, HERSHEY_FONT, HoleRuleValues,
-    Hotspot, HotspotRef, InDocument, Keepout, KeepoutRecord, KeepoutShape, KeepoutShapeKind, Layer,
-    LayerGroup, LayerKind, LayerSet, LayerSpan, NOTO_SANS_FONT, Net, NetClass, OutputOrigin,
-    PadNet, PadRef, PcbDocument, PcbGraphic, PcbText, PortableClass, PortableLayers, PortableRule,
-    PortableSpan, PourOver, ResolvedEntry, Restriction, RuleField, RuleKind, RuleLayers, RuleScope,
-    RuleSet, RuleValue, RuleValues, Side, SilkMaskMode, Stackup, StackupEntry, StackupInfo,
-    StackupSeeds, StackupTotals, TeardropField, TeardropFill, TeardropKind, TeardropLocation,
-    TeardropTarget, TeardropValues, TextAutoposition, TextOverride, Track, TrackGeometry,
-    UnusedLayers, Via, ViaDiameter, ViaRuleValues, ViaType, ViaTypeName, Zone, ZoneCutout,
-    ZoneFill, ZoneFills, ZoneNameScheme,
+    DimensionFormat, DimensionTextPosition, DimensionUnits, DrcCheck, DrcSeverities, EdgeBevel,
+    EdgeConnector, FillShape, FootprintInstance, FootprintTextRef, FreePad, GraphicShape,
+    HERSHEY_FONT, HoleRuleValues, Hotspot, HotspotRef, InDocument, Keepout, KeepoutRecord,
+    KeepoutShape, KeepoutShapeKind, Layer, LayerGroup, LayerKind, LayerSet, LayerSpan,
+    NOTO_SANS_FONT, Net, NetClass, OutputOrigin, PadNet, PadRef, PcbDocument, PcbGraphic, PcbText,
+    PlatedEdge, PlatedEdges, PortableClass, PortableLayers, PortableRule, PortableSpan, PourOver,
+    ResolvedEntry, Restriction, RuleField, RuleKind, RuleLayers, RuleScope, RuleSet, RuleValue,
+    RuleValues, Side, SilkMaskMode, Stackup, StackupEntry, StackupInfo, StackupSeeds,
+    StackupTotals, TeardropField, TeardropFill, TeardropKind, TeardropLocation, TeardropTarget,
+    TeardropValues, TextAutoposition, TextOverride, Track, TrackGeometry, UnusedLayers, Via,
+    ViaDiameter, ViaRuleValues, ViaType, ViaTypeName, Zone, ZoneCutout, ZoneFill, ZoneFills,
+    ZoneNameScheme,
 };
 #[cfg(feature = "test-objects")]
 pub use probe::Probe;

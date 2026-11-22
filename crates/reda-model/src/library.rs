@@ -783,12 +783,14 @@ pub struct PinPads {
     pub pads: Vec<String>,
 }
 
-/// One Library element of any kind.
+/// One Library element of any kind. A Board Template has no editor: it is copied, deleted
+/// and saved like the others, but never opened as an element.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum LibraryElement {
     Symbol(Symbol),
     Footprint(Footprint),
     Part(Part),
+    BoardTemplate(Box<crate::BoardTemplate>),
 }
 
 impl LibraryElement {
@@ -797,6 +799,7 @@ impl LibraryElement {
             LibraryElement::Symbol(s) => s.uuid,
             LibraryElement::Footprint(f) => f.uuid,
             LibraryElement::Part(p) => p.uuid,
+            LibraryElement::BoardTemplate(t) => t.uuid,
         }
     }
 
@@ -805,6 +808,7 @@ impl LibraryElement {
             LibraryElement::Symbol(s) => &s.name,
             LibraryElement::Footprint(f) => &f.name,
             LibraryElement::Part(p) => &p.name,
+            LibraryElement::BoardTemplate(t) => &t.name,
         }
     }
 }

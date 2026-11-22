@@ -20,6 +20,7 @@ mod dimension;
 mod footprint;
 mod graphics;
 mod placement;
+pub mod plated;
 mod rules;
 mod stackup;
 mod zone;
@@ -34,6 +35,7 @@ pub use footprint::{
     FootprintInstance, FootprintTextRef, PadNet, PadRef, TextAutoposition, TextOverride,
 };
 pub use placement::{FreePad, OutputOrigin};
+pub use plated::{PlatedEdge, PlatedEdges};
 pub use rules::{
     AspectRatioLimit, Bounds, ConnectionTarget, ConnectionValue, DesignRule, HoleRuleValues,
     LayerGroup, PortableClass, PortableLayers, PortableRule, PortableSpan, RuleField, RuleKind,
@@ -183,6 +185,16 @@ crate::check::severities! {
     hole_to_hole => HoleToHole = Error,
     /// Copper too close to the Board Outline or a Board Cutout.
     edge_clearance => EdgeClearance = Error,
+    /// A bevel or hard gold set in `edge_connector` on a board with no Edge Connector Pads.
+    edge_connector_without_pads => EdgeConnectorWithoutPads = Warning,
+    /// Plated Edges that meet at a vertex with different Nets: one piece of metal.
+    plated_edge_nets_differ => PlatedEdgeNetsDiffer = Error,
+    /// An Edge Connector Pad on a Plated Edge: the plating would short the fingers.
+    edge_connector_on_plated_edge => EdgeConnectorOnPlatedEdge = Error,
+    /// A Plated Edge with no Net: floating metal.
+    plated_edge_without_net => PlatedEdgeWithoutNet = Warning,
+    /// A Plated Edge that no copper of its Net touches on the outer Layers.
+    plated_edge_unconnected => PlatedEdgeUnconnected = Warning,
     /// An object inside a Keepout that forbids it.
     keepout => Keepout = Error,
     /// A Footprint outside the Board Outline.
@@ -257,31 +269,115 @@ pub struct BoardSetup {
     /// Free text for the fab, copied into the Fab Notes; left out when unset.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fab_notes: Option<String>,
+    /// What the fab does to the card edge; left out when unset. Whether the board has an
+    /// edge connector is not stored: any Edge Connector Pad makes one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub edge_connector: Option<EdgeConnector>,
 }
 
-/// The closed shape of the board's physical edge.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+/// The board's `edge_connector` property: the bevel ground on the card edge and selective
+/// hard gold on the Edge Connector Pads. The board finish is unchanged by it.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+pub struct EdgeConnector {
+    /// The bevel; left out for none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bevel: Option<EdgeBevel>,
+    /// Selective hard gold on the Edge Connector Pads only; left out when false.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub hard_gold: bool,
+}
+
+/// The chamfer ground on the card edge so it enters its slot.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct EdgeBevel {
+    /// The bevel angle; between 0° and 90°, exclusive.
+    pub angle: reda_geom::Millideg,
+    /// How far the bevel reaches in from the edge; positive.
+    pub depth: Nm,
+}
+
+impl EdgeBevel {
+    /// What is wrong with it, as a field (`/angle` or `/depth`) and a reason.
+    pub fn problem(&self) -> Option<(&'static str, &'static str)> {
+        if self.angle.0 <= 0 || self.angle.0 >= 90_000 {
+            return Some(("/angle", "the bevel angle must be between 0° and 90°"));
+        }
+        if self.depth <= Nm::ZERO {
+            return Some(("/depth", "the bevel depth must be positive"));
+        }
+        None
+    }
+}
+
+/// The closed shape of the board's physical edge. The file stores each vertex with the
+/// mark of its Plated Edge, if any.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(from = "plated::ContourRow", into = "plated::ContourRow")]
 pub struct BoardOutline {
     pub uuid: Uuid,
     /// Locked against geometry changes; left out when false.
-    #[serde(default, skip_serializing_if = "is_false")]
     pub locked: bool,
     /// The contour, counter-clockwise or not; the last vertex joins the first.
     pub vertices: Vec<Vertex>,
+    /// The Plated Edges, by the index of the vertex that starts each.
+    pub plated: PlatedEdges,
 }
 
-/// A closed shape inside the Board Outline where board material is removed.
+/// A closed shape inside the Board Outline where board material is removed. The file
+/// stores each vertex with the mark of its Plated Edge, if any.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
+#[serde(from = "plated::ContourRow", into = "plated::ContourRow")]
 pub struct BoardCutout {
     pub uuid: Uuid,
     /// Locked against geometry changes; left out when false.
-    #[serde(default, skip_serializing_if = "is_false")]
     pub locked: bool,
     /// The contour; the last vertex joins the first.
     pub vertices: Vec<Vertex>,
+    /// The Plated Edges, by the index of the vertex that starts each.
+    pub plated: PlatedEdges,
 }
+
+macro_rules! contour_rows {
+    ($($kind:ident),*) => {$(
+        impl From<plated::ContourRow> for $kind {
+            fn from(row: plated::ContourRow) -> $kind {
+                let (vertices, plated) = plated::split(&row.vertices);
+                $kind {
+                    uuid: row.uuid,
+                    locked: row.locked,
+                    vertices,
+                    plated,
+                }
+            }
+        }
+
+        impl From<$kind> for plated::ContourRow {
+            fn from(contour: $kind) -> plated::ContourRow {
+                plated::ContourRow {
+                    uuid: contour.uuid,
+                    locked: contour.locked,
+                    vertices: plated::join(&contour.vertices, &contour.plated),
+                }
+            }
+        }
+
+        impl $kind {
+            /// A contour along `vertices` with no Plated Edges.
+            pub fn new(uuid: Uuid, vertices: Vec<Vertex>) -> $kind {
+                $kind {
+                    uuid,
+                    locked: false,
+                    vertices,
+                    plated: PlatedEdges::new(),
+                }
+            }
+        }
+    )*};
+}
+
+contour_rows!(BoardOutline, BoardCutout);
 
 /// A named, ranked group of Nets that share design rules. Its values are the rule records
 /// scoped to it. The Default Net Class is not stored: it is the board-wide records.
@@ -334,6 +430,10 @@ pub(crate) fn yes() -> bool {
 
 pub(crate) fn is_true(value: &bool) -> bool {
     *value
+}
+
+pub(crate) fn is_false(value: &bool) -> bool {
+    !*value
 }
 
 /// An object stored in a Document, with the Document it lives in. The Document is not
@@ -561,6 +661,24 @@ impl PcbDocument {
 
     pub fn footprint(&self, uuid: Uuid) -> Option<&FootprintInstance> {
         self.footprints.get(&uuid)
+    }
+
+    /// The Pads of every placed Footprint, as their copies hold them.
+    fn placed_pads(&self) -> impl Iterator<Item = &crate::Pad> {
+        self.footprints()
+            .filter_map(|i| self.footprint_copy(i.footprint))
+            .flat_map(|c| &c.footprint.pads)
+    }
+
+    /// Whether any placed Pad is an Edge Connector Pad: the board has an edge connector.
+    pub fn has_edge_connector_pads(&self) -> bool {
+        self.placed_pads()
+            .any(|p| p.role == Some(crate::PadRole::EdgeConnector))
+    }
+
+    /// Whether any placed Pad or Free Pad is a Castellated Pad.
+    pub fn has_castellated_pads(&self) -> bool {
+        self.placed_pads().any(|p| p.castellated) || self.free_pads().any(|p| p.castellated)
     }
 
     /// The stored Pad of one instance, including any local Footprint edits.
@@ -877,6 +995,14 @@ impl PcbDocument {
             return Err(format!("PCB Document {doc} must have exactly one Stackup"));
         }
         self.check_layers()?;
+        if let Some((field, problem)) = self
+            .setup()
+            .edge_connector
+            .and_then(|e| e.bevel)
+            .and_then(|b| b.problem())
+        {
+            return Err(format!("edge_connector bevel{field}: {problem}"));
+        }
         let copper: Vec<Uuid> = self.copper_layers().map(|l| l.uuid).collect();
         if let Some(problem) = self.stackup().problem(&copper) {
             return Err(problem);
@@ -1116,6 +1242,27 @@ impl PcbDocument {
                 .is_some_and(|l| l.kind == LayerKind::Copper)
         };
         let net_exists = |net: Option<Uuid>| net.is_none_or(|n| self.nets.contains_key(&n));
+        let contours = self
+            .outlines
+            .values()
+            .map(|o| (o.uuid, o.vertices.len(), &o.plated))
+            .chain(
+                self.cutouts
+                    .values()
+                    .map(|c| (c.uuid, c.vertices.len(), &c.plated)),
+            );
+        for (uuid, len, plated) in contours {
+            for (edge, mark) in plated {
+                if *edge >= len {
+                    return Err(format!("{uuid} marks edge {edge}, which it does not have"));
+                }
+                if !net_exists(mark.net) {
+                    return Err(format!(
+                        "Plated Edge {edge} of {uuid} is on a Net that does not exist"
+                    ));
+                }
+            }
+        }
         for track in self.tracks.values() {
             let uuid = track.uuid;
             if !is_copper(track.layer) {
@@ -1314,8 +1461,4 @@ impl serde::Serialize for PcbDocument {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.collect_seq(self.objects())
     }
-}
-
-fn is_false(b: &bool) -> bool {
-    !*b
 }

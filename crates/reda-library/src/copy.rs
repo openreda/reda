@@ -12,6 +12,7 @@ impl Library {
             ElementKind::Symbol => self.symbols.values().any(|s| s.name == name),
             ElementKind::Footprint => self.footprints.values().any(|f| f.name == name),
             ElementKind::Part => self.parts.values().any(|p| p.name == name),
+            ElementKind::BoardTemplate => self.board_templates.values().any(|t| t.name == name),
         }
     }
 
@@ -20,6 +21,7 @@ impl Library {
         self.symbols.contains_key(&element)
             || self.footprints.contains_key(&element)
             || self.parts.contains_key(&element)
+            || self.board_templates.contains_key(&element)
     }
 }
 
@@ -42,6 +44,7 @@ pub fn copy_element(element: &LibraryElement, uuid: Uuid, name: &str) -> Library
         LibraryElement::Symbol(s) => (s.uuid, s.name) = (uuid, name.to_owned()),
         LibraryElement::Footprint(f) => (f.uuid, f.name) = (uuid, name.to_owned()),
         LibraryElement::Part(p) => (p.uuid, p.name) = (uuid, name.to_owned()),
+        LibraryElement::BoardTemplate(t) => (t.uuid, t.name) = (uuid, name.to_owned()),
     }
     copy
 }

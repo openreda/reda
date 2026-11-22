@@ -1,0 +1,16 @@
+{
+  "format": 2,
+  "footprint": {"uuid":"ac2e8f5f-a3e8-40a7-91bb-42fb9de9bae3","name":"MountingHole_M2_Castellated","description":"Castellated half-moon for an M.2 card's M2 screw, 3.5 mm plated hole, 5.5 mm land on top and 6.0 mm below, the SATA-IO figures. Centre it on the board edge: the edge cuts it in half","height":2000000},
+  "pads": [
+    {"uuid":"af92254b-fa6d-432a-9d7a-1de096889234","number":"1","kind":"plated_through_hole","castellated":true,"shape":"circle","bottom":{"shape":"circle","width":6000000,"height":6000000},"at":{"x":0,"y":0},"rotation":0,"width":5500000,"height":5500000,"hole":{"width":3500000,"height":3500000}}
+  ],
+  "graphics": [
+    {"uuid":"01dc0933-ceee-4fb6-8f2c-6375c2fd39e1","layer":"assembly_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2750000},"width":100000},
+    {"uuid":"869facbd-8611-4cb0-8df8-901ad00c083c","layer":"courtyard_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":3250000},"width":50000}
+  ],
+  "texts": [
+    {"uuid":"1ef72b35-87ac-44b8-b1f5-eee825b20d31","field":"Value","at":{"x":0,"y":-3950000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+    {"uuid":"5ed0c1ea-dded-43dc-9334-cd0c82d2b34b","field":"Designator","at":{"x":0,"y":4050000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
+    {"uuid":"cd8e0505-5720-4db6-88df-b6e9d2e48e18","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
+  ]
+}

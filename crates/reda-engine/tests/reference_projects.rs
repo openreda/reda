@@ -45,6 +45,8 @@ const PROJECTS: &[(&str, &str)] = &[
     ("usb_c_mcu", "UsbMcu.reda"),
     ("four_layer", "FourLayer.reda"),
     ("six_layer_hdi", "SixLayerHdi.reda"),
+    ("castellated_module", "Castellated.reda"),
+    ("m2_card", "M2Card.reda"),
 ];
 
 /// The three Projects shipped with format 1 and frozen for its migration tests.
@@ -228,12 +230,8 @@ fn between_them_the_projects_hold_every_object_the_goldens_cover() {
         |pad: &Value| pad["kind"] == "non_plated" && pad["hole"]["width"] != pad["hole"]["height"];
     let copy_pads = rows(&docs, "redapcb", "footprint_copies")
         .into_iter()
-        .flat_map(|c| {
-            c["footprint"]["pads"]
-                .as_array()
-                .cloned()
-                .unwrap_or_default()
-        })
+        // A copy row keeps its Pads beside its `footprint` header.
+        .flat_map(|c| c["pads"].as_array().cloned().unwrap_or_default())
         .collect::<Vec<_>>();
     let held = [
         (
@@ -270,8 +268,37 @@ fn between_them_the_projects_hold_every_object_the_goldens_cover() {
                 && footprints.iter().any(|f| f["not_fitted"] == true),
         ),
         (
+            "a Plated Edge with a Net",
+            (docs.iter())
+                .filter(|(e, _)| e == "redapcb")
+                .map(|(_, doc)| &doc["board_outline"])
+                .chain(rows(&docs, "redapcb", "board_cutouts"))
+                .flat_map(|c| c["vertices"].as_array().cloned().unwrap_or_default())
+                .any(|v| v["plated"]["net"].is_string()),
+        ),
+        (
+            "a Castellated Pad",
+            rows(&docs, "redapcb", "free_pads")
+                .into_iter()
+                .any(|p| p["castellated"] == true)
+                || copy_pads.iter().any(|p| p["castellated"] == true),
+        ),
+        (
             "a non-plated slot",
             rows(&docs, "redapcb", "free_pads").into_iter().any(slot) || copy_pads.iter().any(slot),
+        ),
+        (
+            "an Edge Connector Pad",
+            copy_pads.iter().any(|p| p["role"] == "edge_connector"),
+        ),
+        (
+            "a bevelled, hard-gold edge connector",
+            (docs.iter())
+                .filter(|(e, _)| e == "redapcb")
+                .any(|(_, doc)| {
+                    let e = &doc["board"]["edge_connector"];
+                    e["bevel"].is_object() && e["hard_gold"] == true
+                }),
         ),
     ];
     let missing: Vec<&str> = held.iter().filter(|(_, h)| !h).map(|(w, _)| *w).collect();
@@ -363,6 +390,38 @@ fn six_layer_hdi_is_a_clean_six_layer_board() {
 }
 
 #[test]
+fn castellated_module_is_clean_with_its_plating_joined_to_gnd() {
+    check_clean_board("castellated_module", "Castellated.reda", 2);
+    let (_work, engine) = open_copy("castellated_module", "Castellated.reda");
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let gnd = pcb.nets().find(|n| n.name == "GND").unwrap().uuid;
+    let edges = reda_engine::pcb::plated::board_edges(pcb);
+    // The bottom edge and the chamfer meet at a corner, both on GND.
+    assert_eq!(edges.len(), 2);
+    assert_eq!(edges[0].to, edges[1].from);
+    assert!(edges.iter().all(|e| e.net == Some(gnd)));
+    let castellated: Vec<_> = pcb.free_pads().filter(|p| p.castellated).collect();
+    assert!(castellated.iter().any(|p| p.at.x.0 == 0));
+    assert!(castellated.iter().any(|p| p.at.y.0 == 15_000_000));
+    // The GND Zones join the plating: it is one island with the GND Pads.
+    let copper = reda_engine::pcb::Copper::of(engine.project().unwrap()).unwrap();
+    let plating = reda_engine::pcb::Item::PlatedEdge {
+        contour: edges[0].contour,
+        edge: 0,
+    };
+    let island = copper
+        .islands(gnd)
+        .into_iter()
+        .find(|i| i.contains(&plating))
+        .unwrap();
+    assert!(
+        island
+            .iter()
+            .any(|i| matches!(i, reda_engine::pcb::Item::Pad { .. }))
+    );
+}
+
+#[test]
 fn four_layer_is_clean_and_uses_the_signal_to_return_clearance() {
     use reda_engine::model::{RuleKind, RuleScope, UnusedLayers, geom::Nm};
     use reda_engine::pcb::rules::{clearance_between_on, net_rules_on};
@@ -424,6 +483,36 @@ fn four_layer_is_clean_and_uses_the_signal_to_return_clearance() {
         .map(|l| copper.items_at(l.uuid, pad.at).contains(&item))
         .collect();
     assert_eq!(lands, [true, false, false, true]);
+}
+
+#[test]
+fn m2_card_passes_drc_with_its_half_moon_on_the_far_edge() {
+    // testing.md#outputs: built from the M.2 template (key M, 2280), with the fixture
+    // bevel {20°, 1.30} and hard gold the script sets. The fingers cross the outline's
+    // edge clearance and the half-moon crosses the outline itself, and neither fires.
+    let (_work, mut engine) = open_copy("m2_card", "M2Card.reda");
+    let drc = engine.run_ok("drc.run", json!({}));
+    assert_eq!(drc["violations"], json!([]), "{drc}");
+    // The card's fingers are wired to nothing yet: ERC only finds J1's open pins.
+    let erc = engine.run_ok("erc.run", json!({}));
+    let erc = erc["violations"].as_array().unwrap();
+    assert_eq!(erc.len(), 67);
+    assert!(erc.iter().all(|v| v["check"] == "unconnected_pin"
+        && v["args"]["pin"].as_str().unwrap().starts_with("J1-")));
+    assert_eq!(engine.run_ok("sync.preview", json!({}))["count"], 0);
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let edge = pcb.setup().edge_connector.as_ref().unwrap();
+    let bevel = edge.bevel.unwrap();
+    assert_eq!((bevel.angle.0, bevel.depth.0), (20_000, 1_300_000));
+    assert!(edge.hard_gold);
+    assert!(pcb.has_edge_connector_pads());
+    assert!(pcb.has_castellated_pads());
+    let moon = pcb
+        .footprints()
+        .find(|f| f.designator.starts_with('H'))
+        .unwrap();
+    assert_eq!((moon.at.x.0, moon.at.y.0), (11_000_000, 80_000_000));
+    assert!(moon.locked);
 }
 
 fn check_clean_board(name: &str, file: &str, expected_layers: usize) {

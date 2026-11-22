@@ -796,6 +796,13 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
         severities,
         zone_name_scheme: ZoneNameScheme::LayernameNetPxxx,
         fab_notes: Some("Route the slots.\nNo X-outs.".into()),
+        edge_connector: Some(reda_engine::model::EdgeConnector {
+            bevel: Some(reda_engine::model::EdgeBevel {
+                angle: Millideg(30_000),
+                depth: Nm(1_000_000),
+            }),
+            hard_gold: true,
+        }),
     };
     let seeded = reda_engine::pcb::seed_rules(&fab_rules(seed.rules));
     for (kind, values) in seeded.into_iter().chain(reda_engine::pcb::default_rules()) {
@@ -843,20 +850,19 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
         objects.push(Object::BoardOutline(InDocument::new(
             doc,
             BoardOutline {
-                locked: false,
-                uuid: id(),
-                vertices,
+                // The first edge plated on some seeds, so the per-vertex mark round-trips.
+                plated: (seed.base & 128 != 0)
+                    .then(|| (0, reda_model::PlatedEdge::default()))
+                    .into_iter()
+                    .collect(),
+                ..BoardOutline::new(id(), vertices)
             },
         )));
     }
     for vertices in seed.cutouts {
         objects.push(Object::BoardCutout(InDocument::new(
             doc,
-            BoardCutout {
-                locked: false,
-                uuid: id(),
-                vertices,
-            },
+            BoardCutout::new(id(), vertices),
         )));
     }
     objects.extend(
@@ -946,6 +952,8 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
             mask: None,
             paste: None,
             uuid: id(),
+            // A plated hole is castellated, so the field round-trips too.
+            castellated: flag,
             kind: if flag {
                 PadKind::PlatedThroughHole
             } else {

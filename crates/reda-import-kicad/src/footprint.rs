@@ -464,6 +464,12 @@ fn read_pad(pad: &Sexp, warnings: &mut Vec<String>) -> Read<Pad> {
         },
         number,
         kind,
+        // KiCad marks card-edge fingers on the board, not on the Pad.
+        role: None,
+        castellated: kind == PadKind::PlatedThroughHole
+            && pad
+                .child("property")
+                .is_some_and(|p| p.arg(0) == Some("pad_prop_castellated")),
         shape: copper.shape,
         at: flip(node::point(at)?),
         rotation: node::degrees_or_zero(at, 2)?,

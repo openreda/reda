@@ -131,3 +131,9 @@ impl crate::PlacedText {
         Shape { prims }
     }
 }
+
+/// A Plated Edge's copper: a line of no width along the edge, an arc as chords within
+/// 1 µm of it.
+pub(crate) fn plated_edge_shape(edge: &crate::plated::PlatedEdgeRef) -> Shape {
+    Shape::chain(&arc_points(edge.from, edge.to, edge.sweep), 0)
+}

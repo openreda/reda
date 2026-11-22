@@ -8,6 +8,7 @@
 //! crate never touches the disk and builds for `wasm32`; the engine supplies the
 //! implementation that reads and decodes real files.
 
+pub mod board_template;
 mod check;
 mod commands;
 mod copy;

@@ -1,4 +1,5 @@
-//! `library.element.copy`: Copy to Library… and Duplicate in the Library panel.
+//! `library.element.copy`: Copy to Library… and Duplicate in the Library panel, for
+//! Symbols, Footprints, Parts and Board Templates.
 
 use std::path::PathBuf;
 
@@ -19,7 +20,7 @@ pub struct ElementCopy;
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ElementCopyParams {
-    /// The Symbol, Footprint or Part to copy, from any registered Library.
+    /// The Symbol, Footprint, Part or Board Template to copy, from any registered Library.
     pub element: Uuid,
     /// The writable Library to copy it into; its own Library duplicates it.
     pub library: Uuid,
@@ -40,10 +41,11 @@ impl Command for ElementCopy {
     const META: Meta = Meta {
         id: "library.element.copy",
         title: "Copy to Library",
-        description: "Copies a Symbol, Footprint or Part into a writable registered Library \
-                      under a new UUID, adding `_1`, `_2`… to a name already taken there. A \
-                      copied Part still references its original Symbol and Footprints, \
-                      since Parts can reference across Libraries.",
+        description: "Copies a Symbol, Footprint, Part or Board Template into a writable \
+                      registered Library under a new UUID, adding `_1`, `_2`… to a name \
+                      already taken there. A copied Part still references its original \
+                      Symbol and Footprints, since Parts can reference across Libraries; a \
+                      copied Board Template carries its own Part copies.",
         category: "library",
         icon: "duplicate",
         kind: Kind::File,
@@ -61,8 +63,8 @@ impl Command for ElementCopy {
         let original = index.element(p.element).ok_or_else(|| {
             CommandError::not_found(format!("no registered Library holds element {}", p.element))
         })?;
-        let library = writable_library(&index, p.library)?;
         let kind = ElementKind::of(&original);
+        let library = writable_library(&index, p.library, kind)?;
         let name = free_name(original.name(), |name| {
             let candidate = copy_element(&original, uuid, name);
             library.holds_name(kind, name) || element_file(library, &candidate).exists()

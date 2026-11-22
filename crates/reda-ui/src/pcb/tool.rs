@@ -688,12 +688,23 @@ impl SelectTool {
         let document = p.edit.document;
         self.guide_lines.clear();
         if !p.dragged {
+            let board_contour = shell
+                .engine()
+                .project()
+                .and_then(|project| project.pcb())
+                .is_some_and(|pcb| polygon_edit::is_board_contour(pcb, p.edit.object()));
             if p.insert
                 && let Grab::Edge(i) | Grab::Midpoint(i) = p.edit.grab()
             {
-                let (id, params) =
-                    polygon_edit::insert(p.edit.object(), p.edit.vertices(), i, p.at);
+                let (id, params) = polygon_edit::insert(&p.edit, i, p.at);
                 let _ = shell.run_reporting(id, params);
+            } else if board_contour && let Grab::Edge(i) | Grab::Midpoint(i) = p.edit.grab() {
+                // Clicking an edge of the Board Outline or a Board Cutout selects the edge.
+                let contour = p.edit.object();
+                let _ = shell.run_reporting(
+                    "selection.set",
+                    json!({"edges": [{"contour": contour, "edge": i}]}),
+                );
             } else {
                 self.click(shell, document, p.at);
             }

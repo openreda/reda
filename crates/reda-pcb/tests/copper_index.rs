@@ -400,7 +400,11 @@ fn unused_lands_follow_track_ends_and_zone_outlines_before_filling() {
     let mut e = probe_engine();
     e.run_ok(
         "project.new",
-        json!({"path":dir.path(),"name":"Demo","layers":4,"board":{"width":"20mm","height":"20mm"}}),
+        json!({"path":dir.path(),"name":"Demo","layers":4}),
+    );
+    e.run_ok(
+        "pcb.board_outline.add_rect",
+        json!({"width":"20mm","height":"20mm"}),
     );
     let layers: Vec<_> = e
         .project()
@@ -639,7 +643,11 @@ fn a_track_from_a_removed_land_takes_its_owners_net_and_brings_the_land_back() {
     let mut e = probe_engine();
     e.run_ok(
         "project.new",
-        json!({"path":dir.path(),"name":"Demo","layers":4,"board":{"width":"20mm","height":"20mm"}}),
+        json!({"path":dir.path(),"name":"Demo","layers":4}),
+    );
+    e.run_ok(
+        "pcb.board_outline.add_rect",
+        json!({"width":"20mm","height":"20mm"}),
     );
     let inner = e
         .project()
@@ -685,7 +693,11 @@ fn stacked_micro_vias_keep_the_lands_they_join_on() {
     let mut e = probe_engine();
     e.run_ok(
         "project.new",
-        json!({"path":dir.path(),"name":"Demo","layers":4,"board":{"width":"20mm","height":"20mm"}}),
+        json!({"path":dir.path(),"name":"Demo","layers":4}),
+    );
+    e.run_ok(
+        "pcb.board_outline.add_rect",
+        json!({"width":"20mm","height":"20mm"}),
     );
     let pcb = e.project().unwrap().pcb().unwrap();
     let document = pcb.uuid;

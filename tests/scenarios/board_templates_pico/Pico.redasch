@@ -1,0 +1,104 @@
+{
+  "format": 2,
+  "sheet": {"uuid":"00000000-0000-4000-8000-000000000002"},
+  "parts": [
+    {"uuid":"00000000-0000-4000-8000-000000000032","hash":"a1b29d776aad41898fcea0261a9b3983","part":{"uuid":"84b18b44-b34e-4e89-b6ee-f3fe5128db97","name":"Socket_1x20","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"6035bfb4-5c53-4ef3-a6db-628ea953b9f4"},"footprints":["d2ffb3f2-2260-4f88-9b02-27b4a0cb0949","faf19069-7635-45a5-b9b3-17f3c9fd2d0d"],"copies":["00000000-0000-4000-8000-000000000030","00000000-0000-4000-8000-000000000031"],"fields":{"value":"Socket 1x20","description":"1 × 20 socket, 2.54 or 1.27 mm pitch","keywords":"J connector socket"},"pin_map":{},"symbol":{"uuid":"6035bfb4-5c53-4ef3-a6db-628ea953b9f4","name":"Conn_1x20","designator_prefix":"J","description":"Generic connector, 1 × 20 pins"},"units":[
+      {"uuid":"4aefbaa0-2490-489b-bc54-e653c411ef00","name":"A"}
+    ],"pins":[
+      {"uuid":"0318d81d-4da1-485c-9ef6-36b632e7cd13","unit":"4aefbaa0-2490-489b-bc54-e653c411ef00","name":"Pin_19","number":"19","electrical_type":"passive","at":{"x":-5080000,"y":-21590000},"rotation":0,"length":2540000,"name_visible":false},
+      {"uuid":"0eb1b4d3-1ef1-48d5-aba9-2ea3885c4bcf","unit":"4aefbaa0-2490-489b-bc54-e653c411ef00","name":"Pin_13","number":"13","electrical_type":"passive","at":{"x":-5080000,"y":-6350000},"rotation":0,"length":2540000,"name_visible":false},
+      {"uuid":"1e92626b-2f7c-4420-933f-aa5ddfd3a2ef","unit":"4aefbaa0-2490-489b-bc54-e653c411ef00","name":"Pin_7","number":"7","electrical_type":"passive","at":{"x":-5080000,"y":8890000},"rotation":0,"length":2540000,"name_visible":false},
+      {"uuid":"2d32b720-db86-4dc1-b851-23738a54b9fe","unit":"4aefbaa0-2490-489b-bc54-e653c411ef00","name":"Pin_1","number":"1","electrical_type":"passive","at":{"x":-5080000,"y":24130000},"rotation":0,"length":2540000,"name_visible":false},
+      {"uuid":"3bb38369-9dfb-451f-9993-9314747f8b36","unit":"4aefbaa0-2490-489b-bc54-e653c411ef00","name":"Pin_10","number":"10","electrical_type":"passive","at":{"x":-5080000,"y":1270000},"rotation":0,"length":2540000,"name_visible":false},
+      {"uuid":"521be55f-136c-4b7d-8188-7a681876ecd1","unit":"4aefbaa0-2490-489b-bc54-e653c411ef00","name":"Pin_15","number":"15","electrical_type":"passive","at":{"x":-5080000,"y":-11430000},"rotation":0,"length":2540000,"name_visible":false},
+      {"uuid":"5a388b0d-c3fb-4380-9edc-baf7d9256fde","unit":"4aefbaa0-2490-489b-bc54-e653c411ef00","name":"Pin_18","number":"18","electrical_type":"passive","at":{"x":-5080000,"y":-19050000},"rotation":0,"length":2540000,"name_visible":false},
+      {"uuid":"5b6eaac2-f8ce-493d-b87b-71d4ca188af1","unit":"4aefbaa0-2490-489b-bc54-e653c411ef00","name":"Pin_20","number":"20","electrical_type":"passive","at":{"x":-5080000,"y":-24130000},"rotation":0,"length":2540000,"name_visible":false},
+      {"uuid":"67a3b70c-a53a-454d-971a-7751a2919073","unit":"4aefbaa0-2490-489b-bc54-e653c411ef00","name":"Pin_6","number":"6","electrical_type":"passive","at":{"x":-5080000,"y":11430000},"rotation":0,"length":2540000,"name_visible":false},
+      {"uuid":"6fef470b-06fa-4a1b-ab7e-6c82f8122a17","unit":"4aefbaa0-2490-489b-bc54-e653c411ef00","name":"Pin_12","number":"12","electrical_type":"passive","at":{"x":-5080000,"y":-3810000},"rotation":0,"length":2540000,"name_visible":false},
+      {"uuid":"98b8b7d8-bace-4aa8-8315-91c79fb9f118","unit":"4aefbaa0-2490-489b-bc54-e653c411ef00","name":"Pin_2","number":"2","electrical_type":"passive","at":{"x":-5080000,"y":21590000},"rotation":0,"length":2540000,"name_visible":false},
+      {"uuid":"9e2b6cb1-ca41-45dc-8bc7-7c6a744ec4be","unit":"4aefbaa0-2490-489b-bc54-e653c411ef00","name":"Pin_8","number":"8","electrical_type":"passive","at":{"x":-5080000,"y":6350000},"rotation":0,"length":2540000,"name_visible":false},
+      {"uuid":"b93090d3-bb07-47f8-bf82-e0f4048d8807","unit":"4aefbaa0-2490-489b-bc54-e653c411ef00","name":"Pin_14","number":"14","electrical_type":"passive","at":{"x":-5080000,"y":-8890000},"rotation":0,"length":2540000,"name_visible":false},
+      {"uuid":"b9744eeb-c8cd-471d-b4d0-73aa7f3ff12f","unit":"4aefbaa0-2490-489b-bc54-e653c411ef00","name":"Pin_17","number":"17","electrical_type":"passive","at":{"x":-5080000,"y":-16510000},"rotation":0,"length":2540000,"name_visible":false},
+      {"uuid":"c1b91d66-a03f-4437-84eb-e4d492274971","unit":"4aefbaa0-2490-489b-bc54-e653c411ef00","name":"Pin_16","number":"16","electrical_type":"passive","at":{"x":-5080000,"y":-13970000},"rotation":0,"length":2540000,"name_visible":false},
+      {"uuid":"cdecb89f-9291-46bb-8b33-ca749ec857e0","unit":"4aefbaa0-2490-489b-bc54-e653c411ef00","name":"Pin_9","number":"9","electrical_type":"passive","at":{"x":-5080000,"y":3810000},"rotation":0,"length":2540000,"name_visible":false},
+      {"uuid":"d27872af-9a69-4fb1-850e-843f943a7446","unit":"4aefbaa0-2490-489b-bc54-e653c411ef00","name":"Pin_3","number":"3","electrical_type":"passive","at":{"x":-5080000,"y":19050000},"rotation":0,"length":2540000,"name_visible":false},
+      {"uuid":"ddfdbe1c-7c90-4625-b873-7184a9b05d98","unit":"4aefbaa0-2490-489b-bc54-e653c411ef00","name":"Pin_5","number":"5","electrical_type":"passive","at":{"x":-5080000,"y":13970000},"rotation":0,"length":2540000,"name_visible":false},
+      {"uuid":"e7267445-db62-4d3f-b6df-700d2428df75","unit":"4aefbaa0-2490-489b-bc54-e653c411ef00","name":"Pin_4","number":"4","electrical_type":"passive","at":{"x":-5080000,"y":16510000},"rotation":0,"length":2540000,"name_visible":false},
+      {"uuid":"ee8a4c61-1a7b-4fa6-af3c-a3b88b77eef5","unit":"4aefbaa0-2490-489b-bc54-e653c411ef00","name":"Pin_11","number":"11","electrical_type":"passive","at":{"x":-5080000,"y":-1270000},"rotation":0,"length":2540000,"name_visible":false}
+    ],"graphics":[
+      {"uuid":"1f48b955-b0bf-45a0-a8c4-a1e965a54194","unit":"4aefbaa0-2490-489b-bc54-e653c411ef00","shape":{"kind":"rect","start":{"x":-2540000,"y":-25400000},"end":{"x":0,"y":25400000}},"width":254000}
+    ]}
+  ],
+  "footprints": [
+    {"uuid":"00000000-0000-4000-8000-000000000030","hash":"d96d26777209f9135b05bea5433bb5a6","footprint":{"uuid":"d2ffb3f2-2260-4f88-9b02-27b4a0cb0949","name":"SKTV0W64P254R1L5080T254H850B","description":"Socket, 1 × 20, 2.54 mm pitch","height":8500000},"pads":[
+      {"uuid":"00ea77ca-9d3c-412f-928a-d3bec487599e","number":"8","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":6350000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"35e88380-c2c9-4fdd-a912-e6633830e2be","number":"20","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-24130000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"3e5c86dc-f6d8-4e48-ba95-c04c39f908d8","number":"15","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-11430000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"4c9c03cd-c46e-431a-a321-9a16d4f4ae33","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":21590000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"67987381-5308-4e57-b072-e402f6feeb3a","number":"7","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":8890000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"6e979f4e-e0bb-43f8-a8ce-e4644b7a64c3","number":"13","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-6350000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"6f65dae6-b22a-47d8-904f-9a7deebfc7df","number":"5","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":13970000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"8337698d-7b4a-4262-a236-b72a864953f4","number":"16","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-13970000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"97bbdc6f-b319-4910-b57a-c6464cb0bc9e","number":"9","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":3810000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"9c9ed8e6-1412-40d8-ac46-21f318bee66b","number":"18","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-19050000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"b21e218a-efd4-40d6-8c3d-555c10b0e9a7","number":"19","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-21590000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"cb371081-afae-4a71-8afa-413372e38744","number":"17","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-16510000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"cb777b20-0da1-4158-a3da-e9d47d38550e","number":"3","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":19050000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"df12fbc7-430d-4b37-9f6a-2b7142908a95","number":"14","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-8890000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"df83cd40-dbbe-4103-8363-305931d2edd3","number":"10","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"e095dbfc-d11d-4d91-b3f5-c666fd8e866c","number":"6","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":11430000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"e3f0c3a6-f43c-48dc-9367-c24dab878290","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":0,"y":24130000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"e9e663fe-b00d-481a-8120-887dc228e761","number":"12","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-3810000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"eb45d277-b3f1-47cd-9347-5fa7bd43b4f6","number":"11","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"fbabfff3-ee70-4327-bd2d-216237103179","number":"4","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":16510000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}}
+    ],"graphics":[
+      {"uuid":"10b1e722-08ec-40fa-9324-0b1b9f6dcb81","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1330000,"y":-25460000},"end":{"x":-1330000,"y":25460000}},"width":120000},
+      {"uuid":"614705d3-a9c9-4bd7-bb65-e05d94abb78f","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-635000,"y":25400000},{"x":1270000,"y":25400000},{"x":1270000,"y":-25400000},{"x":-1270000,"y":-25400000},{"x":-1270000,"y":24765000}]},"width":100000},
+      {"uuid":"93ccca7f-a1fc-4255-9614-ae559e9fd9bb","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1330000,"y":-25460000},"end":{"x":1330000,"y":-25460000}},"width":120000},
+      {"uuid":"c5e3466f-7f7f-4831-acb8-cef2a8abe5ba","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1550000,"y":-25650000},"end":{"x":1550000,"y":25650000}},"width":50000},
+      {"uuid":"c69ec6d7-f5c3-4451-9ae2-a4548a1d34ec","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":1330000,"y":-25460000},"end":{"x":1330000,"y":25460000}},"width":120000},
+      {"uuid":"cb3a7960-064d-4e63-b885-bbfb6900587a","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1330000,"y":25460000},"end":{"x":1330000,"y":25460000}},"width":120000}
+    ],"texts":[
+      {"uuid":"87db8f99-baf2-4c16-bbba-695f2d67e4d6","field":"Designator","at":{"x":0,"y":26350000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
+      {"uuid":"9c7c9dad-35e2-4673-a8e2-a804f2539ec2","field":"Value","at":{"x":0,"y":-26350000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+      {"uuid":"d981b890-ab6e-48f8-ad3f-addbc056ae38","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
+    ]},
+    {"uuid":"00000000-0000-4000-8000-000000000031","hash":"a491285b713d74b0ad186d482316dfb4","footprint":{"uuid":"faf19069-7635-45a5-b9b3-17f3c9fd2d0d","name":"SKTV0W40P127R1L2540T127H400B","description":"Socket, 1 × 20, 1.27 mm pitch","height":4000000},"pads":[
+      {"uuid":"007ce50e-45b0-4138-9415-7d17e40a3756","number":"5","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":6985000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"07a44249-be80-4ea0-b820-f265cb7a3755","number":"4","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":8255000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"215e66e1-3c32-4e00-ba78-ce521182a6df","number":"9","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":1905000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"25052929-a88f-4db4-aabd-0023ab0a4892","number":"12","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-1905000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"28e583e6-3b8d-4c21-8ccc-ded020df65e9","number":"6","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":5715000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"2b814c47-5260-4762-a76b-c5fff9527618","number":"7","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":4445000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"2f31b5ad-8a77-4660-b37b-d31d03cfe101","number":"14","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-4445000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"3d3440e0-4f32-465f-8e48-4ef0a61f0629","number":"13","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-3175000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"543022e6-43a6-4af8-a308-c42786592ba1","number":"3","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":9525000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"6a3b5b71-33be-4167-b6ee-c855274b4241","number":"18","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-9525000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"7215145e-e058-4d50-b7b3-1c82b7c0261f","number":"19","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-10795000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"aab83c3b-d0f2-420c-9ef7-ca2251c0d9d4","number":"20","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-12065000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"aae1c5f8-6c06-4457-9360-d552d4ab60ac","number":"17","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-8255000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"bd42e139-6e50-4cab-918a-2223b3ffbd78","number":"15","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-5715000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"d0916ba0-a810-445d-831a-3feffbb336aa","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":0,"y":12065000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"d64bd224-d272-4c50-9341-82739a834565","number":"16","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-6985000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"ef48cb98-e26d-4dc6-84ea-b09caf7d6cd6","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":10795000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"f15866d6-c7a8-4448-88e0-19bb3984ba57","number":"11","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-635000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"f55322b9-e94b-4167-9578-ac9dab122c05","number":"10","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":635000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"f6bcfd63-1023-4866-afb9-343ffa5ce988","number":"8","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":3175000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}}
+    ],"graphics":[
+      {"uuid":"59393ad6-49a1-4d71-805b-b5a53f117720","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-760000,"y":12825000},"end":{"x":760000,"y":12825000}},"width":120000},
+      {"uuid":"64a013bd-a327-4ffe-9df6-3e61e6b15d92","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-760000,"y":-12825000},"end":{"x":760000,"y":-12825000}},"width":120000},
+      {"uuid":"8c8eff85-cbe8-4817-955e-4a109a774226","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-760000,"y":-12825000},"end":{"x":-760000,"y":12825000}},"width":120000},
+      {"uuid":"b8f4e36a-5b01-4d53-82e6-2528e2186055","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-900000,"y":-12950000},"end":{"x":900000,"y":12950000}},"width":50000},
+      {"uuid":"c6d2989c-55e9-4d6e-b5ed-040693addb84","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":760000,"y":-12825000},"end":{"x":760000,"y":12825000}},"width":120000},
+      {"uuid":"e97d7e7a-be22-4f66-97f9-b2d8e52caf3f","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-317500,"y":12700000},{"x":635000,"y":12700000},{"x":635000,"y":-12700000},{"x":-635000,"y":-12700000},{"x":-635000,"y":12382500}]},"width":100000}
+    ],"texts":[
+      {"uuid":"194aba35-2dc8-4a77-8e7a-e3fdb9609093","field":"Designator","at":{"x":0,"y":13650000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
+      {"uuid":"98092b27-d2f6-4dc0-a939-3128e3b6e049","field":"Value","at":{"x":0,"y":-13465000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":630000,"thickness":94500,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+      {"uuid":"f04b553e-8e55-4cc9-8dda-3899fe82817e","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":630000,"thickness":94500,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
+    ]}
+  ],
+  "units": [
+    {"uuid":"00000000-0000-4000-8000-000000000034","component":{"uuid":"00000000-0000-4000-8000-000000000033"},"part":"00000000-0000-4000-8000-000000000032","unit":"4aefbaa0-2490-489b-bc54-e653c411ef00","at":{"x":55880000,"y":76200000},"rotation":0,"designator":"J1","fields":{"value":"Socket 1x20","description":"1 × 20 socket, 2.54 or 1.27 mm pitch","keywords":"J connector socket"},"footprint":"d2ffb3f2-2260-4f88-9b02-27b4a0cb0949","component_type":"standard","in_bom":true,"in_cpl":true},
+    {"uuid":"00000000-0000-4000-8000-000000000038","component":{"uuid":"00000000-0000-4000-8000-000000000037"},"part":"00000000-0000-4000-8000-000000000032","unit":"4aefbaa0-2490-489b-bc54-e653c411ef00","at":{"x":71120000,"y":76200000},"rotation":0,"designator":"J2","fields":{"value":"Socket 1x20","description":"1 × 20 socket, 2.54 or 1.27 mm pitch","keywords":"J connector socket"},"footprint":"d2ffb3f2-2260-4f88-9b02-27b4a0cb0949","component_type":"standard","in_bom":true,"in_cpl":true}
+  ]
+}

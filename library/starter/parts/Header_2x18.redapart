@@ -1,0 +1,11 @@
+{
+  "format": 2,
+  "part": {"uuid":"ab307b83-86d4-4cea-9966-0e1de5d3258f","name":"Header_2x18","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"a6eb8b5c-fbec-46be-b549-4e5157169861"},
+  "footprints": [
+    "f719c7b8-42e1-410f-9ca1-ed92fb8df876",
+    "074512c1-a093-44f7-a902-ade615328e56",
+    "4005293b-1887-440b-a353-4c19db0ab92d"
+  ],
+  "fields": {"value":"Header 2x18","description":"2 × 18 pin header, 2.54 or 1.27 mm pitch, or 2.54 mm mirror-numbered for the bottom side","keywords":"J connector pin header"},
+  "pin_map": {}
+}

@@ -195,8 +195,12 @@ An edge of the Board Outline or of a Board Cutout that the fab plates with coppe
 _Avoid_: Edge plating (that is the process), castellation, metallised edge
 
 **Board Template**:
-A named, reusable starting point for a new PCB Document's mechanical frame, such as a Raspberry Pi HAT+ or a PCIe x4 card: its Board Outline, Board Cutouts, mounting holes, Keepouts and connectors, a suggested layer count, and drawings such as the host board's outline and the key Dimensions. It lives in a Library and may offer choices and lengths, such as lane count or board width, that shape what it creates. A board made from one keeps no link to it.
+A named, reusable starting point for a new PCB Document's mechanical frame, such as an add-on board for a Raspberry Pi or a PCIe x4 card: its Board Outline, Board Cutouts, mounting holes, Keepouts and connectors, a suggested layer count, and drawings such as the host board's outline and the key Dimensions. It lives in a Library and may offer choices and lengths, such as lane count or board width, that shape what it creates. A board made from one keeps no link to it.
 _Avoid_: Board preset, form factor (alone), project template, sheet template
+
+**Frame**:
+A Board Template evaluated for one set of choices and lengths: the outline, holes, connectors, Keepouts and drawings it would create, with any problems, before anything is created. The new-project preview draws it and Board Template creation places it; in code it is `Frame` and its parts are `Frame*`.
+_Avoid_: Evaluated template, template instance. Not a Text Frame.
 
 **Layer**:
 One plane of the PCB Document on which objects sit, such as Top Copper, Bottom Silkscreen or Board Outline.

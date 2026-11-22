@@ -72,7 +72,7 @@ pub fn document_type(engine: &Engine, uuid: Uuid) -> Option<DocumentType> {
     match engine.element(uuid)? {
         LibraryElement::Symbol(_) => Some(DocumentType::Symbol),
         LibraryElement::Footprint(_) => Some(DocumentType::Footprint),
-        LibraryElement::Part(_) => None,
+        LibraryElement::Part(_) | LibraryElement::BoardTemplate(_) => None,
     }
 }
 
@@ -126,7 +126,9 @@ pub fn scene(
         }
         LibraryElement::Symbol(_) => Some((crate::symbol_editor::scene(engine, uuid)?, None)),
         // The Part editor draws no canvas.
-        LibraryElement::Part(_) => Some((Scene::default(), None)),
+        LibraryElement::Part(_) | LibraryElement::BoardTemplate(_) => {
+            Some((Scene::default(), None))
+        }
     }
 }
 
@@ -167,7 +169,7 @@ fn element_parts(element: &LibraryElement) -> Vec<Uuid> {
             let pins = s.pins.iter().map(|p| p.uuid);
             pins.chain(s.graphics.iter().map(|g| g.uuid)).collect()
         }
-        LibraryElement::Part(_) => Vec::new(),
+        LibraryElement::Part(_) | LibraryElement::BoardTemplate(_) => Vec::new(),
     }
 }
 
@@ -251,7 +253,8 @@ pub(crate) fn panels(ui: &mut egui::Ui, shell: &mut Shell, element: Uuid) -> Vec
         }
         Some(LibraryElement::Symbol(_)) => crate::symbol_editor::view::panels(ui, shell, element),
         Some(LibraryElement::Part(_)) => crate::part_editor::view::show(ui, shell, element),
-        None => Vec::new(),
+        // A Board Template never opens in an editor.
+        Some(LibraryElement::BoardTemplate(_)) | None => Vec::new(),
     }
 }
 

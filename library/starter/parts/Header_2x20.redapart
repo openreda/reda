@@ -1,0 +1,10 @@
+{
+  "format": 2,
+  "part": {"uuid":"f0d63141-2aa8-432d-811f-63bcc46d3e0a","name":"Header_2x20","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"b444f600-4229-45b7-a9be-a37b698e50e2"},
+  "footprints": [
+    "ac7eddf0-c68c-4034-afc4-e9b98d92b417",
+    "9fca71fd-6315-437e-95a7-2c63aef43760"
+  ],
+  "fields": {"value":"Header 2x20","description":"2 × 20 pin header, 2.54 or 1.27 mm pitch","keywords":"J connector pin header"},
+  "pin_map": {}
+}

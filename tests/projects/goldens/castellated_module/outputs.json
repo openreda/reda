@@ -1,0 +1,100 @@
+[
+  {
+    "destination": "outputs/JLCPCB",
+    "files": [
+      {
+        "function": "copper_top",
+        "path": "fab/Castellated.gtl"
+      },
+      {
+        "function": "copper_bottom",
+        "path": "fab/Castellated.gbl"
+      },
+      {
+        "function": "solder_mask_top",
+        "path": "fab/Castellated.gts"
+      },
+      {
+        "function": "solder_mask_bottom",
+        "path": "fab/Castellated.gbs"
+      },
+      {
+        "function": "paste_top",
+        "path": "fab/Castellated.gtp"
+      },
+      {
+        "function": "silkscreen_top",
+        "path": "fab/Castellated.gto"
+      },
+      {
+        "function": "profile",
+        "path": "fab/Castellated.gm1"
+      },
+      {
+        "function": "plated_edges",
+        "path": "fab/Castellated-plated_edges.gbr"
+      },
+      {
+        "function": "drill_plated",
+        "path": "fab/Castellated-PTH.drl"
+      },
+      {
+        "function": "fab_notes",
+        "path": "fab/Castellated-fab-notes.txt"
+      },
+      {
+        "function": "drill_report",
+        "path": "fab/Castellated-drill-report.txt"
+      },
+      {
+        "function": "gerber_job",
+        "path": "fab/Castellated-job.gbrjob"
+      },
+      {
+        "function": "zip",
+        "path": "Castellated-JLCPCB.zip"
+      },
+      {
+        "function": "bom",
+        "path": "Castellated-JLCPCB-BOM.csv"
+      },
+      {
+        "function": "cpl",
+        "path": "Castellated-JLCPCB-CPL.csv"
+      },
+      {
+        "function": "schematic_pdf",
+        "path": "Castellated-JLCPCB-schematic.pdf"
+      },
+      {
+        "function": "erc_report",
+        "path": "reports/Castellated-erc.json"
+      },
+      {
+        "function": "drc_report",
+        "path": "reports/Castellated-drc.json"
+      },
+      {
+        "function": "change_list_report",
+        "path": "reports/Castellated-change-list.json"
+      }
+    ],
+    "manifest": "outputs/JLCPCB/manifest.json",
+    "skipped": [
+      {
+        "function": "paste_bottom",
+        "name": "Castellated.gbp"
+      },
+      {
+        "function": "silkscreen_bottom",
+        "name": "Castellated.gbo"
+      },
+      {
+        "function": "drill_non_plated",
+        "name": "Castellated-NPTH.drl"
+      }
+    ],
+    "warnings": [],
+    "zip": "outputs/JLCPCB/Castellated-JLCPCB.zip"
+  }
+]

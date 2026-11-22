@@ -51,7 +51,7 @@
     {"uuid":"00000000-0000-4000-8000-000000000028","kind":"silk_width","scope":{},"values":{"min":150000}},
     {"uuid":"00000000-0000-4000-8000-000000000029","kind":"silk_text_height","scope":{},"values":{"min":1000000}}
   ],
-  "severities": {"clearance":"error","short_circuit":"error","shorted_copper":"error","net_tie_not_joined":"error","track_width":"error","via_size":"error","via_span":"error","microvia_size":"error","aspect_ratio":"error","max_stack":"error","silk_width":"warning","silk_text_height":"warning","hole_size":"error","annular_ring":"error","hole_to_hole":"error","edge_clearance":"error","keepout":"error","footprint_outside_board":"error","unrouted":"error","copper_without_net":"warning","dangling":"warning","poor_connection":"warning","via_under_smd":"warning","courtyard_overlap":"warning","silk_to_mask":"warning","silk_to_edge":"warning","zero_length_track":"warning","micro_segment":"warning","duplicate_copper":"warning","zero_area_zone":"warning","dead_copper":"warning","empty_zone":"warning","shelved_zone":"warning","out_of_sync":"warning","opening_collapsed":"warning","rule_invalid":"error","rule_outside_preset":"warning"},
+  "severities": {"clearance":"error","short_circuit":"error","shorted_copper":"error","net_tie_not_joined":"error","track_width":"error","via_size":"error","via_span":"error","microvia_size":"error","aspect_ratio":"error","max_stack":"error","silk_width":"warning","silk_text_height":"warning","hole_size":"error","annular_ring":"error","hole_to_hole":"error","edge_clearance":"error","edge_connector_without_pads":"warning","plated_edge_nets_differ":"error","edge_connector_on_plated_edge":"error","plated_edge_without_net":"warning","plated_edge_unconnected":"warning","keepout":"error","footprint_outside_board":"error","unrouted":"error","copper_without_net":"warning","dangling":"warning","poor_connection":"warning","via_under_smd":"warning","courtyard_overlap":"warning","silk_to_mask":"warning","silk_to_edge":"warning","zero_length_track":"warning","micro_segment":"warning","duplicate_copper":"warning","zero_area_zone":"warning","dead_copper":"warning","empty_zone":"warning","shelved_zone":"warning","out_of_sync":"warning","opening_collapsed":"warning","rule_invalid":"error","rule_outside_preset":"warning"},
   "board_outline": {"uuid":"00000000-0000-4000-8000-00000000002f","vertices":[
     {"x":0,"y":0},
     {"x":30000000,"y":0},
@@ -75,10 +75,10 @@
     {"uuid":"00000000-0000-4000-8000-00000000003e","layer":"00000000-0000-4000-8000-000000000007","width":150000,"shape":{"kind":"line","from":{"x":18000000,"y":9000000},"to":{"x":18000000,"y":7000000}}}
   ],
   "footprint_copies": [
-    {"uuid":"00000000-0000-4000-8000-000000000030","hash":"7746d8c46a727fd021d55643eaffe9a3","footprint":{"uuid":"8cef86d0-5480-4597-8542-ac0c2cbd9774","name":"MountingHole_M3_Pad","description":"Mounting hole for M3, 3.2 mm plated, 5.5 mm copper ring. Hole per ISO 273 fine, head per ISO 4762","height":3000000},"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000030","hash":"ee5675efe385b6931c8853eacf5ac850","footprint":{"uuid":"8cef86d0-5480-4597-8542-ac0c2cbd9774","name":"MountingHole_M3_Pad","description":"Mounting hole for M3, 3.2 mm plated, 5.5 mm copper ring. Hole per ISO 273 fine, head per ISO 4762","height":3000000},"pads":[
       {"uuid":"2006a74a-2b8a-4eb2-bf0f-eb2847ea7dfd","number":"1","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":0},"rotation":0,"width":5500000,"height":5500000,"hole":{"width":3200000,"height":3200000}}
     ],"graphics":[
-      {"uuid":"75707370-d04e-4984-add4-0395b0cb1b80","layer":"silkscreen_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":3070000},"width":120000},
+      {"uuid":"75707370-d04e-4984-add4-0395b0cb1b80","layer":"silkscreen_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":3070000},"width":150000},
       {"uuid":"9eb235d7-3abc-4cb0-b640-f67448fcb6e0","layer":"assembly_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2750000},"width":100000},
       {"uuid":"d764bb9b-b9e4-42e6-ba3c-22db19dfbbc4","layer":"courtyard_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":3250000},"width":50000}
     ],"texts":[
@@ -86,10 +86,10 @@
       {"uuid":"b959b391-ba71-4253-8244-8bf4c90a5061","field":"Designator","at":{"x":0,"y":4050000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
       {"uuid":"ed6d441c-eaae-49b7-b946-29eaef6ee0ac","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000003f","hash":"0a9a6336f18d5396f95e9a6d0a613bd9","edited_from":{"uuid":"00000000-0000-4000-8000-000000000030","hash":"7746d8c46a727fd021d55643eaffe9a3"},"footprint":{"uuid":"8cef86d0-5480-4597-8542-ac0c2cbd9774","name":"MountingHole_M3_Pad","description":"Mounting hole for M3, 3.2 mm plated, 5.5 mm copper ring. Hole per ISO 273 fine, head per ISO 4762","height":3000000},"pads":[
+    {"uuid":"00000000-0000-4000-8000-00000000003f","hash":"51f8819ea0b9372d87cc0f757b99f32b","edited_from":{"uuid":"00000000-0000-4000-8000-000000000030","hash":"ee5675efe385b6931c8853eacf5ac850"},"footprint":{"uuid":"8cef86d0-5480-4597-8542-ac0c2cbd9774","name":"MountingHole_M3_Pad","description":"Mounting hole for M3, 3.2 mm plated, 5.5 mm copper ring. Hole per ISO 273 fine, head per ISO 4762","height":3000000},"pads":[
       {"uuid":"2006a74a-2b8a-4eb2-bf0f-eb2847ea7dfd","number":"1","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":0},"rotation":0,"width":5500000,"height":5500000,"hole":{"width":3200000,"height":3200000}}
     ],"graphics":[
-      {"uuid":"75707370-d04e-4984-add4-0395b0cb1b80","layer":"silkscreen_top","shape":{"kind":"arc","center":{"x":0,"y":0},"start":{"x":2998636,"y":658088},"sweep":335244},"width":120000},
+      {"uuid":"75707370-d04e-4984-add4-0395b0cb1b80","layer":"silkscreen_top","shape":{"kind":"arc","center":{"x":0,"y":0},"start":{"x":2995190,"y":673601},"sweep":334651},"width":150000},
       {"uuid":"9eb235d7-3abc-4cb0-b640-f67448fcb6e0","layer":"assembly_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2750000},"width":100000},
       {"uuid":"d764bb9b-b9e4-42e6-ba3c-22db19dfbbc4","layer":"courtyard_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":3250000},"width":50000}
     ],"texts":[

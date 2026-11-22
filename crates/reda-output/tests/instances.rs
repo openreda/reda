@@ -14,9 +14,10 @@ use serde_json::json;
 fn every_writer_applies_each_board_instances_rigid_transform() {
     let dir = TempDir::new("output-instances");
     let mut engine = probe_engine();
+    engine.run_ok("project.new", json!({"path": dir.path(), "name": "Demo"}));
     engine.run_ok(
-        "project.new",
-        json!({"path": dir.path(), "name": "Demo", "board": {"width": "30mm", "height": "20mm"}}),
+        "pcb.board_outline.add_rect",
+        json!({"width": "30mm", "height": "20mm"}),
     );
     engine.run_ok(
         "pcb.track.add",

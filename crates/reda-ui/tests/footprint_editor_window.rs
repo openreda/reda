@@ -203,6 +203,71 @@ fn a_selected_pad_edits_every_pad_field_with_ratios_typed_as_lengths() {
 }
 
 #[test]
+fn a_footprint_pad_is_marked_an_edge_connector_pad_or_castellated_by_its_kind() {
+    use reda_ui::engine::model::PadRole;
+    let home = TempDir::new("fp-window-edge");
+    let mut shell = shell(home.path());
+    let fp = new_footprint(&mut shell, "Card");
+    let mut h = harness(shell);
+    let pad = add_pad(&mut h, fp, "1", 0);
+    run(&mut h, "selection.set", json!({"objects": [pad]}));
+    // An SMD Pad has a role, and nothing to castellate.
+    assert!(
+        h.query_by_role_and_label(Role::ComboBox, "Castellated")
+            .is_none()
+    );
+    pick(&mut h, "Role", "Edge connector");
+    let (id, params) = last_entry(&h);
+    assert_eq!(id, "library.footprint.pad.edit");
+    assert_eq!(params["role"], "edge_connector");
+    assert_eq!(footprint(&h, fp).pads[0].role, Some(PadRole::EdgeConnector));
+
+    // Turning it plated drops the role it can't keep, and offers castellation.
+    pick(&mut h, "Kind", "Plated through-hole");
+    let p = footprint(&h, fp).pads[0].clone();
+    assert_eq!(p.role, None);
+    assert!(h.query_by_role_and_label(Role::ComboBox, "Role").is_none());
+    pick(&mut h, "Castellated", "On");
+    let (_, params) = last_entry(&h);
+    assert_eq!(params["castellated"], true);
+    assert!(footprint(&h, fp).pads[0].castellated);
+}
+
+#[test]
+fn a_plated_free_pad_is_castellated_from_its_properties_and_has_no_role() {
+    let (home, work) = (
+        TempDir::new("free-pad-castellated"),
+        TempDir::new("free-pad-castellated-work"),
+    );
+    let mut shell = shell(home.path());
+    shell.new_project(work.path(), "Demo").unwrap();
+    shell
+        .run(
+            "document.open",
+            json!({"document": "00000000-0000-4000-8000-000000000003"}),
+        )
+        .unwrap();
+    let mut h = Harness::builder()
+        .with_size([1400.0, 2600.0])
+        .build_ui_state(|ui, app: &mut App| app.ui(ui), App::new(shell));
+    h.run();
+    let pad = run(
+        &mut h,
+        "pcb.free_pad.add",
+        json!({"kind": "plated_through_hole", "at": {"x": 0, "y": 0}, "width": "2mm",
+               "hole": {"width": "1mm"}}),
+    )["result"]["uuid"]
+        .clone();
+    run(&mut h, "selection.set", json!({"objects": [pad]}));
+    h.get_by_label("Free Pad");
+    assert!(h.query_by_role_and_label(Role::ComboBox, "Role").is_none());
+    pick(&mut h, "Castellated", "On");
+    let (id, params) = last_entry(&h);
+    assert_eq!(id, "pcb.free_pad.edit");
+    assert_eq!(params["castellated"], true);
+}
+
+#[test]
 fn free_pad_properties_hold_the_same_pad_fields() {
     let (home, work) = (
         TempDir::new("free-pad-props"),

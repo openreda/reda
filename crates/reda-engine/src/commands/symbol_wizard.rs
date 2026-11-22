@@ -238,7 +238,7 @@ fn record(session: &mut Session, symbol: &Symbol) -> Result<(), CommandError> {
         .elements_mut()
         .ok_or_else(|| CommandError::not_found("the Symbol is no longer open"))?;
     let mut tx = project.transaction();
-    tx.replace(Object::from(LibraryElement::Symbol(symbol.clone())))?;
+    tx.replace(Object::Symbol(symbol.clone()))?;
     let changes = tx.commit()?;
     session.history.record(SymbolGenerate::META.title, &changes);
     Ok(())

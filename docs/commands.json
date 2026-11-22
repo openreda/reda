@@ -278,6 +278,31 @@
                 "type": "string"
               },
               {
+                "const": "edge_connector_without_pads",
+                "description": "A bevel or hard gold set in `edge_connector` on a board with no Edge Connector Pads.",
+                "type": "string"
+              },
+              {
+                "const": "plated_edge_nets_differ",
+                "description": "Plated Edges that meet at a vertex with different Nets: one piece of metal.",
+                "type": "string"
+              },
+              {
+                "const": "edge_connector_on_plated_edge",
+                "description": "An Edge Connector Pad on a Plated Edge: the plating would short the fingers.",
+                "type": "string"
+              },
+              {
+                "const": "plated_edge_without_net",
+                "description": "A Plated Edge with no Net: floating metal.",
+                "type": "string"
+              },
+              {
+                "const": "plated_edge_unconnected",
+                "description": "A Plated Edge that no copper of its Net touches on the outer Layers.",
+                "type": "string"
+              },
+              {
                 "const": "keepout",
                 "description": "An object inside a Keepout that forbids it.",
                 "type": "string"
@@ -771,12 +796,42 @@
     },
     {
       "category": "project",
-      "description": "Adds a Document of `kind` at the end of the Project. A Schematic Sheet is empty; the PCB Document starts with its Layers, the Generic design rule records and DRC severities, and is available only while the Project has none. Its file is written on save.",
+      "description": "Adds a Document of `kind` at the end of the Project. A Schematic Sheet is empty; the PCB Document starts with its Layers, the Generic design rule records and DRC severities, and is available only while the Project has none; with `board_template` it is made from a Board Template, its connectors' Symbols placed on the first sheet. Its file is written on save.",
       "icon": "document_add",
       "id": "document.add",
       "kind": "edit",
       "params": {
         "$defs": {
+          "BoardTemplateChoice": {
+            "additionalProperties": false,
+            "description": "Which template to use, at which values, without which objects: the `board_template`\nparam of creation and the params of `library.board_template.preview`.",
+            "properties": {
+              "element": {
+                "description": "The template's Library element UUID, from `library.board_template.list`.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "exclude": {
+                "description": "Template connector, hole and drawing-group UUIDs to leave out. A Keepout that\nprotects an excluded object, and a Dimension that follows one, go with it.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "values": {
+                "additionalProperties": {
+                  "$ref": "#/$defs/TemplateValue"
+                },
+                "description": "Parameter values by name: an option key for a choice, a length (integer nm or a\nstring such as `\"65mm\"`) for a length. An omitted parameter takes its default.",
+                "type": "object"
+              }
+            },
+            "required": [
+              "element"
+            ],
+            "type": "object"
+          },
           "DocumentKind": {
             "description": "What kind of Document an entry is.",
             "enum": [
@@ -784,11 +839,34 @@
               "pcb"
             ],
             "type": "string"
+          },
+          "TemplateValue": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "An option key for a choice; a length for a length parameter: integer nanometres or a string such as \"65mm\"."
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "board_template": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/BoardTemplateChoice"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The Board Template to start the PCB Document from, by Library element UUID (from\nany registered Library), at these values and without these objects; left out for\na board with no outline yet."
+          },
           "construction": {
             "description": "The Construction name in that preset. Defaults to its build for this count.",
             "type": [
@@ -808,7 +886,7 @@
           },
           "layers": {
             "default": null,
-            "description": "The PCB Document's copper Layer count, from 2 to 32. Defaults to 2.",
+            "description": "The PCB Document's copper Layer count, from 2 to 32. Defaults to the Board\nTemplate's suggested count, else 2.",
             "format": "uint8",
             "maximum": 32,
             "minimum": 2,
@@ -842,6 +920,19 @@
               "pcb"
             ],
             "type": "string"
+          },
+          "ResolvedValue": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            ],
+            "description": "A parameter's resolved value: an option key for a choice, nanometres for a length."
           },
           "SeededBoard": {
             "description": "The objects seeded by board creation, including children of the Layer and Stackup tables.\nPhysical rows follow board order. Rule rows follow kind and scope, independent of UUIDs.",
@@ -890,6 +981,17 @@
                 "format": "uuid",
                 "type": "string"
               },
+              "template": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/SeededTemplate"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "What the Board Template wrote; left out for a board made without one."
+              },
               "via_types": {
                 "items": {
                   "format": "uuid",
@@ -908,6 +1010,77 @@
               "dielectrics",
               "via_types",
               "rules"
+            ],
+            "type": "object"
+          },
+          "SeededObject": {
+            "description": "One template object and what creating the board made of it.",
+            "properties": {
+              "component": {
+                "description": "A connector's Component.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "created": {
+                "description": "The board object it became; absent for a drawing group, which makes none of its own.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "designator": {
+                "description": "A connector's or Mechanical Part hole's Designator.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "template_object": {
+                "description": "The template-local UUID.",
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "template_object"
+            ],
+            "type": "object"
+          },
+          "SeededTemplate": {
+            "description": "What `seeded.template` reports: which template at which values, and what each of its\nobjects became.",
+            "properties": {
+              "element": {
+                "description": "The template's Library element UUID.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "objects": {
+                "description": "One entry per template object created, in creation order. Excluded and gated-out\nobjects are absent.",
+                "items": {
+                  "$ref": "#/$defs/SeededObject"
+                },
+                "type": "array"
+              },
+              "values": {
+                "additionalProperties": {
+                  "$ref": "#/$defs/ResolvedValue"
+                },
+                "description": "Every parameter's value, defaults filled in.",
+                "type": "object"
+              }
+            },
+            "required": [
+              "element",
+              "name",
+              "values",
+              "objects"
             ],
             "type": "object"
           }
@@ -1612,6 +1785,31 @@
                 "type": "string"
               },
               {
+                "const": "edge_connector_without_pads",
+                "description": "A bevel or hard gold set in `edge_connector` on a board with no Edge Connector Pads.",
+                "type": "string"
+              },
+              {
+                "const": "plated_edge_nets_differ",
+                "description": "Plated Edges that meet at a vertex with different Nets: one piece of metal.",
+                "type": "string"
+              },
+              {
+                "const": "edge_connector_on_plated_edge",
+                "description": "An Edge Connector Pad on a Plated Edge: the plating would short the fingers.",
+                "type": "string"
+              },
+              {
+                "const": "plated_edge_without_net",
+                "description": "A Plated Edge with no Net: floating metal.",
+                "type": "string"
+              },
+              {
+                "const": "plated_edge_unconnected",
+                "description": "A Plated Edge that no copper of its Net touches on the outer Layers.",
+                "type": "string"
+              },
+              {
                 "const": "keepout",
                 "description": "An object inside a Keepout that forbids it.",
                 "type": "string"
@@ -1872,6 +2070,31 @@
               {
                 "const": "edge_clearance",
                 "description": "Copper too close to the Board Outline or a Board Cutout.",
+                "type": "string"
+              },
+              {
+                "const": "edge_connector_without_pads",
+                "description": "A bevel or hard gold set in `edge_connector` on a board with no Edge Connector Pads.",
+                "type": "string"
+              },
+              {
+                "const": "plated_edge_nets_differ",
+                "description": "Plated Edges that meet at a vertex with different Nets: one piece of metal.",
+                "type": "string"
+              },
+              {
+                "const": "edge_connector_on_plated_edge",
+                "description": "An Edge Connector Pad on a Plated Edge: the plating would short the fingers.",
+                "type": "string"
+              },
+              {
+                "const": "plated_edge_without_net",
+                "description": "A Plated Edge with no Net: floating metal.",
+                "type": "string"
+              },
+              {
+                "const": "plated_edge_unconnected",
+                "description": "A Plated Edge that no copper of its Net touches on the outer Layers.",
                 "type": "string"
               },
               {
@@ -2471,6 +2694,31 @@
                 "type": "string"
               },
               {
+                "const": "edge_connector_without_pads",
+                "description": "A bevel or hard gold set in `edge_connector` on a board with no Edge Connector Pads.",
+                "type": "string"
+              },
+              {
+                "const": "plated_edge_nets_differ",
+                "description": "Plated Edges that meet at a vertex with different Nets: one piece of metal.",
+                "type": "string"
+              },
+              {
+                "const": "edge_connector_on_plated_edge",
+                "description": "An Edge Connector Pad on a Plated Edge: the plating would short the fingers.",
+                "type": "string"
+              },
+              {
+                "const": "plated_edge_without_net",
+                "description": "A Plated Edge with no Net: floating metal.",
+                "type": "string"
+              },
+              {
+                "const": "plated_edge_unconnected",
+                "description": "A Plated Edge that no copper of its Net touches on the outer Layers.",
+                "type": "string"
+              },
+              {
                 "const": "keepout",
                 "description": "An object inside a Keepout that forbids it.",
                 "type": "string"
@@ -2786,6 +3034,31 @@
               {
                 "const": "edge_clearance",
                 "description": "Copper too close to the Board Outline or a Board Cutout.",
+                "type": "string"
+              },
+              {
+                "const": "edge_connector_without_pads",
+                "description": "A bevel or hard gold set in `edge_connector` on a board with no Edge Connector Pads.",
+                "type": "string"
+              },
+              {
+                "const": "plated_edge_nets_differ",
+                "description": "Plated Edges that meet at a vertex with different Nets: one piece of metal.",
+                "type": "string"
+              },
+              {
+                "const": "edge_connector_on_plated_edge",
+                "description": "An Edge Connector Pad on a Plated Edge: the plating would short the fingers.",
+                "type": "string"
+              },
+              {
+                "const": "plated_edge_without_net",
+                "description": "A Plated Edge with no Net: floating metal.",
+                "type": "string"
+              },
+              {
+                "const": "plated_edge_unconnected",
+                "description": "A Plated Edge that no copper of its Net touches on the outer Layers.",
                 "type": "string"
               },
               {
@@ -6080,6 +6353,1940 @@
     },
     {
       "category": "library",
+      "description": "Scans the registered Libraries (the open Project's, if any, the user's and the starter Library) and returns every usable Board Template with its Library's `origin`, parameters and object rows, plus the scan's problems, including templates that failed their load checks. Works with no Project open.",
+      "icon": "board_outline_rect",
+      "id": "library.board_template.list",
+      "kind": "file",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "library": {
+            "default": null,
+            "description": "Only the templates of the Library with this UUID.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "title": "ListParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "DisplayUnit": {
+            "description": "The unit a length parameter is shown in.",
+            "enum": [
+              "mm",
+              "mil",
+              "in"
+            ],
+            "type": "string"
+          },
+          "LengthRange": {
+            "description": "A length's range under the options its `when` names.",
+            "properties": {
+              "max": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "min": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "when": {
+                "additionalProperties": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "description": "One option key per choice the range depends on; empty for a constant range.",
+                "type": "object"
+              }
+            },
+            "required": [
+              "when",
+              "min",
+              "max"
+            ],
+            "type": "object"
+          },
+          "ListedObject": {
+            "description": "One template object row. `exclude` may name connectors, holes and drawing groups.",
+            "properties": {
+              "gated": {
+                "description": "Whether this row has a `when` gate, so it may be absent at some values.",
+                "type": "boolean"
+              },
+              "group": {
+                "description": "A drawing's group.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "kind": {
+                "$ref": "#/$defs/ObjectKind"
+              },
+              "name": {
+                "description": "A drawing group's name.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "part": {
+                "description": "A connector's or Mechanical Part hole's Part, by Library element UUID.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "part_name": {
+                "description": "That Part's name, for grouping the Includes.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "protects": {
+                "description": "A Keepout's connector or hole.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "side": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Side"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "uuid": {
+                "description": "The template-local UUID.",
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "kind"
+            ],
+            "type": "object"
+          },
+          "ListedOption": {
+            "properties": {
+              "key": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "key",
+              "label"
+            ],
+            "type": "object"
+          },
+          "ListedParameter": {
+            "description": "One parameter, as the dialog shows it.",
+            "properties": {
+              "default": {
+                "$ref": "#/$defs/ResolvedValue",
+                "description": "A choice's default option key, or a length's default in nm."
+              },
+              "kind": {
+                "$ref": "#/$defs/ParameterKind"
+              },
+              "label": {
+                "type": "string"
+              },
+              "max": {
+                "description": "A length's greatest value at the default choices.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "min": {
+                "description": "A length's least value at the default choices.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "name": {
+                "type": "string"
+              },
+              "options": {
+                "description": "A choice's options, in order.",
+                "items": {
+                  "$ref": "#/$defs/ListedOption"
+                },
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "ranges": {
+                "description": "A length's range under each option of the choices its `min` and `max` name, so\nthe dialog can show the range for the options chosen: the one range whose `when`\nholds. A range that names no choice is one entry with an empty `when`.",
+                "items": {
+                  "$ref": "#/$defs/LengthRange"
+                },
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "unit": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/DisplayUnit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The unit a length is shown in."
+              },
+              "when": {
+                "additionalProperties": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "description": "The dialog hides the parameter unless this holds.",
+                "type": [
+                  "object",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "name",
+              "kind",
+              "label",
+              "default"
+            ],
+            "type": "object"
+          },
+          "ListedTemplate": {
+            "description": "One Board Template that passed its load checks.",
+            "properties": {
+              "category": {
+                "description": "Groups the picker; `None` lists it under \"Other\".",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "description": {
+                "type": "string"
+              },
+              "element": {
+                "description": "Its Library element UUID: what `board_template.element` names.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "library": {
+                "description": "The Library's UUID.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "objects": {
+                "items": {
+                  "$ref": "#/$defs/ListedObject"
+                },
+                "type": "array"
+              },
+              "origin": {
+                "$ref": "#/$defs/Origin",
+                "description": "The Library's origin. New Project offers only `user` and `starter` templates."
+              },
+              "parameters": {
+                "items": {
+                  "$ref": "#/$defs/ListedParameter"
+                },
+                "type": "array"
+              },
+              "suggested_layers": {
+                "description": "At the default values.",
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "element",
+              "name",
+              "description",
+              "category",
+              "library",
+              "origin",
+              "suggested_layers",
+              "parameters",
+              "objects"
+            ],
+            "type": "object"
+          },
+          "ObjectKind": {
+            "enum": [
+              "outline",
+              "cutout",
+              "keepout",
+              "connector",
+              "hole",
+              "drawing_group",
+              "drawing"
+            ],
+            "type": "string"
+          },
+          "Origin": {
+            "description": "How a Library came to be registered.",
+            "oneOf": [
+              {
+                "const": "starter",
+                "description": "The starter Library that ships with REDA. Read-only.",
+                "type": "string"
+              },
+              {
+                "const": "user",
+                "description": "Listed in the user's Preferences.",
+                "type": "string"
+              },
+              {
+                "const": "project",
+                "description": "Listed in the open Project's `.reda` file.",
+                "type": "string"
+              }
+            ]
+          },
+          "ParameterKind": {
+            "enum": [
+              "choice",
+              "length"
+            ],
+            "type": "string"
+          },
+          "ResolvedValue": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            ],
+            "description": "A parameter's resolved value: an option key for a choice, nanometres for a length."
+          },
+          "ScanProblem": {
+            "description": "A file or folder a scan could not use, and why.",
+            "properties": {
+              "message": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "path",
+              "message"
+            ],
+            "type": "object"
+          },
+          "Side": {
+            "description": "Which face of the board a sided Layer is on.",
+            "enum": [
+              "top",
+              "bottom"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "problems": {
+            "description": "Folders and files the scan could not use, including templates that failed their\nload checks.",
+            "items": {
+              "$ref": "#/$defs/ScanProblem"
+            },
+            "type": "array"
+          },
+          "templates": {
+            "description": "The usable templates: Library by Library in resolution order (Project, user,\nStarter), each Library's by name.",
+            "items": {
+              "$ref": "#/$defs/ListedTemplate"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "templates",
+          "problems"
+        ],
+        "title": "ListResult",
+        "type": "object"
+      },
+      "title": "List Board Templates"
+    },
+    {
+      "category": "library",
+      "description": "Evaluates the Board Template `element` at `values`, leaving out `exclude`, and returns the frame creation would write: outline and cutout vertices with their Plated Edge marks, Keepouts, holes and connectors as placed with their pad outlines, drawings by group, the resolved values and suggested layer count, and the Board Outline, Board Cutout and Keepout problems with their locations. Works with no Project open.",
+      "icon": "board_outline_rect",
+      "id": "library.board_template.preview",
+      "kind": "file",
+      "params": {
+        "$defs": {
+          "TemplateValue": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "An option key for a choice; a length for a length parameter: integer nanometres or a string such as \"65mm\"."
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Which template to use, at which values, without which objects: the `board_template`\nparam of creation and the params of `library.board_template.preview`.",
+        "properties": {
+          "element": {
+            "description": "The template's Library element UUID, from `library.board_template.list`.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "exclude": {
+            "description": "Template connector, hole and drawing-group UUIDs to leave out. A Keepout that\nprotects an excluded object, and a Dimension that follows one, go with it.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "values": {
+            "additionalProperties": {
+              "$ref": "#/$defs/TemplateValue"
+            },
+            "description": "Parameter values by name: an option key for a choice, a length (integer nm or a\nstring such as `\"65mm\"`) for a length. An omitted parameter takes its default.",
+            "type": "object"
+          }
+        },
+        "required": [
+          "element"
+        ],
+        "title": "BoardTemplateChoice",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "ConnectionStyle": {
+            "description": "How a fill meets a Pad or Via.",
+            "oneOf": [
+              {
+                "const": "relief",
+                "description": "Through spokes across a clear ring, so the Pad solders easily.",
+                "type": "string"
+              },
+              {
+                "const": "solid",
+                "description": "The fill runs straight into it.",
+                "type": "string"
+              },
+              {
+                "const": "none",
+                "description": "The fill keeps the gap clear and doesn't connect.",
+                "type": "string"
+              }
+            ]
+          },
+          "Corner": {
+            "description": "A corner of a Pad, in its own frame (+y up).",
+            "enum": [
+              "top_left",
+              "top_right",
+              "bottom_left",
+              "bottom_right"
+            ],
+            "type": "string"
+          },
+          "DrawingKind": {
+            "description": "What a drawing row draws.",
+            "enum": [
+              "line",
+              "arc",
+              "rectangle",
+              "text",
+              "dimension"
+            ],
+            "type": "string"
+          },
+          "DrawingLayer": {
+            "description": "The Layer a drawing group goes on, named symbolically.",
+            "enum": [
+              "mechanical",
+              "documentation"
+            ],
+            "type": "string"
+          },
+          "FrameBevel": {
+            "properties": {
+              "angle": {
+                "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "depth": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "angle",
+              "depth"
+            ],
+            "type": "object"
+          },
+          "FrameBoard": {
+            "description": "Board properties the frame sets.",
+            "properties": {
+              "edge_connector": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/FrameEdgeConnector"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "type": "object"
+          },
+          "FrameContour": {
+            "description": "The Board Outline or a Board Cutout.",
+            "properties": {
+              "locked": {
+                "type": "boolean"
+              },
+              "uuid": {
+                "description": "The template row's UUID.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "vertices": {
+                "items": {
+                  "$ref": "#/$defs/FrameVertex"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "uuid",
+              "vertices",
+              "locked"
+            ],
+            "type": "object"
+          },
+          "FrameDimensionEnd": {
+            "description": "A Dimension end: where it is, and the template object it follows, if any.",
+            "properties": {
+              "follow": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TemplateFollow"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "point": {
+                "$ref": "#/$defs/Point"
+              }
+            },
+            "required": [
+              "point"
+            ],
+            "type": "object"
+          },
+          "FrameDrawing": {
+            "description": "One drawing, with only the fields its kind uses.",
+            "properties": {
+              "a": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/FrameDimensionEnd"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "b": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/FrameDimensionEnd"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "excluded": {
+                "description": "Its group is excluded, or a Dimension end follows an excluded object.",
+                "type": "boolean"
+              },
+              "filled": {
+                "type": "boolean"
+              },
+              "from": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Point"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "height": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "kind": {
+                "$ref": "#/$defs/DrawingKind"
+              },
+              "locked": {
+                "type": "boolean"
+              },
+              "offset": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "position": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Point"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "prefix": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "rotation": {
+                "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "suffix": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "sweep": {
+                "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "text": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "to": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Point"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "uuid",
+              "kind",
+              "locked"
+            ],
+            "type": "object"
+          },
+          "FrameDrawingGroup": {
+            "properties": {
+              "drawings": {
+                "items": {
+                  "$ref": "#/$defs/FrameDrawing"
+                },
+                "type": "array"
+              },
+              "excluded": {
+                "type": "boolean"
+              },
+              "layer": {
+                "$ref": "#/$defs/DrawingLayer"
+              },
+              "name": {
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "name",
+              "layer",
+              "drawings"
+            ],
+            "type": "object"
+          },
+          "FrameDrill": {
+            "properties": {
+              "height": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "width",
+              "height"
+            ],
+            "type": "object"
+          },
+          "FrameEdgeConnector": {
+            "properties": {
+              "bevel": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/FrameBevel"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "hard_gold": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "hard_gold"
+            ],
+            "type": "object"
+          },
+          "FrameHole": {
+            "description": "A hole: a Mechanical Part (`part`, `footprint`, `side`) or a Free Pad (`free_pad`).",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point"
+              },
+              "excluded": {
+                "type": "boolean"
+              },
+              "footprint": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "free_pad": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/FreePad"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The Free Pad as it would be created, its UUID the template row's."
+              },
+              "locked": {
+                "type": "boolean"
+              },
+              "pads": {
+                "items": {
+                  "$ref": "#/$defs/FramePad"
+                },
+                "type": "array"
+              },
+              "part": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "rotation": {
+                "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "side": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Side"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "at",
+              "rotation",
+              "locked",
+              "pads"
+            ],
+            "type": "object"
+          },
+          "FrameKeepout": {
+            "properties": {
+              "excluded": {
+                "description": "It goes with the excluded object it protects.",
+                "type": "boolean"
+              },
+              "layer": {
+                "$ref": "#/$defs/TemplateCopperLayer"
+              },
+              "locked": {
+                "type": "boolean"
+              },
+              "protects": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "restrict": {
+                "items": {
+                  "$ref": "#/$defs/Restriction"
+                },
+                "type": "array",
+                "uniqueItems": true
+              },
+              "shape": {
+                "$ref": "#/$defs/KeepoutShapeKind"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "vertices": {
+                "items": {
+                  "$ref": "#/$defs/Vertex"
+                },
+                "type": "array"
+              },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "uuid",
+              "layer",
+              "restrict",
+              "shape",
+              "vertices",
+              "locked"
+            ],
+            "type": "object"
+          },
+          "FramePad": {
+            "description": "One Pad on the board.",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point",
+                "description": "Its anchor on the board."
+              },
+              "hole": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/FrameDrill"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Its drilled hole's size, if it has one."
+              },
+              "number": {
+                "description": "The Pad number; empty for a Free Pad.",
+                "type": "string"
+              },
+              "outline": {
+                "description": "Its copper outline on the board (its land on the Footprint's side).",
+                "items": {
+                  "$ref": "#/$defs/Vertex"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "number",
+              "at",
+              "outline"
+            ],
+            "type": "object"
+          },
+          "FramePlacement": {
+            "description": "A connector as placed.",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point"
+              },
+              "excluded": {
+                "type": "boolean"
+              },
+              "footprint": {
+                "description": "The template's Footprint copy.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "locked": {
+                "type": "boolean"
+              },
+              "pads": {
+                "description": "Its Footprint's Pads on the board, for drawing and measuring.",
+                "items": {
+                  "$ref": "#/$defs/FramePad"
+                },
+                "type": "array"
+              },
+              "part": {
+                "description": "The template's part-table entry.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "rotation": {
+                "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "side": {
+                "$ref": "#/$defs/Side"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "part",
+              "footprint",
+              "at",
+              "rotation",
+              "side",
+              "locked",
+              "pads"
+            ],
+            "type": "object"
+          },
+          "FrameProblem": {
+            "description": "What a board check found in the frame, and where, so the preview can mark it.",
+            "properties": {
+              "at": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Point"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Where it is, when the check names a point."
+              },
+              "kind": {
+                "$ref": "#/$defs/ProblemObject"
+              },
+              "message": {
+                "type": "string"
+              },
+              "object": {
+                "description": "The template row it is on.",
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "object",
+              "kind",
+              "message"
+            ],
+            "type": "object"
+          },
+          "FrameVertex": {
+            "description": "One contour vertex and the edge that leaves it.",
+            "properties": {
+              "plated": {
+                "description": "The edge this vertex starts is a Plated Edge, with no Net.",
+                "type": "boolean"
+              },
+              "sweep": {
+                "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "FreePad": {
+            "additionalProperties": false,
+            "description": "A Pad placed directly on the board, belonging to no Footprint: a mounting hole, a\nfiducial or a test point. It has the whole Pad model, in board coordinates.",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point",
+                "description": "The Pad's anchor: the hole sits there, Tracks connect there and it turns about it."
+              },
+              "bottom": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/PadCopperShape"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Optional bottom copper, in the Pad's frame. Omitted groups inherit the top."
+              },
+              "castellated": {
+                "description": "A plated through-hole Pad the Board Outline cuts through: a Castellated Pad.",
+                "type": "boolean"
+              },
+              "chamfer_ratio": {
+                "description": "How deep the chamfers of a `chamfered_rect` are.",
+                "maximum": 100000,
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "corner_ratio": {
+                "description": "How round the corners of a `rounded_rect`, or the uncut corners of a\n`chamfered_rect`, are.",
+                "maximum": 100000,
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "corners": {
+                "description": "Which corners are rounded or chamfered, in the Pad's frame. Left out, all four.",
+                "items": {
+                  "$ref": "#/$defs/Corner"
+                },
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "uniqueItems": true
+              },
+              "height": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "hole": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Hole"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The drilled hole; SMD Pads have none, the others must."
+              },
+              "kind": {
+                "$ref": "#/$defs/PadKind",
+                "description": "SMD (plated, no hole), plated through-hole, or non-plated (a bare hole)."
+              },
+              "locked": {
+                "description": "Locked against geometry changes; left out when false.",
+                "type": "boolean"
+              },
+              "mask": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Mask"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "middle": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/PadCopperShape"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Optional copper on all inner Layers, in the Pad's frame."
+              },
+              "net": {
+                "description": "Its PCB Net; left out for a Pad on no Net. Non-plated Pads have no copper and no\nNet.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "offset": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Point"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Where the copper sits relative to `at`, in the Pad's frame. Left out, on it."
+              },
+              "paste": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Paste"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "rotation": {
+                "description": "Counter-clockwise.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "shape": {
+                "$ref": "#/$defs/PadShape"
+              },
+              "side": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Side"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The board side of an SMD Pad. Left out, the top. Pads with a hole have none."
+              },
+              "teardrop": {
+                "description": "False opts this land out of derived Teardrops on every Layer.",
+                "type": "boolean"
+              },
+              "unused_layers": {
+                "$ref": "#/$defs/UnusedLayers",
+                "description": "Whether unused inner lands of a plated through-hole Pad are removed."
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "zone_connection": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ZoneConnection"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "How Zone fills of its Net join it. Each value left out inherits."
+              }
+            },
+            "required": [
+              "uuid",
+              "kind",
+              "shape",
+              "at",
+              "rotation",
+              "width",
+              "height"
+            ],
+            "type": "object"
+          },
+          "Hole": {
+            "additionalProperties": false,
+            "description": "A drilled hole: round when `width == height`, otherwise a slot along the longer side.\nSizes are the finished diameter.",
+            "properties": {
+              "height": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "rotation": {
+                "description": "Turns a slot in the Pad's frame, counter-clockwise.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "tolerance": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/HoleTolerance"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The allowed deviation from the finished size. Stored and shown; it changes no\ngeometry."
+              },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "width",
+              "height"
+            ],
+            "type": "object"
+          },
+          "HoleTolerance": {
+            "additionalProperties": false,
+            "description": "How far a finished hole may come out larger (`plus`) or smaller (`minus`).",
+            "properties": {
+              "minus": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "plus": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "plus",
+              "minus"
+            ],
+            "type": "object"
+          },
+          "KeepoutShapeKind": {
+            "description": "Which [`KeepoutShape`] a Keepout has, as the file spells it.",
+            "enum": [
+              "polygon",
+              "line"
+            ],
+            "type": "string"
+          },
+          "Mask": {
+            "additionalProperties": false,
+            "properties": {
+              "bottom": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MaskSide"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "from_hole_edge": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "top": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MaskSide"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "type": "object"
+          },
+          "MaskSide": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "expansion": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "expansion"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/Tenting"
+              }
+            ]
+          },
+          "PadCopperShape": {
+            "additionalProperties": false,
+            "description": "The complete copper shape of one Pad Stack group. Its anchor, offset and hole\nbelong to the Pad and are shared by every group.",
+            "properties": {
+              "chamfer_ratio": {
+                "description": "Thousandths of a percent of half the shorter side: 100000 is fully round.",
+                "maximum": 100000,
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "corner_ratio": {
+                "description": "Thousandths of a percent of half the shorter side: 100000 is fully round.",
+                "maximum": 100000,
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "corners": {
+                "items": {
+                  "$ref": "#/$defs/Corner"
+                },
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "uniqueItems": true
+              },
+              "height": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "shape": {
+                "$ref": "#/$defs/PadShape"
+              },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "shape",
+              "width",
+              "height"
+            ],
+            "type": "object"
+          },
+          "PadKind": {
+            "enum": [
+              "smd",
+              "plated_through_hole",
+              "non_plated"
+            ],
+            "type": "string"
+          },
+          "PadShape": {
+            "oneOf": [
+              {
+                "enum": [
+                  "circle",
+                  "rect",
+                  "oval"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "rounded_rect",
+                "description": "A rectangle with rounded corners: `corner_ratio`, on `corners`.",
+                "type": "string"
+              },
+              {
+                "const": "chamfered_rect",
+                "description": "A rectangle with `corners` cut off by `chamfer_ratio`, the others rounded by\n`corner_ratio`. An octagon is one.",
+                "type": "string"
+              }
+            ]
+          },
+          "Paste": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "expansion": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "expansion"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "percent": {
+                    "format": "int32",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "percent"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/PasteMode"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "windows": {
+                    "items": {
+                      "$ref": "#/$defs/PasteWindow"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "windows"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "PasteMode": {
+            "enum": [
+              "none"
+            ],
+            "type": "string"
+          },
+          "PasteWindow": {
+            "additionalProperties": false,
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point"
+              },
+              "corner_ratio": {
+                "description": "Thousandths of a percent of half the shorter side: 100000 is fully round.",
+                "maximum": 100000,
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "height": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "at",
+              "width",
+              "height"
+            ],
+            "type": "object"
+          },
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "ProblemObject": {
+            "description": "Which kind of frame object a problem is on.",
+            "enum": [
+              "outline",
+              "cutout",
+              "keepout"
+            ],
+            "type": "string"
+          },
+          "ResolvedValue": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            ],
+            "description": "A parameter's resolved value: an option key for a choice, nanometres for a length."
+          },
+          "Restriction": {
+            "description": "A kind of object a Keepout keeps out.",
+            "oneOf": [
+              {
+                "enum": [
+                  "tracks",
+                  "vias",
+                  "smd_pads"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "zones",
+                "description": "Zone fills.",
+                "type": "string"
+              },
+              {
+                "const": "tht_pads",
+                "description": "Through-hole Pads, plated or not.",
+                "type": "string"
+              },
+              {
+                "const": "footprints",
+                "description": "Footprints, by their Courtyard (or fallback box) on the Keepout's side, with no\nclearance. REDA's own addition.",
+                "type": "string"
+              }
+            ]
+          },
+          "Side": {
+            "description": "Which face of the board a sided Layer is on.",
+            "enum": [
+              "top",
+              "bottom"
+            ],
+            "type": "string"
+          },
+          "TemplateCopperLayer": {
+            "description": "A copper Layer named symbolically, since a template has no Layer UUIDs.",
+            "enum": [
+              "all_copper",
+              "top_copper",
+              "bottom_copper"
+            ],
+            "type": "string"
+          },
+          "TemplateFollow": {
+            "additionalProperties": false,
+            "description": "The template object a Dimension end follows: an outline or cutout vertex (with\n`vertex`), a Keepout vertex, or a hole's or connector's origin.",
+            "properties": {
+              "object": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "vertex": {
+                "description": "A vertex index, counted from 0, for a contour or Keepout.",
+                "format": "uint",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "object"
+            ],
+            "type": "object"
+          },
+          "Tenting": {
+            "enum": [
+              "tent"
+            ],
+            "type": "string"
+          },
+          "UnusedLayers": {
+            "enum": [
+              "keep",
+              "remove",
+              "remove_keep_ends"
+            ],
+            "type": "string"
+          },
+          "Vertex": {
+            "additionalProperties": false,
+            "description": "One corner of a contour and the edge that leaves it towards the next vertex.",
+            "properties": {
+              "sweep": {
+                "description": "The edge to the next vertex: left out (or 0) for a straight edge, otherwise an arc\nsweeping this angle, counter-clockwise when positive.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "ZoneConnection": {
+            "additionalProperties": false,
+            "description": "How a Zone fill joins a Pad of its own Net. Each value left out inherits from the\n`zone_connection` rule.",
+            "properties": {
+              "angle": {
+                "description": "0, 45 or 90 degrees in the Pad's frame.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "gap": {
+                "description": "The clear ring around a relieved or unconnected Pad.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "spoke_width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "spokes": {
+                "description": "2 or 4.",
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "style": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ConnectionStyle"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "A Frame: one Board Template evaluated for one set of choices and lengths.",
+        "properties": {
+          "board": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/FrameBoard"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "connectors": {
+            "items": {
+              "$ref": "#/$defs/FramePlacement"
+            },
+            "type": "array"
+          },
+          "cutouts": {
+            "items": {
+              "$ref": "#/$defs/FrameContour"
+            },
+            "type": "array"
+          },
+          "drawing_groups": {
+            "items": {
+              "$ref": "#/$defs/FrameDrawingGroup"
+            },
+            "type": "array"
+          },
+          "element": {
+            "description": "The template's Library element UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "holes": {
+            "items": {
+              "$ref": "#/$defs/FrameHole"
+            },
+            "type": "array"
+          },
+          "keepouts": {
+            "items": {
+              "$ref": "#/$defs/FrameKeepout"
+            },
+            "type": "array"
+          },
+          "name": {
+            "type": "string"
+          },
+          "outline": {
+            "$ref": "#/$defs/FrameContour",
+            "description": "The Board Outline. Zero-length edges are dropped."
+          },
+          "problems": {
+            "description": "What the Board Outline, Board Cutout and Keepout checks find. Any problem makes the\nframe invalid: creation refuses it.",
+            "items": {
+              "$ref": "#/$defs/FrameProblem"
+            },
+            "type": "array"
+          },
+          "suggested_layers": {
+            "description": "The copper Layer count the template suggests at these values.",
+            "format": "uint8",
+            "maximum": 255,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "values": {
+            "additionalProperties": {
+              "$ref": "#/$defs/ResolvedValue"
+            },
+            "description": "Every shown parameter's value, defaults filled in. A parameter hidden by its\n`when` has no value here.",
+            "type": "object"
+          }
+        },
+        "required": [
+          "element",
+          "name",
+          "values",
+          "suggested_layers",
+          "outline",
+          "cutouts",
+          "keepouts",
+          "connectors",
+          "holes",
+          "drawing_groups",
+          "problems"
+        ],
+        "title": "Frame",
+        "type": "object"
+      },
+      "title": "Preview Board Template"
+    },
+    {
+      "category": "library",
+      "description": "Writes the active board's outline and the chosen `objects` (Board Cutouts, Keepouts, Components, Mechanical Parts, Free Pads, and the Mechanical and Documentation Layers' drawings) as a new Board Template `board-templates/<name>.redaboard` in a writable Library: shifted so the outline's bounding box starts at (0,0), as literal numbers with each object's Locked state and fresh UUIDs. Parts and Footprints are the unedited copies; Plated Edges keep their mark without a Net; Keepout Layers become `all_copper`, `top_copper` or `bottom_copper`. Refuses a name the Library already has, the Starter or a read-only Library, a board with no outline and an inner-layer Keepout. Returns the element, its path and warnings.",
+      "icon": "board_outline_rect",
+      "id": "library.board_template.save",
+      "kind": "file",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "default": null,
+            "description": "Groups the picker; left out, the template is listed under \"Other\".",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "description": {
+            "default": null,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "library": {
+            "description": "The writable registered Library to write into; not the Starter Library.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "description": "The template's name, unique within the Library; also its file stem.",
+            "type": "string"
+          },
+          "objects": {
+            "default": null,
+            "description": "The board objects to capture beyond the outline, which always comes: Board\nCutouts, Keepouts, Components, Mechanical Parts and Free Pads by UUID, and a\nMechanical or Documentation Layer's UUID for every graphic, text and Dimension on\nit. Left out, the dialog's defaults: everything but inner-layer Keepouts, with\nComponents, Mechanical Parts and Free Pads only when Locked.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "library",
+          "name"
+        ],
+        "title": "SaveParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "element": {
+            "description": "The new template's Library element UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "path": {
+            "description": "The file written.",
+            "type": "string"
+          },
+          "warnings": {
+            "description": "What the template leaves behind, such as a Footprint's local Pad edits.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "element",
+          "path",
+          "warnings"
+        ],
+        "title": "SaveResult",
+        "type": "object"
+      },
+      "title": "Save Board as Template"
+    },
+    {
+      "category": "library",
       "description": "Runs the Library check on one element, one Library or every registered Library, and returns its Violations, each at the severity the user set in Preferences (`libraries.severities`; checks set to off do not run): Pin, Pad and pin-map mistakes, shorted copper, Footprint origin and courtyard problems, duplicate primitives, Part names and MPNs, missing descriptions, and generated Footprints their stored params no longer make. Open elements are checked with their unsaved changes. It never blocks saving.",
       "icon": "rule",
       "id": "library.check",
@@ -6498,12 +8705,21 @@
         "$defs": {
           "ElementKind": {
             "description": "The kinds of element a Library holds, each in its own sub-folder.",
-            "enum": [
-              "symbol",
-              "footprint",
-              "part"
-            ],
-            "type": "string"
+            "oneOf": [
+              {
+                "enum": [
+                  "symbol",
+                  "footprint",
+                  "part"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "board_template",
+                "description": "A Board Template (ADR-0016): copied, duplicated and deleted like the others, but\nwith no editor and never a [`LibraryElement`].",
+                "type": "string"
+              }
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -6544,7 +8760,7 @@
     },
     {
       "category": "library",
-      "description": "Copies a Symbol, Footprint or Part into a writable registered Library under a new UUID, adding `_1`, `_2`… to a name already taken there. A copied Part still references its original Symbol and Footprints, since Parts can reference across Libraries.",
+      "description": "Copies a Symbol, Footprint, Part or Board Template into a writable registered Library under a new UUID, adding `_1`, `_2`… to a name already taken there. A copied Part still references its original Symbol and Footprints, since Parts can reference across Libraries; a copied Board Template carries its own Part copies.",
       "icon": "duplicate",
       "id": "library.element.copy",
       "kind": "file",
@@ -6553,7 +8769,7 @@
         "additionalProperties": false,
         "properties": {
           "element": {
-            "description": "The Symbol, Footprint or Part to copy, from any registered Library.",
+            "description": "The Symbol, Footprint, Part or Board Template to copy, from any registered Library.",
             "format": "uuid",
             "type": "string"
           },
@@ -6575,12 +8791,21 @@
         "$defs": {
           "ElementKind": {
             "description": "The kinds of element a Library holds, each in its own sub-folder.",
-            "enum": [
-              "symbol",
-              "footprint",
-              "part"
-            ],
-            "type": "string"
+            "oneOf": [
+              {
+                "enum": [
+                  "symbol",
+                  "footprint",
+                  "part"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "board_template",
+                "description": "A Board Template (ADR-0016): copied, duplicated and deleted like the others, but\nwith no editor and never a [`LibraryElement`].",
+                "type": "string"
+              }
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -6615,6 +8840,73 @@
     },
     {
       "category": "library",
+      "description": "Deletes a Symbol, Footprint, Part or Board Template from its writable Library by removing its file. It can't be undone. Refuses the Starter Library, an element open in its editor, and a Symbol or Footprint a Part of a registered Library still uses. Placed copies in Projects are unchanged.",
+      "icon": "delete",
+      "id": "library.element.delete",
+      "kind": "file",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "element": {
+            "description": "The Symbol, Footprint, Part or Board Template to delete.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "element"
+        ],
+        "title": "ElementDeleteParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "ElementKind": {
+            "description": "The kinds of element a Library holds, each in its own sub-folder.",
+            "oneOf": [
+              {
+                "enum": [
+                  "symbol",
+                  "footprint",
+                  "part"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "board_template",
+                "description": "A Board Template (ADR-0016): copied, duplicated and deleted like the others, but\nwith no editor and never a [`LibraryElement`].",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "kind": {
+            "$ref": "#/$defs/ElementKind"
+          },
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "description": "The file removed.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "name",
+          "path"
+        ],
+        "title": "ElementDeleteResult",
+        "type": "object"
+      },
+      "title": "Delete from Library"
+    },
+    {
+      "category": "library",
       "description": "Creates a Symbol (with one Unit, A), a Footprint or a Part called `name` in a registered Library and opens it for editing on its own undo stack. Nothing is written until `library.element.save`. The starter Library is read-only.",
       "icon": "library_element_new",
       "id": "library.element.new",
@@ -6623,12 +8915,21 @@
         "$defs": {
           "ElementKind": {
             "description": "The kinds of element a Library holds, each in its own sub-folder.",
-            "enum": [
-              "symbol",
-              "footprint",
-              "part"
-            ],
-            "type": "string"
+            "oneOf": [
+              {
+                "enum": [
+                  "symbol",
+                  "footprint",
+                  "part"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "board_template",
+                "description": "A Board Template (ADR-0016): copied, duplicated and deleted like the others, but\nwith no editor and never a [`LibraryElement`].",
+                "type": "string"
+              }
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -6660,12 +8961,21 @@
         "$defs": {
           "ElementKind": {
             "description": "The kinds of element a Library holds, each in its own sub-folder.",
-            "enum": [
-              "symbol",
-              "footprint",
-              "part"
-            ],
-            "type": "string"
+            "oneOf": [
+              {
+                "enum": [
+                  "symbol",
+                  "footprint",
+                  "part"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "board_template",
+                "description": "A Board Template (ADR-0016): copied, duplicated and deleted like the others, but\nwith no editor and never a [`LibraryElement`].",
+                "type": "string"
+              }
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -6732,12 +9042,21 @@
         "$defs": {
           "ElementKind": {
             "description": "The kinds of element a Library holds, each in its own sub-folder.",
-            "enum": [
-              "symbol",
-              "footprint",
-              "part"
-            ],
-            "type": "string"
+            "oneOf": [
+              {
+                "enum": [
+                  "symbol",
+                  "footprint",
+                  "part"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "board_template",
+                "description": "A Board Template (ADR-0016): copied, duplicated and deleted like the others, but\nwith no editor and never a [`LibraryElement`].",
+                "type": "string"
+              }
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -6858,12 +9177,21 @@
         "$defs": {
           "ElementKind": {
             "description": "The kinds of element a Library holds, each in its own sub-folder.",
-            "enum": [
-              "symbol",
-              "footprint",
-              "part"
-            ],
-            "type": "string"
+            "oneOf": [
+              {
+                "enum": [
+                  "symbol",
+                  "footprint",
+                  "part"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "board_template",
+                "description": "A Board Template (ADR-0016): copied, duplicated and deleted like the others, but\nwith no editor and never a [`LibraryElement`].",
+                "type": "string"
+              }
+            ]
           },
           "ExtractedElement": {
             "description": "One element written.",
@@ -9668,6 +11996,10 @@
             "description": "The registered Library to write the Footprint into.",
             "format": "uuid",
             "type": "string"
+          },
+          "mirrored": {
+            "description": "Mirror-numbered, for a header fitted on the bottom side: pin 1 at the upper right\nand the rows swapped, so that the Footprint, mirrored onto the bottom, puts each\nPad where the standard Footprint puts it on top. The name ends in `_Mirrored`.",
+            "type": "boolean"
           },
           "name": {
             "description": "The Footprint's name. Omitted, it is\n`HDRV<row span>W<post width>P<pitch>R<rows>L<length>T<width>H<height>B`, such as\n`HDRV254W64P254R2L1270T508H850B`, or `SKTV…` for a socket.",
@@ -17605,7 +19937,7 @@
     },
     {
       "category": "library",
-      "description": "Adds an SMD, plated through-hole or non-plated Pad, shaped as a circle, rectangle, rounded or chamfered rectangle or oval, with its copper optionally offset from its anchor, an optional round hole or slot, its side, per-Pad mask and paste overrides and its Zone connection.",
+      "description": "Adds an SMD, plated through-hole or non-plated Pad, shaped as a circle, rectangle, rounded or chamfered rectangle or oval, with its copper optionally offset from its anchor, an optional round hole or slot, its side, per-Pad mask and paste overrides, its Zone connection, and whether it is an Edge Connector Pad (SMD) or castellated (plated through-hole).",
       "icon": "footprint_edit",
       "id": "library.footprint.pad.add",
       "kind": "edit",
@@ -17860,6 +20192,16 @@
             ],
             "type": "string"
           },
+          "PadRole": {
+            "description": "A Pad's role: what it is for beyond carrying a Net.",
+            "oneOf": [
+              {
+                "const": "edge_connector",
+                "description": "An Edge Connector Pad: an SMD Pad meant to reach the Board Outline, exempt from\n`edge_clearance` against it, and plotted as a connector Pad.",
+                "type": "string"
+              }
+            ]
+          },
           "PadShape": {
             "oneOf": [
               {
@@ -18104,6 +20446,11 @@
             ],
             "description": "A plated through-hole Pad's complete bottom copper shape."
           },
+          "castellated": {
+            "default": false,
+            "description": "Makes a plated through-hole Pad a Castellated Pad, which the Board Outline cuts.",
+            "type": "boolean"
+          },
           "chamfer_ratio": {
             "anyOf": [
               {
@@ -18207,6 +20554,17 @@
             ],
             "description": "SMD paste expansion, signed area percent, none or windows; omitted, inherit."
           },
+          "role": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PadRole"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`edge_connector` makes an SMD Pad an Edge Connector Pad, which may reach the Board\nOutline."
+          },
           "rotation": {
             "anyOf": [
               {
@@ -18288,7 +20646,7 @@
     },
     {
       "category": "library",
-      "description": "Changes any of a Pad's number, kind, shape, position, rotation, size, corner and chamfer ratios and corners, offset, hole, side, mask and paste overrides and Zone connection. Omitted fields keep their value; `null` clears an optional one. A resized Pad keeps its ratios, and so its look.",
+      "description": "Changes any of a Pad's number, kind, role, castellation, shape, position, rotation, size, corner and chamfer ratios and corners, offset, hole, side, mask and paste overrides and Zone connection. Omitted fields keep their value; `null` clears an optional one. A resized Pad keeps its ratios, and so its look.",
       "icon": "footprint_edit",
       "id": "library.footprint.pad.edit",
       "kind": "edit",
@@ -18543,6 +20901,16 @@
             ],
             "type": "string"
           },
+          "PadRole": {
+            "description": "A Pad's role: what it is for beyond carrying a Net.",
+            "oneOf": [
+              {
+                "const": "edge_connector",
+                "description": "An Edge Connector Pad: an SMD Pad meant to reach the Board Outline, exempt from\n`edge_clearance` against it, and plotted as a connector Pad.",
+                "type": "string"
+              }
+            ]
+          },
           "PadShape": {
             "oneOf": [
               {
@@ -18793,6 +21161,13 @@
             ],
             "description": "Replaces the entire bottom copper shape. `null` inherits the top."
           },
+          "castellated": {
+            "description": "Whether a plated through-hole Pad is castellated.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
           "chamfer_ratio": {
             "anyOf": [
               {
@@ -18919,6 +21294,18 @@
               }
             ],
             "description": "`null` inherits the board's rule."
+          },
+          "role": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PadRole"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "`edge_connector` on an SMD Pad; `null` clears the role."
           },
           "rotation": {
             "anyOf": [
@@ -22985,12 +25372,21 @@
         "$defs": {
           "ElementKind": {
             "description": "The kinds of element a Library holds, each in its own sub-folder.",
-            "enum": [
-              "symbol",
-              "footprint",
-              "part"
-            ],
-            "type": "string"
+            "oneOf": [
+              {
+                "enum": [
+                  "symbol",
+                  "footprint",
+                  "part"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "board_template",
+                "description": "A Board Template (ADR-0016): copied, duplicated and deleted like the others, but\nwith no editor and never a [`LibraryElement`].",
+                "type": "string"
+              }
+            ]
           },
           "LibrarySummary": {
             "description": "One scanned Library.",
@@ -23195,6 +25591,43 @@
                 ]
               }
             },
+            "type": "object"
+          },
+          "BoardVertex": {
+            "additionalProperties": false,
+            "description": "One vertex of a Board Outline or Board Cutout as the file stores it: a [`Vertex`] and\nthe mark of the edge that leaves it.",
+            "properties": {
+              "plated": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/PlatedEdge"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Set when the edge to the next vertex is a Plated Edge; left out otherwise."
+              },
+              "sweep": {
+                "description": "The edge to the next vertex: left out (or 0) for a straight edge, otherwise an arc\nsweeping this angle, counter-clockwise when positive.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
             "type": "object"
           },
           "BomGroup": {
@@ -24160,6 +26593,16 @@
                 "default": "error",
                 "description": "Copper too close to the Board Outline or a Board Cutout."
               },
+              "edge_connector_on_plated_edge": {
+                "$ref": "#/$defs/Severity",
+                "default": "error",
+                "description": "An Edge Connector Pad on a Plated Edge: the plating would short the fingers."
+              },
+              "edge_connector_without_pads": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A bevel or hard gold set in `edge_connector` on a board with no Edge Connector Pads."
+              },
               "empty_zone": {
                 "$ref": "#/$defs/Severity",
                 "default": "warning",
@@ -24214,6 +26657,21 @@
                 "$ref": "#/$defs/Severity",
                 "default": "warning",
                 "description": "The PCB out of sync with the schematic."
+              },
+              "plated_edge_nets_differ": {
+                "$ref": "#/$defs/Severity",
+                "default": "error",
+                "description": "Plated Edges that meet at a vertex with different Nets: one piece of metal."
+              },
+              "plated_edge_unconnected": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A Plated Edge that no copper of its Net touches on the outer Layers."
+              },
+              "plated_edge_without_net": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A Plated Edge with no Net: floating metal."
               },
               "poor_connection": {
                 "$ref": "#/$defs/Severity",
@@ -24318,6 +26776,11 @@
               "annular_ring",
               "hole_to_hole",
               "edge_clearance",
+              "edge_connector_without_pads",
+              "plated_edge_nets_differ",
+              "edge_connector_on_plated_edge",
+              "plated_edge_without_net",
+              "plated_edge_unconnected",
               "keepout",
               "footprint_outside_board",
               "unrouted",
@@ -24340,6 +26803,49 @@
               "rule_invalid",
               "rule_outside_preset"
             ],
+            "type": "object"
+          },
+          "EdgeBevel": {
+            "additionalProperties": false,
+            "description": "The chamfer ground on the card edge so it enters its slot.",
+            "properties": {
+              "angle": {
+                "description": "The bevel angle; between 0° and 90°, exclusive.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "depth": {
+                "description": "How far the bevel reaches in from the edge; positive.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "angle",
+              "depth"
+            ],
+            "type": "object"
+          },
+          "EdgeConnector": {
+            "additionalProperties": false,
+            "description": "The board's `edge_connector` property: the bevel ground on the card edge and selective\nhard gold on the Edge Connector Pads. The board finish is unchanged by it.",
+            "properties": {
+              "bevel": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/EdgeBevel"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The bevel; left out for none."
+              },
+              "hard_gold": {
+                "description": "Selective hard gold on the Edge Connector Pads only; left out when false.",
+                "type": "boolean"
+              }
+            },
             "type": "object"
           },
           "EditedFrom": {
@@ -25700,6 +28206,17 @@
           "InDocument2": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
+              "edge_connector": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/EdgeConnector"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "What the fab does to the card edge; left out when unset. Whether the board has an\nedge connector is not stored: any Edge Connector Pad makes one."
+              },
               "fab_notes": {
                 "description": "Free text for the fab, copied into the Fab Notes; left out when unset.",
                 "type": [
@@ -26500,6 +29017,10 @@
                 ],
                 "description": "Optional bottom copper, in the Pad's frame. Omitted groups inherit the top."
               },
+              "castellated": {
+                "description": "A plated through-hole Pad the Board Outline cuts through: a Castellated Pad.",
+                "type": "boolean"
+              },
               "chamfer_ratio": {
                 "description": "How deep the chamfers of a `chamfered_rect` are.",
                 "maximum": 100000,
@@ -26727,9 +29248,9 @@
                 "type": "string"
               },
               "vertices": {
-                "description": "The contour, counter-clockwise or not; the last vertex joins the first.",
+                "description": "The contour; the last vertex joins the first.",
                 "items": {
-                  "$ref": "#/$defs/Vertex"
+                  "$ref": "#/$defs/BoardVertex"
                 },
                 "type": "array"
               }
@@ -26754,7 +29275,7 @@
               "vertices": {
                 "description": "The contour; the last vertex joins the first.",
                 "items": {
-                  "$ref": "#/$defs/Vertex"
+                  "$ref": "#/$defs/BoardVertex"
                 },
                 "type": "array"
               }
@@ -28495,6 +31016,10 @@
                 ],
                 "description": "Optional bottom copper, in the Pad's frame. Omitted groups inherit the top."
               },
+              "castellated": {
+                "description": "A plated through-hole Pad the Board Outline cuts through, leaving a plated\nhalf-hole on the edge.",
+                "type": "boolean"
+              },
               "chamfer_ratio": {
                 "description": "How deep the chamfers of a `chamfered_rect` are.",
                 "maximum": 100000,
@@ -28589,6 +31114,17 @@
                   }
                 ],
                 "description": "An SMD Pad's paste opening; omitted, it inherits the board's rule."
+              },
+              "role": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/PadRole"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "What the Pad is for beyond its copper: `edge_connector` marks an SMD Pad that\nreaches the Board Outline, such as a card-edge finger."
               },
               "rotation": {
                 "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
@@ -28733,6 +31269,16 @@
               "pad"
             ],
             "type": "object"
+          },
+          "PadRole": {
+            "description": "A Pad's role: what it is for beyond carrying a Net.",
+            "oneOf": [
+              {
+                "const": "edge_connector",
+                "description": "An Edge Connector Pad: an SMD Pad meant to reach the Board Outline, exempt from\n`edge_clearance` against it, and plotted as a connector Pad.",
+                "type": "string"
+              }
+            ]
           },
           "PadShape": {
             "oneOf": [
@@ -29474,6 +32020,21 @@
                 "type": "object"
               }
             ]
+          },
+          "PlatedEdge": {
+            "additionalProperties": false,
+            "description": "The mark on a Plated Edge: the Net its plating carries, if any.",
+            "properties": {
+              "net": {
+                "description": "The Net the plating carries; left out for none.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
           },
           "Point": {
             "additionalProperties": false,
@@ -31700,6 +34261,43 @@
             },
             "type": "object"
           },
+          "BoardVertex": {
+            "additionalProperties": false,
+            "description": "One vertex of a Board Outline or Board Cutout as the file stores it: a [`Vertex`] and\nthe mark of the edge that leaves it.",
+            "properties": {
+              "plated": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/PlatedEdge"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Set when the edge to the next vertex is a Plated Edge; left out otherwise."
+              },
+              "sweep": {
+                "description": "The edge to the next vertex: left out (or 0) for a straight edge, otherwise an arc\nsweeping this angle, counter-clockwise when positive.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
           "BomGroup": {
             "description": "Sources shared by Components on a grouped BOM row.",
             "oneOf": [
@@ -32663,6 +35261,16 @@
                 "default": "error",
                 "description": "Copper too close to the Board Outline or a Board Cutout."
               },
+              "edge_connector_on_plated_edge": {
+                "$ref": "#/$defs/Severity",
+                "default": "error",
+                "description": "An Edge Connector Pad on a Plated Edge: the plating would short the fingers."
+              },
+              "edge_connector_without_pads": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A bevel or hard gold set in `edge_connector` on a board with no Edge Connector Pads."
+              },
               "empty_zone": {
                 "$ref": "#/$defs/Severity",
                 "default": "warning",
@@ -32717,6 +35325,21 @@
                 "$ref": "#/$defs/Severity",
                 "default": "warning",
                 "description": "The PCB out of sync with the schematic."
+              },
+              "plated_edge_nets_differ": {
+                "$ref": "#/$defs/Severity",
+                "default": "error",
+                "description": "Plated Edges that meet at a vertex with different Nets: one piece of metal."
+              },
+              "plated_edge_unconnected": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A Plated Edge that no copper of its Net touches on the outer Layers."
+              },
+              "plated_edge_without_net": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A Plated Edge with no Net: floating metal."
               },
               "poor_connection": {
                 "$ref": "#/$defs/Severity",
@@ -32821,6 +35444,11 @@
               "annular_ring",
               "hole_to_hole",
               "edge_clearance",
+              "edge_connector_without_pads",
+              "plated_edge_nets_differ",
+              "edge_connector_on_plated_edge",
+              "plated_edge_without_net",
+              "plated_edge_unconnected",
               "keepout",
               "footprint_outside_board",
               "unrouted",
@@ -32843,6 +35471,49 @@
               "rule_invalid",
               "rule_outside_preset"
             ],
+            "type": "object"
+          },
+          "EdgeBevel": {
+            "additionalProperties": false,
+            "description": "The chamfer ground on the card edge so it enters its slot.",
+            "properties": {
+              "angle": {
+                "description": "The bevel angle; between 0° and 90°, exclusive.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "depth": {
+                "description": "How far the bevel reaches in from the edge; positive.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "angle",
+              "depth"
+            ],
+            "type": "object"
+          },
+          "EdgeConnector": {
+            "additionalProperties": false,
+            "description": "The board's `edge_connector` property: the bevel ground on the card edge and selective\nhard gold on the Edge Connector Pads. The board finish is unchanged by it.",
+            "properties": {
+              "bevel": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/EdgeBevel"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The bevel; left out for none."
+              },
+              "hard_gold": {
+                "description": "Selective hard gold on the Edge Connector Pads only; left out when false.",
+                "type": "boolean"
+              }
+            },
             "type": "object"
           },
           "EditedFrom": {
@@ -34203,6 +36874,17 @@
           "InDocument2": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
+              "edge_connector": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/EdgeConnector"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "What the fab does to the card edge; left out when unset. Whether the board has an\nedge connector is not stored: any Edge Connector Pad makes one."
+              },
               "fab_notes": {
                 "description": "Free text for the fab, copied into the Fab Notes; left out when unset.",
                 "type": [
@@ -35003,6 +37685,10 @@
                 ],
                 "description": "Optional bottom copper, in the Pad's frame. Omitted groups inherit the top."
               },
+              "castellated": {
+                "description": "A plated through-hole Pad the Board Outline cuts through: a Castellated Pad.",
+                "type": "boolean"
+              },
               "chamfer_ratio": {
                 "description": "How deep the chamfers of a `chamfered_rect` are.",
                 "maximum": 100000,
@@ -35230,9 +37916,9 @@
                 "type": "string"
               },
               "vertices": {
-                "description": "The contour, counter-clockwise or not; the last vertex joins the first.",
+                "description": "The contour; the last vertex joins the first.",
                 "items": {
-                  "$ref": "#/$defs/Vertex"
+                  "$ref": "#/$defs/BoardVertex"
                 },
                 "type": "array"
               }
@@ -35257,7 +37943,7 @@
               "vertices": {
                 "description": "The contour; the last vertex joins the first.",
                 "items": {
-                  "$ref": "#/$defs/Vertex"
+                  "$ref": "#/$defs/BoardVertex"
                 },
                 "type": "array"
               }
@@ -37019,6 +39705,10 @@
                 ],
                 "description": "Optional bottom copper, in the Pad's frame. Omitted groups inherit the top."
               },
+              "castellated": {
+                "description": "A plated through-hole Pad the Board Outline cuts through, leaving a plated\nhalf-hole on the edge.",
+                "type": "boolean"
+              },
               "chamfer_ratio": {
                 "description": "How deep the chamfers of a `chamfered_rect` are.",
                 "maximum": 100000,
@@ -37113,6 +39803,17 @@
                   }
                 ],
                 "description": "An SMD Pad's paste opening; omitted, it inherits the board's rule."
+              },
+              "role": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/PadRole"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "What the Pad is for beyond its copper: `edge_connector` marks an SMD Pad that\nreaches the Board Outline, such as a card-edge finger."
               },
               "rotation": {
                 "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
@@ -37257,6 +39958,16 @@
               "pad"
             ],
             "type": "object"
+          },
+          "PadRole": {
+            "description": "A Pad's role: what it is for beyond carrying a Net.",
+            "oneOf": [
+              {
+                "const": "edge_connector",
+                "description": "An Edge Connector Pad: an SMD Pad meant to reach the Board Outline, exempt from\n`edge_clearance` against it, and plotted as a connector Pad.",
+                "type": "string"
+              }
+            ]
           },
           "PadShape": {
             "oneOf": [
@@ -37998,6 +40709,21 @@
                 "type": "object"
               }
             ]
+          },
+          "PlatedEdge": {
+            "additionalProperties": false,
+            "description": "The mark on a Plated Edge: the Net its plating carries, if any.",
+            "properties": {
+              "net": {
+                "description": "The Net the plating carries; left out for none.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
           },
           "Point": {
             "additionalProperties": false,
@@ -41641,24 +44367,22 @@
               }
             ]
           },
-          "Length": {
-            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
-            "oneOf": [
-              {
-                "description": "Nanometres.",
-                "type": "integer"
-              },
-              {
-                "description": "A number and a unit: nm, um, mm, mil or in.",
-                "format": "length",
-                "type": "string"
-              }
-            ]
-          },
-          "VertexParam": {
+          "BoardVertexParam": {
             "additionalProperties": false,
-            "description": "One vertex of a contour and the edge that leaves it towards the next.",
+            "description": "One vertex of a Board Outline or Board Cutout, the edge that leaves it towards the\nnext, and whether that edge is a Plated Edge.",
             "properties": {
+              "plated": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/PlatedEdge"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Marks the edge to the next vertex as a Plated Edge, with an optional `net`. Only\nthe Board Outline and Board Cutouts take it."
+              },
               "sweep": {
                 "anyOf": [
                   {
@@ -41683,6 +44407,35 @@
               "y"
             ],
             "type": "object"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PlatedEdge": {
+            "additionalProperties": false,
+            "description": "The mark on a Plated Edge: the Net its plating carries, if any.",
+            "properties": {
+              "net": {
+                "description": "The Net the plating carries; left out for none.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -41691,7 +44444,7 @@
           "vertices": {
             "description": "The cutout's vertices in order; the last joins the first.",
             "items": {
-              "$ref": "#/$defs/VertexParam"
+              "$ref": "#/$defs/BoardVertexParam"
             },
             "type": "array"
           }
@@ -41849,24 +44602,22 @@
               }
             ]
           },
-          "Length": {
-            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
-            "oneOf": [
-              {
-                "description": "Nanometres.",
-                "type": "integer"
-              },
-              {
-                "description": "A number and a unit: nm, um, mm, mil or in.",
-                "format": "length",
-                "type": "string"
-              }
-            ]
-          },
-          "VertexParam": {
+          "BoardVertexParam": {
             "additionalProperties": false,
-            "description": "One vertex of a contour and the edge that leaves it towards the next.",
+            "description": "One vertex of a Board Outline or Board Cutout, the edge that leaves it towards the\nnext, and whether that edge is a Plated Edge.",
             "properties": {
+              "plated": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/PlatedEdge"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Marks the edge to the next vertex as a Plated Edge, with an optional `net`. Only\nthe Board Outline and Board Cutouts take it."
+              },
               "sweep": {
                 "anyOf": [
                   {
@@ -41891,6 +44642,35 @@
               "y"
             ],
             "type": "object"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PlatedEdge": {
+            "additionalProperties": false,
+            "description": "The mark on a Plated Edge: the Net its plating carries, if any.",
+            "properties": {
+              "net": {
+                "description": "The Net the plating carries; left out for none.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -41899,7 +44679,7 @@
           "vertices": {
             "description": "The outline's vertices in order; the last joins the first.",
             "items": {
-              "$ref": "#/$defs/VertexParam"
+              "$ref": "#/$defs/BoardVertexParam"
             },
             "type": "array"
           }
@@ -42489,6 +45269,32 @@
                   "island"
                 ],
                 "type": "object"
+              },
+              {
+                "description": "A Plated Edge: the plating along one edge of the Board Outline or a Board Cutout,\ncopper of its Net on every copper Layer.",
+                "properties": {
+                  "contour": {
+                    "description": "The Board Outline or Board Cutout.",
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "edge": {
+                    "description": "The index of the vertex that starts the edge.",
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "kind": {
+                    "const": "plated_edge",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "contour",
+                  "edge"
+                ],
+                "type": "object"
               }
             ]
           }
@@ -42787,6 +45593,32 @@
                   "island"
                 ],
                 "type": "object"
+              },
+              {
+                "description": "A Plated Edge: the plating along one edge of the Board Outline or a Board Cutout,\ncopper of its Net on every copper Layer.",
+                "properties": {
+                  "contour": {
+                    "description": "The Board Outline or Board Cutout.",
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "edge": {
+                    "description": "The index of the vertex that starts the edge.",
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "kind": {
+                    "const": "plated_edge",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "contour",
+                  "edge"
+                ],
+                "type": "object"
               }
             ]
           }
@@ -42821,6 +45653,165 @@
         "type": "object"
       },
       "title": "Check Via Clearance"
+    },
+    {
+      "category": "pcb",
+      "description": "Marks one edge of the Board Outline or a Board Cutout as a Plated Edge, which the fab plates with copper, with an optional `net`; `plated: null` clears the mark. `edge` is the index of the vertex that starts the edge.",
+      "icon": "board_outline",
+      "id": "pcb.contour.edge.set",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "PlatedEdge": {
+            "additionalProperties": false,
+            "description": "The mark on a Plated Edge: the Net its plating carries, if any.",
+            "properties": {
+              "net": {
+                "description": "The Net the plating carries; left out for none.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "contour": {
+            "description": "The Board Outline's or a Board Cutout's UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "edge": {
+            "description": "The index of the vertex that starts the edge.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "plated": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PlatedEdge"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The mark, with an optional `net`; `null` clears it."
+          }
+        },
+        "required": [
+          "contour",
+          "edge"
+        ],
+        "title": "EdgeSetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What the marking Commands return.",
+        "properties": {
+          "contour": {
+            "description": "The Board Outline or Board Cutout.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "plated_edges": {
+            "description": "How many of its edges are plated now.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "contour",
+          "plated_edges"
+        ],
+        "title": "Marked",
+        "type": "object"
+      },
+      "title": "Set Plated Edge"
+    },
+    {
+      "category": "pcb",
+      "description": "Marks every edge of the Board Outline or a Board Cutout as a Plated Edge with the same optional `net` (Plate all edges); `plated: null` clears every edge (Unplate all).",
+      "icon": "board_outline",
+      "id": "pcb.contour.edge.set_all",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "PlatedEdge": {
+            "additionalProperties": false,
+            "description": "The mark on a Plated Edge: the Net its plating carries, if any.",
+            "properties": {
+              "net": {
+                "description": "The Net the plating carries; left out for none.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "contour": {
+            "description": "The Board Outline's or a Board Cutout's UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "plated": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PlatedEdge"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The mark every edge takes, with an optional `net`; `null` clears every edge."
+          }
+        },
+        "required": [
+          "contour"
+        ],
+        "title": "EdgeSetAllParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What the marking Commands return.",
+        "properties": {
+          "contour": {
+            "description": "The Board Outline or Board Cutout.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "plated_edges": {
+            "description": "How many of its edges are plated now.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "contour",
+          "plated_edges"
+        ],
+        "title": "Marked",
+        "type": "object"
+      },
+      "title": "Plate All Edges"
     },
     {
       "category": "pcb",
@@ -42993,6 +45984,32 @@
                   "kind",
                   "zone",
                   "island"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "A Plated Edge: the plating along one edge of the Board Outline or a Board Cutout,\ncopper of its Net on every copper Layer.",
+                "properties": {
+                  "contour": {
+                    "description": "The Board Outline or Board Cutout.",
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "edge": {
+                    "description": "The index of the vertex that starts the edge.",
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "kind": {
+                    "const": "plated_edge",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "contour",
+                  "edge"
                 ],
                 "type": "object"
               }
@@ -43746,6 +46763,10 @@
                   }
                 ],
                 "description": "Optional bottom copper, in the Pad's frame. Omitted groups inherit the top."
+              },
+              "castellated": {
+                "description": "A plated through-hole Pad the Board Outline cuts through: a Castellated Pad.",
+                "type": "boolean"
               },
               "chamfer_ratio": {
                 "description": "How deep the chamfers of a `chamfered_rect` are.",
@@ -46618,6 +49639,113 @@
     },
     {
       "category": "pcb",
+      "description": "Sets or clears (`null`) the board's `edge_connector` property: the bevel (`angle` between 0° and 90°, `depth`) the fab grinds on the card edge, and `hard_gold` for selective hard gold on the Edge Connector Pads. The board finish is unchanged. The job file and Fab Notes that `output.job.run` writes carry both; DRC warns when either is set on a board with no Edge Connector Pads. One undoable edit.",
+      "icon": "layers",
+      "id": "pcb.edge_connector.set",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Angle": {
+            "description": "An angle, counter-clockwise: integer millidegrees, or degrees such as \"45deg\".",
+            "oneOf": [
+              {
+                "description": "Millidegrees.",
+                "type": "integer"
+              },
+              {
+                "description": "A number of degrees followed by deg.",
+                "format": "angle",
+                "type": "string"
+              }
+            ]
+          },
+          "BevelParam": {
+            "additionalProperties": false,
+            "properties": {
+              "angle": {
+                "$ref": "#/$defs/Angle",
+                "description": "The bevel angle, between 0° and 90°, such as `\"20deg\"`."
+              },
+              "depth": {
+                "$ref": "#/$defs/Length",
+                "description": "How far the bevel reaches in from the edge, such as `\"1.3mm\"`."
+              }
+            },
+            "required": [
+              "angle",
+              "depth"
+            ],
+            "type": "object"
+          },
+          "EdgeConnectorParam": {
+            "additionalProperties": false,
+            "description": "The card edge's bevel and hard gold.",
+            "properties": {
+              "bevel": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/BevelParam"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The bevel ground on the card edge; left out for none."
+              },
+              "hard_gold": {
+                "default": false,
+                "description": "Selective hard gold on the Edge Connector Pads only; the board finish is unchanged.",
+                "type": "boolean"
+              }
+            },
+            "type": "object"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "edge_connector": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/EdgeConnectorParam"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The property; `null` clears it. Required."
+          }
+        },
+        "required": [
+          "edge_connector"
+        ],
+        "title": "EdgeConnectorSetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Set Edge Connector"
+    },
+    {
+      "category": "pcb",
       "description": "Sets the board's `fab_notes`: free text for a person at the fab, copied as typed to the end of the Fab Notes that `output.job.run` writes. `null` or blank text clears it.",
       "icon": "layers",
       "id": "pcb.fab_notes.set",
@@ -48379,7 +51507,7 @@
     },
     {
       "category": "pcb",
-      "description": "Adds a Pad that belongs to no Footprint: plated (SMD or through-hole) and optionally on a Net, or non-plated (a bare hole). For mounting holes, fiducials and test points.",
+      "description": "Adds a Pad that belongs to no Footprint: plated (SMD or through-hole) and optionally on a Net, or non-plated (a bare hole). For mounting holes, fiducials and test points; a plated through-hole one may be castellated.",
       "icon": "pad",
       "id": "pcb.free_pad.add",
       "kind": "edit",
@@ -48878,6 +52006,11 @@
             ],
             "description": "A plated through-hole Pad's complete bottom copper shape."
           },
+          "castellated": {
+            "default": false,
+            "description": "Makes a plated through-hole Pad a Castellated Pad, which the Board Outline cuts.",
+            "type": "boolean"
+          },
           "chamfer_ratio": {
             "anyOf": [
               {
@@ -49141,7 +52274,7 @@
     },
     {
       "category": "pcb",
-      "description": "Changes any of a Free Pad's kind, shape, position, rotation, size, corner and chamfer ratios and corners, offset, hole, side, mask and paste overrides and Zone connection, as `library.footprint.pad.edit` does for a Footprint's Pad. Omitted fields keep their value; `null` clears an optional one. A resized Pad keeps its ratios. Turning it non-plated takes it off its Net.",
+      "description": "Changes any of a Free Pad's kind, castellation, shape, position, rotation, size, corner and chamfer ratios and corners, offset, hole, side, mask and paste overrides and Zone connection, as `library.footprint.pad.edit` does for a Footprint's Pad. Omitted fields keep their value; `null` clears an optional one. A resized Pad keeps its ratios. Turning it non-plated takes it off its Net.",
       "icon": "pad",
       "id": "pcb.free_pad.edit",
       "kind": "edit",
@@ -49645,6 +52778,13 @@
               }
             ],
             "description": "Replaces the entire bottom copper shape. `null` inherits the top."
+          },
+          "castellated": {
+            "description": "Whether a plated through-hole Pad is castellated: cut by the Board Outline.",
+            "type": [
+              "boolean",
+              "null"
+            ]
           },
           "chamfer_ratio": {
             "anyOf": [
@@ -53083,7 +56223,7 @@
     },
     {
       "category": "pcb",
-      "description": "Changes one Pad of one placed Footprint: any of its kind, shape, position, rotation, size, corner and chamfer ratios and corners, offset, hole, side, mask and paste overrides and Zone connection, as `library.footprint.pad.edit` does, but never its number. Pads can't be added or removed on the board. The instance gets a Locally Edited Footprint: its own part-table entry, keyed by the new content hash, with `edited_from` naming the copy it came from. Instances with identical edits share one entry, and an edit that undoes every change returns the instance to that copy. Sync keeps local edits.",
+      "description": "Changes one Pad of one placed Footprint: any of its kind, role, castellation, shape, position, rotation, size, corner and chamfer ratios and corners, offset, hole, side, mask and paste overrides and Zone connection, as `library.footprint.pad.edit` does, but never its number. Pads can't be added or removed on the board. The instance gets a Locally Edited Footprint: its own part-table entry, keyed by the new content hash, with `edited_from` naming the copy it came from. Instances with identical edits share one entry, and an edit that undoes every change returns the instance to that copy. Sync keeps local edits.",
       "icon": "pad",
       "id": "pcb.pad.edit",
       "kind": "edit",
@@ -53338,6 +56478,16 @@
             ],
             "type": "string"
           },
+          "PadRole": {
+            "description": "A Pad's role: what it is for beyond carrying a Net.",
+            "oneOf": [
+              {
+                "const": "edge_connector",
+                "description": "An Edge Connector Pad: an SMD Pad meant to reach the Board Outline, exempt from\n`edge_clearance` against it, and plotted as a connector Pad.",
+                "type": "string"
+              }
+            ]
+          },
           "PadShape": {
             "oneOf": [
               {
@@ -53589,6 +56739,13 @@
             ],
             "description": "Replaces the entire bottom copper shape. `null` inherits the top."
           },
+          "castellated": {
+            "description": "Whether a plated through-hole Pad is castellated.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
           "chamfer_ratio": {
             "anyOf": [
               {
@@ -53715,6 +56872,18 @@
               }
             ],
             "description": "`null` inherits the board's rule."
+          },
+          "role": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PadRole"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "`edge_connector` on an SMD Pad; `null` clears the role."
           },
           "rotation": {
             "anyOf": [
@@ -54223,6 +57392,10 @@
                   }
                 ],
                 "description": "Optional bottom copper, in the Pad's frame. Omitted groups inherit the top."
+              },
+              "castellated": {
+                "description": "A plated through-hole Pad the Board Outline cuts through: a Castellated Pad.",
+                "type": "boolean"
               },
               "chamfer_ratio": {
                 "description": "How deep the chamfers of a `chamfered_rect` are.",
@@ -55849,24 +59022,22 @@
               }
             ]
           },
-          "Length": {
-            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
-            "oneOf": [
-              {
-                "description": "Nanometres.",
-                "type": "integer"
-              },
-              {
-                "description": "A number and a unit: nm, um, mm, mil or in.",
-                "format": "length",
-                "type": "string"
-              }
-            ]
-          },
-          "VertexParam": {
+          "BoardVertexParam": {
             "additionalProperties": false,
-            "description": "One vertex of a contour and the edge that leaves it towards the next.",
+            "description": "One vertex of a Board Outline or Board Cutout, the edge that leaves it towards the\nnext, and whether that edge is a Plated Edge.",
             "properties": {
+              "plated": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/PlatedEdge"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Marks the edge to the next vertex as a Plated Edge, with an optional `net`. Only\nthe Board Outline and Board Cutouts take it."
+              },
               "sweep": {
                 "anyOf": [
                   {
@@ -55891,6 +59062,35 @@
               "y"
             ],
             "type": "object"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PlatedEdge": {
+            "additionalProperties": false,
+            "description": "The mark on a Plated Edge: the Net its plating carries, if any.",
+            "properties": {
+              "net": {
+                "description": "The Net the plating carries; left out for none.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -55907,9 +59107,9 @@
             "type": "string"
           },
           "vertices": {
-            "description": "Its new vertices in order; the last joins the first.",
+            "description": "Its new vertices in order; the last joins the first.\nOnly the Board Outline and Board Cutouts take `plated` marks; they keep only the\nmarks these vertices carry.",
             "items": {
-              "$ref": "#/$defs/VertexParam"
+              "$ref": "#/$defs/BoardVertexParam"
             },
             "type": "array"
           }
@@ -56113,6 +59313,32 @@
                   "kind",
                   "zone",
                   "island"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "A Plated Edge: the plating along one edge of the Board Outline or a Board Cutout,\ncopper of its Net on every copper Layer.",
+                "properties": {
+                  "contour": {
+                    "description": "The Board Outline or Board Cutout.",
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "edge": {
+                    "description": "The index of the vertex that starts the edge.",
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "kind": {
+                    "const": "plated_edge",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "contour",
+                  "edge"
                 ],
                 "type": "object"
               }
@@ -58688,6 +61914,31 @@
               {
                 "const": "edge_clearance",
                 "description": "Copper too close to the Board Outline or a Board Cutout.",
+                "type": "string"
+              },
+              {
+                "const": "edge_connector_without_pads",
+                "description": "A bevel or hard gold set in `edge_connector` on a board with no Edge Connector Pads.",
+                "type": "string"
+              },
+              {
+                "const": "plated_edge_nets_differ",
+                "description": "Plated Edges that meet at a vertex with different Nets: one piece of metal.",
+                "type": "string"
+              },
+              {
+                "const": "edge_connector_on_plated_edge",
+                "description": "An Edge Connector Pad on a Plated Edge: the plating would short the fingers.",
+                "type": "string"
+              },
+              {
+                "const": "plated_edge_without_net",
+                "description": "A Plated Edge with no Net: floating metal.",
+                "type": "string"
+              },
+              {
+                "const": "plated_edge_unconnected",
+                "description": "A Plated Edge that no copper of its Net touches on the outer Layers.",
                 "type": "string"
               },
               {
@@ -68365,69 +71616,68 @@
     },
     {
       "category": "project",
-      "description": "Creates a Project called `name` in the folder `<path>/<name>/`, writes it to disk and opens it: a first Schematic Sheet titled \"Sheet 1\", a PCB Document whose rules are seeded from `fab_preset` (default Generic), optionally a rectangular Board Outline (`board`), and one Output Job named after the preset. A folder that exists and is not empty is refused.",
+      "description": "Creates a Project called `name` in the folder `<path>/<name>/`, writes it to disk and opens it: a first Schematic Sheet titled \"Sheet 1\", a PCB Document whose rules are seeded from `fab_preset` (default Generic), optionally a board made from a Board Template (`board_template`), and one Output Job named after the preset. With a template and no `layers`, the template's suggested layer count is used. A folder that exists and is not empty is refused.",
       "icon": "project_new",
       "id": "project.new",
       "kind": "file",
       "params": {
         "$defs": {
-          "BoardParam": {
+          "BoardTemplateChoice": {
             "additionalProperties": false,
-            "description": "A rectangular Board Outline with its lower left corner at the origin.",
+            "description": "Which template to use, at which values, without which objects: the `board_template`\nparam of creation and the params of `library.board_template.preview`.",
             "properties": {
-              "corner_radius": {
-                "anyOf": [
-                  {
-                    "$ref": "#/$defs/Length"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "description": "Rounds each corner with this radius; left out for sharp corners."
+              "element": {
+                "description": "The template's Library element UUID, from `library.board_template.list`.",
+                "format": "uuid",
+                "type": "string"
               },
-              "height": {
-                "$ref": "#/$defs/Length"
+              "exclude": {
+                "description": "Template connector, hole and drawing-group UUIDs to leave out. A Keepout that\nprotects an excluded object, and a Dimension that follows one, go with it.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
               },
-              "width": {
-                "$ref": "#/$defs/Length"
+              "values": {
+                "additionalProperties": {
+                  "$ref": "#/$defs/TemplateValue"
+                },
+                "description": "Parameter values by name: an option key for a choice, a length (integer nm or a\nstring such as `\"65mm\"`) for a length. An omitted parameter takes its default.",
+                "type": "object"
               }
             },
             "required": [
-              "width",
-              "height"
+              "element"
             ],
             "type": "object"
           },
-          "Length": {
-            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
-            "oneOf": [
+          "TemplateValue": {
+            "anyOf": [
               {
-                "description": "Nanometres.",
                 "type": "integer"
               },
               {
-                "description": "A number and a unit: nm, um, mm, mil or in.",
-                "format": "length",
                 "type": "string"
               }
-            ]
+            ],
+            "description": "An option key for a choice; a length for a length parameter: integer nanometres or a string such as \"65mm\"."
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
-          "board": {
+          "board_template": {
             "anyOf": [
               {
-                "$ref": "#/$defs/BoardParam"
+                "$ref": "#/$defs/BoardTemplateChoice"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "A rectangular Board Outline to start with; left out to draw it later."
+            "default": null,
+            "description": "The Board Template to start the board from, by Library element UUID, at these\nvalues and without these objects; left out for a board with no outline yet. A\nProject Library's template is not available to a new Project."
           },
           "construction": {
             "description": "Named physical build in the chosen Fab Preset. Defaults to its build for this count.",
@@ -68446,7 +71696,7 @@
           },
           "layers": {
             "default": null,
-            "description": "The PCB Document's copper Layer count, from 2 to 32. Defaults to 2.",
+            "description": "The PCB Document's copper Layer count, from 2 to 32. Left out, it is the\ntemplate's suggested count when `board_template` is given, and 2 otherwise.",
             "format": "uint8",
             "maximum": 32,
             "minimum": 2,
@@ -68527,6 +71777,19 @@
             ],
             "type": "object"
           },
+          "ResolvedValue": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            ],
+            "description": "A parameter's resolved value: an option key for a choice, nanometres for a length."
+          },
           "SeededBoard": {
             "description": "The objects seeded by board creation, including children of the Layer and Stackup tables.\nPhysical rows follow board order. Rule rows follow kind and scope, independent of UUIDs.",
             "properties": {
@@ -68574,6 +71837,17 @@
                 "format": "uuid",
                 "type": "string"
               },
+              "template": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/SeededTemplate"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "What the Board Template wrote; left out for a board made without one."
+              },
               "via_types": {
                 "items": {
                   "format": "uuid",
@@ -68592,6 +71866,77 @@
               "dielectrics",
               "via_types",
               "rules"
+            ],
+            "type": "object"
+          },
+          "SeededObject": {
+            "description": "One template object and what creating the board made of it.",
+            "properties": {
+              "component": {
+                "description": "A connector's Component.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "created": {
+                "description": "The board object it became; absent for a drawing group, which makes none of its own.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "designator": {
+                "description": "A connector's or Mechanical Part hole's Designator.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "template_object": {
+                "description": "The template-local UUID.",
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "template_object"
+            ],
+            "type": "object"
+          },
+          "SeededTemplate": {
+            "description": "What `seeded.template` reports: which template at which values, and what each of its\nobjects became.",
+            "properties": {
+              "element": {
+                "description": "The template's Library element UUID.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "objects": {
+                "description": "One entry per template object created, in creation order. Excluded and gated-out\nobjects are absent.",
+                "items": {
+                  "$ref": "#/$defs/SeededObject"
+                },
+                "type": "array"
+              },
+              "values": {
+                "additionalProperties": {
+                  "$ref": "#/$defs/ResolvedValue"
+                },
+                "description": "Every parameter's value, defaults filled in.",
+                "type": "object"
+              }
+            },
+            "required": [
+              "element",
+              "name",
+              "values",
+              "objects"
             ],
             "type": "object"
           }
@@ -68731,6 +72076,19 @@
             ],
             "type": "object"
           },
+          "ResolvedValue": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            ],
+            "description": "A parameter's resolved value: an option key for a choice, nanometres for a length."
+          },
           "SeededBoard": {
             "description": "The objects seeded by board creation, including children of the Layer and Stackup tables.\nPhysical rows follow board order. Rule rows follow kind and scope, independent of UUIDs.",
             "properties": {
@@ -68778,6 +72136,17 @@
                 "format": "uuid",
                 "type": "string"
               },
+              "template": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/SeededTemplate"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "What the Board Template wrote; left out for a board made without one."
+              },
               "via_types": {
                 "items": {
                   "format": "uuid",
@@ -68796,6 +72165,77 @@
               "dielectrics",
               "via_types",
               "rules"
+            ],
+            "type": "object"
+          },
+          "SeededObject": {
+            "description": "One template object and what creating the board made of it.",
+            "properties": {
+              "component": {
+                "description": "A connector's Component.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "created": {
+                "description": "The board object it became; absent for a drawing group, which makes none of its own.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "designator": {
+                "description": "A connector's or Mechanical Part hole's Designator.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "template_object": {
+                "description": "The template-local UUID.",
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "template_object"
+            ],
+            "type": "object"
+          },
+          "SeededTemplate": {
+            "description": "What `seeded.template` reports: which template at which values, and what each of its\nobjects became.",
+            "properties": {
+              "element": {
+                "description": "The template's Library element UUID.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "objects": {
+                "description": "One entry per template object created, in creation order. Excluded and gated-out\nobjects are absent.",
+                "items": {
+                  "$ref": "#/$defs/SeededObject"
+                },
+                "type": "array"
+              },
+              "values": {
+                "additionalProperties": {
+                  "$ref": "#/$defs/ResolvedValue"
+                },
+                "description": "Every parameter's value, defaults filled in.",
+                "type": "object"
+              }
+            },
+            "required": [
+              "element",
+              "name",
+              "values",
+              "objects"
             ],
             "type": "object"
           }
@@ -73204,6 +76644,10 @@
                 ],
                 "description": "Optional bottom copper, in the Pad's frame. Omitted groups inherit the top."
               },
+              "castellated": {
+                "description": "A plated through-hole Pad the Board Outline cuts through, leaving a plated\nhalf-hole on the edge.",
+                "type": "boolean"
+              },
               "chamfer_ratio": {
                 "description": "How deep the chamfers of a `chamfered_rect` are.",
                 "maximum": 100000,
@@ -73298,6 +76742,17 @@
                   }
                 ],
                 "description": "An SMD Pad's paste opening; omitted, it inherits the board's rule."
+              },
+              "role": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/PadRole"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "What the Pad is for beyond its copper: `edge_connector` marks an SMD Pad that\nreaches the Board Outline, such as a card-edge finger."
               },
               "rotation": {
                 "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
@@ -73419,6 +76874,16 @@
               "non_plated"
             ],
             "type": "string"
+          },
+          "PadRole": {
+            "description": "A Pad's role: what it is for beyond carrying a Net.",
+            "oneOf": [
+              {
+                "const": "edge_connector",
+                "description": "An Edge Connector Pad: an SMD Pad meant to reach the Board Outline, exempt from\n`edge_clearance` against it, and plotted as a connector Pad.",
+                "type": "string"
+              }
+            ]
           },
           "PadShape": {
             "oneOf": [
@@ -75445,6 +78910,10 @@
                 ],
                 "description": "Optional bottom copper, in the Pad's frame. Omitted groups inherit the top."
               },
+              "castellated": {
+                "description": "A plated through-hole Pad the Board Outline cuts through, leaving a plated\nhalf-hole on the edge.",
+                "type": "boolean"
+              },
               "chamfer_ratio": {
                 "description": "How deep the chamfers of a `chamfered_rect` are.",
                 "maximum": 100000,
@@ -75539,6 +79008,17 @@
                   }
                 ],
                 "description": "An SMD Pad's paste opening; omitted, it inherits the board's rule."
+              },
+              "role": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/PadRole"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "What the Pad is for beyond its copper: `edge_connector` marks an SMD Pad that\nreaches the Board Outline, such as a card-edge finger."
               },
               "rotation": {
                 "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
@@ -75660,6 +79140,16 @@
               "non_plated"
             ],
             "type": "string"
+          },
+          "PadRole": {
+            "description": "A Pad's role: what it is for beyond carrying a Net.",
+            "oneOf": [
+              {
+                "const": "edge_connector",
+                "description": "An Edge Connector Pad: an SMD Pad meant to reach the Board Outline, exempt from\n`edge_clearance` against it, and plotted as a connector Pad.",
+                "type": "string"
+              }
+            ]
           },
           "PadShape": {
             "oneOf": [
@@ -80096,6 +83586,10 @@
                 ],
                 "description": "Optional bottom copper, in the Pad's frame. Omitted groups inherit the top."
               },
+              "castellated": {
+                "description": "A plated through-hole Pad the Board Outline cuts through, leaving a plated\nhalf-hole on the edge.",
+                "type": "boolean"
+              },
               "chamfer_ratio": {
                 "description": "How deep the chamfers of a `chamfered_rect` are.",
                 "maximum": 100000,
@@ -80190,6 +83684,17 @@
                   }
                 ],
                 "description": "An SMD Pad's paste opening; omitted, it inherits the board's rule."
+              },
+              "role": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/PadRole"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "What the Pad is for beyond its copper: `edge_connector` marks an SMD Pad that\nreaches the Board Outline, such as a card-edge finger."
               },
               "rotation": {
                 "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
@@ -80311,6 +83816,16 @@
               "non_plated"
             ],
             "type": "string"
+          },
+          "PadRole": {
+            "description": "A Pad's role: what it is for beyond carrying a Net.",
+            "oneOf": [
+              {
+                "const": "edge_connector",
+                "description": "An Edge Connector Pad: an SMD Pad meant to reach the Board Outline, exempt from\n`edge_clearance` against it, and plotted as a connector Pad.",
+                "type": "string"
+              }
+            ]
           },
           "PadShape": {
             "oneOf": [

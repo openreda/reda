@@ -348,6 +348,11 @@ fn every_footprint_has_its_origin_at_the_body_centroid() {
     let mut problems = vec![];
     for (rel, bytes) in read_tree(&starter().join("footprints")) {
         let footprint = read_footprint(std::path::Path::new(&rel), &bytes).unwrap();
+        // A card edge's origin is its finger edge.
+        let edge = Some(reda_engine::model::PadRole::EdgeConnector);
+        if footprint.pads.iter().any(|p| p.role == edge) {
+            continue;
+        }
         let body = footprint.body_box().unwrap();
         let (cx, cy) = (
             (body.min.x.0 + body.max.x.0) / 2,

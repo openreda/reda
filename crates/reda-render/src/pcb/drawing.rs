@@ -1,7 +1,7 @@
 //! Footprint and free drawing, text, the Board Outline and cutouts, and the Ratsnest.
 
 use reda_model::geom::{Nm, Point};
-use reda_model::{GraphicShape, LayerKind, Shape, Uuid};
+use reda_model::{GraphicShape, LayerKind, Shape, Side, Uuid};
 
 use super::{BoardGraphic, BoardText, Builder, RatsnestLine, SheetLabel, capsule};
 use crate::arc;
@@ -13,6 +13,8 @@ use crate::text::{TextStyle, glyph_run};
 
 /// The width of the Board Outline and cutouts.
 pub(super) const OUTLINE_WIDTH: Nm = Nm(150_000);
+/// The width a Plated Edge is drawn with, over the outline.
+pub(super) const PLATED_EDGE_WIDTH: Nm = Nm(450_000);
 /// The capital height of a sheet-name label over a Footprint cluster.
 pub(super) const SHEET_LABEL_HEIGHT: Nm = Nm(2_000_000);
 
@@ -133,14 +135,27 @@ pub(super) fn outline(b: &mut Builder) {
         return;
     };
     let pcb = b.pcb;
-    let contours = pcb
+    let contours: Vec<_> = pcb
         .outline()
-        .map(|o| (o.uuid, &o.vertices))
+        .map(|o| (o.uuid, &o.vertices, &o.plated))
         .into_iter()
-        .chain(pcb.cutouts().map(|c| (c.uuid, &c.vertices)));
-    for (object, vertices) in contours {
+        .chain(pcb.cutouts().map(|c| (c.uuid, &c.vertices, &c.plated)))
+        .collect();
+    for (object, vertices, _) in &contours {
         let points = arc::contour(vertices);
-        b.polyline(object, layer, &points, OUTLINE_WIDTH, true);
+        b.polyline(*object, layer, &points, OUTLINE_WIDTH, true);
+    }
+    // A Plated Edge (the edge leaving a marked vertex) is drawn thicker, in the top
+    // copper Layer's colour.
+    if let Some(top) = b.find(LayerKind::Copper, Some(Side::Top)) {
+        for (object, vertices, marks) in contours {
+            let n = vertices.len();
+            for &i in marks.keys().filter(|&&i| i < n) {
+                let (from, to) = (vertices[i], vertices[(i + 1) % n]);
+                let points = arc::through(from.point(), to.point(), from.sweep);
+                b.polyline(object, top, &points, PLATED_EDGE_WIDTH, false);
+            }
+        }
     }
     if let Some(origin) = pcb.output_origin() {
         output_origin(b, layer, origin.uuid, origin.at);

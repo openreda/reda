@@ -11,8 +11,8 @@ use reda_command::{
 };
 use reda_model::geom::Millideg;
 use reda_model::{
-    ComponentType, FootprintCopy, FootprintInstance, InDocument, Object, PadNet, Project, Side,
-    Uuid,
+    ComponentType, FootprintCopy, FootprintInstance, InDocument, Object, PadNet, Part, Project,
+    Side, Symbol, Uuid,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -136,16 +136,7 @@ impl Command for MechanicalPlace {
                 }
                 d
             }
-            None => {
-                let prefix = copy
-                    .symbol
-                    .as_ref()
-                    .map(|s| s.designator_prefix.clone())
-                    .filter(|p| !p.is_empty())
-                    .or_else(|| keyword_prefix(&copy.part.fields.keywords))
-                    .unwrap_or_else(|| FALLBACK_PREFIX.into());
-                next_free_designator(project, &prefix)
-            }
+            None => mechanical_designator(project, &copy.part, copy.symbol.as_ref()),
         };
         let existing = project
             .pcb()
@@ -447,6 +438,17 @@ fn designators_in_use(project: &Project, except: &[Uuid]) -> BTreeSet<String> {
 
 fn designator_taken(project: &Project, designator: &str, except: &[Uuid]) -> bool {
     designators_in_use(project, except).contains(designator)
+}
+
+/// The Designator a Mechanical Part placed on the board gets: the next free one for the
+/// Symbol's prefix, else the Part's first keyword when it is in capitals, else `MP`.
+pub fn mechanical_designator(project: &Project, part: &Part, symbol: Option<&Symbol>) -> String {
+    let prefix = symbol
+        .map(|s| s.designator_prefix.clone())
+        .filter(|p| !p.is_empty())
+        .or_else(|| keyword_prefix(&part.fields.keywords))
+        .unwrap_or_else(|| FALLBACK_PREFIX.into());
+    next_free_designator(project, &prefix)
 }
 
 /// The smallest `<prefix><n>` that neither the schematic nor the PCB uses.

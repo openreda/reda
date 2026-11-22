@@ -1,0 +1,177 @@
+{
+  "format": 2,
+  "pcb": {"uuid":"00000000-0000-4000-8000-000000000003"},
+  "layers": {"uuid":"00000000-0000-4000-8000-000000000004","layers":[
+    {"uuid":"00000000-0000-4000-8000-000000000005","kind":"courtyard","side":"top"},
+    {"uuid":"00000000-0000-4000-8000-000000000006","kind":"assembly","side":"top"},
+    {"uuid":"00000000-0000-4000-8000-000000000007","kind":"silkscreen","side":"top"},
+    {"uuid":"00000000-0000-4000-8000-000000000008","kind":"paste","side":"top"},
+    {"uuid":"00000000-0000-4000-8000-000000000009","kind":"solder_mask","side":"top"},
+    {"uuid":"00000000-0000-4000-8000-00000000000a","kind":"copper","side":"top"},
+    {"uuid":"00000000-0000-4000-8000-00000000000b","kind":"copper","side":"bottom"},
+    {"uuid":"00000000-0000-4000-8000-00000000000c","kind":"solder_mask","side":"bottom"},
+    {"uuid":"00000000-0000-4000-8000-00000000000d","kind":"paste","side":"bottom"},
+    {"uuid":"00000000-0000-4000-8000-00000000000e","kind":"silkscreen","side":"bottom"},
+    {"uuid":"00000000-0000-4000-8000-00000000000f","kind":"assembly","side":"bottom"},
+    {"uuid":"00000000-0000-4000-8000-000000000010","kind":"courtyard","side":"bottom"},
+    {"uuid":"00000000-0000-4000-8000-000000000011","kind":"board_outline"},
+    {"uuid":"00000000-0000-4000-8000-000000000012","kind":"mechanical"},
+    {"uuid":"00000000-0000-4000-8000-000000000013","kind":"documentation"}
+  ]},
+  "stackups": [
+    {"uuid":"00000000-0000-4000-8000-00000000002b","construction":"2 Layer","thickness":1600000,"entries":[
+      {"layer":"00000000-0000-4000-8000-00000000000a","thickness":35000},
+      {"uuid":"00000000-0000-4000-8000-00000000002a","kind":"core","thickness":1530000},
+      {"layer":"00000000-0000-4000-8000-00000000000b","thickness":35000}
+    ],"via_types":[
+      {"uuid":"00000000-0000-4000-8000-00000000002c","from":"00000000-0000-4000-8000-00000000000a","to":"00000000-0000-4000-8000-00000000000b","hole":300000,"diameter":{"start":700000}}
+    ]}
+  ],
+  "board": {"uuid":"00000000-0000-4000-8000-000000000014"},
+  "rules": [
+    {"uuid":"00000000-0000-4000-8000-000000000015","kind":"clearance","scope":{},"values":{"value":160000,"hole":{"via":250000,"pad":250000}}},
+    {"uuid":"00000000-0000-4000-8000-000000000016","kind":"track_width","scope":{},"values":{"min":200000,"preferred":250000}},
+    {"uuid":"00000000-0000-4000-8000-000000000017","kind":"via_size","scope":{},"values":{"diameter":{"min":700000},"hole":{"min":300000}}},
+    {"uuid":"00000000-0000-4000-8000-000000000018","kind":"hole_size","scope":{},"values":{"min":500000,"max":6300000}},
+    {"uuid":"00000000-0000-4000-8000-000000000019","kind":"annular_ring","scope":{},"values":{"min":200000}},
+    {"uuid":"00000000-0000-4000-8000-00000000001a","kind":"hole_to_hole","scope":{},"values":{"min":500000}},
+    {"uuid":"00000000-0000-4000-8000-00000000001b","kind":"edge_clearance","scope":{},"values":{"value":400000}},
+    {"uuid":"00000000-0000-4000-8000-00000000001c","kind":"mask_expansion","scope":{},"values":{"top":50000,"bottom":50000,"from_hole_edge":false,"tent_vias_top":true,"tent_vias_bottom":true}},
+    {"uuid":"00000000-0000-4000-8000-00000000001d","kind":"paste_expansion","scope":{},"values":{"expansion":0}},
+    {"uuid":"00000000-0000-4000-8000-00000000001e","kind":"silk_to_edge","scope":{},"values":{"value":254000}},
+    {"uuid":"00000000-0000-4000-8000-00000000001f","kind":"silk_to_mask","scope":{},"values":{"value":100000,"mode":"exposed_copper"}},
+    {"uuid":"00000000-0000-4000-8000-000000000020","kind":"courtyard_clearance","scope":{},"values":{"value":0}},
+    {"uuid":"00000000-0000-4000-8000-000000000021","kind":"dangling","scope":{},"values":{"tolerance":0}},
+    {"uuid":"00000000-0000-4000-8000-000000000022","kind":"micro_segment","scope":{},"values":{"max_length":10000}},
+    {"uuid":"00000000-0000-4000-8000-000000000023","kind":"dead_copper","scope":{},"values":{"min_area":64516000000}},
+    {"uuid":"00000000-0000-4000-8000-000000000024","kind":"zone_connection","scope":{},"values":{"through_hole":{"style":"relief","spokes":4,"spoke_width":250000,"gap":250000,"angle":0},"smd":{"style":"relief","spokes":4,"spoke_width":250000,"gap":250000,"angle":0},"via":{"style":"solid","spokes":4,"spoke_width":250000,"gap":250000,"angle":0}}},
+    {"uuid":"00000000-0000-4000-8000-000000000025","kind":"via_span","scope":{},"values":{}},
+    {"uuid":"00000000-0000-4000-8000-000000000026","kind":"microvia_size","scope":{},"values":{}},
+    {"uuid":"00000000-0000-4000-8000-000000000027","kind":"teardrop","scope":{},"values":{"via":{"enabled":false,"length":50,"max_length":1000000,"width":100,"max_width":2000000,"curved":false,"skip_ratio":90},"through_hole_pad":{"enabled":false,"length":50,"max_length":1000000,"width":100,"max_width":2000000,"curved":false,"skip_ratio":90},"smd_pad":{"enabled":false,"length":50,"max_length":1000000,"width":100,"max_width":2000000,"curved":false,"skip_ratio":90},"width_change":{"enabled":false,"length":50,"max_length":1000000,"width":100,"max_width":2000000,"curved":false,"skip_ratio":90}}},
+    {"uuid":"00000000-0000-4000-8000-000000000028","kind":"silk_width","scope":{},"values":{"min":150000}},
+    {"uuid":"00000000-0000-4000-8000-000000000029","kind":"silk_text_height","scope":{},"values":{"min":1000000}}
+  ],
+  "severities": {"clearance":"error","short_circuit":"error","shorted_copper":"error","net_tie_not_joined":"error","track_width":"error","via_size":"error","via_span":"error","microvia_size":"error","aspect_ratio":"error","max_stack":"error","silk_width":"warning","silk_text_height":"warning","hole_size":"error","annular_ring":"error","hole_to_hole":"error","edge_clearance":"error","edge_connector_without_pads":"warning","plated_edge_nets_differ":"error","edge_connector_on_plated_edge":"error","plated_edge_without_net":"warning","plated_edge_unconnected":"warning","keepout":"error","footprint_outside_board":"error","unrouted":"error","copper_without_net":"warning","dangling":"warning","poor_connection":"warning","via_under_smd":"warning","courtyard_overlap":"warning","silk_to_mask":"warning","silk_to_edge":"warning","zero_length_track":"warning","micro_segment":"warning","duplicate_copper":"warning","zero_area_zone":"warning","dead_copper":"warning","empty_zone":"warning","shelved_zone":"warning","out_of_sync":"warning","opening_collapsed":"warning","rule_invalid":"error","rule_outside_preset":"warning"},
+  "board_outline": {"uuid":"00000000-0000-4000-8000-00000000002f","locked":true,"vertices":[
+    {"x":0,"y":0},
+    {"x":21000000,"y":0},
+    {"x":21000000,"y":60000000},
+    {"x":0,"y":60000000}
+  ]},
+  "board_cutouts": [],
+  "net_classes": [],
+  "nets": [],
+  "texts": [],
+  "graphics": [],
+  "dimensions": [
+    {"uuid":"00000000-0000-4000-8000-00000000003f","locked":true,"layer":"00000000-0000-4000-8000-000000000012","a":{"point":{"x":0,"y":0}},"b":{"point":{"x":21000000,"y":0}},"rotation":0,"width":150000,"extension_width":150000,"gap":500000,"offset":-4000000,"text_gap":250000,"arrow_size":1000000,"arrow_length":2000000,"arrow_position":"inside","text_position":"automatic","font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"},"units":"automatic","precision":2,"format":"value_unit","suffix":" mm"},
+    {"uuid":"00000000-0000-4000-8000-000000000040","locked":true,"layer":"00000000-0000-4000-8000-000000000012","a":{"point":{"x":4800000,"y":11000000},"ref":{"object":"00000000-0000-4000-8000-00000000003c","hotspot":"origin"}},"b":{"point":{"x":4800000,"y":58000000},"ref":{"object":"00000000-0000-4000-8000-00000000003e","hotspot":"origin"}},"rotation":90000,"width":150000,"extension_width":150000,"gap":500000,"offset":2000000,"text_gap":250000,"arrow_size":1000000,"arrow_length":2000000,"arrow_position":"inside","text_position":"automatic","font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"},"units":"automatic","precision":2,"format":"value_unit","suffix":" mm"},
+    {"uuid":"00000000-0000-4000-8000-000000000041","locked":true,"layer":"00000000-0000-4000-8000-000000000012","a":{"point":{"x":0,"y":0}},"b":{"point":{"x":0,"y":60000000}},"rotation":90000,"width":150000,"extension_width":150000,"gap":500000,"offset":4000000,"text_gap":250000,"arrow_size":1000000,"arrow_length":2000000,"arrow_position":"inside","text_position":"automatic","font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"},"units":"automatic","precision":2,"format":"value_unit","suffix":" mm"},
+    {"uuid":"00000000-0000-4000-8000-000000000042","locked":true,"layer":"00000000-0000-4000-8000-000000000012","a":{"point":{"x":1610000,"y":34500000},"ref":{"object":"00000000-0000-4000-8000-000000000039","hotspot":"origin"}},"b":{"point":{"x":19390000,"y":34500000},"ref":{"object":"00000000-0000-4000-8000-000000000036","hotspot":"origin"}},"rotation":0,"width":150000,"extension_width":150000,"gap":500000,"offset":-30000000,"text_gap":250000,"arrow_size":1000000,"arrow_length":2000000,"arrow_position":"inside","text_position":"automatic","font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"},"units":"automatic","precision":2,"format":"value_unit","suffix":" mm"},
+    {"uuid":"00000000-0000-4000-8000-000000000043","locked":true,"layer":"00000000-0000-4000-8000-000000000012","a":{"point":{"x":4800000,"y":58000000},"ref":{"object":"00000000-0000-4000-8000-00000000003e","hotspot":"origin"}},"b":{"point":{"x":16200000,"y":58000000},"ref":{"object":"00000000-0000-4000-8000-00000000003b","hotspot":"origin"}},"rotation":0,"width":150000,"extension_width":150000,"gap":500000,"offset":3000000,"text_gap":250000,"arrow_size":1000000,"arrow_length":2000000,"arrow_position":"inside","text_position":"automatic","font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"},"units":"automatic","precision":2,"format":"value_unit","suffix":" mm"}
+  ],
+  "footprint_copies": [
+    {"uuid":"00000000-0000-4000-8000-000000000035","hash":"d96d26777209f9135b05bea5433bb5a6","footprint":{"uuid":"d2ffb3f2-2260-4f88-9b02-27b4a0cb0949","name":"SKTV0W64P254R1L5080T254H850B","description":"Socket, 1 × 20, 2.54 mm pitch","height":8500000},"pads":[
+      {"uuid":"00ea77ca-9d3c-412f-928a-d3bec487599e","number":"8","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":6350000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"35e88380-c2c9-4fdd-a912-e6633830e2be","number":"20","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-24130000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"3e5c86dc-f6d8-4e48-ba95-c04c39f908d8","number":"15","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-11430000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"4c9c03cd-c46e-431a-a321-9a16d4f4ae33","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":21590000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"67987381-5308-4e57-b072-e402f6feeb3a","number":"7","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":8890000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"6e979f4e-e0bb-43f8-a8ce-e4644b7a64c3","number":"13","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-6350000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"6f65dae6-b22a-47d8-904f-9a7deebfc7df","number":"5","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":13970000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"8337698d-7b4a-4262-a236-b72a864953f4","number":"16","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-13970000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"97bbdc6f-b319-4910-b57a-c6464cb0bc9e","number":"9","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":3810000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"9c9ed8e6-1412-40d8-ac46-21f318bee66b","number":"18","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-19050000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"b21e218a-efd4-40d6-8c3d-555c10b0e9a7","number":"19","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-21590000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"cb371081-afae-4a71-8afa-413372e38744","number":"17","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-16510000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"cb777b20-0da1-4158-a3da-e9d47d38550e","number":"3","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":19050000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"df12fbc7-430d-4b37-9f6a-2b7142908a95","number":"14","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-8890000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"df83cd40-dbbe-4103-8363-305931d2edd3","number":"10","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"e095dbfc-d11d-4d91-b3f5-c666fd8e866c","number":"6","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":11430000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"e3f0c3a6-f43c-48dc-9367-c24dab878290","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":0,"y":24130000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"e9e663fe-b00d-481a-8120-887dc228e761","number":"12","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-3810000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"eb45d277-b3f1-47cd-9347-5fa7bd43b4f6","number":"11","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"fbabfff3-ee70-4327-bd2d-216237103179","number":"4","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":16510000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}}
+    ],"graphics":[
+      {"uuid":"10b1e722-08ec-40fa-9324-0b1b9f6dcb81","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1330000,"y":-25460000},"end":{"x":-1330000,"y":25460000}},"width":120000},
+      {"uuid":"614705d3-a9c9-4bd7-bb65-e05d94abb78f","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-635000,"y":25400000},{"x":1270000,"y":25400000},{"x":1270000,"y":-25400000},{"x":-1270000,"y":-25400000},{"x":-1270000,"y":24765000}]},"width":100000},
+      {"uuid":"93ccca7f-a1fc-4255-9614-ae559e9fd9bb","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1330000,"y":-25460000},"end":{"x":1330000,"y":-25460000}},"width":120000},
+      {"uuid":"c5e3466f-7f7f-4831-acb8-cef2a8abe5ba","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1550000,"y":-25650000},"end":{"x":1550000,"y":25650000}},"width":50000},
+      {"uuid":"c69ec6d7-f5c3-4451-9ae2-a4548a1d34ec","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":1330000,"y":-25460000},"end":{"x":1330000,"y":25460000}},"width":120000},
+      {"uuid":"cb3a7960-064d-4e63-b885-bbfb6900587a","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1330000,"y":25460000},"end":{"x":1330000,"y":25460000}},"width":120000}
+    ],"texts":[
+      {"uuid":"87db8f99-baf2-4c16-bbba-695f2d67e4d6","field":"Designator","at":{"x":0,"y":26350000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
+      {"uuid":"9c7c9dad-35e2-4673-a8e2-a804f2539ec2","field":"Value","at":{"x":0,"y":-26350000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+      {"uuid":"d981b890-ab6e-48f8-ad3f-addbc056ae38","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
+    ]},
+    {"uuid":"00000000-0000-4000-8000-00000000003a","hash":"8971ae1227643512d58b7ce9395c5833","footprint":{"uuid":"fa52c198-bd89-43fa-8c5c-25cd76d48bdf","name":"MountingHole_M2","description":"Mounting hole for M2, 2.2 mm, not plated. Hole per ISO 273 fine, head per ISO 4762","height":2000000},"pads":[
+      {"uuid":"1a944a2b-0983-4ac8-90e0-b576c2c41f44","number":"","kind":"non_plated","shape":"circle","at":{"x":0,"y":0},"rotation":0,"width":2200000,"height":2200000,"hole":{"width":2200000,"height":2200000}}
+    ],"graphics":[
+      {"uuid":"3e27e2d4-3538-4eaa-bf30-367501613866","layer":"assembly_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":1900000},"width":100000},
+      {"uuid":"bd02590a-9c7a-433d-bf42-47bd8d9cdbb8","layer":"silkscreen_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2220000},"width":150000},
+      {"uuid":"f213fe62-e052-4067-b104-083a882e5aa1","layer":"courtyard_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2400000},"width":50000}
+    ],"texts":[
+      {"uuid":"847068a0-7dab-44a1-9e91-7b14a59b19b3","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+      {"uuid":"9b437beb-4ef9-4fb2-a605-7af8f085b23b","field":"Designator","at":{"x":0,"y":3200000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
+      {"uuid":"f893fe43-ee4e-4802-956e-a06d76158c74","field":"Value","at":{"x":0,"y":-3100000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
+    ]}
+  ],
+  "footprints": [
+    {"uuid":"00000000-0000-4000-8000-000000000036","component":{"uuid":"00000000-0000-4000-8000-000000000033"},"footprint":"00000000-0000-4000-8000-000000000035","at":{"x":19390000,"y":34500000},"rotation":180000,"side":"bottom","locked":true,"designator":"J1","fields":{"value":"Socket 1x20","description":"1 × 20 socket, 2.54 or 1.27 mm pitch","keywords":"J connector socket"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
+      {"pad":"00ea77ca-9d3c-412f-928a-d3bec487599e"},
+      {"pad":"35e88380-c2c9-4fdd-a912-e6633830e2be"},
+      {"pad":"3e5c86dc-f6d8-4e48-ba95-c04c39f908d8"},
+      {"pad":"4c9c03cd-c46e-431a-a321-9a16d4f4ae33"},
+      {"pad":"67987381-5308-4e57-b072-e402f6feeb3a"},
+      {"pad":"6e979f4e-e0bb-43f8-a8ce-e4644b7a64c3"},
+      {"pad":"6f65dae6-b22a-47d8-904f-9a7deebfc7df"},
+      {"pad":"8337698d-7b4a-4262-a236-b72a864953f4"},
+      {"pad":"97bbdc6f-b319-4910-b57a-c6464cb0bc9e"},
+      {"pad":"9c9ed8e6-1412-40d8-ac46-21f318bee66b"},
+      {"pad":"b21e218a-efd4-40d6-8c3d-555c10b0e9a7"},
+      {"pad":"cb371081-afae-4a71-8afa-413372e38744"},
+      {"pad":"cb777b20-0da1-4158-a3da-e9d47d38550e"},
+      {"pad":"df12fbc7-430d-4b37-9f6a-2b7142908a95"},
+      {"pad":"df83cd40-dbbe-4103-8363-305931d2edd3"},
+      {"pad":"e095dbfc-d11d-4d91-b3f5-c666fd8e866c"},
+      {"pad":"e3f0c3a6-f43c-48dc-9367-c24dab878290"},
+      {"pad":"e9e663fe-b00d-481a-8120-887dc228e761"},
+      {"pad":"eb45d277-b3f1-47cd-9347-5fa7bd43b4f6"},
+      {"pad":"fbabfff3-ee70-4327-bd2d-216237103179"}
+    ]},
+    {"uuid":"00000000-0000-4000-8000-000000000039","component":{"uuid":"00000000-0000-4000-8000-000000000037"},"footprint":"00000000-0000-4000-8000-000000000035","at":{"x":1610000,"y":34500000},"rotation":0,"side":"bottom","locked":true,"designator":"J2","fields":{"value":"Socket 1x20","description":"1 × 20 socket, 2.54 or 1.27 mm pitch","keywords":"J connector socket"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
+      {"pad":"00ea77ca-9d3c-412f-928a-d3bec487599e"},
+      {"pad":"35e88380-c2c9-4fdd-a912-e6633830e2be"},
+      {"pad":"3e5c86dc-f6d8-4e48-ba95-c04c39f908d8"},
+      {"pad":"4c9c03cd-c46e-431a-a321-9a16d4f4ae33"},
+      {"pad":"67987381-5308-4e57-b072-e402f6feeb3a"},
+      {"pad":"6e979f4e-e0bb-43f8-a8ce-e4644b7a64c3"},
+      {"pad":"6f65dae6-b22a-47d8-904f-9a7deebfc7df"},
+      {"pad":"8337698d-7b4a-4262-a236-b72a864953f4"},
+      {"pad":"97bbdc6f-b319-4910-b57a-c6464cb0bc9e"},
+      {"pad":"9c9ed8e6-1412-40d8-ac46-21f318bee66b"},
+      {"pad":"b21e218a-efd4-40d6-8c3d-555c10b0e9a7"},
+      {"pad":"cb371081-afae-4a71-8afa-413372e38744"},
+      {"pad":"cb777b20-0da1-4158-a3da-e9d47d38550e"},
+      {"pad":"df12fbc7-430d-4b37-9f6a-2b7142908a95"},
+      {"pad":"df83cd40-dbbe-4103-8363-305931d2edd3"},
+      {"pad":"e095dbfc-d11d-4d91-b3f5-c666fd8e866c"},
+      {"pad":"e3f0c3a6-f43c-48dc-9367-c24dab878290"},
+      {"pad":"e9e663fe-b00d-481a-8120-887dc228e761"},
+      {"pad":"eb45d277-b3f1-47cd-9347-5fa7bd43b4f6"},
+      {"pad":"fbabfff3-ee70-4327-bd2d-216237103179"}
+    ]},
+    {"uuid":"00000000-0000-4000-8000-00000000003b","footprint":"00000000-0000-4000-8000-00000000003a","at":{"x":16200000,"y":58000000},"rotation":0,"side":"top","locked":true,"designator":"H1","fields":{"value":"M2","description":"Mounting hole for M2, 2.2 mm, not plated","keywords":"H mounting hole screw mechanical"},"component_type":"mechanical","in_bom":false,"in_cpl":false,"pads":[
+      {"pad":"1a944a2b-0983-4ac8-90e0-b576c2c41f44"}
+    ]},
+    {"uuid":"00000000-0000-4000-8000-00000000003c","footprint":"00000000-0000-4000-8000-00000000003a","at":{"x":4800000,"y":11000000},"rotation":0,"side":"top","locked":true,"designator":"H2","fields":{"value":"M2","description":"Mounting hole for M2, 2.2 mm, not plated","keywords":"H mounting hole screw mechanical"},"component_type":"mechanical","in_bom":false,"in_cpl":false,"pads":[
+      {"pad":"1a944a2b-0983-4ac8-90e0-b576c2c41f44"}
+    ]},
+    {"uuid":"00000000-0000-4000-8000-00000000003d","footprint":"00000000-0000-4000-8000-00000000003a","at":{"x":16200000,"y":11000000},"rotation":0,"side":"top","locked":true,"designator":"H3","fields":{"value":"M2","description":"Mounting hole for M2, 2.2 mm, not plated","keywords":"H mounting hole screw mechanical"},"component_type":"mechanical","in_bom":false,"in_cpl":false,"pads":[
+      {"pad":"1a944a2b-0983-4ac8-90e0-b576c2c41f44"}
+    ]},
+    {"uuid":"00000000-0000-4000-8000-00000000003e","footprint":"00000000-0000-4000-8000-00000000003a","at":{"x":4800000,"y":58000000},"rotation":0,"side":"top","locked":true,"designator":"H4","fields":{"value":"M2","description":"Mounting hole for M2, 2.2 mm, not plated","keywords":"H mounting hole screw mechanical"},"component_type":"mechanical","in_bom":false,"in_cpl":false,"pads":[
+      {"pad":"1a944a2b-0983-4ac8-90e0-b576c2c41f44"}
+    ]}
+  ]
+}

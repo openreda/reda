@@ -11,7 +11,7 @@ mod symbol;
 
 use reda_command::{Angle, CommandError, Context, Length, Registry};
 use reda_model::geom::{Nm, Point};
-use reda_model::{Footprint, LibraryElement, Part, Shape, Symbol, Uuid};
+use reda_model::{Footprint, LibraryElement, Object, Part, Shape, Symbol, Uuid};
 use schemars::JsonSchema;
 use serde::{Deserialize, Deserializer, Serialize};
 
@@ -209,11 +209,7 @@ fn edit_element<T>(
     let tx = cx.tx()?;
     let project = tx.project();
     let not_open = || {
-        let kind = match kind {
-            ElementKind::Symbol => "Symbol",
-            ElementKind::Footprint => "Footprint",
-            ElementKind::Part => "Part",
-        };
+        let kind = kind.name();
         CommandError::not_found(format!(
             "no open {kind} has UUID {uuid}; open it with library.element.open"
         ))
@@ -234,7 +230,7 @@ fn edit_element<T>(
     }
     let mut element = element.clone();
     let out = f(&mut element)?;
-    tx.replace(element.into())?;
+    tx.replace(Object::try_from(element)?)?;
     Ok(out)
 }
 

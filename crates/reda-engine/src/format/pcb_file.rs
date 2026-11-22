@@ -104,9 +104,10 @@
 use std::path::Path;
 
 use reda_model::{
-    BoardCutout, BoardOutline, BoardSetup, DesignRule, Dimension, DrcSeverities, FootprintInstance,
-    FreePad, InDocument, Keepout, LayerSet, Net, NetClass, Object, OutputOrigin, PcbDocument,
-    PcbGraphic, PcbText, Stackup, Track, Uuid, Via, Waiver, Zone, ZoneCutout, ZoneNameScheme,
+    BoardCutout, BoardOutline, BoardSetup, DesignRule, Dimension, DrcSeverities, EdgeConnector,
+    FootprintInstance, FreePad, InDocument, Keepout, LayerSet, Net, NetClass, Object, OutputOrigin,
+    PcbDocument, PcbGraphic, PcbText, Stackup, Track, Uuid, Via, Waiver, Zone, ZoneCutout,
+    ZoneNameScheme,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -205,6 +206,9 @@ struct BoardRow {
     /// Free text for the fab, copied into the Fab Notes; left out when unset.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     fab_notes: Option<String>,
+    /// The card edge's bevel and selective hard gold; left out when unset.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    edge_connector: Option<EdgeConnector>,
 }
 
 pub(crate) fn write_pcb_file(pcb: &PcbDocument) -> Result<Vec<u8>, CanonicalError> {
@@ -224,6 +228,7 @@ pub(crate) fn write_pcb_file(pcb: &PcbDocument) -> Result<Vec<u8>, CanonicalErro
             uuid: setup.uuid,
             zone_name_scheme: setup.zone_name_scheme,
             fab_notes: setup.fab_notes.clone(),
+            edge_connector: setup.edge_connector,
         },
     )?;
     w.table("rules", pcb.rules(), |r| r.uuid)?;
@@ -314,6 +319,7 @@ pub(crate) fn read_pcb_file(
                 severities: file.severities,
                 zone_name_scheme: file.board.zone_name_scheme,
                 fab_notes: file.board.fab_notes,
+                edge_connector: file.board.edge_connector,
             },
         )),
     ];

@@ -31,6 +31,11 @@ pub struct Selection {
     /// selected Wire; their Wires are not in `objects`.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub segments: Vec<WireSegment>,
+    /// Single edges of the Board Outline or a Board Cutout, selected by a click on an edge
+    /// while editing the contour. The contour stays in `objects`, so its handles still
+    /// show; the edge narrows Properties to it.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub edges: Vec<ContourEdge>,
     /// What cross-select selects on the other side for `objects`: a picked Unit's
     /// Footprint (one per Component, at its first picked Unit) and a picked Footprint's
     /// Units, in pick order. The Shell keeps it up to date (see
@@ -89,6 +94,14 @@ impl Selection {
         }));
         ids
     }
+}
+
+/// One edge of the Board Outline or a Board Cutout: the one from vertex `edge` to the next.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ContourEdge {
+    pub contour: Uuid,
+    pub edge: usize,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -221,6 +234,10 @@ pub struct SelectionSetParams {
     /// are then not selected whole.
     #[serde(default)]
     segments: Vec<WireSegment>,
+    /// Single edges of the Board Outline or Board Cutouts (from vertex `edge` to the next);
+    /// their contours are selected too.
+    #[serde(default)]
+    edges: Vec<ContourEdge>,
 }
 
 /// How many things are now selected: what `selection.set` and the Commands that add to
@@ -250,13 +267,16 @@ impl Command for SelectionSet {
         cx: &mut Context<'_>,
         p: SelectionSetParams,
     ) -> Result<SelectionSetResult, CommandError> {
+        let mut objects = p.objects;
+        objects.extend(p.edges.iter().map(|e| e.contour));
         let selection = Selection {
-            objects: dedup(p.objects),
+            objects: dedup(objects),
             pads: dedup(p.pads),
             fields: dedup(p.fields),
             texts: dedup(p.texts),
             nets: dedup(p.nets),
             segments: dedup(p.segments),
+            edges: dedup(p.edges),
             mirrored: Vec::new(),
         };
         if !selection.is_empty() {
@@ -290,6 +310,20 @@ fn check(project: &Project, selection: &Selection) -> Result<(), CommandError> {
             return Err(CommandError::not_found(format!(
                 "no segment {} on Wire {}",
                 segment.index, segment.wire
+            )));
+        }
+    }
+    for edge in &selection.edges {
+        let len = project.pcb().and_then(|pcb| {
+            if let Some(o) = pcb.outline().filter(|o| o.uuid == edge.contour) {
+                return Some(o.vertices.len());
+            }
+            pcb.cutout(edge.contour).map(|c| c.vertices.len())
+        });
+        if len.is_none_or(|len| edge.edge >= len) {
+            return Err(CommandError::not_found(format!(
+                "no edge {} on a Board Outline or Board Cutout {}",
+                edge.edge, edge.contour
             )));
         }
     }

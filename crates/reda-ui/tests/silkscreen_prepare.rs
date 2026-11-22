@@ -20,11 +20,15 @@ fn shell_with_board(home: &Path, work: &Path) -> Shell {
         .starter_library(None)
         .build();
     engine
+        .run("project.new", json!({"path": work, "name": "Demo"}))
+        .unwrap();
+    engine
         .run(
-            "project.new",
-            json!({"path": work, "name": "Demo", "board": {"width": "30mm", "height": "20mm"}}),
+            "pcb.board_outline.add_rect",
+            json!({"width": "30mm", "height": "20mm"}),
         )
         .unwrap();
+    engine.run("project.save", json!({})).unwrap();
     let engine = Engine::builder()
         .user_dirs(Some(UserDirs::under(home)))
         .starter_library(None)

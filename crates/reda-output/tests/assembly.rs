@@ -26,9 +26,10 @@ fn starter_library() -> PathBuf {
 
 fn engine_on(dir: &TempDir, library: &Path) -> TestEngine {
     let mut engine = test_engine_with_library(library);
+    engine.run_ok("project.new", json!({"path": dir.path(), "name": "Demo"}));
     engine.run_ok(
-        "project.new",
-        json!({"path": dir.path(), "name": "Demo", "board": {"width": "30mm", "height": "20mm"}}),
+        "pcb.board_outline.add_rect",
+        json!({"width": "30mm", "height": "20mm"}),
     );
     engine
 }

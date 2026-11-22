@@ -6,6 +6,7 @@ mod clipboard;
 mod copper;
 mod dimension;
 mod drc;
+mod edge_connector;
 mod find;
 mod free_pad;
 pub mod from_graphics;
@@ -18,6 +19,7 @@ mod net;
 mod net_class;
 mod outline;
 pub(crate) mod placement;
+mod plated_edge;
 mod polygon;
 mod route;
 mod rules;
@@ -33,14 +35,17 @@ pub use zone::{LayerZones, ZoneListing, ZoneRow, zone_listing};
 mod zone_fill;
 
 pub use board_info::{BoardInfoResult, board_info};
+pub use dimension::new_dimension;
 pub use drc::{AreaParam, DrcRunParams, DrcRunResult, SyncCheck, SyncState, run as drc_run};
-pub use mechanical::{MechanicalSet, MechanicalSetParams};
+pub use graphic::DEFAULT_GRAPHIC_WIDTH;
+pub use mechanical::{MechanicalSet, MechanicalSetParams, mechanical_designator};
 pub use net_class::glob_match;
 pub use outline::rect_outline;
 pub use placement::{
     Op as PlacementOp, Placed, anchor as placement_anchor, preview as placement_preview,
     preview_including_locked as placement_preview_including_locked,
 };
+pub use text::{DEFAULT_TEXT_HEIGHT, DEFAULT_TEXT_THICKNESS};
 
 use reda_command::{
     AvailabilityContext, CommandError, Context, Length, NO_PROJECT, Registry, Unavailable,
@@ -63,8 +68,10 @@ pub fn register_all_with_user(
     user_name: reda_command::UserNameLookup,
 ) {
     outline::register_all(registry);
+    plated_edge::register_all(registry);
     rules::register_all(registry);
     stackup::register_all(registry);
+    registry.add(edge_connector::EdgeConnectorSet);
     registry.add(layer::LayerSetCommand);
     registry.add(layer_count::Add);
     registry.add(layer_count::Remove);

@@ -37,7 +37,7 @@ pub mod library_dialogs;
 pub mod messages;
 pub mod modal;
 pub mod navigation;
-mod new_project;
+pub mod new_project;
 mod os;
 pub mod pad_form;
 pub mod palette;

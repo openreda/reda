@@ -1,7 +1,9 @@
 //! A Library panel row's menu (right-click): Place, Edit, Duplicate, Where Used, Update in
-//! Project…, Check, Copy to Library… and Open Datasheet.
+//! Project…, Check, Copy to Library… and Open Datasheet; a Board Template row's Duplicate,
+//! Copy to Library… and Delete….
 
 use egui::Ui;
+use reda_engine::library::ElementKind;
 use serde_json::json;
 
 use super::rows::{Entry, RowStatus};
@@ -16,6 +18,9 @@ pub(super) fn show(
     target: Placing,
     status: Option<RowStatus>,
 ) -> Option<Do> {
+    if entry.kind == ElementKind::BoardTemplate {
+        return template_menu(ui, entry);
+    }
     let mut picked = None;
     if let Some(part) = &entry.part
         && target != Placing::Nowhere
@@ -80,6 +85,42 @@ pub(super) fn show(
             .clicked()
     {
         ui.ctx().open_url(egui::OpenUrl::new_tab(url));
+    }
+    if picked.is_some() {
+        ui.close();
+    }
+    picked
+}
+
+/// A Board Template row's menu: Duplicate, Copy to Library… and Delete…. A template has no
+/// editor, Where Used or Check.
+fn template_menu(ui: &mut Ui, entry: &Entry) -> Option<Do> {
+    let mut picked = None;
+    let duplicate = ui.add_enabled(
+        !entry.read_only,
+        widgets::menu_item(tr!("library-menu-duplicate")),
+    );
+    if duplicate.clicked() {
+        picked = Some(Do::Out(super::Action::Run(
+            "library.element.copy".into(),
+            json!({ "element": entry.uuid, "library": entry.library }),
+        )));
+    }
+    if ui
+        .add(widgets::menu_item(tr!("library-menu-copy")))
+        .clicked()
+    {
+        picked = Some(Do::Out(super::Action::Call(
+            "library.element.copy".into(),
+            json!({ "element": entry.uuid }),
+        )));
+    }
+    let delete = ui.add_enabled(
+        !entry.read_only,
+        widgets::menu_item(tr!("library-menu-delete")),
+    );
+    if delete.clicked() {
+        picked = Some(Do::Delete(Box::new(entry.clone())));
     }
     if picked.is_some() {
         ui.close();

@@ -190,6 +190,21 @@ impl CornerRect {
             .collect()
     }
 
+    /// The enclosed area in square nanometres, exact for the arcs: the rectangle less what
+    /// each rounded corner (r²(1 − π/4)) or chamfer (d²/2) takes off.
+    pub fn area(&self) -> f64 {
+        let cut: f64 = self
+            .corners
+            .iter()
+            .map(|c| match *c {
+                CornerCut::Square => 0.0,
+                CornerCut::Round(Nm(r)) => (r as f64).powi(2) * (1.0 - std::f64::consts::FRAC_PI_4),
+                CornerCut::Chamfer(Nm(d)) => (d as f64).powi(2) / 2.0,
+            })
+            .sum();
+        self.width.0 as f64 * self.height.0 as f64 - cut
+    }
+
     /// The outline as a closed contour, counter-clockwise.
     pub fn contour(&self) -> Vec<Vertex> {
         self.pieces()
@@ -324,6 +339,16 @@ mod tests {
         let points: Vec<Point> = r.contour().iter().map(|v| v.point()).collect();
         assert_eq!(points, vec![p(12, -1), p(12, 1), p(8, 1), p(8, -1)]);
         assert_eq!(r.uniform_radius(), Some(Nm::ZERO));
+    }
+
+    #[test]
+    fn the_area_takes_off_what_each_corner_cut_removes() {
+        let circle =
+            CornerRect::uniform(Nm(2_000), Nm(2_000), p(0, 0), CornerCut::Round(Nm(1_000)));
+        assert!((circle.area() - std::f64::consts::PI * 1e6).abs() < 1e-3);
+        let mut octagon = CornerRect::uniform(Nm(10), Nm(10), p(5, 5), CornerCut::Chamfer(Nm(2)));
+        octagon.corners[0] = CornerCut::Square;
+        assert_eq!(octagon.area(), 100.0 - 3.0 * 2.0);
     }
 
     #[test]

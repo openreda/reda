@@ -299,6 +299,8 @@ pub(crate) fn run_job(cx: &mut Context<'_>, job_id: Uuid) -> Result<JobRunResult
         reda_output::fab_notes_name(&name),
         reda_output::drill_report_name(&name),
         reda_output::gerber_job_name(&name),
+        // Written only while an edge is plated.
+        reda_output::plated_edges_name(&name),
         bom.name.clone(),
         cpl.name.clone(),
     ]);

@@ -279,6 +279,8 @@ impl View {
                     LibraryElement::Symbol(s) => encode(write_symbol(s))?,
                     LibraryElement::Footprint(f) => encode(write_footprint(f))?,
                     LibraryElement::Part(p) => encode(write_part(p))?,
+                    // Never open, so never recovered.
+                    LibraryElement::BoardTemplate(_) => return Ok(None),
                 };
                 Content {
                     file: format!("{uuid}.{}", kind.extension()),
@@ -420,6 +422,9 @@ pub(crate) fn parse_snapshot(dir: &Path, snapshot: &Snapshot) -> Result<Parsed, 
                     read_footprint(&path, &bytes).map(LibraryElement::Footprint)
                 }
                 ElementKind::Part => read_part(&path, &bytes).map(LibraryElement::Part),
+                ElementKind::BoardTemplate => {
+                    return Err("a Board Template is never open for editing".into());
+                }
             }
             .map_err(reason)?;
             if read.uuid() != *element {

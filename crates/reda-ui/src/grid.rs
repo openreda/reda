@@ -73,7 +73,7 @@ pub fn document_type(project: &Project, document: Uuid) -> Option<DocumentType> 
     match project.element(document)? {
         LibraryElement::Symbol(_) => Some(DocumentType::Symbol),
         LibraryElement::Footprint(_) => Some(DocumentType::Footprint),
-        LibraryElement::Part(_) => None,
+        LibraryElement::Part(_) | LibraryElement::BoardTemplate(_) => None,
     }
 }
 

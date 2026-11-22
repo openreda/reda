@@ -1,10 +1,11 @@
 //! The Library panel: the registered Libraries' Parts, searched and filtered, with a
 //! preview of the chosen one. On a sheet it lists Parts that have a Symbol, on the PCB
 //! Mechanical Parts, and beside a Library editor tab that element's Library's Symbols,
-//! Footprints and Parts (Library mode). Each Part row shows its Library Status over the
+//! Footprints, Parts and Board Templates (Library mode). Each Part row shows its Library Status over the
 //! open Project ("3 placed, 1 differs"). Clicking or dragging a Part starts the placement
 //! Tool (`tool.place`); Edit opens the chosen element in its editor; a row's menu has
-//! Where Used, Duplicate, Copy to Library…, Check and more; and New… makes a Part, Symbol
+//! Where Used, Duplicate, Copy to Library…, Check and more (a Board Template's: Duplicate,
+//! Copy to Library… and Delete…, which asks first); and New… makes a Part, Symbol
 //! or Footprint or a Library, imports a Part, runs a Footprint generator or makes a
 //! Project Library from the Project's part tables.
 //!
@@ -20,7 +21,7 @@ pub mod rows;
 use std::collections::BTreeMap;
 
 use egui::{Id, Role, ScrollArea, Sense, Ui, WidgetInfo};
-use reda_engine::library::{LibraryIndex, SearchQuery};
+use reda_engine::library::{ElementKind, LibraryIndex, SearchQuery};
 use reda_engine::model::{ComponentType, DocumentKind, Part, Uuid};
 use serde_json::{Value, json};
 
@@ -51,6 +52,8 @@ enum Do {
     WhereUsed(Uuid),
     /// Run the Library check on the element into the Messages panel.
     Check(Uuid),
+    /// Ask whether to delete the element, then run `library.element.delete`.
+    Delete(Box<Entry>),
 }
 
 impl Do {
@@ -92,6 +95,8 @@ pub struct LibraryPanel {
     statuses: Option<((u64, usize), BTreeMap<Uuid, RowStatus>)>,
     /// The last Where Used result, and the element it was asked about.
     where_used: Option<(Uuid, Value)>,
+    /// The row whose Delete… waits for its confirmation.
+    pub deleting: Option<Entry>,
 }
 
 /// Where Parts from the panel would go now: the active Document.
@@ -224,10 +229,67 @@ pub fn show(ui: &mut Ui, shell: &mut Shell) -> Vec<Action> {
             Do::Check(element) => {
                 let _ = crate::element_editor::check(shell, element);
             }
+            Do::Delete(entry) => panel.deleting = Some(*entry),
+        }
+    }
+    if let Some(entry) = panel.deleting.clone() {
+        match confirm_delete(ui.ctx(), &entry) {
+            Some(true) => {
+                panel.deleting = None;
+                actions.push(Action::Run(
+                    "library.element.delete".into(),
+                    json!({ "element": entry.uuid }),
+                ));
+            }
+            Some(false) => panel.deleting = None,
+            None => {}
         }
     }
     *shell.library_panel_mut() = panel;
     actions
+}
+
+/// The confirmation of a row's Delete…: `Some(true)` to delete, `Some(false)` to keep it,
+/// `None` while it waits.
+fn confirm_delete(ctx: &egui::Context, entry: &Entry) -> Option<bool> {
+    let mut answer = None;
+    let title = tr!("library-delete-title", name = entry.name.clone());
+    let modal = crate::modal::Dialog::new(Id::NULL.with("library-delete"), title)
+        .width(420.0)
+        .show(ctx, |ui| {
+            let kind = match entry.kind {
+                ElementKind::BoardTemplate => {
+                    tr!("library-kind-board-template")
+                }
+                ElementKind::Symbol => tr!("library-kind-symbol"),
+                ElementKind::Footprint => tr!("library-kind-footprint"),
+                ElementKind::Part => tr!("library-kind-part"),
+            };
+            crate::settings::layout::text(
+                ui,
+                tr!(
+                    "library-delete-intro",
+                    kind = kind,
+                    name = entry.name.clone(),
+                    library = entry.library_name.clone()
+                ),
+            );
+            crate::modal::buttons(ui, |ui| {
+                if ui
+                    .add(widgets::button(tr!("library-delete-run")).primary())
+                    .clicked()
+                {
+                    answer = Some(true);
+                }
+                if ui.add(widgets::button(tr!("dialog-cancel"))).clicked() {
+                    answer = Some(false);
+                }
+            });
+        });
+    if modal.should_close() && answer.is_none() {
+        answer = Some(false);
+    }
+    answer
 }
 
 fn draw(ui: &mut Ui, shell: &Shell, panel: &mut LibraryPanel) -> Vec<Do> {
@@ -281,7 +343,11 @@ fn draw(ui: &mut Ui, shell: &Shell, panel: &mut LibraryPanel) -> Vec<Do> {
             Mode::Place(_) => tr!("library-edit"),
             Mode::Library(_) => tr!("library-edit-element"),
         };
-        let edit = ui.add_enabled(chosen.is_some(), widgets::button(label));
+        // A Board Template has no editor.
+        let editable = chosen
+            .as_ref()
+            .is_some_and(|e| e.kind != ElementKind::BoardTemplate);
+        let edit = ui.add_enabled(editable, widgets::button(label));
         if edit.clicked()
             && let Some(entry) = &chosen
         {
@@ -494,7 +560,8 @@ fn row(
             .map(Do::Out),
         );
     }
-    if matches!(mode, Mode::Library(_)) && response.double_clicked() {
+    let editable = entry.kind != ElementKind::BoardTemplate;
+    if matches!(mode, Mode::Library(_)) && editable && response.double_clicked() {
         out.push(Do::open(entry.uuid));
     }
     out

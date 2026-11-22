@@ -23,9 +23,10 @@ fn uuid(value: &Value) -> Uuid {
 
 fn board(dir: &TempDir) -> TestEngine {
     let mut engine = probe_engine();
+    engine.run_ok("project.new", json!({"path": dir.path(), "name": "Demo"}));
     engine.run_ok(
-        "project.new",
-        json!({"path": dir.path(), "name": "Demo", "board": {"width": "30mm", "height": "20mm"}}),
+        "pcb.board_outline.add_rect",
+        json!({"width": "30mm", "height": "20mm"}),
     );
     engine
 }
@@ -483,10 +484,10 @@ fn zone_fills_read_back_as_regions_with_their_holes_cleared() {
 fn the_profile_follows_the_board_outline_arcs_included() {
     let dir = TempDir::new("gerber-profile");
     let mut engine = probe_engine();
+    engine.run_ok("project.new", json!({"path": dir.path(), "name": "Demo"}));
     engine.run_ok(
-        "project.new",
-        json!({"path": dir.path(), "name": "Demo",
-               "board": {"width": "30mm", "height": "20mm", "corner_radius": "2mm"}}),
+        "pcb.board_outline.add_rect",
+        json!({"width": "30mm", "height": "20mm", "corner_radius": "2mm"}),
     );
     let files = plot(&engine);
     let profile = read(&file(&files, "Demo.gm1").bytes);
@@ -533,10 +534,10 @@ fn the_profile_follows_the_board_outline_arcs_included() {
 /// A small board with every kind of copper this plot draws.
 fn demo(dir: &TempDir) -> TestEngine {
     let mut engine = probe_engine();
+    engine.run_ok("project.new", json!({"path": dir.path(), "name": "Demo"}));
     engine.run_ok(
-        "project.new",
-        json!({"path": dir.path(), "name": "Demo",
-               "board": {"width": "30mm", "height": "20mm", "corner_radius": "1mm"}}),
+        "pcb.board_outline.add_rect",
+        json!({"width": "30mm", "height": "20mm", "corner_radius": "1mm"}),
     );
     engine.run_ok("project.properties.set", json!({"revision": "A, first"}));
     let gnd = net(&mut engine, "GND");
@@ -790,8 +791,11 @@ fn thirty_two_layer_board(dir: &TempDir) -> TestEngine {
     let mut engine = probe_engine();
     engine.run_ok(
         "project.new",
-        json!({"path": dir.path(), "name": "Large", "layers": 32,
-               "board": {"width": "30mm", "height": "20mm"}}),
+        json!({"path": dir.path(), "name": "Large", "layers": 32}),
+    );
+    engine.run_ok(
+        "pcb.board_outline.add_rect",
+        json!({"width": "30mm", "height": "20mm"}),
     );
     let layers: Vec<_> = engine
         .project()
@@ -911,8 +915,11 @@ fn all_four_targets_read_back_as_plain_conductor_regions_only_on_their_copper_la
     let mut e = probe_engine();
     e.run_ok(
         "project.new",
-        json!({"path":dir.path(),"name":"Drops","layers":4,
-        "board":{"width":"20mm","height":"20mm"}}),
+        json!({"path":dir.path(),"name":"Drops","layers":4}),
+    );
+    e.run_ok(
+        "pcb.board_outline.add_rect",
+        json!({"width":"20mm","height":"20mm"}),
     );
     let sig = net(&mut e, "SIG");
     let layers: Vec<_> = e

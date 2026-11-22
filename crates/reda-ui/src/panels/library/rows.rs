@@ -16,12 +16,12 @@ use crate::tr;
 pub enum Mode {
     /// Parts to place in the active Document (or nowhere).
     Place(Placing),
-    /// Beside a Library editor tab: the Symbols, Footprints and Parts of that element's
-    /// Library.
+    /// Beside a Library editor tab: the Symbols, Footprints, Parts and Board Templates of
+    /// that element's Library.
     Library(Uuid),
 }
 
-/// One row: a Part, or in Library mode also a Symbol or Footprint.
+/// One row: a Part, or in Library mode also a Symbol, Footprint or Board Template.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Entry {
     pub kind: ElementKind,
@@ -46,6 +46,7 @@ impl Entry {
                     ElementKind::Symbol => tr!("library-kind-symbol"),
                     ElementKind::Footprint => tr!("library-kind-footprint"),
                     ElementKind::Part => tr!("library-kind-part"),
+                    ElementKind::BoardTemplate => tr!("library-kind-board-template"),
                 };
                 format!("{kind}: {}", self.name)
             }
@@ -65,9 +66,10 @@ impl Entry {
 }
 
 /// The rows a search finds in `mode`: on a sheet the Parts with a Symbol, on the board
-/// Mechanical Parts; in Library mode that Library's Symbols, Footprints and Parts, in that
-/// order, each kind sorted by name. Symbols and Footprints have no fields, so only plain
-/// and `name:` words reach them, and the Component Type filter only Parts.
+/// Mechanical Parts; in Library mode that Library's Symbols, Footprints, Parts and Board
+/// Templates, in that order, each kind sorted by name. Symbols, Footprints and templates
+/// have no fields, so only plain and `name:` words reach them, and the Component Type
+/// filter only Parts. Board Templates are listed only in Library mode.
 pub fn entries(index: &LibraryIndex, mode: Mode, query: &SearchQuery) -> Vec<Entry> {
     let entry = |library: &reda_engine::library::Library, kind, uuid, name: &str| Entry {
         kind,
@@ -122,6 +124,17 @@ pub fn entries(index: &LibraryIndex, mode: Mode, query: &SearchQuery) -> Vec<Ent
                     .into_iter()
                     .map(|hit| part_entry(hit.library, hit.part)),
             );
+            if query.component_type.is_none() {
+                let mut templates: Vec<_> = (library.board_templates.values())
+                    .filter(|t| query.matches_name(&t.name))
+                    .collect();
+                templates.sort_by(|a, b| (&a.name, a.uuid).cmp(&(&b.name, b.uuid)));
+                rows.extend(
+                    templates
+                        .into_iter()
+                        .map(|t| entry(library, ElementKind::BoardTemplate, t.uuid, &t.name)),
+                );
+            }
             rows
         }
     }

@@ -459,6 +459,7 @@ impl Tree<'_> {
                     crate::new_project::NewPcbForm::new(
                         self.project,
                         self.shell.engine().user_dirs(),
+                        std::sync::Arc::new(self.shell.engine().libraries()),
                     ),
                 ));
             }
@@ -569,9 +570,11 @@ impl Tree<'_> {
             return;
         }
         let mut close = false;
+        let palette = (self.shell.palette()).palette(crate::theme::canvas_theme(ctx.theme()));
         let modal = crate::modal::Dialog::new(Id::NULL.with("new-pcb"), tr!("projects-add-pcb"))
+            .width(crate::new_project::NewPcbForm::WIDTH)
             .show(ctx, |ui| {
-                form.show(ui);
+                form.show(ui, &palette);
                 crate::modal::buttons(ui, |ui| {
                     let params = form.params();
                     if ui

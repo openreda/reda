@@ -23,6 +23,9 @@ pub struct FreePad {
     pub teardrop: bool,
     /// SMD (plated, no hole), plated through-hole, or non-plated (a bare hole).
     pub kind: PadKind,
+    /// A plated through-hole Pad the Board Outline cuts through: a Castellated Pad.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub castellated: bool,
     pub shape: PadShape,
     /// Optional copper on all inner Layers, in the Pad's frame.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -109,6 +112,7 @@ impl FreePad {
             .form()
             .stack_problem(self.middle, self.bottom)
             .or_else(|| self.unused_layers.pad_problem(self.kind))
+            .or_else(|| crate::pad::edge_problem(self.kind, None, self.castellated))
         {
             return Some(problem);
         }

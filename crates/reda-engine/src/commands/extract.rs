@@ -76,7 +76,8 @@ impl Command for ExtractFromProject {
     fn run(&self, cx: &mut Context<'_>, p: ExtractParams) -> Result<ExtractResult, CommandError> {
         let session = cx.session()?;
         let index = scan_registered(session);
-        let library = writable_library(&index, p.library)?;
+        // Each element written is checked again for its own kind's folder.
+        let library = writable_library(&index, p.library, ElementKind::Part)?;
         let project = session
             .project
             .as_ref()

@@ -8,7 +8,7 @@ use reda_model::footprint_copper;
 use reda_model::geom::Nm;
 use reda_model::{
     ComponentType, Footprint, FootprintLayer, LibraryCheck, LibraryElement, LibrarySeverities,
-    PadKind, Part, Severity, Side, Symbol, Uuid, Violation,
+    PadKind, PadRole, Part, Severity, Side, Symbol, Uuid, Violation,
 };
 
 use crate::LibraryIndex;
@@ -57,6 +57,9 @@ pub fn check(
         LibraryElement::Symbol(s) => check_symbol(elements, s, &mut report),
         LibraryElement::Footprint(f) => check_footprint(f, &mut report),
         LibraryElement::Part(p) => check_part(elements, p, &mut report),
+        // A Board Template that fails its load checks never loads, so a loaded one has
+        // nothing left to report here.
+        LibraryElement::BoardTemplate(_) => {}
     }
     report.found
 }
@@ -149,7 +152,8 @@ fn check_symbol(elements: &dyn Elements, symbol: &Symbol, r: &mut Report<'_>) {
 }
 
 /// The numbers from 1 to the greatest numeric Pin number that no Pin has, leaving out the
-/// `absent_pins` of any generated Footprint of a Part on this Symbol.
+/// `absent_pins` of any generated Footprint of a Part on this Symbol, and the numbers no
+/// Footprint of those Parts has a Pad for (a card edge's key removes them from both).
 fn missing_in_sequence(elements: &dyn Elements, symbol: &Symbol) -> Vec<u64> {
     let numbers: BTreeSet<u64> = symbol
         .pins
@@ -160,6 +164,8 @@ fn missing_in_sequence(elements: &dyn Elements, symbol: &Symbol) -> Vec<u64> {
         return vec![];
     };
     let mut absent = BTreeSet::new();
+    // The numbers some Footprint of a Part on this Symbol has a Pad for, if it has any.
+    let mut padded: Option<BTreeSet<u64>> = None;
     for part in elements.parts() {
         if part.symbol != Some(symbol.uuid) {
             continue;
@@ -175,10 +181,17 @@ fn missing_in_sequence(elements: &dyn Elements, symbol: &Symbol) -> Vec<u64> {
                 .and_then(|g| g.params["absent_pins"].as_array().cloned())
                 .unwrap_or_default();
             absent.extend(listed.iter().filter_map(serde_json::Value::as_u64));
+            padded.get_or_insert_with(BTreeSet::new).extend(
+                footprint
+                    .pads
+                    .iter()
+                    .filter_map(|p| p.number.trim().parse::<u64>().ok()),
+            );
         }
     }
+    let padless = |n: &u64| padded.as_ref().is_some_and(|p| !p.contains(n));
     (1..last)
-        .filter(|n| !numbers.contains(n) && !absent.contains(n))
+        .filter(|n| !numbers.contains(n) && !absent.contains(n) && !padless(n))
         .collect()
 }
 
@@ -318,6 +331,14 @@ fn check_origin(footprint: &Footprint, r: &mut Report<'_>) {
         r.add(LibraryCheck::OriginOutsideBody, |v| {
             v.object(footprint.uuid)
         });
+        return;
+    }
+    // A card edge's origin is the finger edge its Pads are set back from, by design.
+    if footprint
+        .pads
+        .iter()
+        .any(|p| p.role == Some(PadRole::EdgeConnector))
+    {
         return;
     }
     // Twice the centre, so an odd-sized box doesn't round.

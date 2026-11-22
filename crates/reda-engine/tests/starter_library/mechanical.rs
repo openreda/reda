@@ -14,6 +14,7 @@ pub fn build(s: &mut Script) {
         mounting_hole(s, screw, hole, head, false);
     }
     mounting_hole(s, "M3", 3.2, 5.5, true);
+    castellated_half_moon(s);
     fiducial(s);
     net_tie(s);
     test_point(s);
@@ -57,7 +58,8 @@ fn mounting_hole(s: &mut Script, screw: &str, hole: f64, head: f64, plated: bool
     );
     let r = head / 2.0;
     s.fp_draw(&fp, "assembly_top", circle(0, 0, mm(r)), mm(0.1));
-    s.fp_draw(&fp, "silkscreen_top", circle(0, 0, mm(r + 0.32)), mm(0.12));
+    // 0.15 mm, the common fab minimum silk width (JLCPCB's), so a hole prints anywhere.
+    s.fp_draw(&fp, "silkscreen_top", circle(0, 0, mm(r + 0.32)), mm(0.15));
     s.fp_draw(&fp, "courtyard_top", circle(0, 0, mm(r + 0.5)), mm(0.05));
     let fp = s.finish_footprint(&fp, mm(r + 0.5));
     s.part(PartSpec {
@@ -65,6 +67,53 @@ fn mounting_hole(s: &mut Script, screw: &str, hole: f64, head: f64, plated: bool
         symbol: None,
         footprints: vec![fp],
         fields: fields(screw, &description, "H mounting hole screw mechanical"),
+        pin_map: None,
+        kind: Kind::Mechanical,
+    });
+}
+
+/// The half-moon at the far end of an M.2 card: one Castellated Pad, a 3.5 mm plated
+/// hole with a 5.5 mm land on top and 6.0 mm below (the SATA-IO M.2 figures), centred on
+/// the card's far edge so the fab's drill-then-rout leaves a plated half-hole for the M2
+/// screw. Pad 1, to tie to a Net, usually GND. No Silkscreen: the edge runs through it.
+fn castellated_half_moon(s: &mut Script) {
+    let name = "MountingHole_M2_Castellated";
+    let description = "Castellated half-moon for an M.2 card's M2 screw, 3.5 mm plated hole, \
+                       5.5 mm land on top and 6.0 mm below";
+    let fp = s.footprint(
+        name,
+        &format!(
+            "{description}, the SATA-IO figures. Centre it on the board edge: the edge cuts \
+             it in half"
+        ),
+        head_height("M2"),
+    );
+    s.pad(
+        &fp,
+        json!({
+            "number": "1",
+            "kind": "plated_through_hole",
+            "castellated": true,
+            "shape": "circle",
+            "at": {"x": 0, "y": 0},
+            "width": mm(5.5),
+            "height": mm(5.5),
+            "bottom": {"shape": "circle", "width": mm(6.0), "height": mm(6.0)},
+            "hole": {"width": mm(3.5)},
+        }),
+    );
+    s.fp_draw(&fp, "assembly_top", circle(0, 0, mm(2.75)), mm(0.1));
+    s.fp_draw(&fp, "courtyard_top", circle(0, 0, mm(3.25)), mm(0.05));
+    let fp = s.finish_footprint(&fp, mm(3.25));
+    s.part(PartSpec {
+        name,
+        symbol: None,
+        footprints: vec![fp],
+        fields: fields(
+            "M2",
+            description,
+            "H mounting hole screw castellated half-moon M.2 mechanical",
+        ),
         pin_map: None,
         kind: Kind::Mechanical,
     });

@@ -262,7 +262,6 @@ fn start_and_new_project(look: Look, out: &mut Vec<String>) {
     );
 
     click(&mut h, "New Project…");
-    click(&mut h, "Rectangle");
     keep(&mut h, look, "new project");
     report(
         out,

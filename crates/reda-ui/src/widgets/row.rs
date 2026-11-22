@@ -139,6 +139,7 @@ pub fn list_row(text: impl Into<String>) -> Row<'static> {
         selection: None,
         drop_target: false,
         muted: false,
+        strong: false,
         width: None,
         sense: Sense::click(),
         state: State::Live,
@@ -170,6 +171,7 @@ pub struct Row<'a> {
     selection: Option<Selection>,
     drop_target: bool,
     muted: bool,
+    strong: bool,
     width: Option<f32>,
     sense: Sense,
     state: State,
@@ -219,6 +221,12 @@ impl<'a> Row<'a> {
         self
     }
 
+    /// Its text in the strong body style: the default choice of a list.
+    pub fn strong(mut self, strong: bool) -> Self {
+        self.strong = strong;
+        self
+    }
+
     /// The Icon with this key, before the text.
     pub fn icon(self, key: &str) -> Row<'_> {
         self.lead(Lead::Icon(key))
@@ -255,6 +263,7 @@ impl<'a> Row<'a> {
             selection: self.selection,
             drop_target: self.drop_target,
             muted: self.muted,
+            strong: self.strong,
             width: self.width,
             sense: self.sense,
             state: self.state,
@@ -389,7 +398,12 @@ impl<'a> Row<'a> {
         }
         let label = Rect::from_min_max(pos2(left, rect.top()), pos2(right, rect.bottom()));
         if label.width() > 0.0 {
-            paint::text_clipped(ui, label, &t.ty.body, &self.text, ink);
+            let style = if self.strong {
+                &t.ty.body_strong
+            } else {
+                &t.ty.body
+            };
+            paint::text_clipped(ui, label, style, &self.text, ink);
         }
         RowResponse { response, toggled }
     }

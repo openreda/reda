@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use reda_model::{Footprint, LibraryElement, LibraryInfo, Part, Symbol, Uuid};
+use reda_model::{BoardTemplate, Footprint, LibraryElement, LibraryInfo, Part, Symbol, Uuid};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -42,6 +42,8 @@ pub struct Library {
     pub symbols: BTreeMap<Uuid, Symbol>,
     pub footprints: BTreeMap<Uuid, Footprint>,
     pub parts: BTreeMap<Uuid, Part>,
+    /// The Board Templates that passed their load checks.
+    pub board_templates: BTreeMap<Uuid, BoardTemplate>,
 }
 
 /// A file or folder a scan could not use, and why.
@@ -55,6 +57,7 @@ pub(crate) enum Element {
     Symbol(Symbol),
     Footprint(Footprint),
     Part(Part),
+    BoardTemplate(BoardTemplate),
 }
 
 impl Element {
@@ -63,6 +66,7 @@ impl Element {
             Element::Symbol(s) => s.uuid,
             Element::Footprint(f) => f.uuid,
             Element::Part(p) => p.uuid,
+            Element::BoardTemplate(t) => t.uuid,
         }
     }
 }
@@ -118,7 +122,26 @@ impl LibraryIndex {
             footprint.map(LibraryElement::Footprint)
         };
         let part = || library.parts.get(&uuid).cloned().map(LibraryElement::Part);
-        symbol().or_else(footprint).or_else(part)
+        let template = || {
+            let template = library.board_templates.get(&uuid).cloned();
+            template.map(|t| LibraryElement::BoardTemplate(Box::new(t)))
+        };
+        symbol().or_else(footprint).or_else(part).or_else(template)
+    }
+
+    /// The Board Template with this UUID, if it loaded.
+    pub fn board_template(&self, uuid: Uuid) -> Option<&BoardTemplate> {
+        self.library_of(uuid)?.board_templates.get(&uuid)
+    }
+
+    /// Every Board Template of every Library, Library by Library in resolution order,
+    /// each Library's by name.
+    pub fn board_templates(&self) -> impl Iterator<Item = (&Library, &BoardTemplate)> {
+        self.libraries.iter().flat_map(|l| {
+            let mut templates: Vec<&BoardTemplate> = l.board_templates.values().collect();
+            templates.sort_by(|a, b| a.name.cmp(&b.name).then(a.uuid.cmp(&b.uuid)));
+            templates.into_iter().map(move |t| (l, t))
+        })
     }
 
     /// Every Part of every Library, Library by Library.
@@ -166,8 +189,16 @@ impl LibraryIndex {
             symbols: BTreeMap::new(),
             footprints: BTreeMap::new(),
             parts: BTreeMap::new(),
+            board_templates: BTreeMap::new(),
         });
         Some(self.libraries.len() - 1)
+    }
+
+    pub(crate) fn board_template_named(&self, library: usize, name: &str) -> bool {
+        self.libraries[library]
+            .board_templates
+            .values()
+            .any(|t| t.name == name)
     }
 
     /// Adds an element to a Library, or reports it when its UUID is taken.
@@ -192,6 +223,9 @@ impl LibraryIndex {
             }
             Element::Part(p) => {
                 library.parts.insert(uuid, p);
+            }
+            Element::BoardTemplate(t) => {
+                library.board_templates.insert(uuid, t);
             }
         }
     }

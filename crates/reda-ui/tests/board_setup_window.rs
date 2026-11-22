@@ -153,6 +153,66 @@ fn mask_paste_zone_connections_and_stackup_pages_edit_and_ok_commits_them() {
     assert_eq!(board.setup().fab_notes.as_deref(), Some("No panel"));
 }
 
+fn tick(h: &mut Harness<'static, App>, label: &str) {
+    h.get_by_role_and_label(Role::CheckBox, label)
+        .scroll_to_me();
+    h.run();
+    h.get_by_role_and_label(Role::CheckBox, label).click();
+    h.run();
+}
+
+#[test]
+fn the_stackup_page_sets_the_edge_connector_bevel_and_hard_gold_beside_the_finish() {
+    use reda_ui::engine::model::geom::{Millideg, Nm};
+    use reda_ui::engine::model::{EdgeBevel, EdgeConnector};
+    let (home, work) = (TempDir::new("bse-home"), TempDir::new("bse-work"));
+    let mut h = harness(home.path(), work.path(), "Card");
+    open_board_setup(&mut h, "Card");
+    page(&mut h, "Stackup");
+    h.get_by_label("Finish: not set");
+    assert!(
+        h.query_by_role_and_label(Role::TextInput, "Bevel angle (°)")
+            .is_none(),
+        "the bevel fields show once the bevel is ticked"
+    );
+    tick(&mut h, "Bevel the card edge");
+    // The PCIe figures, the one sourced bevel, until the user types their own.
+    assert_eq!(value(&h, "Bevel angle (°)"), "20");
+    assert_eq!(value(&h, "Bevel depth (mm)"), "1.3");
+    retype(&mut h, "Bevel angle (°)", "90");
+    h.get_by_label("The bevel angle must be between 0° and 90°");
+    retype(&mut h, "Bevel angle (°)", "30");
+    retype(&mut h, "Bevel depth (mm)", "1.5");
+    tick(&mut h, "Hard gold on edge-connector Pads");
+    // No Pad is an Edge Connector Pad yet, so the page says DRC will warn.
+    h.get_by_label("No Pad is an Edge Connector Pad yet: DRC warns while these are set.");
+
+    h.get_by_label("OK").click();
+    h.run();
+    assert_eq!(
+        pcb(&h).setup().edge_connector,
+        Some(EdgeConnector {
+            bevel: Some(EdgeBevel {
+                angle: Millideg(30_000),
+                depth: Nm(1_500_000)
+            }),
+            hard_gold: true
+        })
+    );
+    // The finish is a separate thing: hard gold leaves it unset.
+    assert_eq!(pcb(&h).stackup().finish, None);
+
+    open_board_setup(&mut h, "Card");
+    page(&mut h, "Stackup");
+    assert_eq!(value(&h, "Bevel angle (°)"), "30");
+    tick(&mut h, "Bevel the card edge");
+    tick(&mut h, "Hard gold on edge-connector Pads");
+    assert_eq!(pending(&h), 1);
+    h.get_by_label("OK").click();
+    h.run();
+    assert_eq!(pcb(&h).setup().edge_connector, None);
+}
+
 #[test]
 fn the_silkscreen_page_commits_both_fabrication_limits_and_their_severities() {
     use reda_ui::engine::model::{DrcCheck, Severity};
@@ -943,7 +1003,18 @@ fn a_plane_role_offers_an_outline_zone_only_until_one_is_created() {
     let (home, work) = (TempDir::new("plane-ui-home"), TempDir::new("plane-ui-work"));
     let mut h = harness(home.path(), work.path(), "First");
     let shell = h.state_mut().shell_mut();
-    shell.run("project.new",json!({"name":"Planes","path":work.path(),"layers":4,"board":{"width":"20mm","height":"20mm"}})).unwrap();
+    shell
+        .run(
+            "project.new",
+            json!({"name":"Planes","path":work.path(),"layers":4}),
+        )
+        .unwrap();
+    shell
+        .run(
+            "pcb.board_outline.add_rect",
+            json!({"width":"20mm","height":"20mm"}),
+        )
+        .unwrap();
     let gnd = shell.run("test.net.add", json!({"name":"GND"})).unwrap()["result"]["uuid"].clone();
     let board = pcb(&h);
     let layer = board.copper_layers().nth(1).unwrap().uuid;

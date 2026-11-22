@@ -131,14 +131,20 @@ fn the_new_project_form_creates_and_opens_a_project() {
 }
 
 #[test]
-fn the_new_project_dialog_takes_a_fab_preset_and_a_rectangle_board() {
+fn the_new_project_dialog_takes_a_fab_preset_and_a_custom_rectangle() {
     let home = TempDir::new("app-home");
     let work = TempDir::new("app-work");
     state::update(&UserDirs::under(home.path()), |s| {
         s.last_fab_preset = Some("JLCPCB".into());
     })
     .unwrap();
-    let mut h = harness(home.path());
+    let engine = Engine::builder()
+        .user_dirs(Some(UserDirs::under(home.path())))
+        .starter_library(Some(reda_testkit::starter_library()))
+        .headless(false)
+        .build();
+    let app = App::new(Shell::new(engine));
+    let mut h = builder().build_ui_state(|ui, app: &mut App| app.ui(ui), app);
     h.run();
 
     h.get_all_by_label("New Project…").last().unwrap().click();
@@ -162,15 +168,14 @@ fn the_new_project_dialog_takes_a_fab_preset_and_a_rectangle_board() {
         .set_text_value_accesskit("Sized");
     h.get_by_role_and_label(Role::TextInput, "Location")
         .set_text_value_accesskit(&work.path().display().to_string());
-    // The board size is used only once Rectangle is picked.
+    // The board size shows once Custom rectangle is picked.
     assert!(
-        h.get_by_role_and_label(Role::TextInput, "Width (mm)")
-            .accesskit_node()
-            .is_disabled()
+        h.query_by_role_and_label(Role::TextInput, "Width")
+            .is_none()
     );
-    h.get_by_label("Rectangle").click();
+    h.get_by_label("Custom rectangle").click();
     h.run();
-    h.get_by_role_and_label(Role::TextInput, "Width (mm)")
+    h.get_by_role_and_label(Role::TextInput, "Width")
         .set_text_value_accesskit("50");
     h.run();
     h.get_by_label("Create").click();
@@ -192,13 +197,19 @@ fn the_new_project_dialog_takes_a_fab_preset_and_a_rectangle_board() {
 #[test]
 fn the_new_project_dialog_refuses_a_bad_board_size() {
     let home = TempDir::new("app-home");
-    let mut h = harness(home.path());
+    let engine = Engine::builder()
+        .user_dirs(Some(UserDirs::under(home.path())))
+        .starter_library(Some(reda_testkit::starter_library()))
+        .headless(false)
+        .build();
+    let mut h =
+        builder().build_ui_state(|ui, app: &mut App| app.ui(ui), App::new(Shell::new(engine)));
     h.run();
     h.get_all_by_label("New Project…").last().unwrap().click();
     h.run();
-    h.get_by_label("Rectangle").click();
+    h.get_by_label("Custom rectangle").click();
     h.run();
-    h.get_by_role_and_label(Role::TextInput, "Height (mm)")
+    h.get_by_role_and_label(Role::TextInput, "Height")
         .set_text_value_accesskit("-3");
     h.run();
     assert!(h.get_by_label("Create").accesskit_node().is_disabled());
@@ -337,6 +348,25 @@ fn start_page_snapshot(theme: &str) {
     };
     h.run();
     h.snapshot(format!("start_page_{theme}"));
+}
+
+/// The New Project dialog with the Pi template picked and its preview: the one PNG of
+/// the Board Template picker (docs/spec/v0.2.5/testing.md#picker-ui).
+#[test]
+fn snapshot_of_the_new_project_board_template_picker() {
+    let home = TempDir::new("app-home");
+    let Some(mut h) = snapshot_harness_on(library_engine(home.path())) else {
+        return;
+    };
+    h.run();
+    h.get_all_by_label("New Project…").last().unwrap().click();
+    h.run();
+    h.get_by_role_and_label(Role::TextInput, "Location")
+        .set_text_value_accesskit("/projects");
+    h.get_by_label("Add-on board for Raspberry Pi").click();
+    h.run();
+    h.run();
+    h.snapshot("new_project_board_template_dark");
 }
 
 /// The main window as REDA decorates it on Wayland: the window controls at the right of

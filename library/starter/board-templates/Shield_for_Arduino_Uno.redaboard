@@ -1,0 +1,228 @@
+{
+  "format": 2,
+  "uuid": "3a9e2d08-6886-4bbd-b955-12b5890602ba",
+  "name": "Shield for Arduino Uno",
+  "description": "A 68.58 x 53.34 mm shield for the Arduino Uno R3 header layout. The outline follows Arduino's CAD files, with the 45 degree chamfered right-hand profile and R1 on three corners. The male headers are on the bottom, at the Arduino positions, including the 160 mil gap between D7 and D8. The ICSP header is left out. The holes have no Keepouts, because Arduino publishes none. Arduino is a trademark of Arduino SA.",
+  "category": "Arduino",
+  "suggested_layers": 2,
+  "outline": [
+    {"uuid":"8d7dbc70-9367-455f-a3af-40e93e070326","vertices":[
+      {"x":"1","y":0},
+      {"x":"65.04","y":0,"sweep":"90"},
+      {"x":"66.04","y":"1"},
+      {"x":"66.04","y":"2.54"},
+      {"x":"68.58","y":"5.08"},
+      {"x":"68.58","y":"37.846"},
+      {"x":"66.04","y":"40.386"},
+      {"x":"66.04","y":"51.816"},
+      {"x":"64.516","y":"53.34"},
+      {"x":"1","y":"53.34","sweep":"90"},
+      {"x":0,"y":"52.34"},
+      {"x":0,"y":"1","sweep":"90"}
+    ],"locked":true}
+  ],
+  "parts": [
+    {"uuid":"11ca5eaf-9b84-4184-9cdc-205eb443582c","hash":"6759b6ca0cdf25732c5d0d8726abf266","part":{"uuid":"326ace02-ef44-4af4-8f9d-21d6c65a74ef","name":"MountingHole_M3","component_type":"mechanical","in_bom":false,"in_cpl":false},"footprints":["5b59cdab-565f-4f43-8563-7b49605b64f5"],"copies":["101fb868-1cdb-4890-a0b1-d82d8f973ce8"],"fields":{"value":"M3","description":"Mounting hole for M3, 3.2 mm, not plated","keywords":"H mounting hole screw mechanical"},"pin_map":{},"units":[],"pins":[],"graphics":[]},
+    {"uuid":"18efcd66-4b29-4c10-825c-34ffac4925ca","hash":"0ea00ed040880a37813be1d121d98045","part":{"uuid":"37d54f1b-62de-4001-88c1-d637cd1da4a1","name":"Header_1x10","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"d9a8adcb-0853-418a-bb67-cc2cc6286b83"},"footprints":["9553b550-db0e-4ca1-8867-6ded2db7e327","8266b905-dc11-4359-812a-69b8d546065a"],"copies":["cb527915-6b92-47e6-ba7c-0c0faf88f31a","385a041e-118e-446a-8463-ad5143837436"],"fields":{"value":"Header 1x10","description":"1 × 10 pin header, 2.54 or 1.27 mm pitch","keywords":"J connector pin header"},"pin_map":{},"symbol":{"uuid":"d9a8adcb-0853-418a-bb67-cc2cc6286b83","name":"Conn_1x10","designator_prefix":"J","description":"Generic connector, 1 × 10 pins"},"units":[
+      {"uuid":"e4b4e284-0236-49b3-972b-dba52a9eb97a","name":"A"}
+    ],"pins":[
+      {"uuid":"4813d0aa-d1e9-45aa-8c70-cf79a3a6d1a2","unit":"e4b4e284-0236-49b3-972b-dba52a9eb97a","name":"Pin_6","number":"6","electrical_type":"passive","at":{"x":-5080000,"y":-1270000},"rotation":0,"length":2540000,"name_visible":false},
+      {"uuid":"5fafd45c-d426-4470-b2a1-4a80a996dd6d","unit":"e4b4e284-0236-49b3-972b-dba52a9eb97a","name":"Pin_2","number":"2","electrical_type":"passive","at":{"x":-5080000,"y":8890000},"rotation":0,"length":2540000,"name_visible":false},
+      {"uuid":"6093b227-337f-4e54-a45a-8febcf35270e","unit":"e4b4e284-0236-49b3-972b-dba52a9eb97a","name":"Pin_4","number":"4","electrical_type":"passive","at":{"x":-5080000,"y":3810000},"rotation":0,"length":2540000,"name_visible":false},
+      {"uuid":"7241233a-5852-4650-b245-c388bcc568ca","unit":"e4b4e284-0236-49b3-972b-dba52a9eb97a","name":"Pin_7","number":"7","electrical_type":"passive","at":{"x":-5080000,"y":-3810000},"rotation":0,"length":2540000,"name_visible":false},
+      {"uuid":"7fa0d4f2-1e9c-43b9-9ad0-8a1f65ab156d","unit":"e4b4e284-0236-49b3-972b-dba52a9eb97a","name":"Pin_9","number":"9","electrical_type":"passive","at":{"x":-5080000,"y":-8890000},"rotation":0,"length":2540000,"name_visible":false},
+      {"uuid":"a5937802-cd83-4ea8-9ef5-58b27d88f947","unit":"e4b4e284-0236-49b3-972b-dba52a9eb97a","name":"Pin_3","number":"3","electrical_type":"passive","at":{"x":-5080000,"y":6350000},"rotation":0,"length":2540000,"name_visible":false},
+      {"uuid":"bd579391-55a5-4e61-a948-5e06afd8dcf6","unit":"e4b4e284-0236-49b3-972b-dba52a9eb97a","name":"Pin_10","number":"10","electrical_type":"passive","at":{"x":-5080000,"y":-11430000},"rotation":0,"length":2540000,"name_visible":false},
+      {"uuid":"c0ac1675-d83b-4e63-a264-227c635d6b78","unit":"e4b4e284-0236-49b3-972b-dba52a9eb97a","name":"Pin_1","number":"1","electrical_type":"passive","at":{"x":-5080000,"y":11430000},"rotation":0,"length":2540000,"name_visible":false},
+      {"uuid":"f27805b6-d52e-4e7a-b8d7-e92710739f2f","unit":"e4b4e284-0236-49b3-972b-dba52a9eb97a","name":"Pin_5","number":"5","electrical_type":"passive","at":{"x":-5080000,"y":1270000},"rotation":0,"length":2540000,"name_visible":false},
+      {"uuid":"f8f9060a-b740-4d92-aed2-f260ab5e4711","unit":"e4b4e284-0236-49b3-972b-dba52a9eb97a","name":"Pin_8","number":"8","electrical_type":"passive","at":{"x":-5080000,"y":-6350000},"rotation":0,"length":2540000,"name_visible":false}
+    ],"graphics":[
+      {"uuid":"96bdbd2f-4d08-4bb9-887b-f683406026a2","unit":"e4b4e284-0236-49b3-972b-dba52a9eb97a","shape":{"kind":"rect","start":{"x":-2540000,"y":-12700000},"end":{"x":0,"y":12700000}},"width":254000}
+    ]},
+    {"uuid":"aafad193-875a-4446-8c15-d7460c1c4e05","hash":"a9ef36afc4f5903da7438630b3dc4142","part":{"uuid":"2005fad2-b621-4a39-9292-e48e5832b969","name":"Header_1x06","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"595a0c81-2c35-4b8a-af0f-ea2a53b1f271"},"footprints":["4f868252-862f-4062-80cf-58ab93eefc03","6bd88354-9029-48cc-8d92-87a5fb58a81b"],"copies":["be906609-6d67-405a-8e73-f3ef5b051545","6f4aaaca-d1c8-4fa7-9e4d-50b724d0dca2"],"fields":{"value":"Header 1x6","description":"1 × 6 pin header, 2.54 or 1.27 mm pitch","keywords":"J connector pin header"},"pin_map":{},"symbol":{"uuid":"595a0c81-2c35-4b8a-af0f-ea2a53b1f271","name":"Conn_1x06","designator_prefix":"J","description":"Generic connector, 1 × 6 pins"},"units":[
+      {"uuid":"11a5ddab-965e-4f20-a712-c765d804101f","name":"A"}
+    ],"pins":[
+      {"uuid":"2d48f3c7-dbdb-457a-a96f-328cff77eed5","unit":"11a5ddab-965e-4f20-a712-c765d804101f","name":"Pin_4","number":"4","electrical_type":"passive","at":{"x":-5080000,"y":-1270000},"rotation":0,"length":2540000,"name_visible":false},
+      {"uuid":"76c1c382-89fe-465b-aace-646159cc3fda","unit":"11a5ddab-965e-4f20-a712-c765d804101f","name":"Pin_5","number":"5","electrical_type":"passive","at":{"x":-5080000,"y":-3810000},"rotation":0,"length":2540000,"name_visible":false},
+      {"uuid":"943b566d-80c6-43ff-bb8c-fdcad40afa41","unit":"11a5ddab-965e-4f20-a712-c765d804101f","name":"Pin_2","number":"2","electrical_type":"passive","at":{"x":-5080000,"y":3810000},"rotation":0,"length":2540000,"name_visible":false},
+      {"uuid":"97664d8d-4e36-4a35-922a-183a1932e1fc","unit":"11a5ddab-965e-4f20-a712-c765d804101f","name":"Pin_3","number":"3","electrical_type":"passive","at":{"x":-5080000,"y":1270000},"rotation":0,"length":2540000,"name_visible":false},
+      {"uuid":"dd1948ad-71bc-470d-b097-f20aade64bea","unit":"11a5ddab-965e-4f20-a712-c765d804101f","name":"Pin_1","number":"1","electrical_type":"passive","at":{"x":-5080000,"y":6350000},"rotation":0,"length":2540000,"name_visible":false},
+      {"uuid":"f1f6cca6-0d9b-4c0e-964a-84ff970ae272","unit":"11a5ddab-965e-4f20-a712-c765d804101f","name":"Pin_6","number":"6","electrical_type":"passive","at":{"x":-5080000,"y":-6350000},"rotation":0,"length":2540000,"name_visible":false}
+    ],"graphics":[
+      {"uuid":"d0f1bb70-5fac-4ad2-8041-fa7b93c32ea9","unit":"11a5ddab-965e-4f20-a712-c765d804101f","shape":{"kind":"rect","start":{"x":-2540000,"y":-7620000},"end":{"x":0,"y":7620000}},"width":254000}
+    ]},
+    {"uuid":"ae9237d9-da92-40d9-8324-1b0f450b0d94","hash":"f70a3ef8993c0914cf56c4eb285102f9","part":{"uuid":"9ccf3035-b2a3-4d9f-b5b2-ec9b34ec9995","name":"Header_1x08","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"e8c3bdb4-e23e-4fb9-b8cf-ba3138ef0a3e"},"footprints":["d8eb0edb-4a4b-45e0-a9f0-99e897f2aad1","41f13df0-2b3e-4232-8310-1bb42ee420ae"],"copies":["cde455e9-f828-46d1-b16a-8d44fd54522f","55a13176-05d2-4ae2-a301-86b10d063906"],"fields":{"value":"Header 1x8","description":"1 × 8 pin header, 2.54 or 1.27 mm pitch","keywords":"J connector pin header"},"pin_map":{},"symbol":{"uuid":"e8c3bdb4-e23e-4fb9-b8cf-ba3138ef0a3e","name":"Conn_1x08","designator_prefix":"J","description":"Generic connector, 1 × 8 pins"},"units":[
+      {"uuid":"a3a49e3e-0f88-45cc-8ef8-cc7969e7a4f3","name":"A"}
+    ],"pins":[
+      {"uuid":"3145c234-fcaf-42eb-abcd-04973ff565a8","unit":"a3a49e3e-0f88-45cc-8ef8-cc7969e7a4f3","name":"Pin_6","number":"6","electrical_type":"passive","at":{"x":-5080000,"y":-3810000},"rotation":0,"length":2540000,"name_visible":false},
+      {"uuid":"46fbac83-d5c3-4a48-a96e-f645595088c1","unit":"a3a49e3e-0f88-45cc-8ef8-cc7969e7a4f3","name":"Pin_7","number":"7","electrical_type":"passive","at":{"x":-5080000,"y":-6350000},"rotation":0,"length":2540000,"name_visible":false},
+      {"uuid":"844c1b02-a453-4cd9-ab19-cbe3f7aaa479","unit":"a3a49e3e-0f88-45cc-8ef8-cc7969e7a4f3","name":"Pin_8","number":"8","electrical_type":"passive","at":{"x":-5080000,"y":-8890000},"rotation":0,"length":2540000,"name_visible":false},
+      {"uuid":"96eac5de-cec1-428a-a559-45bca72b2575","unit":"a3a49e3e-0f88-45cc-8ef8-cc7969e7a4f3","name":"Pin_4","number":"4","electrical_type":"passive","at":{"x":-5080000,"y":1270000},"rotation":0,"length":2540000,"name_visible":false},
+      {"uuid":"ace71802-9644-4bbd-a2e3-00531f5d8537","unit":"a3a49e3e-0f88-45cc-8ef8-cc7969e7a4f3","name":"Pin_3","number":"3","electrical_type":"passive","at":{"x":-5080000,"y":3810000},"rotation":0,"length":2540000,"name_visible":false},
+      {"uuid":"addce464-6980-42ce-adcb-08962b47cefd","unit":"a3a49e3e-0f88-45cc-8ef8-cc7969e7a4f3","name":"Pin_1","number":"1","electrical_type":"passive","at":{"x":-5080000,"y":8890000},"rotation":0,"length":2540000,"name_visible":false},
+      {"uuid":"ccac3344-9f06-4bc2-99c5-85e99d9258bb","unit":"a3a49e3e-0f88-45cc-8ef8-cc7969e7a4f3","name":"Pin_5","number":"5","electrical_type":"passive","at":{"x":-5080000,"y":-1270000},"rotation":0,"length":2540000,"name_visible":false},
+      {"uuid":"e572d46c-e5fe-4a57-b22f-b6b40b28f0ef","unit":"a3a49e3e-0f88-45cc-8ef8-cc7969e7a4f3","name":"Pin_2","number":"2","electrical_type":"passive","at":{"x":-5080000,"y":6350000},"rotation":0,"length":2540000,"name_visible":false}
+    ],"graphics":[
+      {"uuid":"94bf785d-9d42-46db-ab90-c7f135553648","unit":"a3a49e3e-0f88-45cc-8ef8-cc7969e7a4f3","shape":{"kind":"rect","start":{"x":-2540000,"y":-10160000},"end":{"x":0,"y":10160000}},"width":254000}
+    ]}
+  ],
+  "footprint_copies": [
+    {"uuid":"101fb868-1cdb-4890-a0b1-d82d8f973ce8","hash":"3aa9def4c62e778f25fd750fa085a1fe","footprint":{"uuid":"5b59cdab-565f-4f43-8563-7b49605b64f5","name":"MountingHole_M3","description":"Mounting hole for M3, 3.2 mm, not plated. Hole per ISO 273 fine, head per ISO 4762","height":3000000},"pads":[
+      {"uuid":"4b5efa83-470e-4f52-b548-506a36d274ea","number":"","kind":"non_plated","shape":"circle","at":{"x":0,"y":0},"rotation":0,"width":3200000,"height":3200000,"hole":{"width":3200000,"height":3200000}}
+    ],"graphics":[
+      {"uuid":"5e771c7c-f442-40c2-a129-51230861d7ba","layer":"assembly_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2750000},"width":100000},
+      {"uuid":"6f0b6cfc-748f-4f24-9119-26bea6487e1a","layer":"courtyard_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":3250000},"width":50000},
+      {"uuid":"a380f050-8ebf-4e83-aa14-6c81b57e57d8","layer":"silkscreen_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":3070000},"width":150000}
+    ],"texts":[
+      {"uuid":"63e425a8-5232-4ae9-bbe4-7dc6f22e2aa0","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+      {"uuid":"732e356d-ae3f-4ac3-9110-707295538d10","field":"Value","at":{"x":0,"y":-3950000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+      {"uuid":"bb441b10-60ec-4428-ae40-879cae13aec1","field":"Designator","at":{"x":0,"y":4050000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
+    ]},
+    {"uuid":"385a041e-118e-446a-8463-ad5143837436","hash":"24e8567d94135cceb29dbf7413219315","footprint":{"uuid":"8266b905-dc11-4359-812a-69b8d546065a","name":"HDRV0W40P127R1L1270T127H400B","description":"Pin header, 1 × 10, 1.27 mm pitch","height":4000000},"pads":[
+      {"uuid":"1e04cb40-c3fe-4a20-b9a1-b05d7e7f6930","number":"7","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-1905000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"35143434-1440-415b-8fc0-525f381c70ed","number":"4","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":1905000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"361f0a1b-86ef-4980-a20f-8ea3d3be07dd","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":4445000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"417d668c-7691-42e2-ae62-9b87a6f652c2","number":"9","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-4445000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"93d00a21-ea15-4518-9166-08e42676a909","number":"3","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":3175000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"ac7e4ddb-498a-400c-ad9f-ec8276497bfb","number":"6","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-635000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"c72da14b-b841-4bf7-916e-d6fb4bf2a32f","number":"8","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-3175000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"e9dde969-3301-4272-b3f1-c5371244f238","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":0,"y":5715000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"f9b5f122-278d-46d0-bf50-5622695cdabf","number":"10","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-5715000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"fd0e5d7b-bfcc-4fee-a4da-324baf3fa25d","number":"5","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":635000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}}
+    ],"graphics":[
+      {"uuid":"1994a6e9-6c86-4f55-8ca1-c1d7fe46701e","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-760000,"y":-6475000},"end":{"x":760000,"y":-6475000}},"width":120000},
+      {"uuid":"42d0df7e-42cd-40e4-b59a-b29c17dcf879","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-317500,"y":6350000},{"x":635000,"y":6350000},{"x":635000,"y":-6350000},{"x":-635000,"y":-6350000},{"x":-635000,"y":6032500}]},"width":100000},
+      {"uuid":"63484ab7-d9d0-4e9e-86ac-f20e2e0d3789","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-760000,"y":6475000},"end":{"x":760000,"y":6475000}},"width":120000},
+      {"uuid":"b66ca836-d35b-40aa-b051-2252265b9191","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-900000,"y":-6600000},"end":{"x":900000,"y":6600000}},"width":50000},
+      {"uuid":"d962c81a-9b7b-4b89-9470-02f3a5bff3fd","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":760000,"y":-6475000},"end":{"x":760000,"y":6475000}},"width":120000},
+      {"uuid":"f796d246-1e8d-41eb-8dc4-b8c1bd73cfed","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-760000,"y":-6475000},"end":{"x":-760000,"y":6475000}},"width":120000}
+    ],"texts":[
+      {"uuid":"0f36d6ff-bdde-4d99-bb18-8ae20a6d6997","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":630000,"thickness":94500,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+      {"uuid":"692c1adb-8664-4588-b78b-a478b8607488","field":"Designator","at":{"x":0,"y":7300000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
+      {"uuid":"aeaab138-87bb-4fbe-8406-edc69d96bea9","field":"Value","at":{"x":0,"y":-7115000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":630000,"thickness":94500,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
+    ]},
+    {"uuid":"55a13176-05d2-4ae2-a301-86b10d063906","hash":"a6b13149db63fef22e1f3c868114b39f","footprint":{"uuid":"41f13df0-2b3e-4232-8310-1bb42ee420ae","name":"HDRV0W40P127R1L1016T127H400B","description":"Pin header, 1 × 8, 1.27 mm pitch","height":4000000},"pads":[
+      {"uuid":"344b8333-a374-4760-938f-3c65fffe0b22","number":"6","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-1905000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"56df6a02-a21b-4bb7-9165-14140097a2cb","number":"8","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-4445000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"70d99eef-60c3-48dc-b653-d051cc4174d9","number":"7","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-3175000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"9f639733-d90d-45e0-961e-0e90d3d18963","number":"3","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":1905000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"a391a0f9-22ce-4d58-91ce-4f43d6b44527","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":3175000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"b1946f6d-6df2-4b0c-ab8c-65ff45165e2c","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":0,"y":4445000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"b740866e-afb7-48b5-a054-639a454fe482","number":"5","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-635000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"b991682b-1777-4050-8c2a-14b358c64c9a","number":"4","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":635000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}}
+    ],"graphics":[
+      {"uuid":"0580864d-791e-4fa9-92f2-5ff34a354972","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":760000,"y":-5205000},"end":{"x":760000,"y":5205000}},"width":120000},
+      {"uuid":"2de2375c-b3fc-427a-b8cc-2a8304325440","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-760000,"y":-5205000},"end":{"x":760000,"y":-5205000}},"width":120000},
+      {"uuid":"45e2ad7f-9717-4b70-9f39-8e3e56835e79","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-900000,"y":-5350000},"end":{"x":900000,"y":5350000}},"width":50000},
+      {"uuid":"c0322dd5-fa6c-4933-9fb5-4db27126e049","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-760000,"y":5205000},"end":{"x":760000,"y":5205000}},"width":120000},
+      {"uuid":"e114137e-67e6-418a-b60c-48c6090e9a8c","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-760000,"y":-5205000},"end":{"x":-760000,"y":5205000}},"width":120000},
+      {"uuid":"e84276d6-5acc-42e5-9c87-c3732c7e183f","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-317500,"y":5080000},{"x":635000,"y":5080000},{"x":635000,"y":-5080000},{"x":-635000,"y":-5080000},{"x":-635000,"y":4762500}]},"width":100000}
+    ],"texts":[
+      {"uuid":"2c21ee5f-fd36-4f0d-9715-4fbb6b105eaf","field":"Designator","at":{"x":0,"y":6050000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
+      {"uuid":"94ea271a-65ec-4123-a285-b7d0eb0b8cbe","field":"Value","at":{"x":0,"y":-5865000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":630000,"thickness":94500,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+      {"uuid":"e12992b0-e9ec-488e-9e25-d9313b033156","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":630000,"thickness":94500,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
+    ]},
+    {"uuid":"6f4aaaca-d1c8-4fa7-9e4d-50b724d0dca2","hash":"2941b1f2ddb6c13083bdf2acea0bba55","footprint":{"uuid":"6bd88354-9029-48cc-8d92-87a5fb58a81b","name":"HDRV0W40P127R1L762T127H400B","description":"Pin header, 1 × 6, 1.27 mm pitch","height":4000000},"pads":[
+      {"uuid":"49324b4c-6c3b-4f69-b851-69da76a59741","number":"6","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-3175000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"5c37b105-6e5a-4524-8b49-038b3f1696cf","number":"5","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-1905000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"63bbc9e0-7e96-431e-a1ae-d40124d019a1","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":1905000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"80d8efa9-a4e7-4e64-af38-adf6140032ca","number":"3","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":635000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"c22c0caa-ce84-48a5-a0e8-c38feb218dce","number":"4","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-635000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
+      {"uuid":"f4799770-ed3f-46f6-9890-ce85fd93c092","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":0,"y":3175000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}}
+    ],"graphics":[
+      {"uuid":"45e8937c-44ac-484f-bd84-344f15bbee12","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-760000,"y":3935000},"end":{"x":760000,"y":3935000}},"width":120000},
+      {"uuid":"4e1299e5-a966-4681-a7ae-2b56e3ab3a26","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-900000,"y":-4100000},"end":{"x":900000,"y":4100000}},"width":50000},
+      {"uuid":"ca17fdf8-471f-4363-9b5f-c763073d4386","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":760000,"y":-3935000},"end":{"x":760000,"y":3935000}},"width":120000},
+      {"uuid":"d34511ed-8ab6-4941-8979-20a75995c552","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-760000,"y":-3935000},"end":{"x":-760000,"y":3935000}},"width":120000},
+      {"uuid":"f0b00e1f-1f15-4ea4-9a0b-9ac1d0d0b3eb","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-760000,"y":-3935000},"end":{"x":760000,"y":-3935000}},"width":120000},
+      {"uuid":"f178c4d8-4da1-4106-82ed-cee85d11c70d","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-317500,"y":3810000},{"x":635000,"y":3810000},{"x":635000,"y":-3810000},{"x":-635000,"y":-3810000},{"x":-635000,"y":3492500}]},"width":100000}
+    ],"texts":[
+      {"uuid":"21b100ef-2fb4-4611-9ed8-5a655bc11fd6","field":"Designator","at":{"x":0,"y":4800000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
+      {"uuid":"2874864c-9ccb-4f1d-84d4-cb892333f448","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":630000,"thickness":94500,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+      {"uuid":"c3fe16d7-68f4-4847-8a5a-6805885546ae","field":"Value","at":{"x":0,"y":-4615000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":630000,"thickness":94500,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
+    ]},
+    {"uuid":"be906609-6d67-405a-8e73-f3ef5b051545","hash":"f7337aa614e20eae41bd221a20e26ce3","footprint":{"uuid":"4f868252-862f-4062-80cf-58ab93eefc03","name":"HDRV0W64P254R1L1524T254H850B","description":"Pin header, 1 × 6, 2.54 mm pitch","height":8500000},"pads":[
+      {"uuid":"432f730f-c47d-4cae-b721-256c2a7186d3","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":0,"y":6350000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"5185aa3f-9e5a-43f6-bc6c-e316d1260c57","number":"3","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"b23b9162-2130-489a-a586-2148b7957e49","number":"6","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-6350000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"b712ab14-779b-4e60-9896-2cc00103041c","number":"5","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-3810000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"c0f4beb8-22c6-482a-81c9-4ee015e5394c","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":3810000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"de450b35-b6e9-47cb-b737-275db1a43a02","number":"4","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}}
+    ],"graphics":[
+      {"uuid":"10d97ddc-384e-4219-9740-63d61ec7ebfa","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1330000,"y":-7680000},"end":{"x":1330000,"y":-7680000}},"width":120000},
+      {"uuid":"15e8b517-f742-4d3a-8a4d-479917151dbc","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1330000,"y":-7680000},"end":{"x":-1330000,"y":7680000}},"width":120000},
+      {"uuid":"804e39a4-8322-419e-82ec-681ef08bed78","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1330000,"y":7680000},"end":{"x":1330000,"y":7680000}},"width":120000},
+      {"uuid":"8dd34ecd-fc5c-4538-97fb-4e6e17375ae8","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1550000,"y":-7900000},"end":{"x":1550000,"y":7900000}},"width":50000},
+      {"uuid":"9722c646-0478-43eb-9483-a113ecde3c0c","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":1330000,"y":-7680000},"end":{"x":1330000,"y":7680000}},"width":120000},
+      {"uuid":"bae914c2-e471-4472-b042-a860c27afbf9","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-635000,"y":7620000},{"x":1270000,"y":7620000},{"x":1270000,"y":-7620000},{"x":-1270000,"y":-7620000},{"x":-1270000,"y":6985000}]},"width":100000}
+    ],"texts":[
+      {"uuid":"9b6c023f-dfba-4fa4-b38e-88ff2c7a04ac","field":"Designator","at":{"x":0,"y":8600000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
+      {"uuid":"b140c141-e9c7-4ebe-84bc-b532f611bcb8","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+      {"uuid":"c3e7d941-d873-4a06-9c24-c13373c471b0","field":"Value","at":{"x":0,"y":-8600000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
+    ]},
+    {"uuid":"cb527915-6b92-47e6-ba7c-0c0faf88f31a","hash":"085f415abadc113163b7436dee339753","footprint":{"uuid":"9553b550-db0e-4ca1-8867-6ded2db7e327","name":"HDRV0W64P254R1L2540T254H850B","description":"Pin header, 1 × 10, 2.54 mm pitch","height":8500000},"pads":[
+      {"uuid":"4389d96f-779b-47c2-b5b8-a5c207f631b8","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":8890000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"5b82490f-eeb4-4f7d-96b0-7d4f34b5b35a","number":"9","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-8890000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"700155d8-932d-4852-b505-ce8e9f32b6d5","number":"6","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"72e369d8-a98e-4c5e-baad-fa27e9ff937d","number":"4","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":3810000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"a9bc8274-92f0-4129-bd4f-d9500c4fc025","number":"3","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":6350000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"b06f0990-7297-4e74-8335-b932f4e18dcc","number":"5","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"b2a41a37-f793-4531-9e46-64055bd12b9f","number":"8","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-6350000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"ec419d65-dc67-4434-80c0-e8c3689851ae","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":0,"y":11430000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"ec9e450b-fe9e-4f7a-a9c8-9e770d58f8ac","number":"7","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-3810000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"fbf654b4-621d-4ea4-aa88-f0d54ed25ce4","number":"10","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-11430000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}}
+    ],"graphics":[
+      {"uuid":"036b708b-725a-44f6-ad9c-f7aff50692fe","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1330000,"y":12760000},"end":{"x":1330000,"y":12760000}},"width":120000},
+      {"uuid":"3319e00a-a5fb-4486-b522-45de1951969a","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1330000,"y":-12760000},"end":{"x":1330000,"y":-12760000}},"width":120000},
+      {"uuid":"6d2341a4-1187-4e8b-8d9b-3b72e32d8537","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1330000,"y":-12760000},"end":{"x":-1330000,"y":12760000}},"width":120000},
+      {"uuid":"8a14c1d2-84fd-4073-bb66-5f0dd91a1f29","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-635000,"y":12700000},{"x":1270000,"y":12700000},{"x":1270000,"y":-12700000},{"x":-1270000,"y":-12700000},{"x":-1270000,"y":12065000}]},"width":100000},
+      {"uuid":"99fb91fe-7c12-4dce-af3f-7be573aa0736","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1550000,"y":-12950000},"end":{"x":1550000,"y":12950000}},"width":50000},
+      {"uuid":"ae0f299f-1ac4-4a4d-8919-7347b10c1c08","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":1330000,"y":-12760000},"end":{"x":1330000,"y":12760000}},"width":120000}
+    ],"texts":[
+      {"uuid":"0fd48de8-e879-40d7-a5db-fad6484c6b59","field":"Value","at":{"x":0,"y":-13650000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+      {"uuid":"3e85de8a-c1d5-4eeb-828f-2dea8f715701","field":"Designator","at":{"x":0,"y":13650000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
+      {"uuid":"b4d9d166-a8af-4d9f-a162-cbf3fd395329","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
+    ]},
+    {"uuid":"cde455e9-f828-46d1-b16a-8d44fd54522f","hash":"8c59b3cd862687b86db6cb2d48f11ae2","footprint":{"uuid":"d8eb0edb-4a4b-45e0-a9f0-99e897f2aad1","name":"HDRV0W64P254R1L2032T254H850B","description":"Pin header, 1 × 8, 2.54 mm pitch","height":8500000},"pads":[
+      {"uuid":"2f289199-b691-4ab9-b649-696b63ed3c5f","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":0,"y":8890000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"36df114f-4a60-4f97-a7a7-1d4589d7d69a","number":"6","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-3810000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"3b346688-2387-41f4-a59b-c0ef6ea8059a","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":6350000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"7975ec43-6b54-4c9d-b6da-1064783d0850","number":"3","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":3810000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"82293c90-5ea4-4985-97b5-1cc5fba51e51","number":"5","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"97306e80-e57b-4a9b-ae85-f3815909e240","number":"7","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-6350000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"ae85a369-2907-4df2-af1e-569b4525ecfc","number":"8","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-8890000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
+      {"uuid":"af2383e4-8550-4bbb-aa73-131054093324","number":"4","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}}
+    ],"graphics":[
+      {"uuid":"27757483-d268-459c-b1df-0194cbb32cdf","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1330000,"y":-10220000},"end":{"x":1330000,"y":-10220000}},"width":120000},
+      {"uuid":"67bb6e90-9e61-4124-b430-2601b2690438","layer":"assembly_top","shape":{"kind":"polygon","points":[{"x":-635000,"y":10160000},{"x":1270000,"y":10160000},{"x":1270000,"y":-10160000},{"x":-1270000,"y":-10160000},{"x":-1270000,"y":9525000}]},"width":100000},
+      {"uuid":"6b1b2501-5cdd-4cdc-95c5-320fb236d1c5","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":1330000,"y":-10220000},"end":{"x":1330000,"y":10220000}},"width":120000},
+      {"uuid":"880c75e3-2880-436b-b7b9-cb3f5e6184c5","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1330000,"y":10220000},"end":{"x":1330000,"y":10220000}},"width":120000},
+      {"uuid":"8ce8ec75-d980-43fd-96ae-d55056da97bd","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-1550000,"y":-10450000},"end":{"x":1550000,"y":10450000}},"width":50000},
+      {"uuid":"a6cf58d3-389b-4049-b997-826c4ec1f67c","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1330000,"y":-10220000},"end":{"x":-1330000,"y":10220000}},"width":120000}
+    ],"texts":[
+      {"uuid":"8b2a1f50-99e7-4225-9b0f-12bfc44ba7a9","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+      {"uuid":"cc94dd7d-ea95-4d4d-9596-91925957b96d","field":"Value","at":{"x":0,"y":-11150000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+      {"uuid":"f5c20972-6da9-40c0-ba7b-48a5338036a0","field":"Designator","at":{"x":0,"y":11150000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
+    ]}
+  ],
+  "connectors": [
+    {"uuid":"4027bbbb-6d43-460d-b6ff-51fb0c4b75b1","part":"18efcd66-4b29-4c10-825c-34ffac4925ca","footprint":"cb527915-6b92-47e6-ba7c-0c0faf88f31a","at":{"x":"30.226","y":"50.8"},"rotation":"270","side":"bottom","locked":true},
+    {"uuid":"9490f39e-4046-4c50-982a-9e973e63cdc9","part":"aafad193-875a-4446-8c15-d7460c1c4e05","footprint":"be906609-6d67-405a-8e73-f3ef5b051545","at":{"x":"57.15","y":"2.54"},"rotation":"90","side":"bottom","locked":true},
+    {"uuid":"9ba1918b-0106-4ace-95c5-1289c5b9f472","part":"ae9237d9-da92-40d9-8324-1b0f450b0d94","footprint":"cde455e9-f828-46d1-b16a-8d44fd54522f","at":{"x":"54.61","y":"50.8"},"rotation":"270","side":"bottom","locked":true},
+    {"uuid":"aba4ed76-cea6-4abe-bfcc-e81a39e3ce4c","part":"ae9237d9-da92-40d9-8324-1b0f450b0d94","footprint":"cde455e9-f828-46d1-b16a-8d44fd54522f","at":{"x":"36.83","y":"2.54"},"rotation":"90","side":"bottom","locked":true}
+  ],
+  "holes": [
+    {"uuid":"1a8c066b-e944-47fd-a41f-150ef7f61cff","part":"11ca5eaf-9b84-4184-9cdc-205eb443582c","footprint":"101fb868-1cdb-4890-a0b1-d82d8f973ce8","side":"top","at":{"x":"15.24","y":"50.8"},"locked":true},
+    {"uuid":"2d7b0b7e-40fb-40ab-bf8d-8cc972939bd7","part":"11ca5eaf-9b84-4184-9cdc-205eb443582c","footprint":"101fb868-1cdb-4890-a0b1-d82d8f973ce8","side":"top","at":{"x":"66.04","y":"35.56"},"locked":true},
+    {"uuid":"6f7af11d-4267-4f98-80c5-e295c1af7138","part":"11ca5eaf-9b84-4184-9cdc-205eb443582c","footprint":"101fb868-1cdb-4890-a0b1-d82d8f973ce8","side":"top","at":{"x":"13.97","y":"2.54"},"locked":true},
+    {"uuid":"cf3a6ae2-3a1c-4265-926b-999e1795afc9","part":"11ca5eaf-9b84-4184-9cdc-205eb443582c","footprint":"101fb868-1cdb-4890-a0b1-d82d8f973ce8","side":"top","at":{"x":"66.04","y":"7.62"},"locked":true}
+  ],
+  "drawing_groups": [
+    {"uuid":"f65b2b49-f88d-422f-b3e3-74e2180a675b","name":"Key dimensions","layer":"mechanical"}
+  ],
+  "drawings": [
+    {"uuid":"2753f92f-4f9b-4fc7-92d4-628af64f10de","group":"f65b2b49-f88d-422f-b3e3-74e2180a675b","kind":"dimension","rotation":"90","a":{"x":0,"y":0},"b":{"x":0,"y":"53.34"},"offset":"4","suffix":" mm","locked":true},
+    {"uuid":"29cd9d27-29db-4836-9bf2-aa6a6ef58c46","group":"f65b2b49-f88d-422f-b3e3-74e2180a675b","kind":"dimension","rotation":"90","a":{"follow":{"object":"aba4ed76-cea6-4abe-bfcc-e81a39e3ce4c"}},"b":{"follow":{"object":"9ba1918b-0106-4ace-95c5-1289c5b9f472"}},"offset":"-75","suffix":" mm","locked":true},
+    {"uuid":"43163db1-f3b7-47ef-8863-86883a72ad40","group":"f65b2b49-f88d-422f-b3e3-74e2180a675b","kind":"dimension","rotation":"0","a":{"x":0,"y":0},"b":{"x":"68.58","y":0},"offset":"-4","suffix":" mm","locked":true}
+  ]
+}

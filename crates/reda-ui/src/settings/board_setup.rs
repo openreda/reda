@@ -404,7 +404,8 @@ impl Page for NetClassesPage {
     }
 }
 
-/// The Stackup summary and the board’s Fab Notes.
+/// The Stackup summary, the finish with the edge connector's bevel and hard gold, and the
+/// board’s Fab Notes.
 pub struct StackupPage {
     view: View,
 }
@@ -417,7 +418,7 @@ impl StackupPage {
 
 impl Page for StackupPage {
     fn problems(&self) -> Vec<Problem> {
-        Vec::new()
+        self.view.board.borrow().edge_problems()
     }
 
     fn title(&self) -> String {

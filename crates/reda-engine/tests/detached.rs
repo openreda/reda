@@ -13,9 +13,10 @@ const JOB: &str = "00000000-0000-4000-8000-00000000002e";
 
 fn board(dir: &TempDir) -> TestEngine {
     let mut engine = probe_engine();
+    engine.run_ok("project.new", json!({"path": dir.path(), "name": "Demo"}));
     engine.run_ok(
-        "project.new",
-        json!({"path": dir.path(), "name": "Demo", "board": {"width": "30mm", "height": "20mm"}}),
+        "pcb.board_outline.add_rect",
+        json!({"width": "30mm", "height": "20mm"}),
     );
     engine
 }

@@ -140,3 +140,170 @@ fn copying_into_the_starter_library_or_from_nowhere_is_refused() {
     );
     assert_eq!(err.code, ErrorCode::NotFound, "{err:?}");
 }
+
+const PI_TEMPLATE: &str = "40f34815-ae6e-4549-bf0e-a54bb293ca59";
+
+fn template_names(engine: &mut TestEngine, library: &str) -> Vec<String> {
+    let out = engine.run_ok("library.board_template.list", json!({"library": library}));
+    assert_eq!(out["problems"], json!([]), "{out}");
+    let mut names: Vec<String> = (out["templates"].as_array().unwrap().iter())
+        .map(|t| t["name"].as_str().unwrap().to_owned())
+        .collect();
+    names.sort();
+    names
+}
+
+#[test]
+fn board_templates_copy_duplicate_and_delete_like_other_elements() {
+    let dir = TempDir::new("template-copy");
+    let (mut engine, mine) = engine(dir.path());
+    let name = "Add-on board for Raspberry Pi";
+
+    // Copy to Library… from the Starter Library.
+    let copied = engine.run_ok(
+        "library.element.copy",
+        json!({"element": PI_TEMPLATE, "library": mine}),
+    );
+    assert_eq!(copied["kind"], "board_template");
+    assert_eq!(copied["name"], name);
+    assert_ne!(copied["element"], PI_TEMPLATE);
+    assert_eq!(
+        Path::new(copied["path"].as_str().unwrap()),
+        dir.path()
+            .join(format!("mine/board-templates/{name}.redaboard"))
+    );
+    // Duplicate: a copy into its own Library takes the next free name.
+    let duplicate = engine.run_ok(
+        "library.element.copy",
+        json!({"element": copied["element"], "library": mine}),
+    );
+    assert_eq!(duplicate["name"], format!("{name}_1"));
+    assert_eq!(
+        template_names(&mut engine, &mine),
+        [name.to_owned(), format!("{name}_1")]
+    );
+    // The copy evaluates as the original does.
+    let preview = |engine: &mut TestEngine, element: &Value| {
+        let frame = engine.run_ok(
+            "library.board_template.preview",
+            json!({"element": element}),
+        );
+        frame["outline"].clone()
+    };
+    assert_eq!(
+        preview(&mut engine, &duplicate["element"]),
+        preview(&mut engine, &json!(PI_TEMPLATE))
+    );
+
+    // Delete removes the file; the Starter Library's can't be deleted.
+    let deleted = engine.run_ok(
+        "library.element.delete",
+        json!({"element": copied["element"]}),
+    );
+    assert_eq!(deleted["kind"], "board_template");
+    assert!(
+        !dir.path()
+            .join(format!("mine/board-templates/{name}.redaboard"))
+            .exists()
+    );
+    assert_eq!(template_names(&mut engine, &mine), [format!("{name}_1")]);
+    let err = engine.run_err("library.element.delete", json!({"element": PI_TEMPLATE}));
+    assert_eq!(err.code, ErrorCode::Rejected, "{err:?}");
+    assert!(err.message.contains("read-only"), "{err:?}");
+    let err = engine.run_err(
+        "library.element.delete",
+        json!({"element": copied["element"]}),
+    );
+    assert_eq!(err.code, ErrorCode::NotFound, "{err:?}");
+}
+
+#[test]
+fn delete_refuses_a_symbol_a_part_uses_and_an_element_open_in_its_editor() {
+    let dir = TempDir::new("element-delete");
+    let (mut engine, mine) = engine(dir.path());
+    let symbol = engine.run_ok(
+        "library.element.copy",
+        json!({"element": NPN_SYMBOL, "library": mine}),
+    );
+    let part = engine.run_ok(
+        "library.element.copy",
+        json!({"element": NPN, "library": mine}),
+    );
+    // The copied Part uses the Starter Symbol, not the copy; point it at the copy.
+    let opened = element(&mut engine, &part["element"]);
+    assert_eq!(opened["kind"], "part");
+    engine.run_ok(
+        "library.part.symbol.set",
+        json!({"part": part["element"], "symbol": symbol["element"]}),
+    );
+    engine.run_ok("library.element.save", json!({"element": part["element"]}));
+    let err = engine.run_err(
+        "library.element.delete",
+        json!({"element": symbol["element"]}),
+    );
+    assert_eq!(err.code, ErrorCode::Rejected, "{err:?}");
+    assert!(err.message.contains("used by NPN"), "{err:?}");
+    // The Part is open in its editor.
+    let err = engine.run_err(
+        "library.element.delete",
+        json!({"element": part["element"]}),
+    );
+    assert!(err.message.contains("open in its editor"), "{err:?}");
+    engine.run_ok("library.element.close", json!({"element": part["element"]}));
+    engine.run_ok(
+        "library.element.delete",
+        json!({"element": part["element"]}),
+    );
+    engine.run_ok(
+        "library.element.delete",
+        json!({"element": symbol["element"]}),
+    );
+    assert!(!dir.path().join("mine/symbols/NPN.redasym").exists());
+    assert!(!dir.path().join("mine/parts/NPN.redapart").exists());
+}
+
+#[test]
+fn library_element_new_refuses_a_board_template() {
+    let dir = TempDir::new("element-new-template");
+    let (mut engine, mine) = engine(dir.path());
+    let err = engine.run_err(
+        "library.element.new",
+        json!({"library": mine, "kind": "board_template", "name": "Mine"}),
+    );
+    assert_eq!(err.code, ErrorCode::InvalidParams, "{err:?}");
+}
+
+#[test]
+fn copying_into_a_read_only_library_folder_is_refused_for_every_kind() {
+    // One writability rule for save and copy: the Starter Library, and a folder the
+    // filesystem won't let us write.
+    let dir = TempDir::new("element-copy-read-only");
+    let (mut engine, mine) = engine(dir.path());
+    for (element, folder) in [(PI_TEMPLATE, "board-templates"), (NPN_SYMBOL, "symbols")] {
+        let folder = dir.path().join("mine").join(folder);
+        std::fs::create_dir_all(&folder).unwrap();
+        set_read_only(&folder, true);
+        let err = engine.run_err(
+            "library.element.copy",
+            json!({"element": element, "library": mine}),
+        );
+        set_read_only(&folder, false);
+        assert_eq!(err.code, ErrorCode::Rejected, "{err:?}");
+        assert!(err.message.contains("read-only"), "{err:?}");
+        assert_eq!(std::fs::read_dir(&folder).unwrap().count(), 0);
+    }
+}
+
+#[test]
+fn a_board_template_does_not_open_in_an_element_editor() {
+    let dir = TempDir::new("element-open-template");
+    let (mut engine, _) = engine(dir.path());
+    let err = engine.run_err("library.element.open", json!({"element": PI_TEMPLATE}));
+    assert_ne!(err.code, ErrorCode::Internal, "{err:?}");
+}
+
+fn set_read_only(folder: &Path, on: bool) {
+    let mut permissions = std::fs::metadata(folder).unwrap().permissions();
+    permissions.set_readonly(on);
+    std::fs::set_permissions(folder, permissions).unwrap();
+}
