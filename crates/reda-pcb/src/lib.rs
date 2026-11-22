@@ -24,6 +24,7 @@ pub mod lock;
 pub mod net_info;
 pub mod place;
 pub mod placed;
+pub mod plated;
 pub mod route;
 pub mod rules;
 pub mod select;

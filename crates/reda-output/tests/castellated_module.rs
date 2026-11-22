@@ -53,8 +53,7 @@ fn the_castellated_module_fab_files_read_back_as_its_plated_edges_and_castellati
         .collect();
     draws.sort();
     let xy = |p: reda_model::geom::Point| (p.x.0, p.y.0);
-    let mut marked: Vec<_> = pcb
-        .plated_edges()
+    let mut marked: Vec<_> = reda_pcb::plated::board_edges(pcb)
         .iter()
         .map(|e| (xy(e.from), xy(e.to)))
         .collect();
@@ -63,7 +62,7 @@ fn the_castellated_module_fab_files_read_back_as_its_plated_edges_and_castellati
     // The bottom edge and the chamfer it meets, both on GND.
     assert_eq!(marked.len(), 2);
     let gnd = pcb.nets().find(|n| n.name == "GND").unwrap().uuid;
-    assert!(pcb.plated_edges().iter().all(|e| e.net == Some(gnd)));
+    assert!(reda_pcb::plated::board_edges(pcb).iter().all(|e| e.net == Some(gnd)));
     // Castellated Pads on two edges: the left (x = 0) and the top (y = 15 mm).
     let castellated: Vec<_> = pcb.free_pads().filter(|p| p.castellated).collect();
     assert!(castellated.iter().any(|p| p.at.x.0 == 0));

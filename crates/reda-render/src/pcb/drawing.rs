@@ -135,20 +135,26 @@ pub(super) fn outline(b: &mut Builder) {
         return;
     };
     let pcb = b.pcb;
-    let contours = pcb
+    let contours: Vec<_> = pcb
         .outline()
-        .map(|o| (o.uuid, &o.vertices))
+        .map(|o| (o.uuid, &o.vertices, &o.plated))
         .into_iter()
-        .chain(pcb.cutouts().map(|c| (c.uuid, &c.vertices)));
-    for (object, vertices) in contours {
+        .chain(pcb.cutouts().map(|c| (c.uuid, &c.vertices, &c.plated)))
+        .collect();
+    for (object, vertices, _) in &contours {
         let points = arc::contour(vertices);
-        b.polyline(object, layer, &points, OUTLINE_WIDTH, true);
+        b.polyline(*object, layer, &points, OUTLINE_WIDTH, true);
     }
-    // A Plated Edge is drawn thicker, in the top copper Layer's colour.
+    // A Plated Edge (the edge leaving a marked vertex) is drawn thicker, in the top
+    // copper Layer's colour.
     if let Some(top) = b.find(LayerKind::Copper, Some(Side::Top)) {
-        for edge in pcb.plated_edges() {
-            let points = arc::through(edge.from, edge.to, edge.sweep);
-            b.polyline(edge.contour, top, &points, PLATED_EDGE_WIDTH, false);
+        for (object, vertices, marks) in contours {
+            let n = vertices.len();
+            for &i in marks.keys().filter(|&&i| i < n) {
+                let (from, to) = (vertices[i], vertices[(i + 1) % n]);
+                let points = arc::through(from.point(), to.point(), from.sweep);
+                b.polyline(object, top, &points, PLATED_EDGE_WIDTH, false);
+            }
         }
     }
     if let Some(origin) = pcb.output_origin() {

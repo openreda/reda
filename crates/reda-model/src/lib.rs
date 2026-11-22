@@ -74,7 +74,7 @@ pub use pcb::{
     HERSHEY_FONT, HoleRuleValues, Hotspot, HotspotRef, InDocument, Keepout, KeepoutRecord,
     KeepoutShape, KeepoutShapeKind, Layer, LayerGroup, LayerKind, LayerSet, LayerSpan,
     NOTO_SANS_FONT, Net, NetClass, OutputOrigin, PadNet, PadRef, PcbDocument, PcbGraphic, PcbText,
-    PlatedEdge, PlatedEdgeRef, PlatedEdges, PortableClass, PortableLayers, PortableRule,
+    PlatedEdge, PlatedEdges, PortableClass, PortableLayers, PortableRule,
     PortableSpan, PourOver, ResolvedEntry, Restriction, RuleField, RuleKind, RuleLayers, RuleScope,
     RuleSet, RuleValue, RuleValues, Side, SilkMaskMode, Stackup, StackupEntry, StackupInfo,
     StackupSeeds, StackupTotals, TeardropField, TeardropFill, TeardropKind, TeardropLocation,

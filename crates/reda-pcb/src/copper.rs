@@ -739,13 +739,7 @@ impl Copper {
     /// The Plated Edges of the Board Outline or Board Cutout `contour`, each a line of no
     /// width along the edge (arcs as chords) on every copper Layer.
     fn add_plated_edges(&mut self, pcb: &PcbDocument, contour: Uuid) {
-        let edges = match pcb.outline().filter(|o| o.uuid == contour) {
-            Some(outline) => outline.plated_edges(),
-            None => match pcb.cutout(contour) {
-                Some(cutout) => cutout.plated_edges(),
-                None => return,
-            },
-        };
+        let edges = crate::plated::contour_edges(pcb, contour);
         let layers: Vec<Uuid> = pcb.copper_layers().map(|l| l.uuid).collect();
         for edge in edges {
             let shape = shape::plated_edge_shape(&edge);

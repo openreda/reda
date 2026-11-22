@@ -3,7 +3,9 @@
 //! copper of its Net touches on the outer Layers.
 
 use reda_model::geom::{Millideg, Nm, Point, arc_centre};
-use reda_model::{DrcCheck, PadRole, PlatedEdgeRef};
+use reda_model::{DrcCheck, PadRole};
+
+use crate::plated::{PlatedEdgeRef, board_edges, edges_of};
 
 use super::{Board, Report};
 use crate::copper::Item;
@@ -18,7 +20,7 @@ pub(super) fn check(board: &Board<'_>, report: &mut Report) {
 /// One error per Edge Connector Pad and Plated Edge its copper touches, at the contact,
 /// naming the Footprint instance, the Pad and the contour.
 fn edge_connector_on_plating(board: &Board<'_>, report: &mut Report) {
-    if report.is_off(DrcCheck::EdgeConnectorOnPlatedEdge) || board.pcb.plated_edges().is_empty() {
+    if report.is_off(DrcCheck::EdgeConnectorOnPlatedEdge) || board_edges(&board.pcb).is_empty() {
         return;
     }
     let pcb = board.pcb;
@@ -87,7 +89,7 @@ fn unconnected(board: &Board<'_>, report: &mut Report) {
                     .any(|other| !other.is_plated_edge() && copper.net(other) == Some(net))
         })
     };
-    for edge in pcb.plated_edges() {
+    for edge in board_edges(pcb) {
         let Some(net) = edge.net else {
             continue;
         };
@@ -141,7 +143,7 @@ fn middle(edge: &PlatedEdgeRef) -> Point {
 /// One warning per Plated Edge with no Net, at its middle.
 fn without_net(board: &Board<'_>, report: &mut Report) {
     let copper_layers: Vec<_> = board.pcb.copper_layers().map(|l| l.uuid).collect();
-    for edge in board.pcb.plated_edges() {
+    for edge in board_edges(&board.pcb) {
         if edge.net.is_some() {
             continue;
         }
@@ -157,10 +159,10 @@ fn without_net(board: &Board<'_>, report: &mut Report) {
 /// The Plated Edges of each contour, in vertex order, with the contour's vertex count.
 fn by_contour(board: &Board<'_>) -> Vec<(usize, Vec<PlatedEdgeRef>)> {
     let pcb = board.pcb;
-    let outline = pcb.outline().map(|o| (o.vertices.len(), o.plated_edges()));
+    let outline = pcb.outline().map(|o| (o.vertices.len(), edges_of(o.uuid, &o.vertices, &o.plated)));
     outline
         .into_iter()
-        .chain(pcb.cutouts().map(|c| (c.vertices.len(), c.plated_edges())))
+        .chain(pcb.cutouts().map(|c| (c.vertices.len(), edges_of(c.uuid, &c.vertices, &c.plated))))
         .filter(|(_, edges)| !edges.is_empty())
         .collect()
 }

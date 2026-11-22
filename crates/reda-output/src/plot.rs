@@ -279,7 +279,7 @@ pub fn gerber_files(plot: &Plot<'_>) -> Result<Gerbers, GerberError> {
     let plated = plot
         .instances
         .iter()
-        .any(|i| !i.pcb.plated_edges().is_empty());
+        .any(|i| !reda_pcb::plated::board_edges(&i.pcb).is_empty());
     let profile_function = if plated { "Profile,P" } else { "Profile,NP" };
     let rendered = render(plot, profile_function.into(), "Positive", profile);
     add(
@@ -700,7 +700,7 @@ fn pad_template(pad: &PlacedPad) -> (Template, Point) {
 /// Only the Plated Edges, each drawn as a line or arc along its contour with the Profile's
 /// pen.
 fn plated_edges(plot: &BoardPlot<'_>, g: &mut Gerber) {
-    for edge in plot.pcb.plated_edges() {
+    for edge in reda_pcb::plated::board_edges(&plot.pcb) {
         g.draw(
             PROFILE_PEN,
             "Other,Plated edge",

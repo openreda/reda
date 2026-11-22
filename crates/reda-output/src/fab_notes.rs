@@ -171,7 +171,7 @@ pub(crate) fn hard_gold_area(pcb: &PcbDocument) -> f64 {
 /// drawn, or "whole outline" when every edge of the Board Outline is plated, and the Nets
 /// the plating carries.
 fn edge_plating(pcb: &PcbDocument, files: &[OutputFile]) -> Option<String> {
-    let edges = pcb.plated_edges();
+    let edges = reda_pcb::plated::board_edges(&pcb);
     if edges.is_empty() {
         return None;
     }
