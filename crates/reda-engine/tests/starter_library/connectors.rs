@@ -19,13 +19,18 @@ const TEMPLATE_SIZES: [(usize, usize, bool, bool); 5] = [
     (2, 20, true, true),
 ];
 
+/// The template sizes that also get a bottom-mount Footprint, (rows, pins per row,
+/// socket): the Mega's XIO header and the Pi's socket, which the templates fit on the
+/// bottom.
+const BOTTOM_MOUNT: [(usize, usize, bool); 2] = [(2, 18, false), (2, 20, true)];
+
 pub fn build(s: &mut Script) {
     for rows in [1, 2] {
         let sizes: &[usize] = if rows == 1 { &SINGLE } else { &DOUBLE };
         for &count in sizes {
             let sym = connector_symbol(s, rows, count);
             for socket in [false, true] {
-                header(s, &sym, rows, count, socket);
+                header(s, &sym, rows, count, socket, false);
             }
         }
     }
@@ -33,7 +38,8 @@ pub fn build(s: &mut Script) {
         let sym = connector_symbol(s, rows, count);
         let kinds = [(false, pins), (true, socket)];
         for (is_socket, _) in kinds.into_iter().filter(|(_, made)| *made) {
-            header(s, &sym, rows, count, is_socket);
+            let bottom_mount = BOTTOM_MOUNT.contains(&(rows, count, is_socket));
+            header(s, &sym, rows, count, is_socket, bottom_mount);
         }
     }
     screw_terminals(s);
@@ -200,20 +206,35 @@ fn connector_symbol(s: &mut Script, rows: usize, count: usize) -> String {
     s.finish_symbol(sym)
 }
 
-fn header(s: &mut Script, sym: &str, rows: usize, count: usize, socket: bool) {
-    let footprints: Vec<String> = ["2.54", "1.27"]
-        .iter()
-        .map(|pitch| {
-            s.generate(
-                "header",
-                json!({"rows": rows, "pins_per_row": count, "pitch": pitch, "socket": socket}),
-            )
+/// A header or socket Part with a 2.54 and a 1.27 mm Footprint, and with `bottom_mount` a
+/// third: the 2.54 mm one mirror-numbered, for fitting the part on the bottom side.
+fn header(s: &mut Script, sym: &str, rows: usize, count: usize, socket: bool, bottom_mount: bool) {
+    let mut variants = vec![("2.54", false), ("1.27", false)];
+    if bottom_mount {
+        variants.push(("2.54", true));
+    }
+    let footprints: Vec<String> = variants
+        .into_iter()
+        .map(|(pitch, mirrored)| {
+            let mut params =
+                json!({"rows": rows, "pins_per_row": count, "pitch": pitch, "socket": socket});
+            if mirrored {
+                params["mirrored"] = json!(true);
+            }
+            s.generate("header", params)
         })
         .collect();
     let kind = if socket { "Socket" } else { "Header" };
     let name = format!("{kind}_{rows}x{count:02}");
     let noun = if socket { "socket" } else { "pin header" };
-    let description = format!("{rows} × {count} {noun}, 2.54 or 1.27 mm pitch");
+    let description = if bottom_mount {
+        format!(
+            "{rows} × {count} {noun}, 2.54 or 1.27 mm pitch, or 2.54 mm mirror-numbered \
+             for the bottom side"
+        )
+    } else {
+        format!("{rows} × {count} {noun}, 2.54 or 1.27 mm pitch")
+    };
     s.part(PartSpec {
         name: &name,
         symbol: Some(sym),

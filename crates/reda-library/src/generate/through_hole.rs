@@ -323,6 +323,11 @@ pub struct HeaderParams {
     /// Chamfer the Assembly outline's corner at pin 1. On by default.
     #[serde(default = "super::sections::yes")]
     pub chamfer: bool,
+    /// Mirror-numbered, for a header fitted on the bottom side: pin 1 at the upper right
+    /// and the rows swapped, so that the Footprint, mirrored onto the bottom, puts each
+    /// Pad where the standard Footprint puts it on top. The name ends in `_Mirrored`.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub mirrored: bool,
     #[serde(default)]
     pub tolerances: ThTolerancesParams,
     #[serde(default)]
@@ -372,11 +377,13 @@ impl FootprintFamily for Header {
         let silk = finish.silkscreen_width;
         let (hole, diameter) = p.pitch.post().hole_and_pad(pitch, &p.pads)?;
         let (rows, count) = (p.rows as i64, p.pins_per_row as i64);
-        // Pins count across the rows first: 1 and 2 side by side at the top.
+        // Pins count across the rows first: 1 and 2 side by side at the top, 1 on the left,
+        // or on the right when mirror-numbered.
+        let side = if p.mirrored { -1 } else { 1 };
         let mut pad_specs = vec![];
         for i in 0..count {
             for r in 0..rows {
-                let x = (2 * r - (rows - 1)) * pitch.0 / 2;
+                let x = side * (2 * r - (rows - 1)) * pitch.0 / 2;
                 let y = ((count - 1) - 2 * i) * pitch.0 / 2;
                 let number = (i * rows + r + 1) as usize;
                 pad_specs.push(spec(number, Point::new(Nm(x), Nm(y)), diameter, hole));
@@ -402,9 +409,14 @@ impl FootprintFamily for Header {
             ("HDRV", "Pin header")
         };
         let excess = courtyard_excess(&p.tolerances)?;
+        let (suffix, note) = if p.mirrored {
+            ("_Mirrored", ", mirror-numbered for the bottom side")
+        } else {
+            ("", "")
+        };
         let mut plan = FootprintPlan {
             name: format!(
-                "{prefix}{}W{}P{}R{rows}L{}T{}H{}B",
+                "{prefix}{}W{}P{}R{rows}L{}T{}H{}B{suffix}",
                 hundredths(Nm((rows - 1) * pitch.0)),
                 hundredths(p.pitch.post().width.nominal()),
                 hundredths(pitch),
@@ -413,7 +425,7 @@ impl FootprintFamily for Header {
                 hundredths(p.pitch.height())
             ),
             description: format!(
-                "{noun}, {rows} × {count}, {} mm pitch",
+                "{noun}, {rows} × {count}, {} mm pitch{note}",
                 pitch.0 as f64 / 1e6
             ),
             pad_specs,

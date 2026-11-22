@@ -572,7 +572,7 @@ fn pin_numbers(e: &mut reda_testkit::TestEngine, symbol: &Value) -> Vec<String> 
 }
 
 #[test]
-fn the_board_template_headers_and_sockets_exist_in_both_pitches() {
+fn the_board_template_headers_and_sockets_exist_in_both_pitches_and_the_bottom_ones_mirrored() {
     let parts = parts();
     let mut e = test_engine_with_library(&starter());
     let dir = TempDir::new("starter-template-headers");
@@ -589,7 +589,32 @@ fn the_board_template_headers_and_sockets_exist_in_both_pitches() {
         let part = &parts[name];
         assert_eq!(part["component_type"], "standard", "{name}");
         let footprints = footprint_names(&mut e, part);
-        assert_eq!(footprints.len(), 2, "{name}: {footprints:?}");
+        let bottom_mount = ["Socket_2x20", "Header_2x18"].contains(&name);
+        let expected = if bottom_mount { 3 } else { 2 };
+        assert_eq!(footprints.len(), expected, "{name}: {footprints:?}");
+        if bottom_mount {
+            // The third is the 2.54 mm one mirror-numbered: flipped onto the bottom, each
+            // Pad lands on the standard Footprint's Pad of the same number.
+            assert_eq!(footprints[2], format!("{}_Mirrored", footprints[0]));
+            let pads = |name: &str, sign: i64| {
+                let mut pads: Vec<(String, i64, i64)> = footprint_file(name)["pads"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|p| {
+                        (
+                            p["number"].as_str().unwrap().to_owned(),
+                            sign * p["at"]["x"].as_i64().unwrap(),
+                            p["at"]["y"].as_i64().unwrap(),
+                        )
+                    })
+                    .collect();
+                pads.sort();
+                pads
+            };
+            assert_eq!(pads(&footprints[2], -1), pads(&footprints[0], 1), "{name}");
+            assert_ne!(pads(&footprints[2], 1), pads(&footprints[0], 1), "{name}");
+        }
         let prefix = if name.starts_with("Socket") {
             "SKTV"
         } else {
