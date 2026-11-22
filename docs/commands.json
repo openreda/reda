@@ -8106,7 +8106,7 @@
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "description": "One evaluated Board Template.",
+        "description": "A Frame: one Board Template evaluated for one set of choices and lengths.",
         "properties": {
           "board": {
             "anyOf": [
@@ -8178,7 +8178,7 @@
             "additionalProperties": {
               "$ref": "#/$defs/ResolvedValue"
             },
-            "description": "Every parameter's value, defaults filled in. A parameter hidden by its `when`\ntakes its default.",
+            "description": "Every shown parameter's value, defaults filled in. A parameter hidden by its\n`when` has no value here.",
             "type": "object"
           }
         },

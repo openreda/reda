@@ -24,14 +24,14 @@ pub enum ResolvedValue {
     Length(Nm),
 }
 
-/// One evaluated Board Template.
+/// A Frame: one Board Template evaluated for one set of choices and lengths.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, JsonSchema)]
 pub struct Frame {
     /// The template's Library element UUID.
     pub element: Uuid,
     pub name: String,
-    /// Every parameter's value, defaults filled in. A parameter hidden by its `when`
-    /// takes its default.
+    /// Every shown parameter's value, defaults filled in. A parameter hidden by its
+    /// `when` has no value here.
     pub values: BTreeMap<String, ResolvedValue>,
     /// The copper Layer count the template suggests at these values.
     pub suggested_layers: u8,
