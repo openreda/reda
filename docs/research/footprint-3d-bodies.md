@@ -107,8 +107,7 @@ The writer emits `(model "file" [hide] [(opacity n)] (offset (xyz …)) (scale (
 
 **Missing files.** In the dialog, "an icon in the leftmost column will indicate an error". In the viewer, "The 3D model for a component will only appear if the 3D model file exists". A missing file is expected in the standard library: footprints "may contain a path to a 3D model that does not yet exist, in anticipation of the 3D model being created in the future."
 ([inspecting documentation source, 9.0](https://gitlab.com/kicad/services/kicad-doc/-/blob/9.0/src/pcbnew/pcbnew_inspecting.adoc))
-The 10.0 viewer has a Show Model Bounding Boxes preference.
-([inspecting documentation source, 10.0](https://gitlab.com/kicad/services/kicad-doc/-/blob/10.0/src/pcbnew/pcbnew_inspecting.adoc))
+The viewer has a Show Model Bounding Boxes preference (same source; also present in the 10.0 documentation).
 
 **Library conventions.** The KiCad Library Conventions require:
 
