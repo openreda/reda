@@ -171,7 +171,7 @@ fn variants() {
                 (s.cam.yaw, s.cam.pitch) = Preset::Top.angles();
                 s.measure.on = true;
                 s.measure.a = Some([-8.0, -4.0, 0.8]);
-                s.measure.b = Some([9.0, 5.0, 0.8]);
+                s.measure.b = Some([9.0, 5.0, 2.0]);
             })
         }),
     ];

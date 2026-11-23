@@ -452,7 +452,7 @@ pub fn show(ui: &mut egui::Ui, shell: &mut Shell, document: Uuid) {
             0 => variant_a::navigate(ui, s, &cx),
             1 => variant_b::navigate(ui, s, &cx),
             2 => variant_c::navigate(ui, s, &cx),
-            _ => variant_a::navigate(ui, s, &cx),
+            _ => variant_d::navigate(ui, s, &cx),
         }
     }
     let cut_x = if s.cut >= 0.999 {

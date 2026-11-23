@@ -5,8 +5,10 @@
 //! switch sits at the canvas's top left in both modes. A "3D" chip takes the place the
 //! active Layer's chip has in 2D, and opens a menu holding what B had in its Show card
 //! and its toolbar: a switch and an opacity for each kind of thing, the solder mask, the
-//! projection, the views and Measure. B's view cube sits under the chip. Nothing is at
-//! the bottom.
+//! projection, the views and Measure. Nothing is at the bottom.
+//!
+//! After the second reaction: an axis gizmo, as 3D tools have, in place of B's cube; a
+//! left drag turns the board; and the measurement adds its X, Y and Z parts.
 
 use egui::{Align2, Order, vec2};
 
@@ -21,6 +23,143 @@ const INSET: f32 = 8.0;
 
 pub fn defaults(s: &mut State) {
     super::variant_a::defaults(s);
+}
+
+/// The 2D mouse (wheel zooms at the pointer, a right or middle drag pans, Shift turns
+/// that drag), and since nothing is edited here a left drag turns the board too.
+pub fn navigate(ui: &egui::Ui, s: &mut State, cx: &Cx<'_>) {
+    super::variant_a::navigate(ui, s, cx);
+    if cx.response.dragged_by(egui::PointerButton::Primary) {
+        let d = cx.response.drag_delta();
+        s.cam.orbit(-d.x * 0.008, d.y * 0.008, None);
+    }
+}
+
+/// The orientation gizmo, under the chip: the board's three axes as the view sees them,
+/// as 3D tools draw theirs. A click on an end looks along that axis; a drag on the gizmo
+/// turns the board.
+fn gizmo(ui: &egui::Ui, s: &mut State, cx: &Cx<'_>) -> Option<Preset> {
+    use super::camera::dot;
+    let center = cx.rect.right_top() + vec2(-58.0, 104.0);
+    let reach = 34.0;
+    let area = egui::Rect::from_center_size(center, vec2(100.0, 100.0));
+    let id = egui::Id::unique("proto-3d-gizmo");
+    let response = ui.interact(area, id, egui::Sense::click_and_drag());
+    if response.dragged() {
+        let d = response.drag_delta();
+        s.cam.orbit(-d.x * 0.02, d.y * 0.02, None);
+    }
+    let painter = ui.painter_at(cx.rect);
+    let visuals = ui.visuals();
+    if response.hovered() || response.dragged() {
+        painter.circle_filled(center, 50.0, visuals.window_fill.gamma_multiply(0.6));
+    }
+    let (right, up, fwd) = s.cam.basis();
+    // theme-exempt: the axis colours 3D tools share.
+    let (red, green, blue) = (
+        egui::Color32::from_rgb(0xe2, 0x4b, 0x4a),
+        egui::Color32::from_rgb(0x5f, 0xb0, 0x3c),
+        egui::Color32::from_rgb(0x3d, 0x85, 0xe0),
+    );
+    let mut ends = [
+        ([1.0, 0.0, 0.0], "X", red, true, Preset::Right),
+        ([-1.0, 0.0, 0.0], "X", red, false, Preset::Left),
+        ([0.0, 1.0, 0.0], "Y", green, true, Preset::Back),
+        ([0.0, -1.0, 0.0], "Y", green, false, Preset::Front),
+        ([0.0, 0.0, 1.0], "Z", blue, true, Preset::Top),
+        ([0.0, 0.0, -1.0], "Z", blue, false, Preset::Bottom),
+    ];
+    // Far ends first, so near ones draw over them.
+    ends.sort_by(|a, b| dot(b.0, fwd).total_cmp(&dot(a.0, fwd)));
+    let pointer = response.hover_pos();
+    let mut clicked = None;
+    for (axis, letter, color, positive, preset) in ends {
+        let at = center + vec2(dot(axis, right), -dot(axis, up)) * reach;
+        let near = 1.0 - 0.35 * (dot(axis, fwd) + 1.0) / 2.0;
+        let color = color.gamma_multiply(near);
+        let radius = if positive { 9.0 } else { 6.5 };
+        let hot = pointer.is_some_and(|p| p.distance(at) <= radius + 2.0);
+        if positive {
+            painter.line_segment([center, at], egui::Stroke::new(2.0, color));
+            painter.circle_filled(at, radius, color);
+        } else {
+            painter.circle_filled(at, radius, visuals.window_fill);
+            painter.circle_stroke(at, radius, egui::Stroke::new(1.5, color));
+        }
+        if hot {
+            painter.circle_stroke(
+                at,
+                radius + 2.0,
+                egui::Stroke::new(1.5, visuals.strong_text_color()),
+            );
+        }
+        if positive || hot {
+            let ink = if positive {
+                egui::Color32::BLACK
+            } else {
+                visuals.text_color()
+            };
+            let text = if positive {
+                letter.to_owned()
+            } else {
+                format!("-{letter}")
+            };
+            let font = egui::FontId::proportional(if positive { 11.0 } else { 9.0 });
+            painter.text(at, Align2::CENTER_CENTER, text, font, ink);
+        }
+        if hot && response.clicked() {
+            clicked = Some(preset);
+        }
+    }
+    clicked
+}
+
+/// The measurement: the span on the board, its length, and under it how far apart the
+/// ends are along the board's X and Y and in height.
+fn measure(ui: &egui::Ui, s: &State, cx: &Cx<'_>) {
+    let painter = ui.painter_at(cx.rect);
+    let ink = ui.visuals().strong_text_color();
+    let Some((a, b, _)) = super::span(s) else {
+        if let Some(p) = s.measure.hover.and_then(|h| s.cam.project(cx.rect, h)) {
+            painter.circle_stroke(p, 4.0, egui::Stroke::new(1.5, ink));
+        }
+        return;
+    };
+    let (Some(pa), Some(pb)) = (s.cam.project(cx.rect, a), s.cam.project(cx.rect, b)) else {
+        return;
+    };
+    painter.line_segment([pa, pb], egui::Stroke::new(1.5, ink));
+    for p in [pa, pb] {
+        painter.circle_filled(p, 3.0, ink);
+    }
+    let big = painter.layout_no_wrap(
+        super::mm(super::distance(a, b)),
+        egui::FontId::proportional(14.0),
+        ink,
+    );
+    let d = [0, 1, 2].map(|k| (b[k] - a[k]).abs());
+    let parts = format!("X {:.3}   Y {:.3}   Z {:.3}", d[0], d[1], d[2]);
+    let small = painter.layout_no_wrap(
+        parts,
+        egui::FontId::monospace(10.5),
+        ui.visuals().text_color(),
+    );
+    let size = vec2(
+        big.size().x.max(small.size().x),
+        big.size().y + small.size().y + 2.0,
+    );
+    let back = egui::Rect::from_center_size(pa + (pb - pa) / 2.0, size + vec2(14.0, 10.0));
+    painter.rect_filled(back, 5.0, ui.visuals().window_fill);
+    painter.rect_stroke(
+        back,
+        5.0,
+        ui.visuals().window_stroke,
+        egui::StrokeKind::Inside,
+    );
+    let top = back.min + vec2(7.0, 5.0);
+    let below = top + vec2(0.0, big.size().y + 2.0);
+    painter.galley(top, big, ink);
+    painter.galley(below, small, ink);
 }
 
 /// The 2D | 3D switch at the canvas's top left, clear of the Active Bar. Returns whether
@@ -118,10 +257,9 @@ pub fn chrome(ui: &egui::Ui, s: &mut State, cx: &Cx<'_>) -> Vec<Action> {
             });
         });
 
-    // The orientation cube, under the chip.
-    if let Some(preset) = super::variant_b::view_cube(ui, s, cx, vec2(-66.0, 118.0)) {
+    if let Some(preset) = gizmo(ui, s, cx) {
         actions.push(Action::View(preset));
     }
-    super::variant_a::measure(ui, s, cx);
+    measure(ui, s, cx);
     actions
 }

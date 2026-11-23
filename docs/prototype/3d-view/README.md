@@ -50,8 +50,13 @@ and out, 2D mouse and material colours, with:
 - a "3D view" chip where the active Layer's chip sits in 2D, opening a menu that holds a
   switch and an opacity for Bodies, Silkscreen, Copper and Board, the Solder mask switch,
   the projection, the views with their keys, Measure and Back to 2D;
-- B's view cube under the chip;
-- nothing at the bottom, and A's one-line measurement.
+- nothing at the bottom.
+
+After the second reaction D also has: an axis gizmo under the chip in place of B's cube,
+as 3D tools draw theirs (a click on an end looks along that axis, a drag on it turns the
+board); a left drag on the canvas turns the board, beside Shift + the pan drag; and the
+measurement shows its length with its X, Y and Z parts under it. Spread, Cut and the
+Layer-colour look (C) are dropped for now.
 
 ## What building it showed
 
