@@ -10,6 +10,10 @@
 //! - **C · X-ray** (`variant_c`): the 2D Layer colours pulled apart. A Layer rail, a
 //!   spread slider and a cut plane; selecting dims the rest.
 //!
+//! - **D · Same canvas plus** (`variant_d`): added after the first reaction. A, with the
+//!   2D | 3D switch at the top left, B's view cube, and B's Show controls in a dropdown
+//!   where the Layer chip sits in 2D.
+//!
 //! Run: `cargo run -p reda-app`, open a Project and its PCB, press `3`. `2` goes back to
 //! 2D. F9 and Shift+F9 step the variant. See `docs/prototype/3d-view/README.md`.
 //!
@@ -22,6 +26,7 @@ pub mod mesh;
 mod variant_a;
 mod variant_b;
 mod variant_c;
+mod variant_d;
 
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
@@ -34,7 +39,12 @@ use reda_engine::render::{SceneLayer, Theme};
 use crate::shell::Shell;
 
 /// The variants, in switcher order.
-pub const VARIANTS: [&str; 3] = ["A · Same canvas", "B · Viewer", "C · X-ray"];
+pub const VARIANTS: [&str; 4] = [
+    "A · Same canvas",
+    "B · Viewer",
+    "C · X-ray",
+    "D · Same canvas plus",
+];
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Preset {
@@ -135,7 +145,7 @@ fn state() -> MutexGuard<'static, State> {
         .get_or_init(|| {
             let mut s = State {
                 on: std::env::var_os("REDA_PROTO_3D").is_some(),
-                variant: 0,
+                variant: 3,
                 cam: Cam {
                     target: [0.0; 3],
                     yaw: 0.0,
@@ -181,7 +191,8 @@ fn defaults(s: &mut State) {
     match s.variant {
         0 => variant_a::defaults(s),
         1 => variant_b::defaults(s),
-        _ => variant_c::defaults(s),
+        2 => variant_c::defaults(s),
+        _ => variant_d::defaults(s),
     }
 }
 
@@ -347,7 +358,7 @@ pub fn show(ui: &mut egui::Ui, shell: &mut Shell, document: Uuid) {
             ortho: s.cam.ortho,
         };
         match s.variant {
-            0 => {
+            0 | 3 => {
                 // From exactly what the 2D canvas showed, tilting into 3D.
                 let flat = match camera_2d {
                     Some(c) => Cam {
@@ -440,7 +451,8 @@ pub fn show(ui: &mut egui::Ui, shell: &mut Shell, document: Uuid) {
         match s.variant {
             0 => variant_a::navigate(ui, s, &cx),
             1 => variant_b::navigate(ui, s, &cx),
-            _ => variant_c::navigate(ui, s, &cx),
+            2 => variant_c::navigate(ui, s, &cx),
+            _ => variant_a::navigate(ui, s, &cx),
         }
     }
     let cut_x = if s.cut >= 0.999 {
@@ -564,7 +576,8 @@ pub fn show(ui: &mut egui::Ui, shell: &mut Shell, document: Uuid) {
     let actions = match s.variant {
         0 => variant_a::chrome(ui, s, &cx),
         1 => variant_b::chrome(ui, s, &cx),
-        _ => variant_c::chrome(ui, s, &cx),
+        2 => variant_c::chrome(ui, s, &cx),
+        _ => variant_d::chrome(ui, s, &cx),
     };
     readout(ui, s, &cx);
     s.pending.extend(actions);
@@ -580,7 +593,7 @@ pub fn show(ui: &mut egui::Ui, shell: &mut Shell, document: Uuid) {
 fn act(s: &mut State, action: Action, model: &Model, rect: egui::Rect, now: f64, leave: &mut bool) {
     match action {
         Action::Leave => {
-            if s.variant == 0 {
+            if s.variant == 0 || s.variant == 3 {
                 // Tilt back to flat first, so 2D takes over from the same picture.
                 let (yaw, pitch) = Preset::Top.angles();
                 let flat = Cam {
@@ -699,6 +712,7 @@ pub fn over_2d(ui: &egui::Ui, rect: egui::Rect) {
     let variant = state().variant;
     let enter = match variant {
         1 => variant_b::mode_switch(ui, rect, false),
+        3 => variant_d::mode_switch(ui, rect, false),
         _ => {
             ui.painter_at(rect).text(
                 rect.left_bottom() + egui::vec2(12.0, -10.0),

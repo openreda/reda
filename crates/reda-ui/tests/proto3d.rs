@@ -154,6 +154,26 @@ fn variants() {
                 s.measure.b = Some([-1.0, 4.0, -0.8]);
             })
         }),
+        ("d1-arrived", 3, "usb_c_mcu", "light", |_| {}),
+        ("d2-menu-open", 3, "usb_c_mcu", "light", |h| {
+            use egui_kittest::kittest::Queryable;
+            h.get_by_label_contains("3D view").click();
+        }),
+        ("d3-bodies-faded-selected", 3, "usb_c_mcu", "dark", |h| {
+            select(h, "U");
+            proto3d::with(|s| {
+                s.alpha[4] = 0.3;
+                (s.cam.yaw, s.cam.pitch) = (-0.9, 0.6);
+            })
+        }),
+        ("d4-top-measure", 3, "usb_c_mcu", "light", |_| {
+            proto3d::with(|s| {
+                (s.cam.yaw, s.cam.pitch) = Preset::Top.angles();
+                s.measure.on = true;
+                s.measure.a = Some([-8.0, -4.0, 0.8]);
+                s.measure.b = Some([9.0, 5.0, 0.8]);
+            })
+        }),
     ];
     let only = std::env::var("REDA_PROTO_ONLY").ok();
     for (name, variant, project, theme, setup) in shots {
@@ -163,13 +183,11 @@ fn variants() {
         proto3d::set_on(false);
         let mut h = window(&root, theme, project);
         proto3d::set_variant(variant);
-        if name.starts_with("b1") {
+        if name.starts_with("b1") || name.starts_with("d1") {
             // The way in, over the 2D canvas.
             h.run();
-            h.render()
-                .unwrap()
-                .save(out.join("b0-2d-with-switch.png"))
-                .unwrap();
+            let file = format!("{}0-2d-with-switch.png", &name[..1]);
+            h.render().unwrap().save(out.join(file)).unwrap();
         }
         proto3d::set_on(true);
         h.run();

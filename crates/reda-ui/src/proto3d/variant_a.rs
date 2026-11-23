@@ -38,7 +38,6 @@ pub fn navigate(ui: &egui::Ui, s: &mut State, cx: &Cx<'_>) {
 
 pub fn chrome(ui: &egui::Ui, s: &mut State, cx: &Cx<'_>) -> Vec<Action> {
     let painter = ui.painter_at(cx.rect);
-    let ink = ui.visuals().text_color();
     let weak = ui.visuals().weak_text_color();
     let hint = if s.measure.on {
         "Measure · click two points · Esc ends"
@@ -52,7 +51,14 @@ pub fn chrome(ui: &egui::Ui, s: &mut State, cx: &Cx<'_>) -> Vec<Action> {
         egui::FontId::proportional(11.0),
         weak,
     );
-    // The measurement, drawn as the 2D ruler draws its: one line, one number.
+    measure(ui, s, cx);
+    Vec::new()
+}
+
+/// The measurement, drawn as the 2D ruler draws its: one line, one number.
+pub(super) fn measure(ui: &egui::Ui, s: &State, cx: &Cx<'_>) {
+    let painter = ui.painter_at(cx.rect);
+    let ink = ui.visuals().text_color();
     if let Some((a, b, _)) = span(s)
         && let (Some(pa), Some(pb)) = (s.cam.project(cx.rect, a), s.cam.project(cx.rect, b))
     {
@@ -70,5 +76,4 @@ pub fn chrome(ui: &egui::Ui, s: &mut State, cx: &Cx<'_>) -> Vec<Action> {
     } else if let Some(p) = s.measure.hover.and_then(|h| s.cam.project(cx.rect, h)) {
         painter.circle_stroke(p, 4.0, egui::Stroke::new(1.5, ink));
     }
-    Vec::new()
 }

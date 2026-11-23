@@ -57,7 +57,7 @@ pub fn chrome(ui: &egui::Ui, s: &mut State, cx: &Cx<'_>) -> Vec<Action> {
     if mode_switch(ui, rect, true) {
         actions.push(Action::Leave);
     }
-    if let Some(preset) = view_cube(ui, s, cx) {
+    if let Some(preset) = view_cube(ui, s, cx, egui::vec2(-74.0, 76.0)) {
         actions.push(Action::View(preset));
     }
 
@@ -186,8 +186,13 @@ pub fn chrome(ui: &egui::Ui, s: &mut State, cx: &Cx<'_>) -> Vec<Action> {
 
 /// The view cube, top right: it turns with the board, and a click on a face looks at
 /// that face.
-fn view_cube(ui: &egui::Ui, s: &State, cx: &Cx<'_>) -> Option<Preset> {
-    let center = cx.rect.right_top() + egui::vec2(-74.0, 76.0);
+pub(super) fn view_cube(
+    ui: &egui::Ui,
+    s: &State,
+    cx: &Cx<'_>,
+    offset: egui::Vec2,
+) -> Option<Preset> {
+    let center = cx.rect.right_top() + offset;
     let size = 34.0;
     let area = egui::Rect::from_center_size(center, egui::vec2(124.0, 124.0));
     let response = ui.interact(

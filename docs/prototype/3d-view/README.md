@@ -20,7 +20,7 @@ LIBGL_ALWAYS_SOFTWARE=1 WGPU_BACKEND=gl REDA_PROTO_SWITCHER=0 REDA_PROTO_OUT=<di
   cargo test -p reda-ui --test proto3d -- --nocapture
 ```
 
-## The three variants
+## The first three variants
 
 | | A · Same canvas | B · Viewer | C · X-ray |
 | --- | --- | --- | --- |
@@ -39,6 +39,19 @@ LIBGL_ALWAYS_SOFTWARE=1 WGPU_BACKEND=gl REDA_PROTO_SWITCHER=0 REDA_PROTO_OUT=<di
 
 In all three a click selects through the real `selection.set`, so Properties and the 2D
 canvas follow, and what the Layers panel hides is hidden. Nothing can be edited.
+
+## Variant D · Same canvas plus
+
+Added after the first reaction (A liked; B's switch covered the Active Bar; B's cube and
+transparency liked, its bottom bar not; C not useful for now). It opens first. A's tilt in
+and out, 2D mouse and material colours, with:
+
+- the 2D | 3D switch at the canvas's top left, in both modes, clear of the Active Bar;
+- a "3D view" chip where the active Layer's chip sits in 2D, opening a menu that holds a
+  switch and an opacity for Bodies, Silkscreen, Copper and Board, the Solder mask switch,
+  the projection, the views with their keys, Measure and Back to 2D;
+- B's view cube under the chip;
+- nothing at the bottom, and A's one-line measurement.
 
 ## What building it showed
 
