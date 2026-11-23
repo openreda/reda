@@ -206,6 +206,14 @@ _Avoid_: Evaluated template, template instance. Not a Text Frame.
 One plane of the PCB Document on which objects sit, such as Top Copper, Bottom Silkscreen or Board Outline.
 _Avoid_: Plane (alone), sheet, level
 
+**Mechanical Layer**:
+A Layer the user owns for drawings and notes that are not part of the manufactured board. A board may have any number of them, each with a name and a Purpose.
+_Avoid_: Documentation Layer, user layer, drawing layer
+
+**Purpose**:
+What a Mechanical Layer is for, chosen from a fixed list (General, Dimensions, Fabrication Notes, Assembly Notes, Reference). It guides where tools and imports put things by default and restricts nothing.
+_Avoid_: Layer type, layer class
+
 **Stackup**:
 The ordered physical build of a PCB Document: its copper and dielectric entries with their materials and thicknesses.
 _Avoid_: Layer stack, build-up, layer setup
