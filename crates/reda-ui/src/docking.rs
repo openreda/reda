@@ -1115,6 +1115,13 @@ impl Cx<'_, '_> {
                         return;
                     }
                 }
+                // PROTOTYPE (issue #433): a PCB tab in 3D shows the 3D view variants.
+                if crate::proto3d::on() && self.shell.is_pcb(*uuid) {
+                    let rect = ui.available_rect_before_wrap();
+                    crate::proto3d::show(ui, self.shell, *uuid);
+                    self.focus_on_press(ui, rect, tab, start);
+                    return;
+                }
                 let rect = ui.available_rect_before_wrap();
                 let theme = theme::canvas_theme(ui.ctx().theme());
                 let kind = bars::document_type(self.shell, *uuid);
@@ -1204,6 +1211,9 @@ impl Cx<'_, '_> {
                     crate::keys_card::show(ui, self.shell, rect);
                 }
                 crate::delta::track_clicks(ui, self.shell, *uuid, rect);
+                if self.shell.is_pcb(*uuid) {
+                    crate::proto3d::over_2d(ui, rect);
+                }
                 self.focus_on_press(ui, rect, tab, start);
             }
             TabKey::Panel(PanelId::Projects) => {

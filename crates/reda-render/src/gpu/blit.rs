@@ -93,13 +93,18 @@ impl Blit {
     /// Binds `target`'s resolved frame.
     pub fn source(&self, device: &wgpu::Device, target: &Target) -> BlitSource {
         let view = target.texture().create_view(&Default::default());
+        self.source_view(device, &view)
+    }
+
+    /// PROTOTYPE (issue #433): binds any single-sample frame in the blit's format.
+    pub fn source_view(&self, device: &wgpu::Device, view: &wgpu::TextureView) -> BlitSource {
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("reda blit source"),
             layout: &self.layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&view),
+                    resource: wgpu::BindingResource::TextureView(view),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,

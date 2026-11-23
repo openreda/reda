@@ -292,6 +292,8 @@ impl App {
             }
             self.theme_installed = true;
         }
+        // PROTOTYPE (issue #433): 3, 2, F9 and the 3D view's keys.
+        crate::proto3d::keys(&ctx);
         self.apply_preferences(&ctx);
         self.pump_bridge(&ctx);
         self.collect_picked_files();
@@ -352,6 +354,7 @@ impl App {
         ui.scope_builder(builder, |ui| self.status_bar(ui));
         crate::pcb::layer_hover::finish(&ctx, &mut self.shell);
         tab_switcher::show(&ctx, &mut self.shell);
+        crate::proto3d::switcher(&ctx);
         title_bar::edge(&ctx, chrome);
         // A menu or toolbar item that lacks params asks for them.
         if let Some((id, params)) = clicked {
@@ -1305,6 +1308,13 @@ pub fn install_canvas(render_state: &egui_wgpu::RenderState, sample_count: u32) 
         .write()
         .callback_resources
         .insert(resources);
+    // PROTOTYPE (issue #433): the 3D view's pipelines.
+    let resources = crate::proto3d::gpu::Resources::new(
+        &render_state.device,
+        render_state.target_format,
+        sample_count,
+    );
+    (render_state.renderer.write().callback_resources).insert(resources);
 }
 
 /// Opens the REDA window on `engine` and runs until it closes. `fonts` supplies installed

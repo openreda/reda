@@ -3428,6 +3428,7 @@ dependencies = [
  "egui_extras",
  "egui_kittest",
  "fluent-bundle",
+ "i_triangle",
  "objc2-app-kit 0.3.2",
  "reda-control",
  "reda-engine",

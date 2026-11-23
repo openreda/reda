@@ -14,6 +14,8 @@ egui.workspace = true
 egui-wgpu.workspace = true
 egui_extras.workspace = true
 fluent-bundle.workspace = true
+# PROTOTYPE (issue #433): triangulates the board's faces.
+i_triangle.workspace = true
 reda-control = { path = "../reda-control" }
 reda-engine = { path = "../reda-engine" }
 rfd.workspace = true
