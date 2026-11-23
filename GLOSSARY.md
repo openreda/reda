@@ -580,6 +580,14 @@ _Avoid_: Settings dialog, modal, options dialog
 The compact floating toolbar over a Document's canvas that offers the most-used Tools for that Document type.
 _Avoid_: Quick bar, floating toolbar, palette
 
+**3D view**:
+The view mode of the PCB tab that shows the board in three dimensions, for looking, selecting and measuring. Nothing is edited in it.
+_Avoid_: 3D viewer, 3D editor, 3D window
+
+**Orientation gizmo**:
+The small drawing of the board's X, Y and Z axes in the 3D view that shows which way the view faces, and turns the view when clicked or dragged.
+_Avoid_: View cube, compass, navigation widget
+
 **Routing Bar**:
 The bar at the bottom of the canvas while the Track Tool is active, showing and switching its modes.
 _Avoid_: Track toolbar, mode bar
