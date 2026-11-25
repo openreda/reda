@@ -55,7 +55,7 @@ Each milestone after v0.1 is a themed release that gives hobbyists a usable step
 
 ### Mechanical & 3D (v0.3)
 - A **3D view** in a new `reda-3d` crate. It builds its scene from the model, and `reda-render`'s wgpu backend draws it.
-- 3D models on Footprints. (Import part ignores 3D models until then.)
+- Bodies on Footprints: embedded STEP Models and Extruded Bodies, generated for the Starter Library ([Bodies](v0.3/bodies.md)). (Import part ignores 3D models until then.)
 - STEP and DXF export in `reda-output`. DXF import in a new `reda-import-dxf`.
 - **Canvas extras:** a wheel mapping page (`canvas.wheel.*`), arrow keys that move the cursor, grid X ≠ Y, axis alignment guides, and the general object defaults page.
 
