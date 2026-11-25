@@ -608,6 +608,22 @@ _Avoid_: Snap radius, capture range
 How close the cursor must come to a Hotspot on a sheet or Symbol before it snaps there, as a length set per grid preset.
 _Avoid_: Electrical grid, snap radius
 
+**Board Grid**:
+A grid step saved with a PCB Document and offered in that board's grid cycle beside the user's own presets.
+_Avoid_: Document grid, project grid, grid preset
+
+**Local Grid**:
+A named area placed on a PCB Document that has its own Cartesian or polar grid, used in place of the board's grid inside it.
+_Avoid_: Sub-grid, grid item, custom grid, region grid
+
+**Guide**:
+A line or point the user places and keeps on a PCB Document or Footprint for the cursor to snap to.
+_Avoid_: Snap guide, work guide, guideline, construction line
+
+**Alignment Guide**:
+A line the editor draws during a move when the cursor comes level with another object's Hotspot; it is never stored.
+_Avoid_: Guide, axis, extension line, projection line
+
 **Dimmed**:
 Shaded to push it back visually, while it can still be picked and edited.
 _Avoid_: Faded, greyed
