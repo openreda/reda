@@ -27,7 +27,7 @@ This file says what the reserved Footprint `bodies` field holds, how a Body is p
 - Two aids for a Model Body:
   - **Seat on board** sets Z so the Model's lowest point sits at the standoff (default 0).
   - **Centre on pads** centres the Model's bounding box in the board plane on the Pads' bounding box.
-- Picking geometry to place a Model (snap points, face on plane, pin to pad) is not in v0.3. The 3D view stays a viewer with no general 3D editing.
+- Picking geometry to place a Model (snap points, face on plane, pin to pad) is left open on the [map](https://github.com/openreda/reda/issues/421). The 3D view stays a viewer with no general 3D editing.
 
 ## `height`
 
@@ -79,7 +79,6 @@ There is no check for a Footprint with no Body, because the stand-in covers it, 
 
 ## Out
 
-- Geometry picking to place a Model.
 - Scale on a Model Body.
 - Linked Models and path variables.
 - Mesh formats (see [STEP](step.md)).
