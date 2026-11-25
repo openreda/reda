@@ -2,7 +2,7 @@
 
 Source: [Does REDA take a CAD kernel dependency for STEP?](https://github.com/openreda/reda/issues/430), after [Can REDA read and write STEP without a CAD kernel, and what would a kernel cost?](https://github.com/openreda/reda/issues/422) ([findings](https://github.com/openreda/reda/blob/research/step-kernel-options/docs/research/step-kernel-options.md)) and [Trial the kernel-free STEP options against real models and MCAD importers](https://github.com/openreda/reda/issues/442) ([findings](https://github.com/openreda/reda/blob/research/step-kernel-trial/research/step-kernel-trial/FINDINGS.md)). Decision record: [ADR-0018](../../adr/0018-step-read-and-written-in-house.md).
 
-This file says how REDA reads and writes STEP: the crate, the shared record model, what the reader tolerates, and what is out. What a board export contains (protocol, copper, naming) is decided in [What does a STEP export contain?](https://github.com/openreda/reda/issues/434), and what a Body is in [What is a Body on a Footprint, and how is it placed?](https://github.com/openreda/reda/issues/431).
+This file says how REDA reads and writes STEP: the crate, the shared record model, what the reader tolerates, and what is out. What a board export contains (protocol, copper, naming) is in [STEP export](step-export.md), and what a Body is in [What is a Body on a Footprint, and how is it placed?](https://github.com/openreda/reda/issues/431).
 
 ## No CAD kernel
 
@@ -39,7 +39,7 @@ The reader draws what it can rather than refusing a model:
 - an open surface of revolution with one bound gets a pole or seam;
 - a solid that still fails is skipped and reported, and the rest of the model is drawn.
 
-When nothing of a model can be drawn, the 3D view shows a stand-in Body from the Footprint's Courtyard and `height`, with a warning naming the file. A model that parsed is still exported even if it could not be tessellated. A model that fails to parse is left out of the export, with a warning.
+When nothing of a model can be drawn, the 3D view shows the [Stand-in Body](bodies.md#no-body-the-stand-in), the Footprint's body box raised to `height`, with a warning naming the file. A model that parsed is still exported even if it could not be tessellated. A model that fails to parse is left out of the export, with a warning, and the [STEP export](step-export.md#bodies) writes the Stand-in Body in its place when stand-ins are on.
 
 ## Tests
 
