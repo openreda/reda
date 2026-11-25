@@ -82,6 +82,10 @@ The named colour and finish of an Extruded Body, or the override on a Model Body
 A Command that calculates a Footprint for one package family from datasheet dimensions.
 _Avoid_: Footprint wizard, IPC wizard
 
+**Import part**:
+The Command that turns one part the user downloaded (its symbol, footprint and any Models) into a Symbol, a Footprint and a Part in a Library.
+_Avoid_: Library loader, part import wizard
+
 **Symbol Wizard**:
 The dialog and Command that lay out a Symbol's Pins and body from a list of Pins.
 _Avoid_: Symbol generator

@@ -28,7 +28,7 @@ Each milestone after v0.1 is a themed release that gives hobbyists a usable step
 | **v0.1 Schematic to fab** | multiple flat sheets, a 2-layer PCB, manual routing, Zones, ERC/DRC, Gerber/Excellon/BOM/CPL, library editors and generators, Import part, MCP/CLI | see [`v0.1/`](v0.1/README.md) |
 | **v0.2 Multilayer** | 4 or more copper Layers; Stackup editor; blind, buried and micro Vias; teardrops; CPL rotation corrections per Fab Preset | the N-layer model and Vias with a layer span; Fab Presets |
 | **v0.2.5 Board Templates** | new boards from Board Templates with a live preview; a built-in catalogue (Pi, Pico, Arduino, Feather, Eurocard, M.2, PCIe); Save Board as Template; Edge Connector Pads, Castellated Pads and Plated Edges | Library elements; the numeric-expression evaluator ([ADR-0016](../adr/0016-board-templates-are-parametric-library-elements.md)) |
-| **v0.3 Mechanical & 3D** | 3D view of the board; 3D models on Footprints; STEP export; DXF import and export (Board Outline, mechanical Layers) | Scene + wgpu backend ([ADR-0010](../adr/0010-canvas-drawn-by-own-wgpu-renderer.md)); Footprint/Part elements ([ADR-0008](../adr/0008-parts-bind-symbols-and-footprints.md)) |
+| **v0.3 Mechanical & 3D** | 3D view of the board; 3D models on Footprints, brought in by Import part (KiCad, vendor zips, EasyEDA/LCSC); STEP export; DXF import and export (Board Outline, mechanical Layers) | Scene + wgpu backend ([ADR-0010](../adr/0010-canvas-drawn-by-own-wgpu-renderer.md)); Footprint/Part elements ([ADR-0008](../adr/0008-parts-bind-symbols-and-footprints.md)) |
 | **v0.4 Interactive routing** | push-and-shove; differential pairs; length tuning | the v0.1 router that stops at clearance; Net Classes |
 | **v0.5 Design scale** | hierarchical sheets with Sheet Instances, plus buses; multi-board Projects; Panel Documents; Variants; pin and gate swaps | [ADR-0004](../adr/0004-connectivity-derived-from-schematic-documents-own-their-data.md), [ADR-0006](../adr/0006-one-way-sync-with-write-through-edits.md) |
 | **v0.6 Libraries & import** | KiCad project + library import; supplier part search (stock, price); library extras | `reda-import-kicad` |
@@ -55,7 +55,7 @@ Each milestone after v0.1 is a themed release that gives hobbyists a usable step
 
 ### Mechanical & 3D (v0.3)
 - A **3D view** in a new `reda-3d` crate. It builds its scene from the model, and `reda-render`'s wgpu backend draws it.
-- Bodies on Footprints: embedded STEP Models and Extruded Bodies, generated for the Starter Library ([Bodies](v0.3/bodies.md)). (Import part ignores 3D models until then.)
+- Bodies on Footprints: embedded STEP Models and Extruded Bodies, generated for the Starter Library ([Bodies](v0.3/bodies.md)). Import part brings Models along, from KiCad files and vendor zips, and reads EasyEDA/LCSC downloads in a new `reda-import-easyeda` ([Models](v0.3/models.md)).
 - STEP and DXF export in `reda-output`. DXF import in a new `reda-import-dxf`.
 - STEP reading and writing in a new `reda-step` crate, REDA's own code with no CAD kernel ([ADR-0018](../adr/0018-step-read-and-written-in-house.md), [STEP](v0.3/step.md)).
 - **Canvas extras:** a wheel mapping page (`canvas.wheel.*`), arrow keys that move the cursor, grid X ≠ Y, axis alignment guides, and the general object defaults page.
