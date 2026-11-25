@@ -1,0 +1,11 @@
+[package]
+name = "step-trial-occt"
+version = "0.0.0"
+edition = "2021"
+publish = false
+# LGPL-2.1: built only to compare against the permissive candidates (issue #442).
+
+[dependencies]
+opencascade = { git = "https://github.com/bschwind/opencascade-rs", rev = "3b6d77be7bf5bf4ab4694683eeecee7311231cd0" }
+
+[workspace]

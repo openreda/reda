@@ -1,0 +1,59 @@
+file	bytes	schema	originating system	source
+adafruit/1871 CR2032 Breakout Switch.step	276827	AUTOMOTIVE_DESIGN { 1 0 10303 214 3 1 1 }	Autodesk Translation Framework v11.17.0.	https://github.com/adafruit/Adafruit_CAD_Parts
+adafruit/2756 Teensy 3.2.step	169311	AUTOMOTIVE_DESIGN { 1 0 10303 214 3 1 1 }	Autodesk Translation Framework v7.1.0.21	https://github.com/adafruit/Adafruit_CAD_Parts
+adafruit/3010 Feather M0 Wifi.step	36188	AUTOMOTIVE_DESIGN { 1 0 10303 214 3 1 1 }	Autodesk Translation Framework v7.1.0.21	https://github.com/adafruit/Adafruit_CAD_Parts
+adafruit/3660 BME680.step	861374	AUTOMOTIVE_DESIGN { 1 0 10303 214 3 1 1 }	Autodesk Translation Framework v11.7.0.1	https://github.com/adafruit/Adafruit_CAD_Parts
+adafruit/3692 TRS Jack.step	238212	AUTOMOTIVE_DESIGN { 1 0 10303 214 3 1 1 }	Autodesk Translation Framework v7.1.0.21	https://github.com/adafruit/Adafruit_CAD_Parts
+adafruit/4888 ItsyBitsy RP2040.step	1947081	AUTOMOTIVE_DESIGN { 1 0 10303 214 3 1 1 }	Autodesk Translation Framework v10.6.0.1	https://github.com/adafruit/Adafruit_CAD_Parts
+ap203/469911008.stp	266063	CONFIG_CONTROL_DESIGN	PRO/ENGINEER BY PARAMETRIC TECHNOLOGY CO	AP203 part models in public GitHub projects (osy/XG_Mobile_Station, Twisted-Fields/rp2040-motor-controller) and cadrum steps/multicolor_solvespace.step
+ap203/470531000.stp	124782	CONFIG_CONTROL_DESIGN	PRO/ENGINEER BY PARAMETRIC TECHNOLOGY CO	AP203 part models in public GitHub projects (osy/XG_Mobile_Station, Twisted-Fields/rp2040-motor-controller) and cadrum steps/multicolor_solvespace.step
+ap203/MS12ANW03.stp	245851	CONFIG_CONTROL_DESIGN	PARTsolutions	AP203 part models in public GitHub projects (osy/XG_Mobile_Station, Twisted-Fields/rp2040-motor-controller) and cadrum steps/multicolor_solvespace.step
+ap203/multicolor_solvespace.step	34839	CONFIG_CONTROL_DESIGN		AP203 part models in public GitHub projects (osy/XG_Mobile_Station, Twisted-Fields/rp2040-motor-controller) and cadrum steps/multicolor_solvespace.step
+espressif/ESP32-C3-MINI-1U.STEP	5258697	AUTOMOTIVE_DESIGN		https://github.com/espressif/kicad-libraries (3dmodels/espressif.3dshapes)
+espressif/ESP32-S3-WROOM-1.STEP	6225940	AUTOMOTIVE_DESIGN	SolidWorks	https://github.com/espressif/kicad-libraries (3dmodels/espressif.3dshapes)
+espressif/esp8684-wroom-02c.step	5220202	AUTOMOTIVE_DESIGN	SolidWorks 2022	https://github.com/espressif/kicad-libraries (3dmodels/espressif.3dshapes)
+kicad/BGA-256_17.0x17.0mm_Layout16x16_P1.0mm_Ball0.5mm_Pad0.4mm_NSMD.step	265742	AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }	KiCAD	https://gitlab.com/kicad/libraries/kicad-packages3D (master, 2026-11-25)
+kicad/BarrelJack_Horizontal.step	118861	AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }	FreeCAD	https://gitlab.com/kicad/libraries/kicad-packages3D (master, 2026-11-25)
+kicad/BatteryHolder_Keystone_3034_1x20mm.step	213965	AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }	FreeCAD	https://gitlab.com/kicad/libraries/kicad-packages3D (master, 2026-11-25)
+kicad/CP_Elec_6.3x7.7.step	81917	AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }	kicad StepUp	https://gitlab.com/kicad/libraries/kicad-packages3D (master, 2026-11-25)
+kicad/CP_Radial_D8.0mm_P3.50mm.step	171217	AUTOMOTIVE_DESIGN_CC2 { 1 2 10303 214 -1 1 5 4 }	kicad StepUp	https://gitlab.com/kicad/libraries/kicad-packages3D (master, 2026-11-25)
+kicad/C_0805_2012Metric.step	43618	AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }	kicad StepUp	https://gitlab.com/kicad/libraries/kicad-packages3D (master, 2026-11-25)
+kicad/Crystal_HC49-4H_Vertical.step	40954	AUTOMOTIVE_DESIGN_CC2 { 1 2 10303 214 -1 1 5 4 }	FreeCAD	https://gitlab.com/kicad/libraries/kicad-packages3D (master, 2026-11-25)
+kicad/DIP-8_W7.62mm.step	277577	AUTOMOTIVE_DESIGN_CC2 { 1 2 10303 214 -1 1 5 4 }	kicad StepUp	https://gitlab.com/kicad/libraries/kicad-packages3D (master, 2026-11-25)
+kicad/D_SMA.step	70794	AUTOMOTIVE_DESIGN_CC2 { 1 2 10303 214 -1 1 5 4 }	kicad StepUp	https://gitlab.com/kicad/libraries/kicad-packages3D (master, 2026-11-25)
+kicad/ESP32-WROOM-32.step	1221098	AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }	FreeCAD	https://gitlab.com/kicad/libraries/kicad-packages3D (master, 2026-11-25)
+kicad/JST_XH_B4B-XH-A_1x04_P2.50mm_Vertical.step	222777	AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }		https://gitlab.com/kicad/libraries/kicad-packages3D (master, 2026-11-25)
+kicad/LED_0603_1608Metric.step	77068	AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }	kicad StepUp	https://gitlab.com/kicad/libraries/kicad-packages3D (master, 2026-11-25)
+kicad/LED_D5.0mm.step	23819	AUTOMOTIVE_DESIGN_CC2 { 1 2 10303 214 -1 1 5 4 }	FreeCAD	https://gitlab.com/kicad/libraries/kicad-packages3D (master, 2026-11-25)
+kicad/LQFP-64_10x10mm_P0.5mm.step	867325	AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }	KiCAD	https://gitlab.com/kicad/libraries/kicad-packages3D (master, 2026-11-25)
+kicad/L_Bourns_SRR1260.step	50204	AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }	FreeCAD	https://gitlab.com/kicad/libraries/kicad-packages3D (master, 2026-11-25)
+kicad/PinHeader_2x20_P2.54mm_Vertical.step	1251227	AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }	kicad StepUp	https://gitlab.com/kicad/libraries/kicad-packages3D (master, 2026-11-25)
+kicad/Potentiometer_Bourns_3296W_Vertical.step	46171	AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }	FreeCAD	https://gitlab.com/kicad/libraries/kicad-packages3D (master, 2026-11-25)
+kicad/R_0603_1608Metric.step	40618	AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }	kicad StepUp	https://gitlab.com/kicad/libraries/kicad-packages3D (master, 2026-11-25)
+kicad/Relay_SPDT_Omron-G5LE-1.step	125686	AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }	KiCAD	https://gitlab.com/kicad/libraries/kicad-packages3D (master, 2026-11-25)
+kicad/SOIC-8_3.9x4.9mm_P1.27mm.step	125320	AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }	KiCAD	https://gitlab.com/kicad/libraries/kicad-packages3D (master, 2026-11-25)
+kicad/SOT-23.step	60296	AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }	KiCAD	https://gitlab.com/kicad/libraries/kicad-packages3D (master, 2026-11-25)
+kicad/SW_PUSH_6mm.step	179934	AUTOMOTIVE_DESIGN_CC2 { 1 2 10303 214 -1 1 5 4 }	FreeCAD	https://gitlab.com/kicad/libraries/kicad-packages3D (master, 2026-11-25)
+kicad/TO-220-3_Vertical.step	85145	AUTOMOTIVE_DESIGN_CC2 { 1 2 10303 214 -1 1 5 4 }	FreeCAD	https://gitlab.com/kicad/libraries/kicad-packages3D (master, 2026-11-25)
+kicad/TSSOP-20_4.4x6.5mm_P0.65mm.step	273281	AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }	KiCAD	https://gitlab.com/kicad/libraries/kicad-packages3D (master, 2026-11-25)
+kicad/TerminalBlock_Phoenix_MKDS-1,5-2_1x02_P5.00mm_Horizontal.step	70310	AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }	KiCAD	https://gitlab.com/kicad/libraries/kicad-packages3D (master, 2026-11-25)
+kicad/USB_C_Receptacle_GCT_USB4085.step	804970	AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }	FreeCAD	https://gitlab.com/kicad/libraries/kicad-packages3D (master, 2026-11-25)
+other/Pico-R3.step	1721174	CONFIG_CONTROL_DESIGN	SolidWorks 2021	https://datasheets.raspberrypi.com/pico/Pico-R3-step.zip
+samacsys/74AHCV541ABQX.stp	152793	AUTOMOTIVE_DESIGN_CC2 { 1 2 10303 214 -1 1 5 4 }	FreeCAD	SamacSys/Component Search Engine models committed in public GitHub projects (tomikaa87/esp-door-phone-monitor, PUT-Motorsport/PUTM_EV_AMS_SLAVE, git4dcc/RTB_SamacSys, EPFLRocketTeam/Hostboard_Socket)
+samacsys/DLW21SN501SK2L.stp	55356	AUTOMOTIVE_DESIGN_CC2 { 1 2 10303 214 -1 1 5 4 }	FreeCAD	SamacSys/Component Search Engine models committed in public GitHub projects (tomikaa87/esp-door-phone-monitor, PUT-Motorsport/PUTM_EV_AMS_SLAVE, git4dcc/RTB_SamacSys, EPFLRocketTeam/Hostboard_Socket)
+samacsys/NPIC6C596ABQX.stp	125857	AUTOMOTIVE_DESIGN_CC2 { 1 2 10303 214 -1 1 5 4 }	FreeCAD	SamacSys/Component Search Engine models committed in public GitHub projects (tomikaa87/esp-door-phone-monitor, PUT-Motorsport/PUTM_EV_AMS_SLAVE, git4dcc/RTB_SamacSys, EPFLRocketTeam/Hostboard_Socket)
+samacsys/UU9.8-10MH.stp	17902	AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }	FreeCAD	SamacSys/Component Search Engine models committed in public GitHub projects (tomikaa87/esp-door-phone-monitor, PUT-Motorsport/PUTM_EV_AMS_SLAVE, git4dcc/RTB_SamacSys, EPFLRocketTeam/Hostboard_Socket)
+wurth/A_Wurth_WA-BCPH_79527141.step	523139	AUTOMOTIVE_DESIGN {1 0 10303 214 3 1 1}	Solid Edge	https://github.com/WurthElektronik/KiCad-Library (3dmodels/)
+wurth/CP_Wurth_WCAP-HSAH-D6.3L5.8.step	436521	AP242_MANAGED_MODEL_BASED_3D_ENGINEERING_MIM_LF { 1 0 10303 442 1 1 4 }	Solid Edge	https://github.com/WurthElektronik/KiCad-Library (3dmodels/)
+wurth/CP_Wurth_WCAP-PSLP-D4L5.5.step	432924	AP242_MANAGED_MODEL_BASED_3D_ENGINEERING_MIM_LF { 1 0 10303 442 1 1 4 }	Solid Edge	https://github.com/WurthElektronik/KiCad-Library (3dmodels/)
+wurth/C_Wurth_WCAP-ASNP-D10L10.5.step	426685	AP242_MANAGED_MODEL_BASED_3D_ENGINEERING_MIM_LF { 1 0 10303 442 1 1 4 }	Solid Edge	https://github.com/WurthElektronik/KiCad-Library (3dmodels/)
+wurth/C_Wurth_WCAP-CSSA-1812_X1Y2_H1.6.step	28129	AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }	 	https://github.com/WurthElektronik/KiCad-Library (3dmodels/)
+wurth/D_Wurth_WL-SMRD-1205.step	274159	AP242_MANAGED_MODEL_BASED_3D_ENGINEERING_MIM_LF. {1 0 10303 442 1 1 4  }	FreeCAD	https://github.com/WurthElektronik/KiCad-Library (3dmodels/)
+wurth/FB_Wurth_WE-CMS-4856.step	157690	AUTOMOTIVE_DESIGN {1 0 10303 214 3 1 1}	Solid Edge	https://github.com/WurthElektronik/KiCad-Library (3dmodels/)
+wurth/J_Wurth_WR-BHD_62702020621.step	1043998	AUTOMOTIVE_DESIGN {1 0 10303 214 3 1 1}	Solid Edge	https://github.com/WurthElektronik/KiCad-Library (3dmodels/)
+wurth/J_Wurth_WR-FPC_687108182122.step	982974	AP242_MANAGED_MODEL_BASED_3D_ENGINEERING_MIM_LF. {1 0 10303 442 1 1 4  }	FreeCAD	https://github.com/WurthElektronik/KiCad-Library (3dmodels/)
+wurth/J_Wurth_WR-MPC5_657006140201.step	545824	AUTOMOTIVE_DESIGN {1 0 10303 214 3 1 1}	Solid Edge	https://github.com/WurthElektronik/KiCad-Library (3dmodels/)
+wurth/J_Wurth_WR-WTB_653110124022.step	611055	AUTOMOTIVE_DESIGN {1 0 10303 214 3 1 1}	Solid Edge	https://github.com/WurthElektronik/KiCad-Library (3dmodels/)
+wurth/L_Wurth_WE-HCIM-100605.step	329681	AP242_MANAGED_MODEL_BASED_3D_ENGINEERING_MIM_LF. {1 0 10303 442 1 1 4  }	FreeCAD	https://github.com/WurthElektronik/KiCad-Library (3dmodels/)
+wurth/L_Wurth_WE-PMI-0805_H1.step	39959	AUTOMOTIVE_DESIGN {1 0 10303 214 3 1 1}	Solid Edge	https://github.com/WurthElektronik/KiCad-Library (3dmodels/)
+wurth/SW_Wurth_WS-ROSV_428511510811.step	355610	AUTOMOTIVE_DESIGN {1 0 10303 214 3 1 1}	Solid Edge	https://github.com/WurthElektronik/KiCad-Library (3dmodels/)

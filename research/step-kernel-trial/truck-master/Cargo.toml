@@ -1,0 +1,14 @@
+[package]
+name = "truck-master"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[dependencies]
+truck-stepio = { git = "https://github.com/ricosjp/truck", rev = "117470c2e2a8ce184177c6d76b41c8dd5b1b2935" }
+truck-assembly = { git = "https://github.com/ricosjp/truck", rev = "117470c2e2a8ce184177c6d76b41c8dd5b1b2935" }
+truck-meshalgo = { git = "https://github.com/ricosjp/truck", rev = "117470c2e2a8ce184177c6d76b41c8dd5b1b2935", default-features = false, features = ["analyzers", "filters", "tessellation"] }
+truck-modeling = { git = "https://github.com/ricosjp/truck", rev = "117470c2e2a8ce184177c6d76b41c8dd5b1b2935" }
+truck-topology = { git = "https://github.com/ricosjp/truck", rev = "117470c2e2a8ce184177c6d76b41c8dd5b1b2935" }

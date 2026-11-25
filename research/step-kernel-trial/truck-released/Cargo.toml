@@ -1,0 +1,13 @@
+[package]
+name = "truck-released"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[dependencies]
+truck-stepio = "=0.3.0"
+truck-meshalgo = { version = "=0.4.0", default-features = false, features = ["analyzers", "filters", "tessellation"] }
+truck-modeling = "=0.6.0"
+truck-topology = "=0.6.0"

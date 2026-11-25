@@ -1,0 +1,16 @@
+[package]
+name = "step-trial-foxtrot"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+# Standalone: not part of the REDA workspace.
+[workspace]
+
+[dependencies]
+step = { git = "https://github.com/Formlabs/foxtrot", rev = "69fb37688892246e670fc08eb60b7d3a92d70d3f" }
+triangulate = { git = "https://github.com/Formlabs/foxtrot", rev = "69fb37688892246e670fc08eb60b7d3a92d70d3f" }
+log = "0.4"
+
+[profile.release]
+debug = false

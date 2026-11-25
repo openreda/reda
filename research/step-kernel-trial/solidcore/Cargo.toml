@@ -1,0 +1,30 @@
+[package]
+name = "step-trial-solidcore"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+# Standalone: not part of the REDA workspace.
+[workspace]
+
+# solidcore, the kernel developed inside SolidCraft (folder `solidcore/` of the repository). None
+# of these crates is on crates.io (`publish = false`), so they are git dependencies on the
+# SolidCraft repository. Cargo clones all of it: about 670 MB of git database and a 790 MB
+# checkout in CARGO_HOME (README.md).
+[dependencies]
+solidcore = { git = "https://github.com/tangency-labs/solidcraft", rev = "34d5055290364589caa8d1548d4e3563cb26b3a0" }
+solidcore-record = { git = "https://github.com/tangency-labs/solidcraft", rev = "34d5055290364589caa8d1548d4e3563cb26b3a0" }
+solidcore-ops = { git = "https://github.com/tangency-labs/solidcraft", rev = "34d5055290364589caa8d1548d4e3563cb26b3a0" }
+solidcore-step = { git = "https://github.com/tangency-labs/solidcraft", rev = "34d5055290364589caa8d1548d4e3563cb26b3a0" }
+solidcore-tess = { git = "https://github.com/tangency-labs/solidcraft", rev = "34d5055290364589caa8d1548d4e3563cb26b3a0" }
+# SolidCraft's application crate that holds its `Trims` (SMLib's own UV trims, for a B-spline edge
+# on a B-spline surface): the one piece of the import path the solidcore crates do not ship. Only
+# with the `smlib-trims` feature; it adds solidcraft-geom, solidcraft-profile, log and web-time.
+solidcraft-smlib = { git = "https://github.com/tangency-labs/solidcraft", rev = "34d5055290364589caa8d1548d4e3563cb26b3a0", optional = true }
+
+[features]
+default = ["smlib-trims"]
+smlib-trims = ["dep:solidcraft-smlib"]
+
+[profile.release]
+debug = false

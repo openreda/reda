@@ -1,0 +1,14 @@
+[workspace]
+
+[package]
+name = "step-io-trial"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "Throwaway trial harness for REDA issue #442: the step-io crate."
+
+[dependencies]
+step-io = "=0.3.1"
+
+[profile.release]
+debug = 1
