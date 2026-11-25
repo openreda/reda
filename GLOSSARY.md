@@ -416,6 +416,10 @@ _Avoid_: Rotation offset, rotation table, transformation
 A saved, named recipe in a Project that produces a chosen set of manufacturing files for one PCB Document according to one Fab Preset.
 _Avoid_: OutJob, export settings, plot settings, fab output
 
+**Board Image**:
+A picture of the board drawn in 3D from a chosen viewpoint, asked for by an agent, written by an Output Job beside its zip, or saved from the 3D view.
+_Avoid_: Render, screenshot, 3D snapshot
+
 **Name Template**:
 The text with tokens that names an Output Job's zip and its BOM and CPL files.
 _Avoid_: Name expression, file pattern
