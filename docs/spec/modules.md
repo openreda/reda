@@ -143,4 +143,5 @@ These are not placed in any milestone yet. They were ruled out of scope for the 
   - A Keymap picker, and Keymap export/import.
   - User-editable menus, toolbars and Active Bar, as an overrides layer on the stable item ids.
 - **Text variables:** free Project parameters and `${...}` variables in sheet and board text (e.g. the revision on the silkscreen), substituted in the canvas, Gerber and PDF. v0.1 already reserves the syntax ([architecture](v0.1/architecture.md#file-format)).
+- **DXF beyond v0.3** ([dxf](v0.3/dxf.md#not-in-v03)): import into the Footprint editor; copper, silk, mask and paste Layers in the export; HATCH, DIMENSION and filled shapes on import; DWG.
 - **Translations:** shipped languages; a language picker; locale number formatting; CJK fonts and right-to-left text.
