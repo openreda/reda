@@ -2,7 +2,7 @@
 
 Source: [Which models does REDA ship, and how does the user bring in others?](https://github.com/openreda/reda/issues/432), after [Where do 3D models for electronic parts come from, and under what licences?](https://github.com/openreda/reda/issues/426) ([findings](https://github.com/openreda/reda/blob/research/3d-model-sources/docs/research/3d-model-sources.md)).
 
-This file says which Models REDA ships and how a user brings in a Model they downloaded: by hand in the Footprint editor, or along with a part through Import part. What a Model and a Model Body are, how a Model Body is placed and how Models are stored is in [Bodies](bodies.md). How the new EasyEDA/LCSC reader maps a part is decided in [How does Import part read EasyEDA/LCSC files?](https://github.com/openreda/reda/issues/455). Commands and file-format details are settled in [What Commands and file-format additions does the v0.3 data need?](https://github.com/openreda/reda/issues/440).
+This file says which Models REDA ships and how a user brings in a Model they downloaded: by hand in the Footprint editor, or along with a part through Import part. What a Model and a Model Body are, how a Model Body is placed and how Models are stored is in [Bodies](bodies.md). How the new EasyEDA/LCSC reader maps a part is in [EasyEDA import](easyeda-import.md). Commands and file-format details are settled in [What Commands and file-format additions does the v0.3 data need?](https://github.com/openreda/reda/issues/440).
 
 ## What REDA ships
 
@@ -48,7 +48,7 @@ Import part stops ignoring 3D models. It brings each model along as a Model Body
 
 - As in v0.1, a `.kicad_sym` and a `.kicad_mod`.
 - **New:** a vendor **zip**, or a **folder**, as downloaded from SnapMagic, Ultra Librarian or SamacSys (which is also what DigiKey, Mouser and Farnell hand out). Import part finds the KiCad symbol and footprint inside. The `zip` crate is already in the workspace.
-- **New:** EasyEDA/LCSC downloads, read natively by a new **`reda-import-easyeda`** crate, beside `reda-import-kicad` and `reda-import-dxf`. No `easyeda2kicad` step is needed. Which formats it reads and how they map is [ticketed](https://github.com/openreda/reda/issues/455). It shares Import part's dialog, report and choice of Library.
+- **New:** EasyEDA/LCSC downloads, read natively by a new **`reda-import-easyeda`** crate, beside `reda-import-kicad` and `reda-import-dxf`. No `easyeda2kicad` step is needed. Which formats it reads and how they map is in [EasyEDA import](easyeda-import.md). It shares Import part's dialog, report and choice of Library.
 
 ### Finding a KiCad footprint's model
 
