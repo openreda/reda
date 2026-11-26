@@ -55,7 +55,7 @@ Each milestone after v0.1 is a themed release that gives hobbyists a usable step
 
 ### Mechanical & 3D (v0.3)
 - A **3D view** in a new `reda-3d` crate. It builds its scene from the model, and `reda-render`'s wgpu backend draws it.
-- Bodies on Footprints: embedded STEP Models and Extruded Bodies, generated for the Starter Library ([Bodies](v0.3/bodies.md)). Import part brings Models along, from KiCad files and vendor zips, and reads EasyEDA/LCSC downloads in a new `reda-import-easyeda` ([Models](v0.3/models.md)).
+- Bodies on Footprints: embedded STEP Models and Extruded Bodies, generated for the Starter Library ([Bodies](v0.3/bodies.md)). Import part brings Models along, from KiCad files and vendor zips, and reads EasyEDA/LCSC downloads in a new `reda-import-easyeda` ([Models](v0.3/models.md), [EasyEDA import](v0.3/easyeda-import.md)).
 - STEP and DXF export in `reda-output`. DXF import in a new `reda-import-dxf`.
 - STEP reading and writing in a new `reda-step` crate, REDA's own code with no CAD kernel ([ADR-0018](../adr/0018-step-read-and-written-in-house.md), [STEP](v0.3/step.md)).
 - **Canvas extras:** a wheel mapping page (`canvas.wheel.*`), arrow keys that move the cursor, grid X ≠ Y, axis alignment guides, and the general object defaults page.
