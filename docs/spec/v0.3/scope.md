@@ -40,6 +40,10 @@ This file says what ships in `0.3.0` besides the Mechanical & 3D milestone itsel
 
 Every step adds its tests as [testing](testing.md) lays them out. Apart from `reda-step`, the steps run in this one sequence, since at most two implementers build at once.
 
+## Decisions taken while tying the files together
+
+- **Numpad digits count as digits only in the 3D view.** The digit-row rule from [3D view keys](3d-view.md#keys) matched numpad digits too, which clashed with the v0.2 keypad Layer jumps (keypad 2 and 3 would have fired both). In 2D the numpad keeps the Layer jumps. Amends [What do the 3D Preferences, a side-by-side view, the 3D keys and further measuring look like?](https://github.com/openreda/reda/issues/466).
+
 ## Smaller calls made while tying the files together
 
 These close gaps that showed up when the files were read side by side. None of them changes a decision, and any of them can be overturned by editing this spec.

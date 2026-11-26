@@ -39,7 +39,7 @@ A Preferences page, **Mouse Wheel**, holds a table of wheel actions. Each action
 
 All four are Commands, so a user who wants plain arrows to nudge can swap the keys.
 
-Keys on the digit row are matched by physical key, in 2D as in 3D ([3D view keys](3d-view.md#keys)), so a Keymap binding on a digit works on every keyboard layout.
+Keys on the digit row are matched by physical key, in 2D as in 3D ([3D view keys](3d-view.md#keys)), so a Keymap binding on a digit works on every keyboard layout. Numpad digits count as digits only in the 3D view; in 2D they keep their v0.2 Layer jumps.
 
 ### The Edit Cursor
 

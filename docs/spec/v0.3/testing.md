@@ -188,7 +188,7 @@ Downloaded LCSC parts and vendor zips never go into the repo. They are a [hand c
   - arrows give `view.cursor.step`, and `Mod`+arrows give `pcb.nudge`;
   - Enter gives `view.cursor.click` in a Tool that doesn't bind Enter;
   - Enter ends a route, and Shift+Enter places a route corner;
-  - with a non-US layout simulated, the top-row key in the `1` position fires a binding on `1`, with and without Shift;
+  - with a non-US layout simulated, the top-row key in the `1` position fires a binding on `1`, with and without Shift; keypad `3` gives `view.3d` in the 3D view and `pcb.layer.activate` in 2D;
   - G cycles the board's In-cycle Board Grids together with the user's presets, and a board opens on its Default grid.
 - **Object Defaults:** with Remember last used on, a Tool-option edit writes `defaults.*`; with it off, it doesn't.
 - **Height Areas:** during a move into a Height Area, a too-tall Component shows `component_height` live, and the 3D view's Height Areas switch draws the prism.
