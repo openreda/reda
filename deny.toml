@@ -15,11 +15,6 @@ ignore = [
     { id = "RUSTSEC-2026-0370", reason = "via accesskit_unix; awaiting upstream" },
     { id = "RUSTSEC-2026-0371", reason = "via accesskit_unix; awaiting upstream" },
     { id = "RUSTSEC-2026-0372", reason = "via accesskit_unix; awaiting upstream" },
-    # ttf-parser is unmaintained (informational, no known vulnerability). It reaches us only
-    # through winit's Adwaita title bar on Wayland (sctk-adwaita -> ab_glyph ->
-    # owned_ttf_parser), which parses one installed font to draw the window title. Drop this
-    # once ab_glyph moves to a maintained parser.
-    { id = "RUSTSEC-2026-0192", reason = "via sctk-adwaita's ab_glyph; awaiting upstream" },
     # chrono is unmaintained (informational, no known vulnerability). It reaches us only through
     # rmcp, the MCP server library reda-cli uses (rmcp depends on it and turns on schemars'
     # chrono support); REDA itself never calls it. Drop this once rmcp moves off chrono.
