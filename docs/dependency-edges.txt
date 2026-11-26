@@ -98,6 +98,7 @@ reda-schematic -> regex-lite
 reda-schematic -> schemars
 reda-schematic -> serde
 reda-schematic -> serde_json [dev]
+reda-step -> flate2
 reda-testkit -> reda-engine
 reda-testkit -> reda-model
 reda-testkit -> schemars

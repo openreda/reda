@@ -1,0 +1,15 @@
+[package]
+name = "reda-step"
+description = "STEP (ISO 10303-21) reading and writing: one typed record model for AP203, AP214 and AP242 files."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+flate2.workspace = true
+
+[lints]
+workspace = true
