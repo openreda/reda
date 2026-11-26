@@ -495,8 +495,9 @@ pub fn format_length(length: Nm, units: Units) -> String {
 }
 
 /// The `display.layer_colors.<theme>.<key>` key of a Layer's colour: its kind and side,
-/// such as `copper_top` or `board_outline`.
+/// such as `copper_top` or `board_outline`. Every Mechanical Layer shares `mechanical`.
 pub fn color_key(kind: LayerKind, side: Option<Side>) -> String {
+    let side = side.filter(|_| kind != LayerKind::Mechanical);
     let kind = serde_json::to_value(kind)
         .ok()
         .and_then(|v| v.as_str().map(str::to_owned))
@@ -570,7 +571,7 @@ pub fn palette_handle(prefs: &Preferences, generation: u64) -> PaletteHandle {
 }
 
 /// Every Layer kind.
-const LAYER_KINDS: [LayerKind; 9] = [
+const LAYER_KINDS: [LayerKind; 8] = [
     LayerKind::Copper,
     LayerKind::Silkscreen,
     LayerKind::SolderMask,
@@ -579,7 +580,6 @@ const LAYER_KINDS: [LayerKind; 9] = [
     LayerKind::Assembly,
     LayerKind::BoardOutline,
     LayerKind::Mechanical,
-    LayerKind::Documentation,
 ];
 
 /// The renderer's Inactive-Layer mode for a Preference value.

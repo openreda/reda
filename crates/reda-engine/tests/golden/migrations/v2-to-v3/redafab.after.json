@@ -1,0 +1,176 @@
+{
+  "bom": {
+    "columns": [
+      {
+        "header": "Comment",
+        "source": "value"
+      },
+      {
+        "header": "Designator",
+        "source": "designator"
+      },
+      {
+        "header": "Footprint",
+        "source": "footprint"
+      },
+      {
+        "header": "LCSC Part #",
+        "source": {
+          "field": "LCSC"
+        }
+      }
+    ],
+    "designator_separator": ",",
+    "group_by": [
+      "part",
+      "footprint",
+      "fields"
+    ],
+    "layout": "grouped",
+    "line_numbers": {
+      "enabled": false,
+      "start": 1,
+      "step": 1
+    },
+    "list_unplaced": false,
+    "mount_values": {
+      "smt": "SMT",
+      "tht": "THT"
+    },
+    "not_fitted": "omit",
+    "required_fields": [
+      "LCSC"
+    ],
+    "sort": [
+      "designator"
+    ]
+  },
+  "constructions": [
+    {
+      "default": true,
+      "entries": [
+        {
+          "copper": 35000
+        },
+        {
+          "kind": "core"
+        },
+        {
+          "copper": 35000
+        }
+      ],
+      "name": "2 Layer",
+      "thickness": 1600000
+    }
+  ],
+  "cpl": {
+    "bottom_position": "top_view",
+    "bottom_rotation": "negate",
+    "columns": [
+      {
+        "header": "Designator",
+        "source": "designator"
+      },
+      {
+        "header": "Mid X",
+        "source": "centre_x"
+      },
+      {
+        "header": "Mid Y",
+        "source": "centre_y"
+      },
+      {
+        "header": "Layer",
+        "source": "side"
+      },
+      {
+        "header": "Rotation",
+        "source": "rotation"
+      }
+    ],
+    "exclude_through_hole": false,
+    "side_values": {
+      "bottom": "Bottom",
+      "top": "Top"
+    },
+    "unit_suffix": false,
+    "units": "mm"
+  },
+  "format": 3,
+  "gerber": {
+    "file_names": [],
+    "file_origin": "absolute",
+    "merge_drill": false,
+    "naming": "classic",
+    "outline_on_every_plot": false,
+    "slot_command": "route",
+    "x2_attributes": true
+  },
+  "name": "Blinky",
+  "placement_corrections": [],
+  "rules": {
+    "annular_ring": 180000,
+    "clearance": 100000,
+    "clearance_hole": {
+      "pad": 250000,
+      "via": 250000
+    },
+    "edge_clearance": 200000,
+    "hole_max": 6300000,
+    "hole_min": 200000,
+    "hole_to_hole": 450000,
+    "mask_expansion": {
+      "bottom": 0,
+      "from_hole_edge": false,
+      "tent_vias_bottom": true,
+      "tent_vias_top": true,
+      "top": 0
+    },
+    "paste_expansion": {
+      "expansion": 0
+    },
+    "preferred": {
+      "track_width": 250000,
+      "via_diameter": 660000,
+      "via_hole": 300000
+    },
+    "track_width": 100000,
+    "via_diameter": 510000,
+    "via_hole": 150000
+  },
+  "stackup_suggestions": {
+    "copper": [
+      35000,
+      70000,
+      87500,
+      122500,
+      157500
+    ],
+    "finish": [
+      "HASL (leaded)",
+      "HASL (lead-free)",
+      "ENIG",
+      "OSP"
+    ],
+    "mask_color": [
+      "Green",
+      "Purple",
+      "Red",
+      "Yellow",
+      "Blue",
+      "White",
+      "Black"
+    ],
+    "silk_color": [],
+    "thickness": [
+      400000,
+      600000,
+      800000,
+      1000000,
+      1200000,
+      1600000,
+      2000000
+    ]
+  },
+  "zip_assembly": false
+}

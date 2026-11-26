@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "part": {"uuid":"05dc3117-c866-47c1-921b-19cca9dffb95","name":"Header_1x20","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"6035bfb4-5c53-4ef3-a6db-628ea953b9f4"},
   "footprints": [
     "dc581375-488e-4b93-a408-e8d9c9980a31",

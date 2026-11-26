@@ -62,7 +62,7 @@ fn preset(preset: &mut Value) -> Result<(), String> {
 }
 
 /// A hand-assigned UUID in the released file can coincide with the usual derived ID.
-fn existing_ids(value: &Value, used: &mut BTreeSet<Uuid>) {
+pub(super) fn existing_ids(value: &Value, used: &mut BTreeSet<Uuid>) {
     match value {
         Value::Object(map) => {
             if let Some(id) = map
@@ -85,7 +85,7 @@ fn existing_ids(value: &Value, used: &mut BTreeSet<Uuid>) {
     }
 }
 
-fn reserve(used: &mut BTreeSet<Uuid>, mut id: Uuid) -> Uuid {
+pub(super) fn reserve(used: &mut BTreeSet<Uuid>, mut id: Uuid) -> Uuid {
     while !used.insert(id) {
         id = id.child("next");
     }
@@ -165,29 +165,50 @@ mod tests {
     };
     use reda_testkit::{assert_golden, read_tree};
 
-    /// Run both released standalone files and the Library local to the Minimal board through
-    /// the same readers and canonical writers as their corresponding Commands.
+    /// A standalone file through the same reader and canonical writer as its Commands.
+    fn encode(path: &Path, bytes: &[u8]) -> Vec<u8> {
+        match path.extension().unwrap().to_str().unwrap() {
+            "redalib" => write_library_info(&read_library_info(path, bytes).unwrap()),
+            "redasym" => write_symbol(&read_symbol(path, bytes).unwrap()),
+            "redafp" => write_footprint(&read_footprint(path, bytes).unwrap()),
+            "redapart" => write_part(&read_part(path, bytes).unwrap()),
+            "redafab" => write_fab_file(&read_fab_file(path, bytes).unwrap()),
+            "redarules" => write_rules_file(&read_rules_file(path, bytes).unwrap()),
+            "redaboard" => crate::format::write_board_template(
+                &crate::format::read_board_template(path, bytes).unwrap(),
+            ),
+            ext => panic!("unexpected extension {ext}"),
+        }
+        .unwrap()
+    }
+
+    /// Both steps bring the 0.1.0 standalone files and the Library local to the Minimal
+    /// board where the 1 to 2 step's goldens (as the format-2 writer saved them) land.
     #[test]
-    fn released_standalone_files_save_as_the_goldens_and_reopen_identically() {
+    fn released_v1_standalone_files_save_as_their_v2_goldens_do_and_reopen_identically() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/projects/formats");
         for dir in ["standalone", "minimal_board/lib"] {
             for (file, before) in read_tree(&root.join("v1").join(dir)) {
                 let path = Path::new(&file);
-                let encode = |bytes: &[u8]| {
-                    match path.extension().unwrap().to_str().unwrap() {
-                        "redalib" => write_library_info(&read_library_info(path, bytes).unwrap()),
-                        "redasym" => write_symbol(&read_symbol(path, bytes).unwrap()),
-                        "redafp" => write_footprint(&read_footprint(path, bytes).unwrap()),
-                        "redapart" => write_part(&read_part(path, bytes).unwrap()),
-                        "redafab" => write_fab_file(&read_fab_file(path, bytes).unwrap()),
-                        "redarules" => write_rules_file(&read_rules_file(path, bytes).unwrap()),
-                        ext => panic!("unexpected extension {ext}"),
-                    }
-                    .unwrap()
-                };
-                let after = encode(&before);
-                assert_golden(root.join("migrated-v2").join(dir).join(path), &after);
-                assert_eq!(encode(&after), after, "{file}");
+                let after = encode(path, &before);
+                let golden = std::fs::read(root.join("migrated-v2").join(dir).join(path)).unwrap();
+                assert_eq!(after, encode(path, &golden), "{file}");
+                assert_eq!(encode(path, &after), after, "{file}");
+            }
+        }
+    }
+
+    /// The 0.2.0 standalone files, one of each Library kind, a Fab Preset, a Rules File and
+    /// a Board Template, and the Minimal board's Library, save as the format-3 goldens.
+    #[test]
+    fn released_v2_standalone_files_save_as_the_goldens_and_reopen_identically() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/projects/formats");
+        for dir in ["standalone", "minimal_board/lib"] {
+            for (file, before) in read_tree(&root.join("v2").join(dir)) {
+                let path = Path::new(&file);
+                let after = encode(path, &before);
+                assert_golden(root.join("migrated-v3").join(dir).join(path), &after);
+                assert_eq!(encode(path, &after), after, "{file}");
             }
         }
     }
@@ -205,7 +226,8 @@ mod tests {
             .unwrap();
         rule["net_class"] = serde_json::Value::Null;
         let imported = read_rules_file(&path, &serde_json::to_vec(&released).unwrap()).unwrap();
-        let expected = std::fs::read(root.join("migrated-v2/standalone/Blinky.redarules")).unwrap();
+        let golden = root.join("migrated-v2/standalone/Blinky.redarules");
+        let expected = encode(&golden, &std::fs::read(&golden).unwrap());
         assert_eq!(write_rules_file(&imported).unwrap(), expected);
     }
 }

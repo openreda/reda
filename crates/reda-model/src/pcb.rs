@@ -78,8 +78,84 @@ pub enum LayerKind {
     Courtyard,
     Assembly,
     BoardOutline,
+    // A user-owned Layer for drawings and notes that are not part of the manufactured
+    // board, with a name and a Purpose. Not a doc comment, which would split the schema's
+    // enum.
     Mechanical,
-    Documentation,
+}
+
+/// What a Mechanical Layer is for. It drives defaults and matching only, never a check,
+/// an output or the 3D view. Free text belongs in the Layer's name.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum Purpose {
+    /// Anything; the default for a new Layer.
+    #[default]
+    General,
+    /// Dimensions and their notes.
+    Dimensions,
+    /// Notes and drawings for the board maker.
+    FabricationNotes,
+    /// Notes and drawings for the assembler.
+    AssemblyNotes,
+    /// Things that are not this board: a host or mating board, an enclosure, a bracket.
+    Reference,
+}
+
+impl Purpose {
+    pub const ALL: [Purpose; 5] = [
+        Purpose::General,
+        Purpose::Dimensions,
+        Purpose::FabricationNotes,
+        Purpose::AssemblyNotes,
+        Purpose::Reference,
+    ];
+
+    pub fn is_general(&self) -> bool {
+        *self == Purpose::General
+    }
+
+    /// Its English name, which a new Layer with this Purpose takes as its own.
+    pub fn title(self) -> &'static str {
+        match self {
+            Purpose::General => "General",
+            Purpose::Dimensions => "Dimensions",
+            Purpose::FabricationNotes => "Fabrication Notes",
+            Purpose::AssemblyNotes => "Assembly Notes",
+            Purpose::Reference => "Reference",
+        }
+    }
+}
+
+/// A Layer's `purpose` in the file: left out when general, so `general` is never read.
+fn layer_purpose<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Purpose, D::Error> {
+    match Purpose::deserialize(d)? {
+        Purpose::General => Err(serde::de::Error::custom(
+            "a general Layer leaves out `purpose` rather than writing general",
+        )),
+        purpose => Ok(purpose),
+    }
+}
+
+fn layer_purpose_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    schemars::json_schema!({
+        "description": "A Mechanical Layer's Purpose; left out when general.",
+        "type": "string",
+        "enum": ["dimensions", "fabrication_notes", "assembly_notes", "reference"]
+    })
 }
 
 /// How a copper Layer is used in the Stackup.
@@ -107,9 +183,18 @@ pub struct Layer {
     /// The board face, for sided Layers; left out for the others.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub side: Option<Side>,
-    /// An inner copper Layer's user-supplied name.
+    /// An inner copper Layer's user-supplied name, or a Mechanical Layer's name, which it
+    /// must have and no other Mechanical Layer may share.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
+    /// A Mechanical Layer's Purpose; left out when general, and on every other kind.
+    #[serde(
+        default,
+        skip_serializing_if = "Purpose::is_general",
+        deserialize_with = "layer_purpose"
+    )]
+    #[schemars(schema_with = "layer_purpose_schema")]
+    pub purpose: Purpose,
     /// The copper role. Signal is the implicit default.
     #[serde(default, skip_serializing_if = "CopperRole::is_signal")]
     pub role: CopperRole,
@@ -1083,10 +1168,19 @@ impl PcbDocument {
         if first == last {
             return Err("the board needs a top and a bottom copper Layer".into());
         }
+        self.check_mechanical_layers()?;
         for (i, layer) in layers.iter().enumerate() {
             let uuid = layer.uuid;
+            if layer.kind == LayerKind::Mechanical {
+                continue;
+            }
             if layer.name.is_some() && (layer.kind != LayerKind::Copper || layer.side.is_some()) {
-                return Err(format!("only inner copper Layers can be named: {uuid}"));
+                return Err(format!(
+                    "only inner copper and Mechanical Layers can be named: {uuid}"
+                ));
+            }
+            if !layer.purpose.is_general() {
+                return Err(format!("only Mechanical Layers have a purpose: {uuid}"));
             }
             if layer.role != CopperRole::Signal && layer.kind != LayerKind::Copper {
                 return Err(format!("only copper Layers have a role: {uuid}"));
@@ -1095,9 +1189,7 @@ impl PcbDocument {
                 LayerKind::Copper if i == first => Some(Some(Side::Top)),
                 LayerKind::Copper if i == last => Some(Some(Side::Bottom)),
                 LayerKind::Copper => Some(None),
-                LayerKind::BoardOutline | LayerKind::Mechanical | LayerKind::Documentation => {
-                    Some(None)
-                }
+                LayerKind::BoardOutline => Some(None),
                 _ => match layer.side {
                     Some(Side::Top) if i < first => None,
                     Some(Side::Bottom) if i > last => None,
@@ -1120,6 +1212,40 @@ impl PcbDocument {
                     None => "this kind of Layer has no side",
                 };
                 return Err(format!("Layer {uuid}: {want}"));
+            }
+        }
+        Ok(())
+    }
+
+    /// Checks the Mechanical Layers: they are the Layers after the Board Outline, in the
+    /// user's order, each with a name no other Mechanical Layer has. There may be none.
+    fn check_mechanical_layers(&self) -> Result<(), String> {
+        let layers = &self.layers().layers;
+        let after_outline = layers
+            .iter()
+            .position(|l| l.kind == LayerKind::BoardOutline)
+            .map_or(0, |i| i + 1);
+        let mut names = std::collections::BTreeSet::new();
+        for (i, layer) in layers.iter().enumerate() {
+            let uuid = layer.uuid;
+            let mechanical = layer.kind == LayerKind::Mechanical;
+            if mechanical != (i >= after_outline) {
+                return Err(format!(
+                    "Layer {uuid}: the Mechanical Layers, and only they, come after the \
+                     Board Outline"
+                ));
+            }
+            if !mechanical {
+                continue;
+            }
+            if layer.role != CopperRole::Signal {
+                return Err(format!("only copper Layers have a role: {uuid}"));
+            }
+            let Some(name) = layer.name.as_deref().filter(|n| !n.trim().is_empty()) else {
+                return Err(format!("Mechanical Layer {uuid} needs a name"));
+            };
+            if !names.insert(name) {
+                return Err(format!("two Mechanical Layers are named {name:?}"));
             }
         }
         Ok(())

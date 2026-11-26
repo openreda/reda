@@ -2,7 +2,7 @@
 //!
 //! ```text
 //! {
-//!   "format": 2,
+//!   "format": 3,
 //!   "copper_layers": 4,
 //!   "net_classes": [{"name":"Power"}],
 //!   "rules": [

@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "footprint": {"uuid":"485e03a0-c755-4a01-b4de-e758baae9e79","name":"CardEdge_PCIe_x4","description":"PCI Express x4 card edge, 32 fingers a side: Edge Connector Pads 0.70 mm wide on a 1.0 mm pitch, B side on top and A side below, from 1.40 mm off the edge (clear of a 1.30 mm bevel; present-detect A1 and B31 from 2.40 mm), the open-hardware values; the origin is the key centreline on the finger edge","height":35000},
   "pads": [
     {"uuid":"04a4f693-fea3-4e37-8de5-1a25be7354f4","number":"B8","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":-4500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"paste":"none"},

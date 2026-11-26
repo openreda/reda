@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "symbol": {"uuid":"8fcb03df-c1bf-43e6-b1e5-7975262989c7","name":"Crystal","designator_prefix":"Y","description":"Quartz crystal"},
   "units": [
     {"uuid":"6530efcb-367e-4b9f-a019-31ebd84d1599","name":"A"}

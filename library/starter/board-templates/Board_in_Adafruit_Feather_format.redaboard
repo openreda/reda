@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "uuid": "8cfbe3b3-4804-424c-a322-21f2b77aca92",
   "name": "Board in Adafruit Feather format",
   "description": "A 50.8 x 22.86 mm board in the Adafruit Feather format, for Feather mainboards and FeatherWings, which share the outline. The USB end is at the left (X = 0). The male headers are on the bottom. Adafruit plates the two mounting holes at the USB end; swap in plated holes there if you need them. Adafruit and Feather are used only to describe compatibility.",
@@ -192,7 +192,7 @@
     {"uuid":"d521eace-de0f-4b01-8882-b9cd1c7cda37","part":"0d4bedcc-2958-489d-8dca-b70bc7331d84","footprint":"14be95b0-342d-4078-bc29-e85250b4c997","side":"top","at":{"x":"2.54","y":"20.32"},"locked":true}
   ],
   "drawing_groups": [
-    {"uuid":"ca93a326-cda7-4520-9a92-16a03aaef8e1","name":"Key dimensions","layer":"mechanical"}
+    {"uuid":"ca93a326-cda7-4520-9a92-16a03aaef8e1","name":"Key dimensions","purpose":"dimensions"}
   ],
   "drawings": [
     {"uuid":"0bbd1e5e-8e20-49c7-b5ea-436a10e2a483","group":"ca93a326-cda7-4520-9a92-16a03aaef8e1","kind":"dimension","rotation":"0","a":{"x":0,"y":0},"b":{"x":"50.8","y":0},"offset":"-4","suffix":" mm","locked":true},

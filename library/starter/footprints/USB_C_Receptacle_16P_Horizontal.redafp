@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "footprint": {"uuid":"13f78ea2-b54f-4c17-86db-609c54392855","name":"USB_C_Receptacle_16P_Horizontal","description":"USB 2.0 Type-C receptacle, 16 pins, horizontal mid-mount, mating face at the board edge. Lands per GCT USB4105 drawing, Recommended PCB Layout","height":3200000},
   "pads": [
     {"uuid":"0f8b3078-57ca-4e48-b465-770d7f72d774","number":"S1","kind":"plated_through_hole","shape":"oval","at":{"x":-4320000,"y":2805000},"rotation":0,"width":1000000,"height":2100000,"hole":{"width":600000,"height":1700000}},

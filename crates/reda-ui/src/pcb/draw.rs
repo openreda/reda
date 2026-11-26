@@ -701,15 +701,12 @@ fn active_layer(shell: &Shell) -> Option<(LayerKind, Uuid)> {
 }
 
 /// The active Layer, when free text and graphics may go on it: copper, silkscreen,
-/// mechanical or documentation.
+/// Mechanical.
 fn graphics_layer(shell: &Shell) -> Option<Uuid> {
     let (kind, uuid) = active_layer(shell)?;
     matches!(
         kind,
-        LayerKind::Copper
-            | LayerKind::Silkscreen
-            | LayerKind::Mechanical
-            | LayerKind::Documentation
+        LayerKind::Copper | LayerKind::Silkscreen | LayerKind::Mechanical
     )
     .then_some(uuid)
 }

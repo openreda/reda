@@ -1,8 +1,8 @@
 {
-  "format": 2,
+  "format": 3,
   "sheet": {"uuid":"00000000-0000-4000-8000-000000000002"},
   "parts": [
-    {"uuid":"00000000-0000-4000-8000-000000000038","hash":"0691b24375af176d9449321d88b78a71","part":{"uuid":"8aabffb0-19a6-471f-8762-eb8101e0f9c8","name":"Socket_2x20","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"b444f600-4229-45b7-a9be-a37b698e50e2"},"footprints":["bee1343d-af1c-426d-b678-3ae741957668","4c374f26-a1c3-4e95-a220-6228e5a2f8a5","9793cba2-c0d6-47dd-b977-adea99622aed"],"copies":["00000000-0000-4000-8000-000000000035","00000000-0000-4000-8000-000000000036","00000000-0000-4000-8000-000000000037"],"fields":{"value":"Socket 2x20","description":"2 × 20 socket, 2.54 or 1.27 mm pitch, or 2.54 mm mirror-numbered for the bottom side","keywords":"J connector socket"},"pin_map":{},"symbol":{"uuid":"b444f600-4229-45b7-a9be-a37b698e50e2","name":"Conn_2x20","designator_prefix":"J","description":"Generic connector, 2 × 20 pins"},"units":[
+    {"uuid":"00000000-0000-4000-8000-000000000039","hash":"0691b24375af176d9449321d88b78a71","part":{"uuid":"8aabffb0-19a6-471f-8762-eb8101e0f9c8","name":"Socket_2x20","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"b444f600-4229-45b7-a9be-a37b698e50e2"},"footprints":["bee1343d-af1c-426d-b678-3ae741957668","4c374f26-a1c3-4e95-a220-6228e5a2f8a5","9793cba2-c0d6-47dd-b977-adea99622aed"],"copies":["00000000-0000-4000-8000-000000000036","00000000-0000-4000-8000-000000000037","00000000-0000-4000-8000-000000000038"],"fields":{"value":"Socket 2x20","description":"2 × 20 socket, 2.54 or 1.27 mm pitch, or 2.54 mm mirror-numbered for the bottom side","keywords":"J connector socket"},"pin_map":{},"symbol":{"uuid":"b444f600-4229-45b7-a9be-a37b698e50e2","name":"Conn_2x20","designator_prefix":"J","description":"Generic connector, 2 × 20 pins"},"units":[
       {"uuid":"1eb90f86-6fce-4139-963d-a2b87b963029","name":"A"}
     ],"pins":[
       {"uuid":"04fdbc3e-ebaf-4160-8e40-68a318aebc7a","unit":"1eb90f86-6fce-4139-963d-a2b87b963029","name":"Pin_27","number":"27","electrical_type":"passive","at":{"x":-5080000,"y":-8890000},"rotation":0,"length":2540000,"name_visible":false},
@@ -50,7 +50,7 @@
     ]}
   ],
   "footprints": [
-    {"uuid":"00000000-0000-4000-8000-000000000035","hash":"9129bfb7a08ff1bad8ae74fe01bc2b56","footprint":{"uuid":"bee1343d-af1c-426d-b678-3ae741957668","name":"SKTV254W64P254R2L5080T508H850B","description":"Socket, 2 × 20, 2.54 mm pitch","height":8500000},"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000036","hash":"9129bfb7a08ff1bad8ae74fe01bc2b56","footprint":{"uuid":"bee1343d-af1c-426d-b678-3ae741957668","name":"SKTV254W64P254R2L5080T508H850B","description":"Socket, 2 × 20, 2.54 mm pitch","height":8500000},"pads":[
       {"uuid":"0307f439-87ec-4d3f-8f09-933bd17c235c","number":"7","kind":"plated_through_hole","shape":"circle","at":{"x":-1270000,"y":16510000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
       {"uuid":"1820cdbc-560a-4def-82e8-24034a6e8357","number":"23","kind":"plated_through_hole","shape":"circle","at":{"x":-1270000,"y":-3810000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
       {"uuid":"1b7b0068-bb73-4fca-ad41-e449712b26ef","number":"18","kind":"plated_through_hole","shape":"circle","at":{"x":1270000,"y":3810000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
@@ -103,7 +103,7 @@
       {"uuid":"92bbfa73-ac03-4f9e-8cac-8605e885f724","field":"Designator","at":{"x":0,"y":26350000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
       {"uuid":"c46b2bb0-e25f-4f24-aad0-0479c47a39fa","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000036","hash":"ecec35277e52780c17274cac497a4390","footprint":{"uuid":"4c374f26-a1c3-4e95-a220-6228e5a2f8a5","name":"SKTV127W40P127R2L2540T254H400B","description":"Socket, 2 × 20, 1.27 mm pitch","height":4000000},"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000037","hash":"ecec35277e52780c17274cac497a4390","footprint":{"uuid":"4c374f26-a1c3-4e95-a220-6228e5a2f8a5","name":"SKTV127W40P127R2L2540T254H400B","description":"Socket, 2 × 20, 1.27 mm pitch","height":4000000},"pads":[
       {"uuid":"03351574-becd-4f2d-98b7-5fd698096f5d","number":"31","kind":"plated_through_hole","shape":"circle","at":{"x":-635000,"y":-6985000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
       {"uuid":"0862acc2-7fd4-45b4-9485-2619094ddcf8","number":"3","kind":"plated_through_hole","shape":"circle","at":{"x":-635000,"y":10795000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
       {"uuid":"0d0c79aa-4898-4814-b187-aa19fdac9eaf","number":"34","kind":"plated_through_hole","shape":"circle","at":{"x":635000,"y":-8255000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
@@ -156,7 +156,7 @@
       {"uuid":"623ed17b-e27d-4cc2-b26c-7987ad77dbb8","field":"Designator","at":{"x":0,"y":13650000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
       {"uuid":"9d148d78-6c6a-49b3-a717-3af72996e758","field":"Value","at":{"x":0,"y":-13650000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000037","hash":"f050b33df7f4932f741c03aa67db05dc","footprint":{"uuid":"9793cba2-c0d6-47dd-b977-adea99622aed","name":"SKTV254W64P254R2L5080T508H850B_Mirrored","description":"Socket, 2 × 20, 2.54 mm pitch, mirror-numbered for the bottom side","height":8500000},"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000038","hash":"f050b33df7f4932f741c03aa67db05dc","footprint":{"uuid":"9793cba2-c0d6-47dd-b977-adea99622aed","name":"SKTV254W64P254R2L5080T508H850B_Mirrored","description":"Socket, 2 × 20, 2.54 mm pitch, mirror-numbered for the bottom side","height":8500000},"pads":[
       {"uuid":"08153b41-2e13-4ff5-bbc8-7cacd36d90f5","number":"19","kind":"plated_through_hole","shape":"circle","at":{"x":1270000,"y":1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
       {"uuid":"136421d8-4862-4bd9-8a29-2d5319229801","number":"39","kind":"plated_through_hole","shape":"circle","at":{"x":1270000,"y":-24130000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
       {"uuid":"13e16767-4b85-49af-b8c7-fe9b63776fcd","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":1270000,"y":24130000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
@@ -211,6 +211,6 @@
     ]}
   ],
   "units": [
-    {"uuid":"00000000-0000-4000-8000-00000000003a","component":{"uuid":"00000000-0000-4000-8000-000000000039"},"part":"00000000-0000-4000-8000-000000000038","unit":"1eb90f86-6fce-4139-963d-a2b87b963029","at":{"x":55880000,"y":76200000},"rotation":0,"designator":"J1","fields":{"value":"Socket 2x20","description":"2 × 20 socket, 2.54 or 1.27 mm pitch, or 2.54 mm mirror-numbered for the bottom side","keywords":"J connector socket"},"footprint":"9793cba2-c0d6-47dd-b977-adea99622aed","component_type":"standard","in_bom":true,"in_cpl":true}
+    {"uuid":"00000000-0000-4000-8000-00000000003b","component":{"uuid":"00000000-0000-4000-8000-00000000003a"},"part":"00000000-0000-4000-8000-000000000039","unit":"1eb90f86-6fce-4139-963d-a2b87b963029","at":{"x":55880000,"y":76200000},"rotation":0,"designator":"J1","fields":{"value":"Socket 2x20","description":"2 × 20 socket, 2.54 or 1.27 mm pitch, or 2.54 mm mirror-numbered for the bottom side","keywords":"J connector socket"},"footprint":"9793cba2-c0d6-47dd-b977-adea99622aed","component_type":"standard","in_bom":true,"in_cpl":true}
   ]
 }

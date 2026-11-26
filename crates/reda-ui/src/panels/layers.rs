@@ -339,10 +339,15 @@ fn colour_swatch(
 }
 
 /// "Top Copper", "Bottom Silkscreen", "Board Outline"... Inner copper is named by its copper
-/// position and optional user name.
+/// position and optional user name, and a Mechanical Layer by its own name.
 pub fn layer_name(pcb: &PcbDocument, layer: &Layer) -> String {
     if let Some(name) = pcb.inner_layer_label(layer.uuid) {
         return name;
+    }
+    if layer.kind == LayerKind::Mechanical
+        && let Some(name) = &layer.name
+    {
+        return name.clone();
     }
     let kind = match layer.kind {
         LayerKind::Copper => tr!("layer-copper"),
@@ -353,7 +358,6 @@ pub fn layer_name(pcb: &PcbDocument, layer: &Layer) -> String {
         LayerKind::Assembly => tr!("layer-assembly"),
         LayerKind::BoardOutline => tr!("layer-board-outline"),
         LayerKind::Mechanical => tr!("layer-mechanical"),
-        LayerKind::Documentation => tr!("layer-documentation"),
     };
     match layer.side {
         Some(Side::Top) => tr!("layer-top", kind = kind.as_str()),
@@ -373,7 +377,6 @@ fn kind_title(kind: LayerKind) -> String {
         LayerKind::Assembly => tr!("layer-assembly"),
         LayerKind::BoardOutline => tr!("layer-board-outline"),
         LayerKind::Mechanical => tr!("layer-mechanical"),
-        LayerKind::Documentation => tr!("layer-documentation"),
     }
 }
 

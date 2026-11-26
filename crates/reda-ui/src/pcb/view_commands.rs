@@ -79,7 +79,7 @@ pub fn built_in(name: &str, layer: &Layer) -> Option<bool> {
         "non_signal" => matches!(layer.kind, K::Silkscreen | K::SolderMask | K::Paste),
         "mechanical" => matches!(
             layer.kind,
-            K::BoardOutline | K::Mechanical | K::Documentation | K::Courtyard | K::Assembly
+            K::BoardOutline | K::Mechanical | K::Courtyard | K::Assembly
         ),
         "top" => layer.side == Some(Side::Top) || outline,
         "bottom" => layer.side == Some(Side::Bottom) || outline,

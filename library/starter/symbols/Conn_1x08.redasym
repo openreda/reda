@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "symbol": {"uuid":"e8c3bdb4-e23e-4fb9-b8cf-ba3138ef0a3e","name":"Conn_1x08","designator_prefix":"J","description":"Generic connector, 1 × 8 pins"},
   "units": [
     {"uuid":"a3a49e3e-0f88-45cc-8ef8-cc7969e7a4f3","name":"A"}

@@ -70,7 +70,7 @@ fn adding_a_pcb_document_creates_the_fixed_layer_set() {
             (Courtyard, bottom),
             (BoardOutline, None),
             (Mechanical, None),
-            (Documentation, None),
+            (Mechanical, None),
         ]
     );
     let mut uuids: Vec<Uuid> = pcb.layers().layers.iter().map(|l| l.uuid).collect();

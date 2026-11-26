@@ -6848,14 +6848,6 @@
             ],
             "type": "string"
           },
-          "DrawingLayer": {
-            "description": "The Layer a drawing group goes on, named symbolically.",
-            "enum": [
-              "mechanical",
-              "documentation"
-            ],
-            "type": "string"
-          },
           "FrameBevel": {
             "properties": {
               "angle": {
@@ -7085,11 +7077,11 @@
               "excluded": {
                 "type": "boolean"
               },
-              "layer": {
-                "$ref": "#/$defs/DrawingLayer"
-              },
               "name": {
                 "type": "string"
+              },
+              "purpose": {
+                "$ref": "#/$defs/Purpose"
               },
               "uuid": {
                 "format": "uuid",
@@ -7099,7 +7091,7 @@
             "required": [
               "uuid",
               "name",
-              "layer",
+              "purpose",
               "drawings"
             ],
             "type": "object"
@@ -7932,6 +7924,36 @@
             ],
             "type": "string"
           },
+          "Purpose": {
+            "description": "What a Mechanical Layer is for. It drives defaults and matching only, never a check,\nan output or the 3D view. Free text belongs in the Layer's name.",
+            "oneOf": [
+              {
+                "const": "general",
+                "description": "Anything; the default for a new Layer.",
+                "type": "string"
+              },
+              {
+                "const": "dimensions",
+                "description": "Dimensions and their notes.",
+                "type": "string"
+              },
+              {
+                "const": "fabrication_notes",
+                "description": "Notes and drawings for the board maker.",
+                "type": "string"
+              },
+              {
+                "const": "assembly_notes",
+                "description": "Notes and drawings for the assembler.",
+                "type": "string"
+              },
+              {
+                "const": "reference",
+                "description": "Things that are not this board: a host or mating board, an enclosure, a bracket.",
+                "type": "string"
+              }
+            ]
+          },
           "ResolvedValue": {
             "anyOf": [
               {
@@ -8202,7 +8224,7 @@
     },
     {
       "category": "library",
-      "description": "Writes the active board's outline and the chosen `objects` (Board Cutouts, Keepouts, Components, Mechanical Parts, Free Pads, and the Mechanical and Documentation Layers' drawings) as a new Board Template `board-templates/<name>.redaboard` in a writable Library: shifted so the outline's bounding box starts at (0,0), as literal numbers with each object's Locked state and fresh UUIDs. Parts and Footprints are the unedited copies; Plated Edges keep their mark without a Net; Keepout Layers become `all_copper`, `top_copper` or `bottom_copper`. Refuses a name the Library already has, the Starter or a read-only Library, a board with no outline and an inner-layer Keepout. Returns the element, its path and warnings.",
+      "description": "Writes the active board's outline and the chosen `objects` (Board Cutouts, Keepouts, Components, Mechanical Parts, Free Pads, and the Mechanical Layers' drawings) as a new Board Template `board-templates/<name>.redaboard` in a writable Library: shifted so the outline's bounding box starts at (0,0), as literal numbers with each object's Locked state and fresh UUIDs. Parts and Footprints are the unedited copies; Plated Edges keep their mark without a Net; Keepout Layers become `all_copper`, `top_copper` or `bottom_copper`. Refuses a name the Library already has, the Starter or a read-only Library, a board with no outline and an inner-layer Keepout. Returns the element, its path and warnings.",
       "icon": "board_outline_rect",
       "id": "library.board_template.save",
       "kind": "file",
@@ -8236,7 +8258,7 @@
           },
           "objects": {
             "default": null,
-            "description": "The board objects to capture beyond the outline, which always comes: Board\nCutouts, Keepouts, Components, Mechanical Parts and Free Pads by UUID, and a\nMechanical or Documentation Layer's UUID for every graphic, text and Dimension on\nit. Left out, the dialog's defaults: everything but inner-layer Keepouts, with\nComponents, Mechanical Parts and Free Pads only when Locked.",
+            "description": "The board objects to capture beyond the outline, which always comes: Board\nCutouts, Keepouts, Components, Mechanical Parts and Free Pads by UUID, and a\nMechanical Layer's UUID for every graphic, text and Dimension on it. Left out, the dialog's defaults: everything but inner-layer Keepouts, with\nComponents, Mechanical Parts and Free Pads only when Locked.",
             "items": {
               "format": "uuid",
               "type": "string"
@@ -29474,11 +29496,21 @@
                 "$ref": "#/$defs/LayerKind"
               },
               "name": {
-                "description": "An inner copper Layer's user-supplied name.",
+                "description": "An inner copper Layer's user-supplied name, or a Mechanical Layer's name, which it\nmust have and no other Mechanical Layer may share.",
                 "type": [
                   "string",
                   "null"
                 ]
+              },
+              "purpose": {
+                "description": "A Mechanical Layer's Purpose; left out when general, and on every other kind.",
+                "enum": [
+                  "dimensions",
+                  "fabrication_notes",
+                  "assembly_notes",
+                  "reference"
+                ],
+                "type": "string"
               },
               "role": {
                 "$ref": "#/$defs/CopperRole",
@@ -29543,8 +29575,7 @@
               "courtyard",
               "assembly",
               "board_outline",
-              "mechanical",
-              "documentation"
+              "mechanical"
             ],
             "type": "string"
           },
@@ -32389,6 +32420,11 @@
                 "const": "paste_expansion",
                 "description": "Solder-paste expansion per edge or signed percent change in area; no DRC severity.",
                 "type": "string"
+              },
+              {
+                "const": "component_height",
+                "description": "A Footprint `height` limit per board side: `top_max?`, `bottom_max?`. Board-wide\nonly.",
+                "type": "string"
               }
             ]
           },
@@ -32471,6 +32507,14 @@
               },
               "bottom": {
                 "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "bottom_max": {
+                "description": "`component_height` only: the tallest Footprint `height` allowed on the bottom side.",
                 "format": "int64",
                 "type": [
                   "integer",
@@ -32653,6 +32697,14 @@
               },
               "top": {
                 "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "top_max": {
+                "description": "`component_height` only: the tallest Footprint `height` allowed on the top side.",
                 "format": "int64",
                 "type": [
                   "integer",
@@ -38142,11 +38194,21 @@
                 "$ref": "#/$defs/LayerKind"
               },
               "name": {
-                "description": "An inner copper Layer's user-supplied name.",
+                "description": "An inner copper Layer's user-supplied name, or a Mechanical Layer's name, which it\nmust have and no other Mechanical Layer may share.",
                 "type": [
                   "string",
                   "null"
                 ]
+              },
+              "purpose": {
+                "description": "A Mechanical Layer's Purpose; left out when general, and on every other kind.",
+                "enum": [
+                  "dimensions",
+                  "fabrication_notes",
+                  "assembly_notes",
+                  "reference"
+                ],
+                "type": "string"
               },
               "role": {
                 "$ref": "#/$defs/CopperRole",
@@ -38211,8 +38273,7 @@
               "courtyard",
               "assembly",
               "board_outline",
-              "mechanical",
-              "documentation"
+              "mechanical"
             ],
             "type": "string"
           },
@@ -41078,6 +41139,11 @@
                 "const": "paste_expansion",
                 "description": "Solder-paste expansion per edge or signed percent change in area; no DRC severity.",
                 "type": "string"
+              },
+              {
+                "const": "component_height",
+                "description": "A Footprint `height` limit per board side: `top_max?`, `bottom_max?`. Board-wide\nonly.",
+                "type": "string"
               }
             ]
           },
@@ -41160,6 +41226,14 @@
               },
               "bottom": {
                 "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "bottom_max": {
+                "description": "`component_height` only: the tallest Footprint `height` allowed on the bottom side.",
                 "format": "int64",
                 "type": [
                   "integer",
@@ -41342,6 +41416,14 @@
               },
               "top": {
                 "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "top_max": {
+                "description": "`component_height` only: the tallest Footprint `height` allowed on the top side.",
                 "format": "int64",
                 "type": [
                   "integer",
@@ -55584,6 +55666,11 @@
                 "const": "paste_expansion",
                 "description": "Solder-paste expansion per edge or signed percent change in area; no DRC severity.",
                 "type": "string"
+              },
+              {
+                "const": "component_height",
+                "description": "A Footprint `height` limit per board side: `top_max?`, `bottom_max?`. Board-wide\nonly.",
+                "type": "string"
               }
             ]
           },
@@ -59725,6 +59812,11 @@
                 "const": "paste_expansion",
                 "description": "Solder-paste expansion per edge or signed percent change in area; no DRC severity.",
                 "type": "string"
+              },
+              {
+                "const": "component_height",
+                "description": "A Footprint `height` limit per board side: `top_max?`, `bottom_max?`. Board-wide\nonly.",
+                "type": "string"
               }
             ]
           },
@@ -60290,6 +60382,11 @@
                 "const": "paste_expansion",
                 "description": "Solder-paste expansion per edge or signed percent change in area; no DRC severity.",
                 "type": "string"
+              },
+              {
+                "const": "component_height",
+                "description": "A Footprint `height` limit per board side: `top_max?`, `bottom_max?`. Board-wide\nonly.",
+                "type": "string"
               }
             ]
           },
@@ -60531,6 +60628,8 @@
                   "tolerance",
                   "max_length",
                   "min_area",
+                  "top_max",
+                  "bottom_max",
                   "through_hole_style",
                   "through_hole_spokes",
                   "through_hole_spoke_width",
@@ -60664,6 +60763,11 @@
               {
                 "const": "paste_expansion",
                 "description": "Solder-paste expansion per edge or signed percent change in area; no DRC severity.",
+                "type": "string"
+              },
+              {
+                "const": "component_height",
+                "description": "A Footprint `height` limit per board side: `top_max?`, `bottom_max?`. Board-wide\nonly.",
                 "type": "string"
               }
             ]
@@ -60869,6 +60973,8 @@
                   "tolerance",
                   "max_length",
                   "min_area",
+                  "top_max",
+                  "bottom_max",
                   "through_hole_style",
                   "through_hole_spokes",
                   "through_hole_spoke_width",
@@ -61002,6 +61108,11 @@
               {
                 "const": "paste_expansion",
                 "description": "Solder-paste expansion per edge or signed percent change in area; no DRC severity.",
+                "type": "string"
+              },
+              {
+                "const": "component_height",
+                "description": "A Footprint `height` limit per board side: `top_max?`, `bottom_max?`. Board-wide\nonly.",
                 "type": "string"
               }
             ]
@@ -61351,6 +61462,8 @@
                   "tolerance",
                   "max_length",
                   "min_area",
+                  "top_max",
+                  "bottom_max",
                   "through_hole_style",
                   "through_hole_spokes",
                   "through_hole_spoke_width",
@@ -61484,6 +61597,11 @@
               {
                 "const": "paste_expansion",
                 "description": "Solder-paste expansion per edge or signed percent change in area; no DRC severity.",
+                "type": "string"
+              },
+              {
+                "const": "component_height",
+                "description": "A Footprint `height` limit per board side: `top_max?`, `bottom_max?`. Board-wide\nonly.",
                 "type": "string"
               }
             ]
@@ -61710,6 +61828,11 @@
               {
                 "const": "paste_expansion",
                 "description": "Solder-paste expansion per edge or signed percent change in area; no DRC severity.",
+                "type": "string"
+              },
+              {
+                "const": "component_height",
+                "description": "A Footprint `height` limit per board side: `top_max?`, `bottom_max?`. Board-wide\nonly.",
                 "type": "string"
               }
             ]
@@ -62399,6 +62522,11 @@
                 "const": "paste_expansion",
                 "description": "Solder-paste expansion per edge or signed percent change in area; no DRC severity.",
                 "type": "string"
+              },
+              {
+                "const": "component_height",
+                "description": "A Footprint `height` limit per board side: `top_max?`, `bottom_max?`. Board-wide\nonly.",
+                "type": "string"
               }
             ]
           },
@@ -62429,6 +62557,14 @@
               },
               "bottom": {
                 "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "bottom_max": {
+                "description": "`component_height` only: the tallest Footprint `height` allowed on the bottom side.",
                 "format": "int64",
                 "type": [
                   "integer",
@@ -62611,6 +62747,14 @@
               },
               "top": {
                 "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "top_max": {
+                "description": "`component_height` only: the tallest Footprint `height` allowed on the top side.",
                 "format": "int64",
                 "type": [
                   "integer",
@@ -63267,6 +63411,11 @@
               {
                 "const": "paste_expansion",
                 "description": "Solder-paste expansion per edge or signed percent change in area; no DRC severity.",
+                "type": "string"
+              },
+              {
+                "const": "component_height",
+                "description": "A Footprint `height` limit per board side: `top_max?`, `bottom_max?`. Board-wide\nonly.",
                 "type": "string"
               }
             ]
@@ -63993,6 +64142,11 @@
                 "const": "paste_expansion",
                 "description": "Solder-paste expansion per edge or signed percent change in area; no DRC severity.",
                 "type": "string"
+              },
+              {
+                "const": "component_height",
+                "description": "A Footprint `height` limit per board side: `top_max?`, `bottom_max?`. Board-wide\nonly.",
+                "type": "string"
               }
             ]
           },
@@ -64075,6 +64229,14 @@
               },
               "bottom": {
                 "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "bottom_max": {
+                "description": "`component_height` only: the tallest Footprint `height` allowed on the bottom side.",
                 "format": "int64",
                 "type": [
                   "integer",
@@ -64257,6 +64419,14 @@
               },
               "top": {
                 "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "top_max": {
+                "description": "`component_height` only: the tallest Footprint `height` allowed on the top side.",
                 "format": "int64",
                 "type": [
                   "integer",
@@ -64567,6 +64737,11 @@
               {
                 "const": "paste_expansion",
                 "description": "Solder-paste expansion per edge or signed percent change in area; no DRC severity.",
+                "type": "string"
+              },
+              {
+                "const": "component_height",
+                "description": "A Footprint `height` limit per board side: `top_max?`, `bottom_max?`. Board-wide\nonly.",
                 "type": "string"
               }
             ]
@@ -64914,6 +65089,11 @@
               {
                 "const": "paste_expansion",
                 "description": "Solder-paste expansion per edge or signed percent change in area; no DRC severity.",
+                "type": "string"
+              },
+              {
+                "const": "component_height",
+                "description": "A Footprint `height` limit per board side: `top_max?`, `bottom_max?`. Board-wide\nonly.",
                 "type": "string"
               }
             ]

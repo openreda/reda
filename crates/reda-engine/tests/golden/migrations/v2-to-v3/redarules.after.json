@@ -1,0 +1,179 @@
+{
+  "copper_layers": 2,
+  "format": 3,
+  "net_classes": [],
+  "rules": [
+    {
+      "kind": "clearance",
+      "values": {
+        "value": 100000
+      }
+    },
+    {
+      "kind": "track_width",
+      "values": {
+        "min": 100000,
+        "preferred": 250000
+      }
+    },
+    {
+      "kind": "via_size",
+      "values": {
+        "diameter": {
+          "min": 510000
+        },
+        "hole": {
+          "min": 150000
+        }
+      }
+    },
+    {
+      "kind": "hole_size",
+      "values": {
+        "max": 6300000,
+        "min": 200000
+      }
+    },
+    {
+      "kind": "annular_ring",
+      "values": {
+        "min": 180000
+      }
+    },
+    {
+      "kind": "hole_to_hole",
+      "values": {
+        "min": 450000
+      }
+    },
+    {
+      "kind": "edge_clearance",
+      "values": {
+        "value": 200000
+      }
+    },
+    {
+      "kind": "silk_to_edge",
+      "values": {
+        "value": 254000
+      }
+    },
+    {
+      "kind": "silk_to_mask",
+      "values": {
+        "mode": "exposed_copper",
+        "value": 100000
+      }
+    },
+    {
+      "kind": "courtyard_clearance",
+      "values": {
+        "value": 0
+      }
+    },
+    {
+      "kind": "dangling",
+      "values": {
+        "tolerance": 0
+      }
+    },
+    {
+      "kind": "micro_segment",
+      "values": {
+        "max_length": 10000
+      }
+    },
+    {
+      "kind": "dead_copper",
+      "values": {
+        "min_area": 64516000000
+      }
+    },
+    {
+      "kind": "zone_connection",
+      "values": {
+        "smd": {
+          "angle": 0,
+          "gap": 250000,
+          "spoke_width": 250000,
+          "spokes": 4,
+          "style": "relief"
+        },
+        "through_hole": {
+          "angle": 0,
+          "gap": 250000,
+          "spoke_width": 250000,
+          "spokes": 4,
+          "style": "relief"
+        },
+        "via": {
+          "angle": 0,
+          "gap": 250000,
+          "spoke_width": 250000,
+          "spokes": 4,
+          "style": "solid"
+        }
+      }
+    },
+    {
+      "kind": "mask_expansion",
+      "values": {
+        "bottom": 0,
+        "from_hole_edge": false,
+        "tent_vias_bottom": true,
+        "tent_vias_top": true,
+        "top": 0
+      }
+    },
+    {
+      "kind": "paste_expansion",
+      "values": {
+        "expansion": 0
+      }
+    }
+  ],
+  "severities": {
+    "annular_ring": "error",
+    "aspect_ratio": "error",
+    "clearance": "error",
+    "copper_without_net": "warning",
+    "courtyard_overlap": "warning",
+    "dangling": "warning",
+    "dead_copper": "warning",
+    "duplicate_copper": "warning",
+    "edge_clearance": "error",
+    "edge_connector_on_plated_edge": "error",
+    "edge_connector_without_pads": "warning",
+    "empty_zone": "warning",
+    "footprint_outside_board": "error",
+    "hole_size": "error",
+    "hole_to_hole": "error",
+    "keepout": "error",
+    "max_stack": "error",
+    "micro_segment": "warning",
+    "microvia_size": "error",
+    "net_tie_not_joined": "error",
+    "opening_collapsed": "warning",
+    "out_of_sync": "warning",
+    "plated_edge_nets_differ": "error",
+    "plated_edge_unconnected": "warning",
+    "plated_edge_without_net": "warning",
+    "poor_connection": "warning",
+    "rule_invalid": "error",
+    "rule_outside_preset": "warning",
+    "shelved_zone": "warning",
+    "short_circuit": "error",
+    "shorted_copper": "error",
+    "silk_text_height": "warning",
+    "silk_to_edge": "warning",
+    "silk_to_mask": "warning",
+    "silk_width": "warning",
+    "track_width": "error",
+    "unrouted": "error",
+    "via_size": "error",
+    "via_span": "error",
+    "via_under_smd": "warning",
+    "zero_area_zone": "warning",
+    "zero_length_track": "warning"
+  }
+}

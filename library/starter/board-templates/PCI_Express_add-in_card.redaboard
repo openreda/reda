@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "uuid": "4ca6b4ca-11f8-45f1-96c1-c610ece56af9",
   "name": "PCI Express add-in card",
   "description": "A PCI Express add-in card in x1, x4, x8 or x16, full height (111.15 mm) or low profile (68.90 mm), from the end of the finger tab (65.30 mm for x1, 79.30 for x4, 96.30 for x8, 129.30 for x16) up to half length (167.65 mm). Seen from the component side with the fingers down, the bracket is on the left: the bracket-side card edge is at X = 0 and the key 57.15 mm along. The B-side fingers are on the top copper and the A-side on the bottom. The finger edge is bevelled 20 degrees, 1.30 mm deep, after TE Connectivity drawing 2364427, the only published figure; hard gold on the fingers is recommended for a card that is inserted often. The lower bracket screw hole is included. The bracket outline is approximate, after the open lucanastasio PCIexpress-KiCad bracket footprints, and sits on the Documentation Layer only. PCI Express and PCIe are trademarks of PCI-SIG, used here only to describe compatibility.",
@@ -849,8 +849,8 @@
     {"uuid":"a7ab7bd5-5e0b-4950-a8a3-911278572a1e","part":"0aab2c2c-7257-4067-a4d1-87611042f8a8","footprint":"a63ccb3f-486c-4a05-8994-9418cd35a516","side":"top","at":{"x":"7.5","y":"9.35"},"locked":true}
   ],
   "drawing_groups": [
-    {"uuid":"315a9d77-9ab4-4bea-8602-fe174bc663b7","name":"Key dimensions","layer":"mechanical"},
-    {"uuid":"9088f6c9-8ad2-47ef-bfb7-f932ff1ee767","name":"Bracket outline (approximate)","layer":"documentation"}
+    {"uuid":"315a9d77-9ab4-4bea-8602-fe174bc663b7","name":"Key dimensions","purpose":"dimensions"},
+    {"uuid":"9088f6c9-8ad2-47ef-bfb7-f932ff1ee767","name":"Bracket outline (approximate)","purpose":"reference"}
   ],
   "drawings": [
     {"uuid":"3e3fec7f-0b95-4653-952e-3e1cdf58b01d","group":"315a9d77-9ab4-4bea-8602-fe174bc663b7","kind":"dimension","rotation":"0","a":{"x":0,"y":"card_height"},"b":{"x":"card_length","y":"card_height"},"offset":"4","suffix":" mm","locked":true},

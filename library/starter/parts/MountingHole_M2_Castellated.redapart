@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "part": {"uuid":"1acaac5c-522c-4fc8-b805-c5c45cc6f904","name":"MountingHole_M2_Castellated","component_type":"mechanical","in_bom":false,"in_cpl":false},
   "footprints": [
     "ac2e8f5f-a3e8-40a7-91bb-42fb9de9bae3"

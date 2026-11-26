@@ -248,11 +248,11 @@ fn the_view_from_the_bottom_mirrors_the_canvas_and_reverses_the_layers() {
             .position(|(c, _)| *c == SceneLayer::Board(l))
             .unwrap()
     };
-    let documentation = layer(&b, LayerKind::Documentation, None);
+    let mechanical = layer(&b, LayerKind::Mechanical, None);
     run(
         &mut b.shell,
         "pcb.layer.activate",
-        json!({"layer": documentation}),
+        json!({"layer": mechanical}),
     );
     assert!(index(&b, bottom) < index(&b, top));
 

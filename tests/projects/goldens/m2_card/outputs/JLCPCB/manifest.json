@@ -1,7 +1,7 @@
 {
   "format": 1,
   "reda": "0.0.0-test",
-  "job": {"uuid":"00000000-0000-4000-8000-00000000002e","name":"JLCPCB"},
+  "job": {"uuid":"00000000-0000-4000-8000-00000000002f","name":"JLCPCB"},
   "fab_preset": {"name":"JLCPCB","sha256":"51eb1ea23b0e11c861dac50f76863804f1abf642412f07dd822fd4669abefdde"},
   "pcb": "00000000-0000-4000-8000-000000000003",
   "revision": "A",
@@ -22,7 +22,7 @@
     {"path":"M2Card-JLCPCB-BOM.csv","size":41,"sha256":"bf54c8808cef558f29d0551c0995815930da09442a515988e950272b83984adb","kind":"bom"},
     {"path":"M2Card-JLCPCB-CPL.csv","size":38,"sha256":"3573cb886af477954706d7ab531c75014ccab200ab5595f1c9425c46095802c6","kind":"cpl"},
     {"path":"M2Card-JLCPCB-schematic.pdf","size":366765,"sha256":"85ad29ccf9283fe1cb06c93a69226c1960097a6b9316e28de673c0c521661889","kind":"schematic_pdf"},
-    {"path":"reports/M2Card-erc.json","size":27074,"sha256":"7e65b59b72113d2d7e63004f4f139e91832548c64efc1001fb6e2584739e3df3","kind":"erc_report"},
+    {"path":"reports/M2Card-erc.json","size":27074,"sha256":"5a68f2299c16950e5ed88f1853143bbfdeb14aa368dbec3c44dd1ceee0c4b538","kind":"erc_report"},
     {"path":"reports/M2Card-drc.json","size":240,"sha256":"6e6b98b12284e628144c704a5e31e4f129733d7c9be5164e91a2f4dfffbf4d36","kind":"drc_report"},
     {"path":"reports/M2Card-change-list.json","size":179,"sha256":"34e9a051f1b1f74b936680824c3b9af3560536311aed824923dd16bd876566dc","kind":"change_list_report"}
   ],

@@ -1799,11 +1799,21 @@
           "$ref": "#/$defs/LayerKind"
         },
         "name": {
-          "description": "An inner copper Layer's user-supplied name.",
+          "description": "An inner copper Layer's user-supplied name, or a Mechanical Layer's name, which it\nmust have and no other Mechanical Layer may share.",
           "type": [
             "string",
             "null"
           ]
+        },
+        "purpose": {
+          "description": "A Mechanical Layer's Purpose; left out when general, and on every other kind.",
+          "enum": [
+            "dimensions",
+            "fabrication_notes",
+            "assembly_notes",
+            "reference"
+          ],
+          "type": "string"
         },
         "role": {
           "$ref": "#/$defs/CopperRole",
@@ -1849,8 +1859,7 @@
         "courtyard",
         "assembly",
         "board_outline",
-        "mechanical",
-        "documentation"
+        "mechanical"
       ],
       "type": "string"
     },
@@ -2756,6 +2765,11 @@
           "const": "paste_expansion",
           "description": "Solder-paste expansion per edge or signed percent change in area; no DRC severity.",
           "type": "string"
+        },
+        {
+          "const": "component_height",
+          "description": "A Footprint `height` limit per board side: `top_max?`, `bottom_max?`. Board-wide\nonly.",
+          "type": "string"
         }
       ]
     },
@@ -2838,6 +2852,14 @@
         },
         "bottom": {
           "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "bottom_max": {
+          "description": "`component_height` only: the tallest Footprint `height` allowed on the bottom side.",
           "format": "int64",
           "type": [
             "integer",
@@ -3020,6 +3042,14 @@
         },
         "top": {
           "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "top_max": {
+          "description": "`component_height` only: the tallest Footprint `height` allowed on the top side.",
           "format": "int64",
           "type": [
             "integer",
@@ -4163,7 +4193,7 @@
       "type": "array"
     },
     "format": {
-      "const": 2,
+      "const": 3,
       "description": "The file-format version. REDA writes only the current one.",
       "type": "integer"
     },
@@ -4176,7 +4206,7 @@
       "type": "array"
     },
     "graphics": {
-      "description": "Lines, arcs and rectangles on copper, silkscreen, mechanical and documentation\nLayers.",
+      "description": "Lines, arcs and rectangles on copper, silkscreen and Mechanical Layers.",
       "items": {
         "$ref": "#/$defs/PcbGraphic"
       },
@@ -4243,7 +4273,7 @@
       "type": "array"
     },
     "texts": {
-      "description": "Free text on copper, silkscreen, mechanical and documentation Layers.",
+      "description": "Free text on copper, silkscreen and Mechanical Layers.",
       "items": {
         "$ref": "#/$defs/PcbText"
       },

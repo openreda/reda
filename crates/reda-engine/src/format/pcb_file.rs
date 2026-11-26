@@ -2,10 +2,13 @@
 //!
 //! ```text
 //! {
-//!   "format": 2,
+//!   "format": 3,
 //!   "pcb": {"uuid":"…"},
 //!   "layers": {"uuid":"…","layers":[
 //!     {"uuid":"…","kind":"courtyard","side":"top"},
+//!     …
+//!     {"uuid":"…","kind":"board_outline"},
+//!     {"uuid":"…","kind":"mechanical","name":"Dimensions","purpose":"dimensions"},
 //!     …
 //!   ]},
 //!   "stackups": [
@@ -146,10 +149,9 @@ pub(crate) struct PcbFile {
     net_classes: Vec<NetClass>,
     /// The PCB Nets.
     nets: Vec<Net>,
-    /// Free text on copper, silkscreen, mechanical and documentation Layers.
+    /// Free text on copper, silkscreen and Mechanical Layers.
     texts: Vec<PcbText>,
-    /// Lines, arcs and rectangles on copper, silkscreen, mechanical and documentation
-    /// Layers.
+    /// Lines, arcs and rectangles on copper, silkscreen and Mechanical Layers.
     graphics: Vec<PcbGraphic>,
     /// The Dimensions; left out while the board has none. Their values are derived.
     #[serde(default)]

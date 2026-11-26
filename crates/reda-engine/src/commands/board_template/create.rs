@@ -15,10 +15,10 @@ use reda_library::board_template::{
 use reda_model::geom::{Millideg, Point};
 use reda_model::{
     BoardCutout, BoardOutline, BoardTemplate, ComponentRef, Dimension, DimensionEnd, DrawingKind,
-    DrawingLayer, EdgeBevel, EdgeConnector, FootprintCopy, FootprintInstance, GraphicShape,
-    Hotspot, HotspotRef, InDocument, Keepout, KeepoutShape, KeepoutShapeKind, LayerKind, Object,
-    PadNet, PartEntry, PcbGraphic, PcbText, PlatedEdge, PlatedEdges, Project, Side,
-    TemplateCopperLayer, TemplatePart, TextJustify, TextStyle, Transaction, UnitInstance, Uuid,
+    EdgeBevel, EdgeConnector, FootprintCopy, FootprintInstance, GraphicShape, Hotspot, HotspotRef,
+    InDocument, Keepout, KeepoutShape, KeepoutShapeKind, LayerKind, Object, PadNet, PartEntry,
+    PcbGraphic, PcbText, PlatedEdge, PlatedEdges, Project, Side, TemplateCopperLayer, TemplatePart,
+    TextJustify, TextStyle, Transaction, UnitInstance, Uuid,
 };
 use schemars::JsonSchema;
 use serde::Serialize;
@@ -192,15 +192,19 @@ pub(crate) fn write(
     let layers = w.project().pcb_document(pcb).expect("the new PCB").layers();
     let copper = |side| layers.find(LayerKind::Copper, Some(side)).map(|l| l.uuid);
     let (top, bottom) = (copper(Side::Top), copper(Side::Bottom));
-    let drawing_layer = |kind| {
-        layers
-            .layers
+    // A drawing group goes on the first Mechanical Layer with its Purpose.
+    let mechanical: Vec<_> = layers
+        .layers
+        .iter()
+        .filter(|l| l.kind == LayerKind::Mechanical)
+        .map(|l| (l.purpose, l.uuid))
+        .collect();
+    let drawing_layer = |purpose| {
+        mechanical
             .iter()
-            .find(|l| l.kind == kind)
-            .map(|l| l.uuid)
+            .find(|(p, _)| *p == purpose)
+            .map(|(_, uuid)| *uuid)
     };
-    let mechanical = drawing_layer(LayerKind::Mechanical);
-    let documentation = drawing_layer(LayerKind::Documentation);
 
     for row in frame.keepouts.iter().filter(|k| !k.excluded) {
         let uuid = w.new_id();
@@ -254,12 +258,11 @@ pub(crate) fn write(
             designator: None,
             component: None,
         });
-        let layer = match group.layer {
-            DrawingLayer::Mechanical => mechanical,
-            DrawingLayer::Documentation => documentation,
-        }
-        .ok_or_else(|| {
-            CommandError::internal(format!("the new board has no {:?} Layer", group.layer))
+        let layer = drawing_layer(group.purpose).ok_or_else(|| {
+            CommandError::internal(format!(
+                "the new board has no {} Layer",
+                group.purpose.title()
+            ))
         })?;
         for drawing in group.drawings.iter().filter(|d| !d.excluded) {
             let uuid = w.new_id();

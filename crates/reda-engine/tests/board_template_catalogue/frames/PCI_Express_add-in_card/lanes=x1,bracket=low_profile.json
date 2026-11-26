@@ -1038,8 +1038,8 @@
           "uuid": "89fd1940-894e-4d90-ab61-6cf334bb3885"
         }
       ],
-      "layer": "mechanical",
       "name": "Key dimensions",
+      "purpose": "dimensions",
       "uuid": "315a9d77-9ab4-4bea-8602-fe174bc663b7"
     },
     {
@@ -1073,8 +1073,8 @@
           "width": 100000
         }
       ],
-      "layer": "documentation",
       "name": "Bracket outline (approximate)",
+      "purpose": "reference",
       "uuid": "9088f6c9-8ad2-47ef-bfb7-f932ff1ee767"
     }
   ],

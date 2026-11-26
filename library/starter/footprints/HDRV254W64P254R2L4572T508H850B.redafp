@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "footprint": {"uuid":"f719c7b8-42e1-410f-9ca1-ed92fb8df876","name":"HDRV254W64P254R2L4572T508H850B","description":"Pin header, 2 × 18, 2.54 mm pitch","height":8500000},
   "generator": {"command":"library.footprint.generate.header","params":{"absent_pins":[],"chamfer":true,"description":"Pin header, 2 × 18, 2.54 mm pitch","library":"5a7e0000-0000-4000-8000-000000000001","name":"HDRV254W64P254R2L4572T508H850B","outputs":{"assembly":true,"assembly_width":100000,"courtyard":true,"courtyard_width":50000,"silkscreen":true,"silkscreen_width":120000},"pads":{"diameter":1650000,"hole":1150000},"pins_per_row":18,"pitch":"2.54","rows":2,"socket":false,"tolerances":{"courtyard_excess":250000}}},
   "pads": [

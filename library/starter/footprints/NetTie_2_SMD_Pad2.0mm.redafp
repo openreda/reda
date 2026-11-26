@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "footprint": {"uuid":"9d14b16b-73a6-46e6-9c2f-1a1f99a7db71","name":"NetTie_2_SMD_Pad2.0mm","description":"Net Tie, two touching 2 mm SMD Pads, tented, no paste","height":35000},
   "pads": [
     {"uuid":"26fbbb2f-8d60-4394-9849-12f15bcaef7f","number":"1","kind":"smd","shape":"rect","at":{"x":-1000000,"y":0},"rotation":0,"width":2000000,"height":2000000,"mask":{"top":"tent"},"paste":"none"},

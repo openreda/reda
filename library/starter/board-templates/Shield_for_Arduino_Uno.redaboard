@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "uuid": "3a9e2d08-6886-4bbd-b955-12b5890602ba",
   "name": "Shield for Arduino Uno",
   "description": "A 68.58 x 53.34 mm shield for the Arduino Uno R3 header layout. The outline follows Arduino's CAD files, with the 45 degree chamfered right-hand profile and R1 on three corners. The male headers are on the bottom, at the Arduino positions, including the 160 mil gap between D7 and D8. The ICSP header is left out. The holes have no Keepouts, because Arduino publishes none. Arduino is a trademark of Arduino SA.",
@@ -218,7 +218,7 @@
     {"uuid":"cf3a6ae2-3a1c-4265-926b-999e1795afc9","part":"11ca5eaf-9b84-4184-9cdc-205eb443582c","footprint":"101fb868-1cdb-4890-a0b1-d82d8f973ce8","side":"top","at":{"x":"66.04","y":"7.62"},"locked":true}
   ],
   "drawing_groups": [
-    {"uuid":"f65b2b49-f88d-422f-b3e3-74e2180a675b","name":"Key dimensions","layer":"mechanical"}
+    {"uuid":"f65b2b49-f88d-422f-b3e3-74e2180a675b","name":"Key dimensions","purpose":"dimensions"}
   ],
   "drawings": [
     {"uuid":"2753f92f-4f9b-4fc7-92d4-628af64f10de","group":"f65b2b49-f88d-422f-b3e3-74e2180a675b","kind":"dimension","rotation":"90","a":{"x":0,"y":0},"b":{"x":0,"y":"53.34"},"offset":"4","suffix":" mm","locked":true},

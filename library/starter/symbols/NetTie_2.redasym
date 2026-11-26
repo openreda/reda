@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "symbol": {"uuid":"5a799ef7-6993-460c-a83a-6d77dbfaa5ff","name":"NetTie_2","designator_prefix":"NT","description":"Net Tie between two Nets"},
   "units": [
     {"uuid":"a264518f-f2ae-4bf1-a201-a79d47ebfadb","name":"A"}

@@ -60,12 +60,18 @@ pub enum RuleKind {
     Teardrop,
     SilkWidth,
     SilkTextHeight,
+    /// A Footprint `height` limit per board side: `top_max?`, `bottom_max?`. Board-wide
+    /// only.
+    ComponentHeight,
 }
 
 impl RuleKind {
     /// Silkscreen artwork has no Net, so its fabrication minimums are board-wide.
     pub fn accepts_net_class(self) -> bool {
-        !matches!(self, Self::SilkWidth | Self::SilkTextHeight)
+        !matches!(
+            self,
+            Self::SilkWidth | Self::SilkTextHeight | Self::ComponentHeight
+        )
     }
 
     pub fn accepts_layers(self) -> bool {
@@ -80,7 +86,7 @@ impl RuleKind {
     }
 
     /// Every kind, in file order.
-    pub const ALL: [RuleKind; 21] = [
+    pub const ALL: [RuleKind; 22] = [
         RuleKind::Clearance,
         RuleKind::TrackWidth,
         RuleKind::ViaSize,
@@ -102,6 +108,7 @@ impl RuleKind {
         RuleKind::Teardrop,
         RuleKind::SilkWidth,
         RuleKind::SilkTextHeight,
+        RuleKind::ComponentHeight,
     ];
 
     /// Its name, as the file and Commands spell it.
@@ -128,6 +135,7 @@ impl RuleKind {
             RuleKind::Teardrop => "teardrop",
             RuleKind::SilkWidth => "silk_width",
             RuleKind::SilkTextHeight => "silk_text_height",
+            RuleKind::ComponentHeight => "component_height",
         }
     }
 
@@ -177,6 +185,7 @@ impl RuleKind {
             RuleKind::ViaSpan => &[],
             RuleKind::Teardrop => &teardrop::FIELDS,
             RuleKind::SilkWidth | RuleKind::SilkTextHeight => &[Min],
+            RuleKind::ComponentHeight => &[TopMax, BottomMax],
         }
     }
 
@@ -199,7 +208,10 @@ impl RuleKind {
             RuleKind::HoleSize => &[Min, Max],
             RuleKind::AnnularRing | RuleKind::HoleToHole => &[Min],
             RuleKind::MaskExpansion => &[Top, Bottom, FromHoleEdge, TentViasTop, TentViasBottom],
-            RuleKind::PasteExpansion | RuleKind::ViaSpan | RuleKind::MicroviaSize => &[],
+            RuleKind::PasteExpansion
+            | RuleKind::ViaSpan
+            | RuleKind::MicroviaSize
+            | RuleKind::ComponentHeight => &[],
             RuleKind::Teardrop => &teardrop::FIELDS,
             RuleKind::SilkWidth | RuleKind::SilkTextHeight => &[Min],
         }
@@ -240,6 +252,8 @@ pub enum RuleField {
     Tolerance,
     MaxLength,
     MinArea,
+    TopMax,
+    BottomMax,
     ThroughHoleStyle,
     ThroughHoleSpokes,
     ThroughHoleSpokeWidth,
@@ -324,6 +338,8 @@ impl RuleField {
             RuleField::Tolerance => "tolerance",
             RuleField::MaxLength => "max_length",
             RuleField::MinArea => "min_area",
+            RuleField::TopMax => "top_max",
+            RuleField::BottomMax => "bottom_max",
             RuleField::ThroughHoleStyle => "through_hole.style",
             RuleField::ThroughHoleSpokes => "through_hole.spokes",
             RuleField::ThroughHoleSpokeWidth => "through_hole.spoke_width",
@@ -618,6 +634,12 @@ pub struct RuleValues<T = Uuid> {
     pub smd_pad: Option<TeardropValues>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub width_change: Option<TeardropValues>,
+    /// `component_height` only: the tallest Footprint `height` allowed on the top side.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub top_max: Option<Nm>,
+    /// `component_height` only: the tallest Footprint `height` allowed on the bottom side.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bottom_max: Option<Nm>,
 }
 
 impl<T> RuleValues<T> {
@@ -653,6 +675,8 @@ impl<T> RuleValues<T> {
             through_hole_pad: self.through_hole_pad,
             smd_pad: self.smd_pad,
             width_change: self.width_change,
+            top_max: self.top_max,
+            bottom_max: self.bottom_max,
         }
     }
 }
@@ -704,6 +728,8 @@ impl RuleValues {
             RuleField::Tolerance => length(self.tolerance),
             RuleField::MaxLength => length(self.max_length),
             RuleField::MinArea => self.min_area.map(RuleValue::Area),
+            RuleField::TopMax => length(self.top_max),
+            RuleField::BottomMax => length(self.bottom_max),
             _ => unreachable!("Zone connection values are handled above"),
         }
     }
@@ -857,6 +883,8 @@ impl RuleValues {
             RuleField::Expansion => self.expansion = n,
             RuleField::Tolerance => self.tolerance = n,
             RuleField::MaxLength => self.max_length = n,
+            RuleField::TopMax => self.top_max = n,
+            RuleField::BottomMax => self.bottom_max = n,
             _ => unreachable!("handled above"),
         }
         Ok(())
@@ -898,7 +926,7 @@ fn type_name(field: RuleField) -> &'static str {
     }
 }
 
-const ALL_FIELDS: [RuleField; 42] = [
+const ALL_FIELDS: [RuleField; 44] = [
     RuleField::HoleVia,
     RuleField::HolePad,
     RuleField::Value,
@@ -926,6 +954,8 @@ const ALL_FIELDS: [RuleField; 42] = [
     RuleField::Tolerance,
     RuleField::MaxLength,
     RuleField::MinArea,
+    RuleField::TopMax,
+    RuleField::BottomMax,
     RuleField::ThroughHoleStyle,
     RuleField::ThroughHoleSpokes,
     RuleField::ThroughHoleSpokeWidth,

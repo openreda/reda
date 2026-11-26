@@ -308,7 +308,7 @@ pub fn evaluate(
         drawing_groups.push(FrameDrawingGroup {
             uuid: group.uuid,
             name: group.name.clone(),
-            layer: group.layer,
+            purpose: group.purpose,
             excluded: group_excluded,
             drawings,
         });

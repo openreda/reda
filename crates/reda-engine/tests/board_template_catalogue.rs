@@ -342,7 +342,7 @@ fn dimension_rows() -> Vec<Row> {
 
 /// Whether `sources` meets the rule: two independent sources separated by `;`, or one
 /// marked `primary:`, `decided #<ticket>:` (a single source a ticket accepted) or
-/// `unverified:` (a Documentation drawing).
+/// `unverified:` (a Reference drawing).
 fn sources_ok(sources: &str) -> bool {
     let s = sources.trim();
     if let Some(rest) = s.strip_prefix("decided #") {

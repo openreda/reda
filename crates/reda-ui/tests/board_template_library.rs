@@ -13,7 +13,7 @@ use reda_ui::App;
 use reda_ui::engine::Engine;
 use reda_ui::engine::command::{FixedClock, SeededIds, UserDirs};
 use reda_ui::engine::commands::board_template::{CandidateKind, candidates};
-use reda_ui::engine::model::DrawingLayer;
+use reda_ui::engine::model::Purpose;
 use reda_ui::shell::Shell;
 use serde_json::{Value, json};
 
@@ -152,8 +152,8 @@ fn save_board_as_template_lists_the_candidates_and_sends_the_ticked_ones() {
     let connector = starting(&h, "J1 ");
     assert!(connector.contains("SKTV254"), "{connector}");
     assert_eq!(tick(&h, &connector), (true, false));
-    assert_eq!(tick(&h, "Mechanical drawings"), (true, true));
-    assert_eq!(tick(&h, "Documentation drawings"), (true, true));
+    assert_eq!(tick(&h, "Drawings on Dimensions"), (true, true));
+    assert_eq!(tick(&h, "Drawings on Reference"), (true, true));
     // The inner-layer Keepout is listed but can't be ticked, and says why.
     let inner = h
         .query_all_by_role(Role::CheckBox)
@@ -177,10 +177,10 @@ fn save_board_as_template_lists_the_candidates_and_sends_the_ticked_ones() {
     h.get_by_role_and_label(Role::TextInput, "Name")
         .type_text("My hat");
     h.run();
-    h.get_by_role_and_label(Role::CheckBox, "Documentation drawings")
+    h.get_by_role_and_label(Role::CheckBox, "Drawings on Reference")
         .scroll_to_me();
     h.run();
-    h.get_by_role_and_label(Role::CheckBox, "Documentation drawings")
+    h.get_by_role_and_label(Role::CheckBox, "Drawings on Reference")
         .click();
     h.run();
     let from = journal_len(&h);
@@ -200,13 +200,13 @@ fn save_board_as_template_lists_the_candidates_and_sends_the_ticked_ones() {
     let drawings = |kind| {
         let project = h.state().shell().engine().project().unwrap();
         (candidates(project).into_iter())
-            .find(|c| c.kind == CandidateKind::Drawings && c.drawing_layer == Some(kind))
+            .find(|c| c.kind == CandidateKind::Drawings && c.purpose == Some(kind))
             .unwrap()
             .object
             .to_string()
     };
-    let mechanical = drawings(DrawingLayer::Mechanical);
-    let documentation = drawings(DrawingLayer::Documentation);
+    let mechanical = drawings(Purpose::Dimensions);
+    let documentation = drawings(Purpose::Reference);
     assert!(objects.contains(&mechanical.as_str()), "{objects:?}");
     assert!(!objects.contains(&documentation.as_str()), "{objects:?}");
     assert!(!objects.contains(&j1.to_string().as_str()), "{objects:?}");

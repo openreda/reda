@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "footprint": {"uuid":"994846c1-6dfb-48a2-babf-ae60f86398b2","name":"DIO_SOD-123","description":"Diode, SOD-123, 2.69 × 1.60 mm body. Lands per onsemi SOD-123 case 425, Recommended Mounting Footprint","height":1350000},
   "pads": [
     {"uuid":"df287dd6-4cf8-4ba7-ada7-565c469515a0","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1635000,"y":0},"rotation":0,"width":910000,"height":1220000,"corner_ratio":50000},

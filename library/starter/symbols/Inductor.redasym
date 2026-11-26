@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "symbol": {"uuid":"3eea3d89-869e-405f-9c3c-c3d1bfa16348","name":"Inductor","designator_prefix":"L","description":"Inductor"},
   "units": [
     {"uuid":"d517f7e6-39de-4f4e-907f-7b893f6c62ba","name":"A"}
