@@ -498,6 +498,10 @@ _Avoid_: Action, operation, function
 An interactive mode, such as Wire drawing or routing, that follows the pointer with a live preview and finishes by carrying out a Command.
 _Avoid_: Mode (alone), editor, interactive command
 
+**Object Defaults**:
+The stored starting values for one kind of object, which a placing Tool begins from; a user's own, never part of a design.
+_Avoid_: Tool defaults, primitive defaults, last-used values, template
+
 **Preset**:
 A named Command with some parameters fixed, such as the Wire Tool's activation, that has its own title and icon and can be placed in menus, toolbars and shortcuts like a Command.
 _Avoid_: Variant, macro, action
@@ -603,6 +607,10 @@ _Avoid_: HUD, cursor readout, relative coordinates
 **Selection Filter**:
 The per-kind switches that decide which kinds of object a click or rectangle can pick; filtered kinds stay visible.
 _Avoid_: Pick mask, selection mask
+
+**Edit Cursor**:
+The snapped point on a canvas where a Tool acts, which follows the mouse pointer or is stepped by the arrow keys.
+_Avoid_: Cursor (alone), crosshair, keyboard cursor, caret
 
 **Hotspot**:
 A point on an object that the cursor snaps to, such as a Pad centre or a Wire end.
