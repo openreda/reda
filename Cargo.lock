@@ -3249,6 +3249,7 @@ name = "reda-command"
 version = "0.0.0"
 dependencies = [
  "reda-model",
+ "regex-lite",
  "schemars",
  "serde",
  "serde_json",

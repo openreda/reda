@@ -1,0 +1,15 @@
+Drill report for FourLayer
+Sizes in mm. Tool travel is left out: the fab plans its own drill path.
+
+FourLayer-PTH.drl (L1-L4, through)
+  Tool     Size  Plating    Kind       Holes Slots  Tolerance
+  T1      0.300  plated     via            2     0  -
+  T2      0.800  plated     mechanical     1     0  -
+  Total                                    3     0
+
+FourLayer-NPTH.drl (L1-L4, through)
+  Tool     Size  Plating    Kind       Holes Slots  Tolerance
+  T1      1.200  non-plated mechanical     1     0  -
+  Total                                    1     0
+
+All files: 4 holes, 0 slots

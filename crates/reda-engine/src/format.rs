@@ -9,6 +9,7 @@ mod fab_file;
 pub mod library;
 mod pcb_file;
 mod project_file;
+mod released;
 mod rules_file;
 mod schema;
 mod sheet_file;
@@ -25,16 +26,26 @@ pub use board_template_file::{read_board_template, write_board_template};
 pub(crate) use fab_file::{read_fab_file, write_fab_file};
 pub(crate) use pcb_file::{read_pcb_file, write_pcb_file};
 pub(crate) use project_file::{ProjectFile, write_project_file};
+pub use released::check_released;
 pub(crate) use rules_file::{read_rules_file, write_rules_file};
 pub use schema::schema;
 pub(crate) use sheet_file::{read_sheet_file, write_sheet_file};
 
-/// The format version REDA writes. Bump it together with a new [`MIGRATIONS`] step, after
-/// freezing the old format's copies: the Demo Project under
-/// `crates/reda-engine/tests/golden/formats/v<old>/` and each reference Project under
-/// `tests/projects/formats/v<old>/<project>/` (see `tests/migrations.rs` and
+/// The format version REDA writes. Bump it together with a new [`MIGRATIONS`] step, once a
+/// release has shipped the old format ([`RELEASED`]) and its copies are frozen: its schemas
+/// in `docs/schemas/v<old>/`, the Demo Project under
+/// `crates/reda-engine/tests/golden/formats/v<old>/`, and under
+/// `tests/projects/formats/v<old>/` each reference Project, one file of each standalone kind
+/// and the fab outputs of each board (see `tests/migrations.rs` and
 /// `tests/reference_projects.rs`).
 pub const FORMAT: u32 = 2;
+
+/// The newest format a release has shipped: 0.2.0 wrote format 2. A release ends editing
+/// its format in place, so its schemas are frozen in `docs/schemas/v<n>/` and its shapes
+/// never change again; the next field belongs to format `RELEASED + 1`.
+pub const RELEASED: u32 = 2;
+
+const _: () = assert!(RELEASED == FORMAT || RELEASED + 1 == FORMAT);
 
 /// The kinds of file REDA reads and writes, each with one typed shape and one JSON Schema.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -157,16 +168,32 @@ pub(crate) fn parse<T: DeserializeOwned>(
 
 /// Brings raw JSON of any supported format up to [`FORMAT`].
 pub fn migrate(kind: FileKind, value: Value) -> Result<Value, String> {
-    migrate_with(kind, value, MIGRATIONS)
+    migrate_checked_with(kind, value, MIGRATIONS)
+}
+
+/// Runs the chain `steps` like [`migrate_with`], first checking each step's input against
+/// the schemas its format was released with ([`check_released`]), so a step reads the file
+/// as that release declared it. [`migrate`] passes [`MIGRATIONS`].
+pub fn migrate_checked_with(
+    kind: FileKind,
+    value: Value,
+    steps: &[Migration],
+) -> Result<Value, String> {
+    run_chain(kind, value, steps, check_released)
 }
 
 /// Runs the chain `steps`, where `steps[i]` turns format `i + 1` into `i + 2`, bringing raw
-/// JSON up to format `steps.len() + 1`. [`migrate`] passes [`MIGRATIONS`]; tests pass their
-/// own steps.
-pub fn migrate_with(
+/// JSON up to format `steps.len() + 1`. Nothing checks the input of each step: tests pass
+/// stand-in steps over made-up files.
+pub fn migrate_with(kind: FileKind, value: Value, steps: &[Migration]) -> Result<Value, String> {
+    run_chain(kind, value, steps, |_, _, _| Ok(()))
+}
+
+fn run_chain(
     kind: FileKind,
     mut value: Value,
     steps: &[Migration],
+    check: fn(u32, FileKind, &Value) -> Result<(), String>,
 ) -> Result<Value, String> {
     let current = steps.len() as u64 + 1;
     let version = value
@@ -183,6 +210,7 @@ pub fn migrate_with(
     }
     for (from, step) in steps.iter().enumerate().skip(version as usize - 1) {
         let fail = |e: String| format!("migrating from format {}: {e}", from + 1);
+        check(from as u32 + 1, kind, &value).map_err(fail)?;
         value = step(kind, value).map_err(fail)?;
         let object = value
             .as_object_mut()

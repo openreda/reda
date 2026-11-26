@@ -1,11 +1,12 @@
 //! Schemas from the Rust types, and a check of params against them.
 //!
-//! The check covers the subset of JSON Schema 2020-12 that schemars generates for params:
-//! `$ref` into `$defs`, `type`, `enum`, `const`, `properties`, `required`,
-//! `additionalProperties`, `items`, `prefixItems`, `minItems`, `maxItems`, `oneOf`, `anyOf`,
-//! `allOf`, `minimum`, `maximum` and the formats `uuid`, `length`, `copper_thickness`, `angle` and the integer
-//! widths. It runs before serde so that a bad field is reported with a JSON pointer to it;
-//! serde still has the last word on anything the subset does not express.
+//! The check covers the subset of JSON Schema 2020-12 that schemars generates for params
+//! and file shapes: `$ref` into `$defs`, `type`, `enum`, `const`, `properties`, `required`,
+//! `additionalProperties`, `patternProperties`, `items`, `prefixItems`, `minItems`,
+//! `maxItems`, `oneOf`, `anyOf`, `allOf`, `minimum`, `maximum` and the formats `uuid`,
+//! `length`, `copper_thickness`, `angle` and the integer widths. It runs before serde so
+//! that a bad field is reported with a JSON pointer to it; serde still has the last word on
+//! anything the subset does not express.
 
 use reda_model::Uuid;
 use reda_model::geom::{Millideg, Nm};
@@ -273,9 +274,15 @@ impl<'r> Checker<'r> {
                 }
             }
         }
+        let patterns = Self::pattern_properties(schema, path)?;
         for (key, value) in map {
             path.push(key.clone());
-            let result = match (properties.get(key), schema.get("additionalProperties")) {
+            let known = properties.get(key).or_else(|| {
+                (patterns.iter())
+                    .find(|(pattern, _)| pattern.is_match(key))
+                    .map(|(_, sub)| *sub)
+            });
+            let result = match (known, schema.get("additionalProperties")) {
                 (Some(sub), _) => self.check(sub, value, path),
                 (None, Some(Value::Bool(false))) => {
                     let known: Vec<&str> = properties.keys().map(String::as_str).collect();
@@ -293,6 +300,24 @@ impl<'r> Checker<'r> {
             result?;
         }
         Ok(())
+    }
+
+    /// The `patternProperties` of an object schema, compiled. A key one of them matches is
+    /// checked against its schema and is not an additional property.
+    fn pattern_properties<'s>(
+        schema: &'s Map<String, Value>,
+        path: &[String],
+    ) -> Result<Vec<(regex_lite::Regex, &'s Value)>, Mismatch> {
+        let Some(patterns) = schema.get("patternProperties").and_then(Value::as_object) else {
+            return Ok(Vec::new());
+        };
+        patterns
+            .iter()
+            .map(|(pattern, sub)| match regex_lite::Regex::new(pattern) {
+                Ok(regex) => Ok((regex, sub)),
+                Err(e) => Self::fail(path, format!("invalid schema pattern {pattern}: {e}")),
+            })
+            .collect()
     }
 
     fn check_array(

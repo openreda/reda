@@ -5,8 +5,8 @@ use super::FileKind;
 use reda_model::{Uuid, ViaType, geom::Nm};
 use serde_json::{Value, json};
 
+/// The chain has already checked `file` against the format-1 schemas.
 pub(super) fn migrate(kind: FileKind, mut file: Value) -> Result<Value, String> {
-    validate_released(kind, &file)?;
     match kind {
         FileKind::Pcb => board(&mut file)?,
         FileKind::FabPreset => preset(&mut file)?,
@@ -33,40 +33,6 @@ pub(super) fn migrate(kind: FileKind, mut file: Value) -> Result<Value, String> 
         _ => {}
     }
     Ok(file)
-}
-
-/// Check the file as it was declared before introducing defaults or moving fields.
-/// Each schema is the released artifact. Cache it across all Project Documents.
-fn validate_released(kind: FileKind, file: &Value) -> Result<(), String> {
-    use std::sync::LazyLock;
-    macro_rules! released {
-        ($ext:literal) => {{
-            static SCHEMA: LazyLock<Value> = LazyLock::new(|| {
-                serde_json::from_str(include_str!(concat!(
-                    "../../../../docs/schemas/v1/",
-                    $ext,
-                    ".schema.json"
-                )))
-                .expect("released schema is JSON")
-            });
-            &*SCHEMA
-        }};
-    }
-    let schema = match kind {
-        FileKind::Project => released!("reda"),
-        FileKind::Pcb => released!("redapcb"),
-        FileKind::Sheet => released!("redasch"),
-        FileKind::Library => released!("redalib"),
-        FileKind::Symbol => released!("redasym"),
-        FileKind::Footprint => released!("redafp"),
-        FileKind::Part => released!("redapart"),
-        FileKind::FabPreset => released!("redafab"),
-        FileKind::Rules => released!("redarules"),
-        FileKind::BoardTemplate => {
-            return Err("Board Template files did not exist in format 1".into());
-        }
-    };
-    reda_command::check_schema(schema, file).map_err(|e| format!("{}: {}", e.pointer, e.message))
 }
 
 fn preset(preset: &mut Value) -> Result<(), String> {

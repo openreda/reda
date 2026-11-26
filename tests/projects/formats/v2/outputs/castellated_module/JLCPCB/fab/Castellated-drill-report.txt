@@ -1,0 +1,12 @@
+Drill report for Castellated
+Sizes in mm. Tool travel is left out: the fab plans its own drill path.
+
+Castellated-PTH.drl (L1-L2, through)
+  Tool     Size  Plating    Kind       Holes Slots  Tolerance
+  T1      1.000  plated     castellated     4     0  -
+  Total                                    4     0
+
+Castellated-NPTH.drl (L1-L2, through)
+  No holes: the file is not written.
+
+All files: 4 holes, 0 slots

@@ -1,0 +1,141 @@
+{
+  "Header": {
+    "GenerationSoftware": {
+      "Vendor": "openreda",
+      "Application": "REDA",
+      "Version": "0.0.0-test"
+    }
+  },
+  "GeneralSpecs": {
+    "ProjectId": {
+      "Name": "FourLayer",
+      "GUID": "00000000-0000-4000-8000-000000000001",
+      "Revision": "A"
+    },
+    "Size": {
+      "X": 21.0,
+      "Y": 12.0
+    },
+    "LayerNumber": 4,
+    "BoardThickness": 1.6
+  },
+  "FilesAttributes": [
+    {
+      "Path": "FourLayer.gtl",
+      "FileFunction": "Copper,L1,Top,Signal",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "FourLayer.g2l",
+      "FileFunction": "Copper,L2,Inr,Plane",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "FourLayer.g3l",
+      "FileFunction": "Copper,L3,Inr,Plane",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "FourLayer.gbl",
+      "FileFunction": "Copper,L4,Bot,Signal",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "FourLayer.gts",
+      "FileFunction": "Soldermask,Top",
+      "FilePolarity": "Negative"
+    },
+    {
+      "Path": "FourLayer.gbs",
+      "FileFunction": "Soldermask,Bot",
+      "FilePolarity": "Negative"
+    },
+    {
+      "Path": "FourLayer.gtp",
+      "FileFunction": "Paste,Top",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "FourLayer.gbp",
+      "FileFunction": "Paste,Bot",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "FourLayer.gto",
+      "FileFunction": "Legend,Top",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "FourLayer.gbo",
+      "FileFunction": "Legend,Bot",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "FourLayer.gm1",
+      "FileFunction": "Profile,NP",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "FourLayer-PTH.drl",
+      "FileFunction": "Plated,1,4,PTH,Drill",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "FourLayer-NPTH.drl",
+      "FileFunction": "NonPlated,1,4,NPTH,Drill",
+      "FilePolarity": "Positive"
+    }
+  ],
+  "MaterialStackup": [
+    {
+      "Type": "Legend"
+    },
+    {
+      "Type": "SolderMask"
+    },
+    {
+      "Type": "Copper",
+      "Name": "L1",
+      "Thickness": 0.035
+    },
+    {
+      "Type": "Dielectric",
+      "Thickness": 0.2104,
+      "Material": "7628",
+      "DielectricConstant": 4.4
+    },
+    {
+      "Type": "Copper",
+      "Name": "L2",
+      "Thickness": 0.0152
+    },
+    {
+      "Type": "Dielectric",
+      "Thickness": 1.065,
+      "Material": "FR-4",
+      "DielectricConstant": 4.6
+    },
+    {
+      "Type": "Copper",
+      "Name": "L3",
+      "Thickness": 0.0152
+    },
+    {
+      "Type": "Dielectric",
+      "Thickness": 0.2104,
+      "Material": "7628",
+      "DielectricConstant": 4.4
+    },
+    {
+      "Type": "Copper",
+      "Name": "L4",
+      "Thickness": 0.035
+    },
+    {
+      "Type": "SolderMask"
+    },
+    {
+      "Type": "Legend"
+    }
+  ]
+}
