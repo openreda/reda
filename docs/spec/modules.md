@@ -57,6 +57,7 @@ Each milestone after v0.1 is a themed release that gives hobbyists a usable step
 - A **3D view** in a new `reda-3d` crate. It builds its scene from the model, and `reda-render`'s wgpu backend draws it.
 - 3D models on Footprints. (Import part ignores 3D models until then.)
 - STEP and DXF export in `reda-output`. DXF import in a new `reda-import-dxf`.
+- STEP reading and writing in a new `reda-step` crate, REDA's own code with no CAD kernel ([ADR-0018](../adr/0018-step-read-and-written-in-house.md), [STEP](v0.3/step.md)).
 - **Canvas extras:** a wheel mapping page (`canvas.wheel.*`), arrow keys that move the cursor, grid X ≠ Y, axis alignment guides, and the general object defaults page.
 
 ### Interactive routing (v0.4), in `reda-pcb`
