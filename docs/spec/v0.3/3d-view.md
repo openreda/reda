@@ -8,6 +8,7 @@ This file says how the [3D view](../../../GLOSSARY.md) is entered, moved around 
 
 - The 3D view is a view mode of the PCB tab. The same canvas shows the board in 2D or in 3D; it is not a separate window or Document.
 - It looks, selects and measures. Nothing is edited in it: no object is placed, moved or deleted, and the 2D Tools do not run.
+  - The one exception is in the Footprint editor, whose canvas has the same 2D | 3D switch: a Model Body can be placed there by [picking geometry](bodies.md#placing-a-model-by-picking). A PCB's 3D view has no picks.
 - The selection is the same one 2D has. Selecting in either mode shows in the other, and Properties follows.
 
 ## Entering and leaving
@@ -64,12 +65,12 @@ This file says how the [3D view](../../../GLOSSARY.md) is entered, moved around 
 
 ## Measuring
 
-- **Measure** (`view.3d.measure`, `Mod`+M) takes two points. A point snaps to a corner of what is under the pointer.
+- **Measure** (`view.3d.measure`, `Mod`+M) takes two points. A point snaps to a Hotspot of what is under the pointer: a vertex, an edge midpoint, a circle or arc centre, or a planar face centre. These are the Hotspots that [placing a Model by picking](bodies.md#placing-a-model-by-picking) uses, from one snapping engine; a Model the reader could only mesh offers its vertices only.
 - It draws the span on the board and shows its length, with how far apart the ends are along the board's X and Y and in height under it.
 - **Height above board:** while measuring, the readout by the pointer also gives the snapped point's height above the nearest board surface, before the first click and between clicks. There is no separate mode for it.
 - **Measure Clearance** (`view.3d.measure_clearance`) picks two objects, each a Body (Stand-in Bodies included) or the board, and shows the shortest distance between their meshes, drawn as a span with its length and its X, Y and Z parts.
 - Both are in the 3D view menu's Measure entry. Esc ends either.
-- Point to plane and point to face are not in v0.3. Their snapping overlaps with placing a Model by picking geometry, an open ticket on the map.
+- Point to plane and point to face are not in v0.3.
 
 ## Keys
 
@@ -130,5 +131,5 @@ Targets, reported by the `#[ignore]` timing tests in [testing](testing.md#perfor
 
 - Spreading the Layers apart, and a plane that cuts the board open.
 - A look that draws copper in the 2D Layer colours with the board and Bodies ghosted.
-- Placing or moving anything in 3D (out of scope on the map).
+- Placing or moving anything in 3D (out of scope on the map), apart from the Footprint editor's two Model picks.
 - Linked cameras between views, and a navigation-style choice.

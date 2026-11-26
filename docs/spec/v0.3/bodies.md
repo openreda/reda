@@ -49,8 +49,8 @@ This file says what the reserved Footprint `bodies` field holds, how a Body is p
 - **Nothing about a pick is stored.** There are no stored snap points on a Body, as in Altium Designer. Each pick ends as one Command and one undo step:
   - `library.footprint.body.face_on_board {body, point, normal}`, with a point on the face and its outward normal in Model coordinates;
   - `library.footprint.body.move_point_to {body, from, to}`, with `from` in Model coordinates and `to` an X/Y point in Footprint coordinates.
-  - Both return the resulting placement. An MCP client that knows the coordinates calls them directly. They belong in the Body Commands table of [Commands and file formats](https://github.com/openreda/reda/issues/440).
-- **One snapping engine.** The same Hotspots serve Measure and Height above board in every 3D view, which so far snapped only to corners. Point-to-plane and point-to-face measuring stay out of v0.3.
+  - Both return the resulting placement. An MCP client that knows the coordinates calls them directly. They are listed with the other [Body Commands](commands.md).
+- **One snapping engine.** The same Hotspots serve [Measure](3d-view.md#measuring) and Height above board in every 3D view. Point-to-plane and point-to-face measuring stay out of v0.3.
 
 ## `height`
 

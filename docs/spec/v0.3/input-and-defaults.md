@@ -39,6 +39,8 @@ A Preferences page, **Mouse Wheel**, holds a table of wheel actions. Each action
 
 All four are Commands, so a user who wants plain arrows to nudge can swap the keys.
 
+Keys on the digit row are matched by physical key, in 2D as in 3D ([3D view keys](3d-view.md#keys)), so a Keymap binding on a digit works on every keyboard layout.
+
 ### The Edit Cursor
 
 The Edit Cursor is the snapped point where a Tool acts. It follows the mouse pointer, and the arrow keys step it. v0.1 used "cursor" for both the pointer and this point.

@@ -190,7 +190,7 @@ The weekly fuzz job gains three targets: the DXF reader, the STEP reader and the
 
 ## Performance
 
-There are still no gates. `#[ignore]` timing tests cover reading the largest corpus model, the STEP export of `mechanical_3d`, and building the 3D scene for the [32-Layer board](../v0.2/testing.md#the-32-layer-limit). A frame-time budget for the 3D view is still open on the [map](https://github.com/openreda/reda/issues/421).
+There are still no gates. `#[ignore]` timing tests cover reading the largest corpus model, the STEP export of `mechanical_3d`, and building the 3D scene for the [32-Layer board](../v0.2/testing.md#the-32-layer-limit). They report against the 3D view's [frame-time targets](3d-view.md#frame-time).
 
 ## Hand acceptance checks
 

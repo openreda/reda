@@ -116,7 +116,7 @@ Per PCB Document and per Footprint tab, never dirtying a Document:
 - The wheel preset (REDA, Wheel scrolls, Custom) is read off the table and never stored.
 - `snap.alignment_guides` replaces `pcb.place.alignment_guides`. `pcb.zone.tool.*`, the Keepout Tool values and the Footprint editor's Pad template move under `defaults.*`.
 - `preferences.toml` has no format number, so old keys are dropped on load with a log line.
-- The 3D Preferences are still open on the [map](https://github.com/openreda/reda/issues/421).
+- The 3D view's own Preferences, `pcb.view3d.*`, are listed with its [Preferences page](3d-view.md#preferences).
 
 ## Commands
 
@@ -164,6 +164,8 @@ Edit Commands on the Library element's undo stack, one entry each.
 | `library.footprint.body.replace_model {body, path}` | swaps the file, keeping placement and Material |
 | `library.footprint.body.save_model {body, path}` | a query: writes the Model out as `.step` or `.stpz` |
 | `library.footprint.body.seat_on_board {body}`, `.centre_on_pads {body}` | the [two aids](bodies.md#in-the-footprint-editor) |
+| `library.footprint.body.face_on_board {body, point, normal}` | a [pick](bodies.md#placing-a-model-by-picking): `point` on the face and its outward `normal` in Model coordinates. Returns the placement |
+| `library.footprint.body.move_point_to {body, from, to}` | a [pick](bodies.md#placing-a-model-by-picking): `from` in Model coordinates, `to` an X/Y point in Footprint coordinates. Returns the placement |
 | `library.footprint.body.from_courtyard {footprint}` | a new Extruded Body from the Courtyard, top at `height` |
 | `library.footprint.set_height_from_bodies {footprint}` | `height` from the top of the Bodies |
 
@@ -176,8 +178,10 @@ View Commands in the app's registry.
 | Command | Key |
 |---|---|
 | `view.3d`, `view.2d` | `3`, `2` |
-| `view.3d.look {face}` | per face, left to the 3D view keys on the map |
-| `view.3d.fit`, `view.3d.projection {projection}`, `view.3d.measure` | |
+| `view.3d.look {face}` | Shift+`1` to Shift+`7` ([keys](3d-view.md#keys)) |
+| `view.3d.fit`, `view.3d.projection {projection}` | F for fit |
+| `view.3d.measure` | `Mod`+M |
+| `view.3d.measure_clearance` | |
 | `view.3d.show {kind, on?, opacity?}` | a row of the Show set |
 | `view.3d.save_image {path, size?, background?}` | the on-screen camera and framing |
 
