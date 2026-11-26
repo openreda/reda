@@ -31,6 +31,9 @@ zip = { version = "9.2", default-features = false, features = ["deflate-flate2-z
 # `.stpz` (gzip STEP) in reda-step: the same flate2 and pure-Rust zlib-rs backend `zip` uses
 # above, so it adds no crate to the build.
 flate2 = { version = "1.1", default-features = false, features = ["zlib-rs"] }
+# Constrained Delaunay triangulation of trimmed STEP faces in reda-step (ADR-0018, the one
+# dependency the in-house STEP reader takes).
+spade = "2.15"
 directories = "6"
 # MCP: only reda-cli uses these (it is the only crate that depends on rmcp).
 rmcp = { version = "3.9", default-features = false, features = ["server", "transport-io"] }
