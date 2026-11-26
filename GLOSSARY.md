@@ -644,6 +644,10 @@ _Avoid_: Pick mask, selection mask
 The snapped point on a canvas where a Tool acts, which follows the mouse pointer or is stepped by the arrow keys.
 _Avoid_: Cursor (alone), crosshair, keyboard cursor, caret
 
+**Height Area**:
+A Keepout that lets Footprints in only up to a maximum height on its side of the board.
+_Avoid_: Height restriction area, height zone, height Keepout
+
 **Hotspot**:
 A point on an object that the cursor snaps to, such as a Pad centre or a Wire end.
 _Avoid_: Snap point, anchor
