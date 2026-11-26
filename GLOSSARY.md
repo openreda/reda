@@ -620,6 +620,10 @@ _Avoid_: Quick bar, floating toolbar, palette
 The view mode of the PCB tab that shows the board in three dimensions, for looking, selecting and measuring. Nothing is edited in it.
 _Avoid_: 3D viewer, 3D editor, 3D window
 
+**Document view**:
+One tab showing a Document. A Document can be open in several views at once, which share its selection and Layer visibility while each keeps its own mode, camera and zoom.
+_Avoid_: Window, pane, second tab
+
 **Orientation gizmo**:
 The small drawing of the board's X, Y and Z axes in the 3D view that shows which way the view faces, and turns the view when clicked or dragged.
 _Avoid_: View cube, compass, navigation widget
