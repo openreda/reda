@@ -27,7 +27,30 @@ This file says what the reserved Footprint `bodies` field holds, how a Body is p
 - Two aids for a Model Body:
   - **Seat on board** sets Z so the Model's lowest point sits at the standoff (default 0).
   - **Centre on pads** centres the Model's bounding box in the board plane on the Pads' bounding box.
-- Picking geometry to place a Model (snap points, face on plane, pin to pad) is left open on the [map](https://github.com/openreda/reda/issues/421). The 3D view stays a viewer with no general 3D editing.
+- Two picks for a Model Body, decided in [Does placing a Model by picking geometry land in v0.3, and which picks?](https://github.com/openreda/reda/issues/467). They are described under [Placing a Model by picking](#placing-a-model-by-picking).
+
+### Placing a Model by picking
+
+- **Face on board:** pick a planar face of the Model, or a circular edge.
+  - The Model turns by the smallest rotation that points the face's outward normal straight down. For a circular edge, the normal of the edge's plane is taken on the side away from the Model's centre.
+  - Z is then set so the picked face sits at the standoff (default 0), as with Seat on board.
+  - The Model's bounding-box centre keeps its X and Y. A quarter turn about Z after that is typed.
+- **Point to point:** pick a Hotspot on the Model, then a target on the Footprint. The Model moves in X and Y so the two meet. Z and the rotations do not change, so a Model is never lifted off the board.
+  - Hotspots on the Model: a vertex, an edge midpoint, a circle or arc centre, a planar face centre.
+  - Targets: a Pad centre (also its hole centre), the Footprint origin, a Hotspot of the Footprint's graphics such as a Courtyard or Assembly corner. They are shown in the 3D view.
+  - Picking a lead and then its Pad gives a pin-to-pad placement.
+- **Where:** only in the Footprint editor's 3D view. A PCB's 3D view has no picks, because Bodies belong to the Footprint.
+  - Both are buttons in a selected Model Body's Properties, beside Seat on board and Centre on pads. Starting one from 2D switches the canvas to 3D.
+  - During a pick, the pointer snaps and highlights what it will take. Esc cancels.
+  - This is the one exception to the [3D view](3d-view.md#what-it-is)'s rule that nothing is edited in it.
+- **Geometry:** Hotspots come from the Model's exact geometry as `reda-step` reads it: edges, circles and planar faces.
+  - A Model the reader could only mesh offers vertex Hotspots only. Face on board then takes the plane of the flat triangles under the pointer.
+  - Extruded Bodies and Stand-in Bodies have no picks. They are placed by their own numbers.
+- **Nothing about a pick is stored.** There are no stored snap points on a Body, as in Altium Designer. Each pick ends as one Command and one undo step:
+  - `library.footprint.body.face_on_board {body, point, normal}`, with a point on the face and its outward normal in Model coordinates;
+  - `library.footprint.body.move_point_to {body, from, to}`, with `from` in Model coordinates and `to` an X/Y point in Footprint coordinates.
+  - Both return the resulting placement. An MCP client that knows the coordinates calls them directly. They belong in the Body Commands table of [Commands and file formats](https://github.com/openreda/reda/issues/440).
+- **One snapping engine.** The same Hotspots serve Measure and Height above board in every 3D view, which so far snapped only to corners. Point-to-plane and point-to-face measuring stay out of v0.3.
 
 ## `height`
 
