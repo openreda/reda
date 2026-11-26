@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "footprint": {"uuid":"163fae4f-3930-40a9-96ae-7630ccb29298","name":"TO-92_Inline_P2.54mm","description":"TO-92, leads in a line 2.54 mm apart, flat face down. Per onsemi TO-92 case 29-11, bent lead","height":5200000},
   "pads": [
     {"uuid":"08cdde40-e8c7-42e9-8c97-666b4ebbd709","number":"3","kind":"plated_through_hole","shape":"oval","at":{"x":2540000,"y":-425000},"rotation":0,"width":1550000,"height":1800000,"hole":{"width":950000,"height":950000}},

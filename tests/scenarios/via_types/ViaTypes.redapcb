@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "pcb": {"uuid":"00000000-0000-4000-8000-000000000003"},
   "layers": {"uuid":"00000000-0000-4000-8000-000000000004","layers":[
     {"uuid":"00000000-0000-4000-8000-000000000005","kind":"courtyard","side":"top"},
@@ -19,27 +19,27 @@
     {"uuid":"00000000-0000-4000-8000-000000000013","kind":"assembly","side":"bottom"},
     {"uuid":"00000000-0000-4000-8000-000000000014","kind":"courtyard","side":"bottom"},
     {"uuid":"00000000-0000-4000-8000-000000000015","kind":"board_outline"},
-    {"uuid":"00000000-0000-4000-8000-000000000016","kind":"mechanical"},
-    {"uuid":"00000000-0000-4000-8000-000000000017","kind":"documentation"}
+    {"uuid":"00000000-0000-4000-8000-000000000016","kind":"mechanical","name":"Dimensions","purpose":"dimensions"},
+    {"uuid":"00000000-0000-4000-8000-000000000017","kind":"mechanical","name":"Reference","purpose":"reference"}
   ]},
   "stackups": [
-    {"uuid":"00000000-0000-4000-8000-000000000033","construction":"6 Layer","thickness":1600000,"entries":[
+    {"uuid":"00000000-0000-4000-8000-000000000034","construction":"6 Layer","thickness":1600000,"entries":[
       {"layer":"00000000-0000-4000-8000-00000000000a","thickness":35000},
-      {"uuid":"00000000-0000-4000-8000-00000000002e","kind":"core","thickness":278000},
-      {"layer":"00000000-0000-4000-8000-00000000000b","thickness":35000},
       {"uuid":"00000000-0000-4000-8000-00000000002f","kind":"core","thickness":278000},
-      {"layer":"00000000-0000-4000-8000-00000000000c","thickness":35000},
+      {"layer":"00000000-0000-4000-8000-00000000000b","thickness":35000},
       {"uuid":"00000000-0000-4000-8000-000000000030","kind":"core","thickness":278000},
-      {"layer":"00000000-0000-4000-8000-00000000000d","thickness":35000},
+      {"layer":"00000000-0000-4000-8000-00000000000c","thickness":35000},
       {"uuid":"00000000-0000-4000-8000-000000000031","kind":"core","thickness":278000},
-      {"layer":"00000000-0000-4000-8000-00000000000e","thickness":35000},
+      {"layer":"00000000-0000-4000-8000-00000000000d","thickness":35000},
       {"uuid":"00000000-0000-4000-8000-000000000032","kind":"core","thickness":278000},
+      {"layer":"00000000-0000-4000-8000-00000000000e","thickness":35000},
+      {"uuid":"00000000-0000-4000-8000-000000000033","kind":"core","thickness":278000},
       {"layer":"00000000-0000-4000-8000-00000000000f","thickness":35000}
     ],"via_types":[
-      {"uuid":"00000000-0000-4000-8000-000000000034","from":"00000000-0000-4000-8000-00000000000a","to":"00000000-0000-4000-8000-00000000000f","hole":300000,"diameter":{"start":700000}},
+      {"uuid":"00000000-0000-4000-8000-000000000035","from":"00000000-0000-4000-8000-00000000000a","to":"00000000-0000-4000-8000-00000000000f","hole":300000,"diameter":{"start":700000}},
       {"uuid":"739afb77-5cc3-4875-a90b-0588dc3c8231","from":"00000000-0000-4000-8000-00000000000b","to":"00000000-0000-4000-8000-00000000000c","micro":true,"hole":120000,"diameter":{"start":320000}},
       {"uuid":"563f3687-6601-4d6a-bdfc-755a93ff3d12","name":"Top laser","from":"00000000-0000-4000-8000-00000000000b","to":"00000000-0000-4000-8000-00000000000a","micro":true,"hole":100000,"diameter":{"start":280000,"end":300000}},
-      {"uuid":"00000000-0000-4000-8000-000000000049","name":"Inner laser","from":"00000000-0000-4000-8000-00000000000a","to":"00000000-0000-4000-8000-00000000000d","micro":true,"hole":200000,"diameter":{"start":500000}}
+      {"uuid":"00000000-0000-4000-8000-00000000004a","name":"Inner laser","from":"00000000-0000-4000-8000-00000000000a","to":"00000000-0000-4000-8000-00000000000d","micro":true,"hole":200000,"diameter":{"start":500000}}
     ]}
   ],
   "board": {"uuid":"00000000-0000-4000-8000-000000000018"},
@@ -65,10 +65,11 @@
     {"uuid":"00000000-0000-4000-8000-00000000002b","kind":"teardrop","scope":{},"values":{"via":{"enabled":false,"length":50,"max_length":1000000,"width":100,"max_width":2000000,"curved":false,"skip_ratio":90},"through_hole_pad":{"enabled":false,"length":50,"max_length":1000000,"width":100,"max_width":2000000,"curved":false,"skip_ratio":90},"smd_pad":{"enabled":false,"length":50,"max_length":1000000,"width":100,"max_width":2000000,"curved":false,"skip_ratio":90},"width_change":{"enabled":false,"length":50,"max_length":1000000,"width":100,"max_width":2000000,"curved":false,"skip_ratio":90}}},
     {"uuid":"00000000-0000-4000-8000-00000000002c","kind":"silk_width","scope":{},"values":{"min":150000}},
     {"uuid":"00000000-0000-4000-8000-00000000002d","kind":"silk_text_height","scope":{},"values":{"min":1000000}},
-    {"uuid":"00000000-0000-4000-8000-000000000048","kind":"via_span","scope":{"net_class":"00000000-0000-4000-8000-000000000047"},"values":{"allowed":["563f3687-6601-4d6a-bdfc-755a93ff3d12","739afb77-5cc3-4875-a90b-0588dc3c8231"]}}
+    {"uuid":"00000000-0000-4000-8000-00000000002e","kind":"component_height","scope":{},"values":{}},
+    {"uuid":"00000000-0000-4000-8000-000000000049","kind":"via_span","scope":{"net_class":"00000000-0000-4000-8000-000000000048"},"values":{"allowed":["563f3687-6601-4d6a-bdfc-755a93ff3d12","739afb77-5cc3-4875-a90b-0588dc3c8231"]}}
   ],
   "severities": {"clearance":"error","short_circuit":"error","shorted_copper":"error","net_tie_not_joined":"error","track_width":"error","via_size":"error","via_span":"error","microvia_size":"error","aspect_ratio":"error","max_stack":"error","silk_width":"warning","silk_text_height":"warning","hole_size":"error","annular_ring":"error","hole_to_hole":"error","edge_clearance":"error","edge_connector_without_pads":"warning","plated_edge_nets_differ":"error","edge_connector_on_plated_edge":"error","plated_edge_without_net":"warning","plated_edge_unconnected":"warning","keepout":"error","footprint_outside_board":"error","unrouted":"error","copper_without_net":"warning","dangling":"warning","poor_connection":"warning","via_under_smd":"warning","courtyard_overlap":"warning","silk_to_mask":"warning","silk_to_edge":"warning","zero_length_track":"warning","micro_segment":"warning","duplicate_copper":"warning","zero_area_zone":"warning","dead_copper":"warning","empty_zone":"warning","shelved_zone":"warning","out_of_sync":"warning","opening_collapsed":"warning","rule_invalid":"error","rule_outside_preset":"warning"},
-  "board_outline": {"uuid":"00000000-0000-4000-8000-000000000037","vertices":[
+  "board_outline": {"uuid":"00000000-0000-4000-8000-000000000038","vertices":[
     {"x":0,"y":0},
     {"x":25000000,"y":0},
     {"x":25000000,"y":15000000},
@@ -76,18 +77,18 @@
   ]},
   "board_cutouts": [],
   "net_classes": [
-    {"uuid":"00000000-0000-4000-8000-000000000047","name":"Blind only","rank":1}
+    {"uuid":"00000000-0000-4000-8000-000000000048","name":"Blind only","rank":1}
   ],
   "nets": [
-    {"uuid":"00000000-0000-4000-8000-000000000042","name":"VCC","classes":["00000000-0000-4000-8000-000000000047"]}
+    {"uuid":"00000000-0000-4000-8000-000000000043","name":"VCC","classes":["00000000-0000-4000-8000-000000000048"]}
   ],
   "texts": [],
   "graphics": [],
   "vias": [
-    {"uuid":"00000000-0000-4000-8000-000000000043","at":{"x":3000000,"y":3000000},"net":"00000000-0000-4000-8000-000000000042","diameter":{"start":280000,"end":300000},"hole":100000,"span":{"from":"00000000-0000-4000-8000-00000000000b","to":"00000000-0000-4000-8000-00000000000a"},"mask":{"top":{"expansion":50000}}},
-    {"uuid":"00000000-0000-4000-8000-000000000044","at":{"x":3000000,"y":3000000},"net":"00000000-0000-4000-8000-000000000042","diameter":{"start":320000},"hole":120000,"span":{"from":"00000000-0000-4000-8000-00000000000b","to":"00000000-0000-4000-8000-00000000000c"}},
-    {"uuid":"00000000-0000-4000-8000-000000000045","at":{"x":9000000,"y":7000000},"net":"00000000-0000-4000-8000-000000000042","diameter":{"start":700000},"hole":300000,"span":{"from":"00000000-0000-4000-8000-00000000000a","to":"00000000-0000-4000-8000-00000000000f"}},
-    {"uuid":"00000000-0000-4000-8000-000000000046","at":{"x":14000000,"y":7000000},"diameter":{"start":700000,"middle":800000,"end":900000},"hole":300000,"span":{"from":"00000000-0000-4000-8000-00000000000d","to":"00000000-0000-4000-8000-00000000000e"}},
-    {"uuid":"00000000-0000-4000-8000-00000000004a","at":{"x":19000000,"y":7000000},"diameter":{"start":500000},"hole":200000,"span":{"from":"00000000-0000-4000-8000-00000000000a","to":"00000000-0000-4000-8000-00000000000d"}}
+    {"uuid":"00000000-0000-4000-8000-000000000044","at":{"x":3000000,"y":3000000},"net":"00000000-0000-4000-8000-000000000043","diameter":{"start":280000,"end":300000},"hole":100000,"span":{"from":"00000000-0000-4000-8000-00000000000b","to":"00000000-0000-4000-8000-00000000000a"},"mask":{"top":{"expansion":50000}}},
+    {"uuid":"00000000-0000-4000-8000-000000000045","at":{"x":3000000,"y":3000000},"net":"00000000-0000-4000-8000-000000000043","diameter":{"start":320000},"hole":120000,"span":{"from":"00000000-0000-4000-8000-00000000000b","to":"00000000-0000-4000-8000-00000000000c"}},
+    {"uuid":"00000000-0000-4000-8000-000000000046","at":{"x":9000000,"y":7000000},"net":"00000000-0000-4000-8000-000000000043","diameter":{"start":700000},"hole":300000,"span":{"from":"00000000-0000-4000-8000-00000000000a","to":"00000000-0000-4000-8000-00000000000f"}},
+    {"uuid":"00000000-0000-4000-8000-000000000047","at":{"x":14000000,"y":7000000},"diameter":{"start":700000,"middle":800000,"end":900000},"hole":300000,"span":{"from":"00000000-0000-4000-8000-00000000000d","to":"00000000-0000-4000-8000-00000000000e"}},
+    {"uuid":"00000000-0000-4000-8000-00000000004b","at":{"x":19000000,"y":7000000},"diameter":{"start":500000},"hole":200000,"span":{"from":"00000000-0000-4000-8000-00000000000a","to":"00000000-0000-4000-8000-00000000000d"}}
   ]
 }

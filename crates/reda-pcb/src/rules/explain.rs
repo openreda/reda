@@ -34,6 +34,8 @@ pub fn check_of(kind: RuleKind) -> Option<DrcCheck> {
         RuleKind::MicroSegment => Some(DrcCheck::MicroSegment),
         RuleKind::DeadCopper => Some(DrcCheck::DeadCopper),
         RuleKind::ZoneConnection | RuleKind::MaskExpansion | RuleKind::PasteExpansion => None,
+        // Its check arrives with the Component height rule.
+        RuleKind::ComponentHeight => None,
     }
 }
 

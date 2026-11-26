@@ -66,12 +66,22 @@ fn text_is_refused_on_layers_that_do_not_take_graphics() {
         );
         assert_eq!(pointer(&err), "/layer", "{name}: {}", err.message);
     }
+    // Gone with format 3: a Mechanical Layer with the Reference Purpose replaces it.
+    let err = engine.run_err(
+        "pcb.text.add",
+        json!({"layer": "documentation", "text": "X", "x": 0, "y": 0}),
+    );
+    assert!(
+        err.message
+            .contains("\"documentation\" is neither a Layer UUID nor a Layer name"),
+        "{}",
+        err.message
+    );
     for name in [
         "copper_top",
         "copper_bottom",
         "silkscreen_bottom",
         "mechanical",
-        "documentation",
     ] {
         engine.run_ok(
             "pcb.text.add",

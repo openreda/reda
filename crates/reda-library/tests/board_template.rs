@@ -204,7 +204,7 @@ fn card() -> BoardTemplate {
         ]}
     ]));
     t.drawing_groups = rows(json!([
-        {"uuid": s(24), "name": "Key dimensions", "layer": "mechanical"}
+        {"uuid": s(24), "name": "Key dimensions", "purpose": "dimensions"}
     ]));
     t.drawings = rows(json!([
         {"uuid": s(25), "group": s(24), "kind": "dimension",

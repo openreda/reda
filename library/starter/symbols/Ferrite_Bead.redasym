@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "symbol": {"uuid":"fedd1974-aa81-4047-b2a7-0a9bebcb8278","name":"Ferrite_Bead","designator_prefix":"FB","description":"Ferrite bead"},
   "units": [
     {"uuid":"a61bf5b0-f49a-4df9-8356-dda888ef0009","name":"A"}

@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "pcb": {"uuid":"00000000-0000-4000-8000-000000000003"},
   "layers": {"uuid":"00000000-0000-4000-8000-000000000004","layers":[
     {"uuid":"00000000-0000-4000-8000-000000000005","kind":"courtyard","side":"top"},
@@ -16,19 +16,19 @@
     {"uuid":"00000000-0000-4000-8000-000000000010","kind":"assembly","side":"bottom"},
     {"uuid":"00000000-0000-4000-8000-000000000011","kind":"courtyard","side":"bottom"},
     {"uuid":"00000000-0000-4000-8000-000000000012","kind":"board_outline"},
-    {"uuid":"00000000-0000-4000-8000-000000000013","kind":"mechanical"},
-    {"uuid":"00000000-0000-4000-8000-000000000014","kind":"documentation"}
+    {"uuid":"00000000-0000-4000-8000-000000000013","kind":"mechanical","name":"Dimensions","purpose":"dimensions"},
+    {"uuid":"00000000-0000-4000-8000-000000000014","kind":"mechanical","name":"Reference","purpose":"reference"}
   ]},
   "stackups": [
-    {"uuid":"00000000-0000-4000-8000-00000000002d","construction":"Laboratory","thickness":1600000,"entries":[
+    {"uuid":"00000000-0000-4000-8000-00000000002e","construction":"Laboratory","thickness":1600000,"entries":[
       {"layer":"00000000-0000-4000-8000-00000000000a","thickness":35000},
-      {"uuid":"00000000-0000-4000-8000-000000000031","kind":"core","name":"Core A","thickness":350000,"material":"FR408HR","dk":3700,"df":9200,"test_frequency":1000000000},
-      {"uuid":"00000000-0000-4000-8000-000000000032","kind":"prepreg","material":"2116"},
+      {"uuid":"00000000-0000-4000-8000-000000000032","kind":"core","name":"Core A","thickness":350000,"material":"FR408HR","dk":3700,"df":9200,"test_frequency":1000000000},
+      {"uuid":"00000000-0000-4000-8000-000000000033","kind":"prepreg","material":"2116"},
       {"layer":"00000000-0000-4000-8000-00000000000b","thickness":18000},
-      {"uuid":"00000000-0000-4000-8000-000000000033","kind":"core","name":"Core B"},
+      {"uuid":"00000000-0000-4000-8000-000000000034","kind":"core","name":"Core B"},
       {"layer":"00000000-0000-4000-8000-00000000000c","thickness":35000}
     ],"via_types":[
-      {"uuid":"00000000-0000-4000-8000-00000000002e","from":"00000000-0000-4000-8000-00000000000a","to":"00000000-0000-4000-8000-00000000000c","hole":300000,"diameter":{"start":700000}}
+      {"uuid":"00000000-0000-4000-8000-00000000002f","from":"00000000-0000-4000-8000-00000000000a","to":"00000000-0000-4000-8000-00000000000c","hole":300000,"diameter":{"start":700000}}
     ],"finish":"ENIG","mask_color":"green","silk_color":"white"}
   ],
   "board": {"uuid":"00000000-0000-4000-8000-000000000015"},
@@ -53,7 +53,8 @@
     {"uuid":"00000000-0000-4000-8000-000000000027","kind":"microvia_size","scope":{},"values":{}},
     {"uuid":"00000000-0000-4000-8000-000000000028","kind":"teardrop","scope":{},"values":{"via":{"enabled":false,"length":50,"max_length":1000000,"width":100,"max_width":2000000,"curved":false,"skip_ratio":90},"through_hole_pad":{"enabled":false,"length":50,"max_length":1000000,"width":100,"max_width":2000000,"curved":false,"skip_ratio":90},"smd_pad":{"enabled":false,"length":50,"max_length":1000000,"width":100,"max_width":2000000,"curved":false,"skip_ratio":90},"width_change":{"enabled":false,"length":50,"max_length":1000000,"width":100,"max_width":2000000,"curved":false,"skip_ratio":90}}},
     {"uuid":"00000000-0000-4000-8000-000000000029","kind":"silk_width","scope":{},"values":{"min":150000}},
-    {"uuid":"00000000-0000-4000-8000-00000000002a","kind":"silk_text_height","scope":{},"values":{"min":1000000}}
+    {"uuid":"00000000-0000-4000-8000-00000000002a","kind":"silk_text_height","scope":{},"values":{"min":1000000}},
+    {"uuid":"00000000-0000-4000-8000-00000000002b","kind":"component_height","scope":{},"values":{}}
   ],
   "severities": {"clearance":"error","short_circuit":"error","shorted_copper":"error","net_tie_not_joined":"error","track_width":"error","via_size":"error","via_span":"error","microvia_size":"error","aspect_ratio":"error","max_stack":"error","silk_width":"warning","silk_text_height":"warning","hole_size":"error","annular_ring":"error","hole_to_hole":"error","edge_clearance":"error","edge_connector_without_pads":"warning","plated_edge_nets_differ":"error","edge_connector_on_plated_edge":"error","plated_edge_without_net":"warning","plated_edge_unconnected":"warning","keepout":"error","footprint_outside_board":"error","unrouted":"error","copper_without_net":"warning","dangling":"warning","poor_connection":"warning","via_under_smd":"warning","courtyard_overlap":"warning","silk_to_mask":"warning","silk_to_edge":"warning","zero_length_track":"warning","micro_segment":"warning","duplicate_copper":"warning","zero_area_zone":"warning","dead_copper":"warning","empty_zone":"warning","shelved_zone":"warning","out_of_sync":"warning","opening_collapsed":"warning","rule_invalid":"error","rule_outside_preset":"warning"},
   "board_cutouts": [],

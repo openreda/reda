@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "symbol": {"uuid":"00000010-0000-4000-8000-000000000000","name":"OpAmp_Dual","designator_prefix":"U","description":"Dual operational amplifier"},
   "units": [
     {"uuid":"00000011-0000-4000-8000-000000000000","name":"A"},

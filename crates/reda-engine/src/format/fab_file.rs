@@ -2,7 +2,7 @@
 //!
 //! ```text
 //! {
-//!   "format": 2,
+//!   "format": 3,
 //!   "name": "My fab",
 //!   "rules": {"clearance":100000,…},
 //!   "constructions": [{"name":"2 Layer","default":true,"thickness":1600000,"entries":[{"copper":35000},{"kind":"core"},{"copper":35000}]}],

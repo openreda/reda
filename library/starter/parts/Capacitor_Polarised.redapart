@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "part": {"uuid":"8bac4a84-9009-4fde-bf59-3c6e47a39ae6","name":"Capacitor_Polarised","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"69a098aa-4952-4c5a-9ee5-5d47a7acfdbe"},
   "footprints": [
     "ccb154ef-2442-491a-b1d0-d39c9fb13e8e",

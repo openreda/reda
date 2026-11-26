@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "part": {"uuid":"84b18b44-b34e-4e89-b6ee-f3fe5128db97","name":"Socket_1x20","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"6035bfb4-5c53-4ef3-a6db-628ea953b9f4"},
   "footprints": [
     "d2ffb3f2-2260-4f88-9b02-27b4a0cb0949",

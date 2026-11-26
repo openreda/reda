@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "footprint": {"uuid":"7d6a13a1-5426-4600-ade9-fa7b906918e8","name":"CAPP_Radial_D5.0mm_P2.00mm","description":"Radial electrolytic capacitor, 5 mm across, leads 2 mm apart","height":11000000},
   "pads": [
     {"uuid":"5f6291dc-af34-4b6a-ad88-10ccbf65ba0f","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-1000000,"y":0},"rotation":0,"width":1400000,"height":1400000,"hole":{"width":800000,"height":800000}},

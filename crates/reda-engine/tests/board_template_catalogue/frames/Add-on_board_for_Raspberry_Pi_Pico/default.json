@@ -1463,8 +1463,8 @@
           "uuid": "c700643a-4db1-4124-b44b-6b71aadb16b4"
         }
       ],
-      "layer": "mechanical",
       "name": "Key dimensions",
+      "purpose": "dimensions",
       "uuid": "afc7321b-46d0-49c4-8563-20e1594cca1b"
     }
   ],

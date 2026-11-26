@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "symbol": {"uuid":"19d1ebee-1ef7-4886-a492-7aba5ba4b452","name":"LDO","designator_prefix":"U","description":"Fixed-output low-dropout regulator"},
   "units": [
     {"uuid":"0e6953c3-2f6e-4033-b90c-8bbe321f18db","name":"A"}

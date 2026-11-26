@@ -213,8 +213,10 @@ fn editor_layer_name(layer: &reda_engine::model::Layer) -> String {
         LayerKind::Courtyard => crate::tr!("layer-courtyard"),
         LayerKind::Assembly => crate::tr!("layer-assembly"),
         LayerKind::BoardOutline => crate::tr!("layer-board-outline"),
-        LayerKind::Mechanical => crate::tr!("layer-mechanical"),
-        LayerKind::Documentation => crate::tr!("layer-documentation"),
+        LayerKind::Mechanical => match &layer.name {
+            Some(name) => return name.clone(),
+            None => crate::tr!("layer-mechanical"),
+        },
     };
     match layer.side {
         Some(Side::Top) => crate::tr!("layer-top", kind = kind.as_str()),

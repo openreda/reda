@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "symbol": {"uuid":"a6eb8b5c-fbec-46be-b549-4e5157169861","name":"Conn_2x18","designator_prefix":"J","description":"Generic connector, 2 × 18 pins"},
   "units": [
     {"uuid":"976a5272-34b4-4032-9931-150f74dde164","name":"A"}

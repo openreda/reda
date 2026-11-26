@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "uuid": "2e42b4dd-f1bc-4b62-88ec-0cafc1820bef",
   "name": "Eurocard",
   "description": "A Eurocard plug-in board (IEC 60297-3-101): 3U (100 mm) or 6U (233.35 mm) high, in the standard guide-rail depths. Outline only: the connector position, rail strips and board thickness are not included. Lower-left corner at the origin.",
@@ -18,7 +18,7 @@
     ],"locked":true}
   ],
   "drawing_groups": [
-    {"uuid":"1d8a0461-201f-4b0e-9a9e-d2b9b09778f8","name":"Key dimensions","layer":"mechanical"}
+    {"uuid":"1d8a0461-201f-4b0e-9a9e-d2b9b09778f8","name":"Key dimensions","purpose":"dimensions"}
   ],
   "drawings": [
     {"uuid":"0c8c3c90-d6bc-44b3-8957-243fb9d49543","group":"1d8a0461-201f-4b0e-9a9e-d2b9b09778f8","kind":"dimension","rotation":"0","a":{"x":0,"y":0},"b":{"x":"card_depth","y":0},"offset":"-4","suffix":" mm","locked":true},

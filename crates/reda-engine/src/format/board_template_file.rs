@@ -3,7 +3,7 @@
 //!
 //! ```text
 //! {
-//!   "format": 2,
+//!   "format": 3,
 //!   "uuid": "…",
 //!   "name": "Custom rectangle",
 //!   "description": "A plain rectangle…",

@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "symbol": {"uuid":"ce8d6ae9-c882-460e-9812-bd1070628ebd","name":"CardEdge_PCIe_x4","designator_prefix":"J","description":"PCI Express x4 card edge, 32 fingers a side"},
   "units": [
     {"uuid":"ef6358b4-ecb6-4e0d-aa37-db699ee51081","name":"A"}

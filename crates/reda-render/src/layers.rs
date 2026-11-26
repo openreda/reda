@@ -3,8 +3,8 @@
 //! Each Layer is drawn opaque into a target of its own, then blended over what is below at
 //! its opacity ([`Composite`]). Layers go bottom to top in physical order, with the active
 //! Layer last. Viewing from the bottom mirrors the board, reverses the copper stack and
-//! swaps the other sided Layers with their twins. Board Outline, Mechanical and
-//! Documentation follow, then the
+//! swaps the other sided Layers with their twins. Board Outline and the Mechanical Layers
+//! follow, then the
 //! drilled holes, then the Ratsnest while it is visible.
 
 use reda_model::{Layer, LayerKind, Uuid};
@@ -147,6 +147,7 @@ mod tests {
             kind,
             side,
             name: None,
+            purpose: Default::default(),
             role: Default::default(),
         }
     }

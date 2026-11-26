@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "footprint": {"uuid":"8b5e6a09-f65d-42d6-8661-1d493932f718","name":"CardEdge_M.2_Key_E","description":"M.2 card edge, key E, 67 fingers: Edge Connector Pads 0.35 mm wide on a 0.5 mm pitch per side, set back 0.50 mm from the edge, the common open-hardware value; the origin is the centre of the finger edge","height":35000},
   "pads": [
     {"uuid":"025ace02-09e7-4c87-8a65-4fe6b2385635","number":"21","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":4250000,"y":1250000},"rotation":0,"width":350000,"height":1500000,"paste":"none"},

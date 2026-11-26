@@ -12,7 +12,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     Corners, FootprintCopy, HoleTolerance, KeepoutShapeKind, Mask, PadCopperShape, PadKind,
-    PadShape, Part, Paste, Ratio, Restriction, Side, Symbol, UnusedLayers, Uuid, ZoneConnection,
+    PadShape, Part, Paste, Purpose, Ratio, Restriction, Side, Symbol, UnusedLayers, Uuid,
+    ZoneConnection,
 };
 
 /// A numeric geometry field of a template: an integer in base units (nanometres, or
@@ -449,24 +450,17 @@ pub struct TemplatePart {
     pub footprints: Vec<Uuid>,
 }
 
-/// A named group of drawings on one Layer: one Includes tick in the dialog.
+/// A named group of drawings on one Mechanical Layer: one Includes tick in the dialog.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TemplateDrawingGroup {
     pub uuid: Uuid,
     pub name: String,
-    pub layer: DrawingLayer,
+    /// The Purpose of the Mechanical Layer the group goes on, `general` written out.
+    pub purpose: Purpose,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(schema_with = "when_schema")]
     pub when: Option<When>,
-}
-
-/// The Layer a drawing group goes on, named symbolically.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum DrawingLayer {
-    Mechanical,
-    Documentation,
 }
 
 /// What a drawing row draws.

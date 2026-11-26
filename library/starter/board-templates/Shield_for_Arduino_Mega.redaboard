@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "uuid": "904d6b10-3290-4328-84c9-6450af5319c2",
   "name": "Shield for Arduino Mega",
   "description": "A 101.6 x 53.34 mm shield for the Arduino Mega 2560 header layout. The Uno headers sit at the Uno positions, with the analog row as two 1 x 8 headers (A0 to A15), the D14 to D21 header and the 2 x 18 XIO header. The outline follows Arduino's CAD files, with the 45 degree chamfered right-hand profile and R1 on three corners. The male headers are on the bottom, at the Arduino positions, including the 160 mil gap between D7 and D8. The ICSP header is left out. The holes have no Keepouts, because Arduino publishes none. Arduino is a trademark of Arduino SA.",
@@ -362,7 +362,7 @@
     {"uuid":"f73e68ab-ba46-4433-82c7-e46af7b43ec3","part":"1febece4-178d-451e-a3e2-8bc609abb4ba","footprint":"8dad3a3a-095e-4466-b3ca-b355dd4b3567","side":"top","at":{"x":"66.04","y":"7.62"},"locked":true}
   ],
   "drawing_groups": [
-    {"uuid":"bf9d8e45-2548-4749-b86c-08aa45a4eb12","name":"Key dimensions","layer":"mechanical"}
+    {"uuid":"bf9d8e45-2548-4749-b86c-08aa45a4eb12","name":"Key dimensions","purpose":"dimensions"}
   ],
   "drawings": [
     {"uuid":"2b48b8bb-d27c-4499-8e41-33cbe0a999df","group":"bf9d8e45-2548-4749-b86c-08aa45a4eb12","kind":"dimension","rotation":"90","a":{"follow":{"object":"7f0ba865-8302-4cfe-a39d-d3d6b036b343"}},"b":{"follow":{"object":"86bc0a2e-0d7e-4bf1-8022-86ab3f3203fd"}},"offset":"-108","suffix":" mm","locked":true},

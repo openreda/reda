@@ -1,0 +1,65 @@
+{
+  "format": 3,
+  "graphics": [
+    {
+      "shape": {
+        "end": {
+          "x": 1016000,
+          "y": 2540000
+        },
+        "kind": "rect",
+        "start": {
+          "x": -1016000,
+          "y": -2540000
+        }
+      },
+      "unit": "3cf7006e-13b7-4688-8536-4d574b5db229",
+      "uuid": "0e65c72b-7ee9-49c4-94cc-ef11deea34c0",
+      "width": 254000
+    }
+  ],
+  "pins": [
+    {
+      "at": {
+        "x": 0,
+        "y": 5080000
+      },
+      "electrical_type": "passive",
+      "length": 2540000,
+      "name": "~",
+      "name_visible": false,
+      "number": "1",
+      "number_visible": false,
+      "rotation": 270000,
+      "unit": "3cf7006e-13b7-4688-8536-4d574b5db229",
+      "uuid": "4d8013c9-7801-4d73-93ac-a5c047a300b5"
+    },
+    {
+      "at": {
+        "x": 0,
+        "y": -5080000
+      },
+      "electrical_type": "passive",
+      "length": 2540000,
+      "name": "~",
+      "name_visible": false,
+      "number": "2",
+      "number_visible": false,
+      "rotation": 90000,
+      "unit": "3cf7006e-13b7-4688-8536-4d574b5db229",
+      "uuid": "65cfd6a3-2cbb-4a0d-9649-483821136516"
+    }
+  ],
+  "symbol": {
+    "description": "Resistor",
+    "designator_prefix": "R",
+    "name": "Resistor",
+    "uuid": "06c71621-e7e4-49a4-9b90-88485bb936b5"
+  },
+  "units": [
+    {
+      "name": "A",
+      "uuid": "3cf7006e-13b7-4688-8536-4d574b5db229"
+    }
+  ]
+}

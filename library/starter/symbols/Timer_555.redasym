@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "symbol": {"uuid":"eebdad0d-b78a-4f9b-be97-ae74568d41ed","name":"Timer_555","designator_prefix":"U","description":"555 timer"},
   "units": [
     {"uuid":"ef661553-ab0f-4180-af7e-49a6f3efbf77","name":"A"}

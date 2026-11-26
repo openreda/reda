@@ -767,8 +767,7 @@ save-template-placed = { $designator } { $footprint } ({ $side })
 save-template-side-top = top
 save-template-side-bottom = bottom
 save-template-free-pad = Free Pad { $n }
-save-template-mechanical = Mechanical drawings
-save-template-documentation = Documentation drawings
+save-template-drawings = Drawings on { $layer }
 library-menu-datasheet = Open Datasheet
 library-used-in-project = Used in Project: { $count }
 library-where-used = Where Used
@@ -862,7 +861,6 @@ layer-courtyard = Courtyard
 layer-assembly = Assembly
 layer-board-outline = Board Outline
 layer-mechanical = Mechanical
-layer-documentation = Documentation
 
 ## PCB canvas
 
@@ -888,7 +886,7 @@ loop-gap-retry = Retry Along the Outer Edge
 loop-gap-cancel = Cancel
 pcb-polygon-reverted = The shape crossed itself, so it went back to how it was.
 pcb-polygon-too-few = The shape needs more corners than that: the vertex stays.
-pcb-draw-needs-graphics-layer = Text and graphics go on a copper, silkscreen, mechanical or documentation Layer: make one active first.
+pcb-draw-needs-graphics-layer = Text and graphics go on a copper, silkscreen or Mechanical Layer: make one active first.
 pcb-draw-arc-straight = The three points lie on one line: put the third off it to bend the arc.
 pcb-text-title = Text
 pcb-text-words = Text

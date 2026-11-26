@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "symbol": {"uuid":"213962d8-cdc6-43ba-ad5f-738eeaed19f6","name":"Button","designator_prefix":"SW","description":"Push button, normally open"},
   "units": [
     {"uuid":"21aa4732-08a0-4d32-a30e-392d5d1c92c6","name":"A"}

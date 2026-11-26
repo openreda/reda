@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "symbol": {"uuid":"4b09f27b-e1a9-46d0-af71-1fa9775f2c85","name":"NPN","designator_prefix":"Q","description":"NPN bipolar transistor"},
   "units": [
     {"uuid":"eef34e01-3eaa-4235-9c77-311ca9ae4643","name":"A"}

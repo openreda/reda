@@ -1,8 +1,8 @@
 {
-  "format": 2,
+  "format": 3,
   "sheet": {"uuid":"00000000-0000-4000-8000-000000000002"},
   "parts": [
-    {"uuid":"00000000-0000-4000-8000-000000000032","hash":"8d1622d8bff4fc575d37ee7cfe740626","part":{"uuid":"47a3f16a-73d0-4c69-8340-80c0c66505f9","name":"CardEdge_M.2_Key_AE","component_type":"standard","in_bom":false,"in_cpl":false,"symbol":"bf655d27-48c1-4eee-860c-4ad70aac7b54"},"footprints":["fb2d5026-2247-4cc1-94dd-905a027c637e"],"copies":["00000000-0000-4000-8000-000000000031"],"fields":{"value":"M.2 Key AE","description":"M.2 card edge, key A and E, 59 fingers","keywords":"J connector card edge fingers M.2 NGFF"},"pin_map":{},"symbol":{"uuid":"bf655d27-48c1-4eee-860c-4ad70aac7b54","name":"CardEdge_M.2_Key_AE","designator_prefix":"J","description":"M.2 card edge, key A and E, 59 fingers"},"units":[
+    {"uuid":"00000000-0000-4000-8000-000000000033","hash":"8d1622d8bff4fc575d37ee7cfe740626","part":{"uuid":"47a3f16a-73d0-4c69-8340-80c0c66505f9","name":"CardEdge_M.2_Key_AE","component_type":"standard","in_bom":false,"in_cpl":false,"symbol":"bf655d27-48c1-4eee-860c-4ad70aac7b54"},"footprints":["fb2d5026-2247-4cc1-94dd-905a027c637e"],"copies":["00000000-0000-4000-8000-000000000032"],"fields":{"value":"M.2 Key AE","description":"M.2 card edge, key A and E, 59 fingers","keywords":"J connector card edge fingers M.2 NGFF"},"pin_map":{},"symbol":{"uuid":"bf655d27-48c1-4eee-860c-4ad70aac7b54","name":"CardEdge_M.2_Key_AE","designator_prefix":"J","description":"M.2 card edge, key A and E, 59 fingers"},"units":[
       {"uuid":"c75b75e7-a936-4553-952a-c8924c5ae27d","name":"A"}
     ],"pins":[
       {"uuid":"0206e890-f5f9-4f33-80bc-db8d44f89d6b","unit":"c75b75e7-a936-4553-952a-c8924c5ae27d","name":"48","number":"48","electrical_type":"passive","at":{"x":5080000,"y":-11430000},"rotation":180000,"length":2540000,"name_visible":false},
@@ -69,7 +69,7 @@
     ]}
   ],
   "footprints": [
-    {"uuid":"00000000-0000-4000-8000-000000000031","hash":"5200b78244c29a8f30fa9da6045a608e","footprint":{"uuid":"fb2d5026-2247-4cc1-94dd-905a027c637e","name":"CardEdge_M.2_Key_AE","description":"M.2 card edge, key A and E, 59 fingers: Edge Connector Pads 0.35 mm wide on a 0.5 mm pitch per side, set back 0.50 mm from the edge, the common open-hardware value; the origin is the centre of the finger edge","height":35000},"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000032","hash":"5200b78244c29a8f30fa9da6045a608e","footprint":{"uuid":"fb2d5026-2247-4cc1-94dd-905a027c637e","name":"CardEdge_M.2_Key_AE","description":"M.2 card edge, key A and E, 59 fingers: Edge Connector Pads 0.35 mm wide on a 0.5 mm pitch per side, set back 0.50 mm from the edge, the common open-hardware value; the origin is the centre of the finger edge","height":35000},"pads":[
       {"uuid":"02bad75e-7b78-4f3c-b35c-b588ae634968","number":"19","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":4750000,"y":1250000},"rotation":0,"width":350000,"height":1500000,"paste":"none"},
       {"uuid":"0a10ea24-799e-4bdc-8d5c-03f029e857e6","number":"59","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":-5250000,"y":1250000},"rotation":0,"width":350000,"height":1500000,"paste":"none"},
       {"uuid":"102cc457-215e-4493-99ad-d07b73d97aa8","number":"2","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":9000000,"y":1500000},"rotation":0,"width":350000,"height":2000000,"side":"bottom","paste":"none"},
@@ -141,6 +141,6 @@
     ]}
   ],
   "units": [
-    {"uuid":"00000000-0000-4000-8000-000000000034","component":{"uuid":"00000000-0000-4000-8000-000000000033"},"part":"00000000-0000-4000-8000-000000000032","unit":"c75b75e7-a936-4553-952a-c8924c5ae27d","at":{"x":55880000,"y":99060000},"rotation":0,"designator":"J1","fields":{"value":"M.2 Key AE","description":"M.2 card edge, key A and E, 59 fingers","keywords":"J connector card edge fingers M.2 NGFF"},"footprint":"fb2d5026-2247-4cc1-94dd-905a027c637e","component_type":"standard","in_bom":false,"in_cpl":false}
+    {"uuid":"00000000-0000-4000-8000-000000000035","component":{"uuid":"00000000-0000-4000-8000-000000000034"},"part":"00000000-0000-4000-8000-000000000033","unit":"c75b75e7-a936-4553-952a-c8924c5ae27d","at":{"x":55880000,"y":99060000},"rotation":0,"designator":"J1","fields":{"value":"M.2 Key AE","description":"M.2 card edge, key A and E, 59 fingers","keywords":"J connector card edge fingers M.2 NGFF"},"footprint":"fb2d5026-2247-4cc1-94dd-905a027c637e","component_type":"standard","in_bom":false,"in_cpl":false}
   ]
 }

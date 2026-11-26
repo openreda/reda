@@ -30,12 +30,11 @@ mod transaction;
 mod uuid;
 
 pub use board_template::{
-    BoardTemplate, ChoiceOption, ChoiceParameter, DisplayUnit, DrawingKind, DrawingLayer,
-    LengthParameter, TemplateBevel, TemplateBoard, TemplateContour, TemplateCopperLayer,
-    TemplateDimensionEnd, TemplateDrawing, TemplateDrawingGroup, TemplateDrill,
-    TemplateEdgeConnector, TemplateFollow, TemplateHole, TemplateKeepout, TemplateNumber,
-    TemplatePad, TemplateParameter, TemplatePart, TemplatePlacement, TemplatePoint, TemplateVertex,
-    When,
+    BoardTemplate, ChoiceOption, ChoiceParameter, DisplayUnit, DrawingKind, LengthParameter,
+    TemplateBevel, TemplateBoard, TemplateContour, TemplateCopperLayer, TemplateDimensionEnd,
+    TemplateDrawing, TemplateDrawingGroup, TemplateDrill, TemplateEdgeConnector, TemplateFollow,
+    TemplateHole, TemplateKeepout, TemplateNumber, TemplatePad, TemplateParameter, TemplatePart,
+    TemplatePlacement, TemplatePoint, TemplateVertex, When,
 };
 pub use change::{Change, ChangeSet, Object, ObjectType, Scope, ScopeSummary};
 pub use check::{
@@ -75,8 +74,8 @@ pub use pcb::{
     KeepoutShape, KeepoutShapeKind, Layer, LayerGroup, LayerKind, LayerSet, LayerSpan,
     NOTO_SANS_FONT, Net, NetClass, OutputOrigin, PadNet, PadRef, PcbDocument, PcbGraphic, PcbText,
     PlatedEdge, PlatedEdges, PortableClass, PortableLayers, PortableRule, PortableSpan, PourOver,
-    ResolvedEntry, Restriction, RuleField, RuleKind, RuleLayers, RuleScope, RuleSet, RuleValue,
-    RuleValues, Side, SilkMaskMode, Stackup, StackupEntry, StackupInfo, StackupSeeds,
+    Purpose, ResolvedEntry, Restriction, RuleField, RuleKind, RuleLayers, RuleScope, RuleSet,
+    RuleValue, RuleValues, Side, SilkMaskMode, Stackup, StackupEntry, StackupInfo, StackupSeeds,
     StackupTotals, TeardropField, TeardropFill, TeardropKind, TeardropLocation, TeardropTarget,
     TeardropValues, TextAutoposition, TextOverride, Track, TrackGeometry, UnusedLayers, Via,
     ViaDiameter, ViaRuleValues, ViaType, ViaTypeName, Zone, ZoneCutout, ZoneFill, ZoneFills,

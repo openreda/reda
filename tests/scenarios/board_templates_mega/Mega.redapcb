@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "pcb": {"uuid":"00000000-0000-4000-8000-000000000003"},
   "layers": {"uuid":"00000000-0000-4000-8000-000000000004","layers":[
     {"uuid":"00000000-0000-4000-8000-000000000005","kind":"courtyard","side":"top"},
@@ -15,16 +15,16 @@
     {"uuid":"00000000-0000-4000-8000-00000000000f","kind":"assembly","side":"bottom"},
     {"uuid":"00000000-0000-4000-8000-000000000010","kind":"courtyard","side":"bottom"},
     {"uuid":"00000000-0000-4000-8000-000000000011","kind":"board_outline"},
-    {"uuid":"00000000-0000-4000-8000-000000000012","kind":"mechanical"},
-    {"uuid":"00000000-0000-4000-8000-000000000013","kind":"documentation"}
+    {"uuid":"00000000-0000-4000-8000-000000000012","kind":"mechanical","name":"Dimensions","purpose":"dimensions"},
+    {"uuid":"00000000-0000-4000-8000-000000000013","kind":"mechanical","name":"Reference","purpose":"reference"}
   ]},
   "stackups": [
-    {"uuid":"00000000-0000-4000-8000-00000000002b","construction":"2 Layer","thickness":1600000,"entries":[
+    {"uuid":"00000000-0000-4000-8000-00000000002c","construction":"2 Layer","thickness":1600000,"entries":[
       {"layer":"00000000-0000-4000-8000-00000000000a","thickness":35000},
-      {"uuid":"00000000-0000-4000-8000-00000000002a","kind":"core","thickness":1530000},
+      {"uuid":"00000000-0000-4000-8000-00000000002b","kind":"core","thickness":1530000},
       {"layer":"00000000-0000-4000-8000-00000000000b","thickness":35000}
     ],"via_types":[
-      {"uuid":"00000000-0000-4000-8000-00000000002c","from":"00000000-0000-4000-8000-00000000000a","to":"00000000-0000-4000-8000-00000000000b","hole":300000,"diameter":{"start":700000}}
+      {"uuid":"00000000-0000-4000-8000-00000000002d","from":"00000000-0000-4000-8000-00000000000a","to":"00000000-0000-4000-8000-00000000000b","hole":300000,"diameter":{"start":700000}}
     ]}
   ],
   "board": {"uuid":"00000000-0000-4000-8000-000000000014"},
@@ -49,10 +49,11 @@
     {"uuid":"00000000-0000-4000-8000-000000000026","kind":"microvia_size","scope":{},"values":{}},
     {"uuid":"00000000-0000-4000-8000-000000000027","kind":"teardrop","scope":{},"values":{"via":{"enabled":false,"length":50,"max_length":1000000,"width":100,"max_width":2000000,"curved":false,"skip_ratio":90},"through_hole_pad":{"enabled":false,"length":50,"max_length":1000000,"width":100,"max_width":2000000,"curved":false,"skip_ratio":90},"smd_pad":{"enabled":false,"length":50,"max_length":1000000,"width":100,"max_width":2000000,"curved":false,"skip_ratio":90},"width_change":{"enabled":false,"length":50,"max_length":1000000,"width":100,"max_width":2000000,"curved":false,"skip_ratio":90}}},
     {"uuid":"00000000-0000-4000-8000-000000000028","kind":"silk_width","scope":{},"values":{"min":150000}},
-    {"uuid":"00000000-0000-4000-8000-000000000029","kind":"silk_text_height","scope":{},"values":{"min":1000000}}
+    {"uuid":"00000000-0000-4000-8000-000000000029","kind":"silk_text_height","scope":{},"values":{"min":1000000}},
+    {"uuid":"00000000-0000-4000-8000-00000000002a","kind":"component_height","scope":{},"values":{}}
   ],
   "severities": {"clearance":"error","short_circuit":"error","shorted_copper":"error","net_tie_not_joined":"error","track_width":"error","via_size":"error","via_span":"error","microvia_size":"error","aspect_ratio":"error","max_stack":"error","silk_width":"warning","silk_text_height":"warning","hole_size":"error","annular_ring":"error","hole_to_hole":"error","edge_clearance":"error","edge_connector_without_pads":"warning","plated_edge_nets_differ":"error","edge_connector_on_plated_edge":"error","plated_edge_without_net":"warning","plated_edge_unconnected":"warning","keepout":"error","footprint_outside_board":"error","unrouted":"error","copper_without_net":"warning","dangling":"warning","poor_connection":"warning","via_under_smd":"warning","courtyard_overlap":"warning","silk_to_mask":"warning","silk_to_edge":"warning","zero_length_track":"warning","micro_segment":"warning","duplicate_copper":"warning","zero_area_zone":"warning","dead_copper":"warning","empty_zone":"warning","shelved_zone":"warning","out_of_sync":"warning","opening_collapsed":"warning","rule_invalid":"error","rule_outside_preset":"warning"},
-  "board_outline": {"uuid":"00000000-0000-4000-8000-00000000002f","locked":true,"vertices":[
+  "board_outline": {"uuid":"00000000-0000-4000-8000-000000000030","locked":true,"vertices":[
     {"x":1000000,"y":0},
     {"x":98060000,"y":0,"sweep":90000},
     {"x":99060000,"y":1000000},
@@ -72,12 +73,12 @@
   "texts": [],
   "graphics": [],
   "dimensions": [
-    {"uuid":"00000000-0000-4000-8000-000000000059","locked":true,"layer":"00000000-0000-4000-8000-000000000012","a":{"point":{"x":36830000,"y":2540000},"ref":{"object":"00000000-0000-4000-8000-000000000048","hotspot":"origin"}},"b":{"point":{"x":54610000,"y":50800000},"ref":{"object":"00000000-0000-4000-8000-00000000004b","hotspot":"origin"}},"rotation":90000,"width":150000,"extension_width":150000,"gap":500000,"offset":-108000000,"text_gap":250000,"arrow_size":1000000,"arrow_length":2000000,"arrow_position":"inside","text_position":"automatic","font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"},"units":"automatic","precision":2,"format":"value_unit","suffix":" mm"},
-    {"uuid":"00000000-0000-4000-8000-00000000005a","locked":true,"layer":"00000000-0000-4000-8000-000000000012","a":{"point":{"x":0,"y":0}},"b":{"point":{"x":101600000,"y":0}},"rotation":0,"width":150000,"extension_width":150000,"gap":500000,"offset":-4000000,"text_gap":250000,"arrow_size":1000000,"arrow_length":2000000,"arrow_position":"inside","text_position":"automatic","font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"},"units":"automatic","precision":2,"format":"value_unit","suffix":" mm"},
-    {"uuid":"00000000-0000-4000-8000-00000000005b","locked":true,"layer":"00000000-0000-4000-8000-000000000012","a":{"point":{"x":0,"y":0}},"b":{"point":{"x":0,"y":53340000}},"rotation":90000,"width":150000,"extension_width":150000,"gap":500000,"offset":4000000,"text_gap":250000,"arrow_size":1000000,"arrow_length":2000000,"arrow_position":"inside","text_position":"automatic","font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"},"units":"automatic","precision":2,"format":"value_unit","suffix":" mm"}
+    {"uuid":"00000000-0000-4000-8000-00000000005a","locked":true,"layer":"00000000-0000-4000-8000-000000000012","a":{"point":{"x":36830000,"y":2540000},"ref":{"object":"00000000-0000-4000-8000-000000000049","hotspot":"origin"}},"b":{"point":{"x":54610000,"y":50800000},"ref":{"object":"00000000-0000-4000-8000-00000000004c","hotspot":"origin"}},"rotation":90000,"width":150000,"extension_width":150000,"gap":500000,"offset":-108000000,"text_gap":250000,"arrow_size":1000000,"arrow_length":2000000,"arrow_position":"inside","text_position":"automatic","font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"},"units":"automatic","precision":2,"format":"value_unit","suffix":" mm"},
+    {"uuid":"00000000-0000-4000-8000-00000000005b","locked":true,"layer":"00000000-0000-4000-8000-000000000012","a":{"point":{"x":0,"y":0}},"b":{"point":{"x":101600000,"y":0}},"rotation":0,"width":150000,"extension_width":150000,"gap":500000,"offset":-4000000,"text_gap":250000,"arrow_size":1000000,"arrow_length":2000000,"arrow_position":"inside","text_position":"automatic","font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"},"units":"automatic","precision":2,"format":"value_unit","suffix":" mm"},
+    {"uuid":"00000000-0000-4000-8000-00000000005c","locked":true,"layer":"00000000-0000-4000-8000-000000000012","a":{"point":{"x":0,"y":0}},"b":{"point":{"x":0,"y":53340000}},"rotation":90000,"width":150000,"extension_width":150000,"gap":500000,"offset":4000000,"text_gap":250000,"arrow_size":1000000,"arrow_length":2000000,"arrow_position":"inside","text_position":"automatic","font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"},"units":"automatic","precision":2,"format":"value_unit","suffix":" mm"}
   ],
   "footprint_copies": [
-    {"uuid":"00000000-0000-4000-8000-000000000035","hash":"085f415abadc113163b7436dee339753","footprint":{"uuid":"9553b550-db0e-4ca1-8867-6ded2db7e327","name":"HDRV0W64P254R1L2540T254H850B","description":"Pin header, 1 × 10, 2.54 mm pitch","height":8500000},"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000036","hash":"085f415abadc113163b7436dee339753","footprint":{"uuid":"9553b550-db0e-4ca1-8867-6ded2db7e327","name":"HDRV0W64P254R1L2540T254H850B","description":"Pin header, 1 × 10, 2.54 mm pitch","height":8500000},"pads":[
       {"uuid":"4389d96f-779b-47c2-b5b8-a5c207f631b8","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":8890000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
       {"uuid":"5b82490f-eeb4-4f7d-96b0-7d4f34b5b35a","number":"9","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-8890000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
       {"uuid":"700155d8-932d-4852-b505-ce8e9f32b6d5","number":"6","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
@@ -100,7 +101,7 @@
       {"uuid":"3e85de8a-c1d5-4eeb-828f-2dea8f715701","field":"Designator","at":{"x":0,"y":13650000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
       {"uuid":"b4d9d166-a8af-4d9f-a162-cbf3fd395329","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000003d","hash":"5e142e92b47d5cbc7426d627fdab6b57","footprint":{"uuid":"4005293b-1887-440b-a353-4c19db0ab92d","name":"HDRV254W64P254R2L4572T508H850B_Mirrored","description":"Pin header, 2 × 18, 2.54 mm pitch, mirror-numbered for the bottom side","height":8500000},"pads":[
+    {"uuid":"00000000-0000-4000-8000-00000000003e","hash":"5e142e92b47d5cbc7426d627fdab6b57","footprint":{"uuid":"4005293b-1887-440b-a353-4c19db0ab92d","name":"HDRV254W64P254R2L4572T508H850B_Mirrored","description":"Pin header, 2 × 18, 2.54 mm pitch, mirror-numbered for the bottom side","height":8500000},"pads":[
       {"uuid":"0a3036a3-88a4-4625-ad1a-a63a8d857949","number":"13","kind":"plated_through_hole","shape":"circle","at":{"x":1270000,"y":6350000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
       {"uuid":"0cb1d614-cd28-4f90-9c6b-af6884f900b9","number":"21","kind":"plated_through_hole","shape":"circle","at":{"x":1270000,"y":-3810000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
       {"uuid":"0e1097ff-c194-437f-97dd-a0b4aa6888bb","number":"34","kind":"plated_through_hole","shape":"circle","at":{"x":-1270000,"y":-19050000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
@@ -149,7 +150,7 @@
       {"uuid":"5c7771fb-d5af-42b5-b06e-be80468f86c7","field":"Designator","at":{"x":0,"y":23850000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
       {"uuid":"a1af21c9-3460-42b5-a7ec-7e9d25444456","field":"Value","at":{"x":0,"y":-23850000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000044","hash":"8c59b3cd862687b86db6cb2d48f11ae2","footprint":{"uuid":"d8eb0edb-4a4b-45e0-a9f0-99e897f2aad1","name":"HDRV0W64P254R1L2032T254H850B","description":"Pin header, 1 × 8, 2.54 mm pitch","height":8500000},"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000045","hash":"8c59b3cd862687b86db6cb2d48f11ae2","footprint":{"uuid":"d8eb0edb-4a4b-45e0-a9f0-99e897f2aad1","name":"HDRV0W64P254R1L2032T254H850B","description":"Pin header, 1 × 8, 2.54 mm pitch","height":8500000},"pads":[
       {"uuid":"2f289199-b691-4ab9-b649-696b63ed3c5f","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":0,"y":8890000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
       {"uuid":"36df114f-4a60-4f97-a7a7-1d4589d7d69a","number":"6","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-3810000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
       {"uuid":"3b346688-2387-41f4-a59b-c0ef6ea8059a","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":6350000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
@@ -170,7 +171,7 @@
       {"uuid":"cc94dd7d-ea95-4d4d-9596-91925957b96d","field":"Value","at":{"x":0,"y":-11150000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
       {"uuid":"f5c20972-6da9-40c0-ba7b-48a5338036a0","field":"Designator","at":{"x":0,"y":11150000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000052","hash":"3aa9def4c62e778f25fd750fa085a1fe","footprint":{"uuid":"5b59cdab-565f-4f43-8563-7b49605b64f5","name":"MountingHole_M3","description":"Mounting hole for M3, 3.2 mm, not plated. Hole per ISO 273 fine, head per ISO 4762","height":3000000},"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000053","hash":"3aa9def4c62e778f25fd750fa085a1fe","footprint":{"uuid":"5b59cdab-565f-4f43-8563-7b49605b64f5","name":"MountingHole_M3","description":"Mounting hole for M3, 3.2 mm, not plated. Hole per ISO 273 fine, head per ISO 4762","height":3000000},"pads":[
       {"uuid":"4b5efa83-470e-4f52-b548-506a36d274ea","number":"","kind":"non_plated","shape":"circle","at":{"x":0,"y":0},"rotation":0,"width":3200000,"height":3200000,"hole":{"width":3200000,"height":3200000}}
     ],"graphics":[
       {"uuid":"5e771c7c-f442-40c2-a129-51230861d7ba","layer":"assembly_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2750000},"width":100000},
@@ -183,7 +184,7 @@
     ]}
   ],
   "footprints": [
-    {"uuid":"00000000-0000-4000-8000-000000000036","component":{"uuid":"00000000-0000-4000-8000-000000000033"},"footprint":"00000000-0000-4000-8000-000000000035","at":{"x":30226000,"y":50800000},"rotation":270000,"side":"bottom","locked":true,"designator":"J1","fields":{"value":"Header 1x10","description":"1 × 10 pin header, 2.54 or 1.27 mm pitch","keywords":"J connector pin header"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000037","component":{"uuid":"00000000-0000-4000-8000-000000000034"},"footprint":"00000000-0000-4000-8000-000000000036","at":{"x":30226000,"y":50800000},"rotation":270000,"side":"bottom","locked":true,"designator":"J1","fields":{"value":"Header 1x10","description":"1 × 10 pin header, 2.54 or 1.27 mm pitch","keywords":"J connector pin header"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
       {"pad":"4389d96f-779b-47c2-b5b8-a5c207f631b8"},
       {"pad":"5b82490f-eeb4-4f7d-96b0-7d4f34b5b35a"},
       {"pad":"700155d8-932d-4852-b505-ce8e9f32b6d5"},
@@ -195,7 +196,7 @@
       {"pad":"ec9e450b-fe9e-4f7a-a9c8-9e770d58f8ac"},
       {"pad":"fbf654b4-621d-4ea4-aa88-f0d54ed25ce4"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000003e","component":{"uuid":"00000000-0000-4000-8000-00000000003b"},"footprint":"00000000-0000-4000-8000-00000000003d","at":{"x":95250000,"y":29210000},"rotation":0,"side":"bottom","locked":true,"designator":"J2","fields":{"value":"Header 2x18","description":"2 × 18 pin header, 2.54 or 1.27 mm pitch, or 2.54 mm mirror-numbered for the bottom side","keywords":"J connector pin header"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
+    {"uuid":"00000000-0000-4000-8000-00000000003f","component":{"uuid":"00000000-0000-4000-8000-00000000003c"},"footprint":"00000000-0000-4000-8000-00000000003e","at":{"x":95250000,"y":29210000},"rotation":0,"side":"bottom","locked":true,"designator":"J2","fields":{"value":"Header 2x18","description":"2 × 18 pin header, 2.54 or 1.27 mm pitch, or 2.54 mm mirror-numbered for the bottom side","keywords":"J connector pin header"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
       {"pad":"0a3036a3-88a4-4625-ad1a-a63a8d857949"},
       {"pad":"0cb1d614-cd28-4f90-9c6b-af6884f900b9"},
       {"pad":"0e1097ff-c194-437f-97dd-a0b4aa6888bb"},
@@ -233,7 +234,7 @@
       {"pad":"f5285bd4-618f-4c9f-bb8b-af25d35de294"},
       {"pad":"f6bfad37-faf8-47f9-9b75-e721734c48b6"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000045","component":{"uuid":"00000000-0000-4000-8000-000000000042"},"footprint":"00000000-0000-4000-8000-000000000044","at":{"x":77470000,"y":50800000},"rotation":270000,"side":"bottom","locked":true,"designator":"J3","fields":{"value":"Header 1x8","description":"1 × 8 pin header, 2.54 or 1.27 mm pitch","keywords":"J connector pin header"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000046","component":{"uuid":"00000000-0000-4000-8000-000000000043"},"footprint":"00000000-0000-4000-8000-000000000045","at":{"x":77470000,"y":50800000},"rotation":270000,"side":"bottom","locked":true,"designator":"J3","fields":{"value":"Header 1x8","description":"1 × 8 pin header, 2.54 or 1.27 mm pitch","keywords":"J connector pin header"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
       {"pad":"2f289199-b691-4ab9-b649-696b63ed3c5f"},
       {"pad":"36df114f-4a60-4f97-a7a7-1d4589d7d69a"},
       {"pad":"3b346688-2387-41f4-a59b-c0ef6ea8059a"},
@@ -243,7 +244,7 @@
       {"pad":"ae85a369-2907-4df2-af1e-569b4525ecfc"},
       {"pad":"af2383e4-8550-4bbb-aa73-131054093324"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000048","component":{"uuid":"00000000-0000-4000-8000-000000000046"},"footprint":"00000000-0000-4000-8000-000000000044","at":{"x":36830000,"y":2540000},"rotation":90000,"side":"bottom","locked":true,"designator":"J4","fields":{"value":"Header 1x8","description":"1 × 8 pin header, 2.54 or 1.27 mm pitch","keywords":"J connector pin header"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000049","component":{"uuid":"00000000-0000-4000-8000-000000000047"},"footprint":"00000000-0000-4000-8000-000000000045","at":{"x":36830000,"y":2540000},"rotation":90000,"side":"bottom","locked":true,"designator":"J4","fields":{"value":"Header 1x8","description":"1 × 8 pin header, 2.54 or 1.27 mm pitch","keywords":"J connector pin header"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
       {"pad":"2f289199-b691-4ab9-b649-696b63ed3c5f"},
       {"pad":"36df114f-4a60-4f97-a7a7-1d4589d7d69a"},
       {"pad":"3b346688-2387-41f4-a59b-c0ef6ea8059a"},
@@ -253,7 +254,7 @@
       {"pad":"ae85a369-2907-4df2-af1e-569b4525ecfc"},
       {"pad":"af2383e4-8550-4bbb-aa73-131054093324"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000004b","component":{"uuid":"00000000-0000-4000-8000-000000000049"},"footprint":"00000000-0000-4000-8000-000000000044","at":{"x":54610000,"y":50800000},"rotation":270000,"side":"bottom","locked":true,"designator":"J5","fields":{"value":"Header 1x8","description":"1 × 8 pin header, 2.54 or 1.27 mm pitch","keywords":"J connector pin header"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
+    {"uuid":"00000000-0000-4000-8000-00000000004c","component":{"uuid":"00000000-0000-4000-8000-00000000004a"},"footprint":"00000000-0000-4000-8000-000000000045","at":{"x":54610000,"y":50800000},"rotation":270000,"side":"bottom","locked":true,"designator":"J5","fields":{"value":"Header 1x8","description":"1 × 8 pin header, 2.54 or 1.27 mm pitch","keywords":"J connector pin header"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
       {"pad":"2f289199-b691-4ab9-b649-696b63ed3c5f"},
       {"pad":"36df114f-4a60-4f97-a7a7-1d4589d7d69a"},
       {"pad":"3b346688-2387-41f4-a59b-c0ef6ea8059a"},
@@ -263,7 +264,7 @@
       {"pad":"ae85a369-2907-4df2-af1e-569b4525ecfc"},
       {"pad":"af2383e4-8550-4bbb-aa73-131054093324"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000004e","component":{"uuid":"00000000-0000-4000-8000-00000000004c"},"footprint":"00000000-0000-4000-8000-000000000044","at":{"x":59690000,"y":2540000},"rotation":90000,"side":"bottom","locked":true,"designator":"J6","fields":{"value":"Header 1x8","description":"1 × 8 pin header, 2.54 or 1.27 mm pitch","keywords":"J connector pin header"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
+    {"uuid":"00000000-0000-4000-8000-00000000004f","component":{"uuid":"00000000-0000-4000-8000-00000000004d"},"footprint":"00000000-0000-4000-8000-000000000045","at":{"x":59690000,"y":2540000},"rotation":90000,"side":"bottom","locked":true,"designator":"J6","fields":{"value":"Header 1x8","description":"1 × 8 pin header, 2.54 or 1.27 mm pitch","keywords":"J connector pin header"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
       {"pad":"2f289199-b691-4ab9-b649-696b63ed3c5f"},
       {"pad":"36df114f-4a60-4f97-a7a7-1d4589d7d69a"},
       {"pad":"3b346688-2387-41f4-a59b-c0ef6ea8059a"},
@@ -273,7 +274,7 @@
       {"pad":"ae85a369-2907-4df2-af1e-569b4525ecfc"},
       {"pad":"af2383e4-8550-4bbb-aa73-131054093324"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000051","component":{"uuid":"00000000-0000-4000-8000-00000000004f"},"footprint":"00000000-0000-4000-8000-000000000044","at":{"x":82550000,"y":2540000},"rotation":90000,"side":"bottom","locked":true,"designator":"J7","fields":{"value":"Header 1x8","description":"1 × 8 pin header, 2.54 or 1.27 mm pitch","keywords":"J connector pin header"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000052","component":{"uuid":"00000000-0000-4000-8000-000000000050"},"footprint":"00000000-0000-4000-8000-000000000045","at":{"x":82550000,"y":2540000},"rotation":90000,"side":"bottom","locked":true,"designator":"J7","fields":{"value":"Header 1x8","description":"1 × 8 pin header, 2.54 or 1.27 mm pitch","keywords":"J connector pin header"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
       {"pad":"2f289199-b691-4ab9-b649-696b63ed3c5f"},
       {"pad":"36df114f-4a60-4f97-a7a7-1d4589d7d69a"},
       {"pad":"3b346688-2387-41f4-a59b-c0ef6ea8059a"},
@@ -283,22 +284,22 @@
       {"pad":"ae85a369-2907-4df2-af1e-569b4525ecfc"},
       {"pad":"af2383e4-8550-4bbb-aa73-131054093324"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000053","footprint":"00000000-0000-4000-8000-000000000052","at":{"x":13970000,"y":2540000},"rotation":0,"side":"top","locked":true,"designator":"H1","fields":{"value":"M3","description":"Mounting hole for M3, 3.2 mm, not plated","keywords":"H mounting hole screw mechanical"},"component_type":"mechanical","in_bom":false,"in_cpl":false,"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000054","footprint":"00000000-0000-4000-8000-000000000053","at":{"x":13970000,"y":2540000},"rotation":0,"side":"top","locked":true,"designator":"H1","fields":{"value":"M3","description":"Mounting hole for M3, 3.2 mm, not plated","keywords":"H mounting hole screw mechanical"},"component_type":"mechanical","in_bom":false,"in_cpl":false,"pads":[
       {"pad":"4b5efa83-470e-4f52-b548-506a36d274ea"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000054","footprint":"00000000-0000-4000-8000-000000000052","at":{"x":96520000,"y":2540000},"rotation":0,"side":"top","locked":true,"designator":"H2","fields":{"value":"M3","description":"Mounting hole for M3, 3.2 mm, not plated","keywords":"H mounting hole screw mechanical"},"component_type":"mechanical","in_bom":false,"in_cpl":false,"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000055","footprint":"00000000-0000-4000-8000-000000000053","at":{"x":96520000,"y":2540000},"rotation":0,"side":"top","locked":true,"designator":"H2","fields":{"value":"M3","description":"Mounting hole for M3, 3.2 mm, not plated","keywords":"H mounting hole screw mechanical"},"component_type":"mechanical","in_bom":false,"in_cpl":false,"pads":[
       {"pad":"4b5efa83-470e-4f52-b548-506a36d274ea"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000055","footprint":"00000000-0000-4000-8000-000000000052","at":{"x":15240000,"y":50800000},"rotation":0,"side":"top","locked":true,"designator":"H3","fields":{"value":"M3","description":"Mounting hole for M3, 3.2 mm, not plated","keywords":"H mounting hole screw mechanical"},"component_type":"mechanical","in_bom":false,"in_cpl":false,"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000056","footprint":"00000000-0000-4000-8000-000000000053","at":{"x":15240000,"y":50800000},"rotation":0,"side":"top","locked":true,"designator":"H3","fields":{"value":"M3","description":"Mounting hole for M3, 3.2 mm, not plated","keywords":"H mounting hole screw mechanical"},"component_type":"mechanical","in_bom":false,"in_cpl":false,"pads":[
       {"pad":"4b5efa83-470e-4f52-b548-506a36d274ea"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000056","footprint":"00000000-0000-4000-8000-000000000052","at":{"x":90170000,"y":50800000},"rotation":0,"side":"top","locked":true,"designator":"H4","fields":{"value":"M3","description":"Mounting hole for M3, 3.2 mm, not plated","keywords":"H mounting hole screw mechanical"},"component_type":"mechanical","in_bom":false,"in_cpl":false,"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000057","footprint":"00000000-0000-4000-8000-000000000053","at":{"x":90170000,"y":50800000},"rotation":0,"side":"top","locked":true,"designator":"H4","fields":{"value":"M3","description":"Mounting hole for M3, 3.2 mm, not plated","keywords":"H mounting hole screw mechanical"},"component_type":"mechanical","in_bom":false,"in_cpl":false,"pads":[
       {"pad":"4b5efa83-470e-4f52-b548-506a36d274ea"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000057","footprint":"00000000-0000-4000-8000-000000000052","at":{"x":66040000,"y":35560000},"rotation":0,"side":"top","locked":true,"designator":"H5","fields":{"value":"M3","description":"Mounting hole for M3, 3.2 mm, not plated","keywords":"H mounting hole screw mechanical"},"component_type":"mechanical","in_bom":false,"in_cpl":false,"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000058","footprint":"00000000-0000-4000-8000-000000000053","at":{"x":66040000,"y":35560000},"rotation":0,"side":"top","locked":true,"designator":"H5","fields":{"value":"M3","description":"Mounting hole for M3, 3.2 mm, not plated","keywords":"H mounting hole screw mechanical"},"component_type":"mechanical","in_bom":false,"in_cpl":false,"pads":[
       {"pad":"4b5efa83-470e-4f52-b548-506a36d274ea"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000058","footprint":"00000000-0000-4000-8000-000000000052","at":{"x":66040000,"y":7620000},"rotation":0,"side":"top","locked":true,"designator":"H6","fields":{"value":"M3","description":"Mounting hole for M3, 3.2 mm, not plated","keywords":"H mounting hole screw mechanical"},"component_type":"mechanical","in_bom":false,"in_cpl":false,"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000059","footprint":"00000000-0000-4000-8000-000000000053","at":{"x":66040000,"y":7620000},"rotation":0,"side":"top","locked":true,"designator":"H6","fields":{"value":"M3","description":"Mounting hole for M3, 3.2 mm, not plated","keywords":"H mounting hole screw mechanical"},"component_type":"mechanical","in_bom":false,"in_cpl":false,"pads":[
       {"pad":"4b5efa83-470e-4f52-b548-506a36d274ea"}
     ]}
   ]

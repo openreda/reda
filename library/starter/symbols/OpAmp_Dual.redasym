@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "symbol": {"uuid":"c2fd8c06-bc8a-46e4-b90b-b70d09bcd7d9","name":"OpAmp_Dual","designator_prefix":"U","description":"Dual operational amplifier, standard 8-pin pinout"},
   "units": [
     {"uuid":"37730f9a-39ac-4e4f-ba55-81c8f3acfb51","name":"A"},

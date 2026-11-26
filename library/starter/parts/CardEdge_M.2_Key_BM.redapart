@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "part": {"uuid":"98d0ce8b-e26f-4cd6-9c5a-c87d1864dbea","name":"CardEdge_M.2_Key_BM","component_type":"standard","in_bom":false,"in_cpl":false,"symbol":"945ec542-564b-46d7-a764-5b5f021d60cf"},
   "footprints": [
     "011c731c-9e46-4428-99b1-78ff498460e0"
