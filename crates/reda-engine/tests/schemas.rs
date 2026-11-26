@@ -1,7 +1,7 @@
 //! The JSON Schema of each file kind, generated from the Rust file shapes and checked in
 //! under `docs/schemas/`. A stale copy fails here; `REDA_BLESS=1` regenerates them.
 
-use reda_engine::format::{FORMAT, FileKind, schema};
+use reda_engine::format::{FORMAT, FileKind, RELEASED, schema};
 use reda_testkit::assert_golden;
 use serde_json::{Value, json};
 
@@ -46,4 +46,23 @@ fn schemas_pin_the_current_format_and_describe_uuids() {
     );
     let text = project.to_string();
     assert!(text.contains(r#""format":"uuid""#), "{text}");
+}
+
+/// Each released format's schemas are frozen in `docs/schemas/v<n>/`. While the current
+/// format is a released one (0.2.0 shipped format 2), its shapes may not change: a new
+/// field belongs to the next format and its migration step.
+#[test]
+fn a_released_format_keeps_the_schemas_it_shipped_with() {
+    if RELEASED < FORMAT {
+        return;
+    }
+    for kind in FileKind::ALL {
+        let path = format!("{SCHEMAS}/v{RELEASED}/{}.schema.json", kind.extension());
+        let frozen: Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        assert_eq!(
+            schema(kind),
+            frozen,
+            "{path}: format {FORMAT} was released, so its shapes are frozen"
+        );
+    }
 }

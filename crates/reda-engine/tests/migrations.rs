@@ -8,7 +8,10 @@
 use std::path::{Path, PathBuf};
 
 use proptest::strategy::Strategy;
-use reda_engine::format::{FORMAT, FileKind, MIGRATIONS, Migration, migrate, migrate_with};
+use reda_engine::format::{
+    FORMAT, FileKind, MIGRATIONS, Migration, RELEASED, check_released, migrate,
+    migrate_checked_with, migrate_with,
+};
 use reda_testkit::{TempDir, assert_golden, read_tree, test_engine};
 use serde_json::{Value, json};
 
@@ -683,5 +686,120 @@ fn migrating_refuses_fields_that_did_not_exist_in_the_declared_format() {
             migrate(kind, source).is_err(),
             "{file} accepted {pointer}/{key}"
         );
+    }
+}
+
+/// The frozen inputs of release `n`: `tests/projects/formats/v<n>/`.
+fn frozen_inputs(n: u32) -> PathBuf {
+    Path::new(V1).parent().unwrap().join(format!("v{n}"))
+}
+
+/// Every REDA file under `dir`, skipping frozen `outputs/`, with its kind and parsed JSON.
+fn frozen_files(dir: &Path) -> Vec<(String, FileKind, Value)> {
+    let files: Vec<_> = read_tree(dir)
+        .into_iter()
+        .filter(|(rel, _)| !rel.starts_with("outputs/"))
+        .map(|(rel, bytes)| {
+            let ext = Path::new(&rel).extension().unwrap().to_str().unwrap();
+            let kind = FileKind::ALL
+                .into_iter()
+                .find(|k| k.extension() == ext)
+                .unwrap_or_else(|| panic!("{rel} is not a REDA file"));
+            (rel, kind, serde_json::from_slice(&bytes).unwrap())
+        })
+        .collect();
+    assert!(!files.is_empty(), "nothing frozen in {}", dir.display());
+    files
+}
+
+#[test]
+fn every_frozen_file_fits_the_schemas_its_release_shipped() {
+    for n in 1..=RELEASED {
+        let demo = Path::new(FORMATS).join(format!("v{n}"));
+        for (rel, kind, file) in frozen_files(&frozen_inputs(n))
+            .into_iter()
+            .chain(frozen_files(&demo))
+        {
+            assert_eq!(file["format"], n, "{rel}");
+            if let Err(why) = check_released(n, kind, &file) {
+                panic!("v{n}/{rel}: {why}");
+            }
+        }
+    }
+}
+
+#[test]
+fn the_format_two_schemas_refuse_fields_that_arrive_in_format_three() {
+    let read = |file: &str| -> Value {
+        serde_json::from_slice(&std::fs::read(frozen_inputs(2).join(file)).unwrap()).unwrap()
+    };
+    let mut board = read("blinky_555/Blinky.redapcb");
+    board["layers"]["layers"][0]["purpose"] = json!("dimensions");
+    let mut footprint = read("standalone/CAPC1005X40N.redafp");
+    footprint["bodies"] = json!([]);
+    let mut template = read("standalone/PCI_Express_add-in_card.redaboard");
+    let group = template["drawing_groups"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|g| g["layer"] == "mechanical")
+        .unwrap();
+    group["purpose"] = json!("dimensions");
+    for (kind, file, field) in [
+        (FileKind::Pcb, board, "purpose"),
+        (FileKind::Footprint, footprint, "bodies"),
+        (FileKind::BoardTemplate, template, "purpose"),
+    ] {
+        let why = check_released(2, kind, &file).unwrap_err();
+        assert!(why.contains(field), "{}: {why}", kind.extension());
+    }
+}
+
+#[test]
+fn only_released_formats_have_schemas_to_check_against() {
+    let file = json!({"format": RELEASED + 1});
+    assert!(check_released(RELEASED + 1, FileKind::Sheet, &file).is_err());
+    assert!(check_released(0, FileKind::Sheet, &file).is_err());
+    let why = check_released(1, FileKind::BoardTemplate, &json!({"format": 1})).unwrap_err();
+    assert!(why.contains("format 1"), "{why}");
+}
+
+/// The chain, not each step, checks a step's input against the schemas of the format it
+/// reads, so the step from format 2 gets format-2 files exactly as 0.2.0 declared them.
+#[test]
+fn the_chain_checks_format_two_input_against_the_released_schemas() {
+    fn number_only(_: FileKind, file: Value) -> Result<Value, String> {
+        Ok(file)
+    }
+    let steps: &[Migration] = &[MIGRATIONS[0], number_only];
+    for (rel, kind, file) in frozen_files(&frozen_inputs(2)) {
+        let migrated =
+            migrate_checked_with(kind, file, steps).unwrap_or_else(|why| panic!("v2/{rel}: {why}"));
+        assert_eq!(migrated["format"], 3, "{rel}");
+    }
+    let path = frozen_inputs(2).join("blinky_555/Blinky.redapcb");
+    let mut board: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+    board["layers"]["layers"][0]["purpose"] = json!("dimensions");
+    let why = migrate_checked_with(FileKind::Pcb, board.clone(), steps).unwrap_err();
+    assert!(
+        why.starts_with("migrating from format 2: /layers/layers/0/purpose"),
+        "{why}"
+    );
+    // Stand-in steps on made-up files run unchecked.
+    assert_eq!(
+        migrate_with(FileKind::Pcb, board, steps).unwrap()["format"],
+        3
+    );
+}
+
+#[test]
+fn every_real_step_refuses_input_its_release_did_not_declare() {
+    for n in 1..FORMAT {
+        let path = frozen_inputs(n).join("blinky_555/Blinky.reda");
+        let mut project: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+        project["hand_edited"] = json!(true);
+        let why = migrate(FileKind::Project, project).unwrap_err();
+        assert!(why.contains(&format!("format {n}")), "{why}");
+        assert!(why.contains("hand_edited"), "{why}");
     }
 }

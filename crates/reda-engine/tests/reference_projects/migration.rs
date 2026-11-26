@@ -81,6 +81,51 @@ fn migrated_boards_preserve_v01_manufacturing_outputs() {
     }
 }
 
+/// A fab output: everything in a job's `fab/` folder, and its BOM and CPL.
+fn is_fab_output(path: &str) -> bool {
+    path.contains("/fab/") || path.ends_with("-BOM.csv") || path.ends_with("-CPL.csv")
+}
+
+/// From 0.2.0 on, each released board's frozen fab outputs (Gerber, drill, BOM, CPL, job
+/// file, Fab Notes) are what its frozen copy still produces, byte for byte, through every
+/// later migration: Mechanical Layers are not plotted, so any difference is a bug.
+#[test]
+fn every_frozen_board_since_0_2_0_still_produces_its_frozen_fab_outputs() {
+    use super::PROJECTS;
+    use reda_engine::format::RELEASED;
+    for n in 2..=RELEASED {
+        let frozen = projects_dir().join("formats").join(format!("v{n}"));
+        for &(name, project) in PROJECTS {
+            let (work, mut engine) = open_reference_copy(&frozen.join(name), project);
+            let jobs: Vec<_> = engine
+                .project()
+                .unwrap()
+                .output_jobs()
+                .map(|j| j.uuid.to_string())
+                .collect();
+            for job in jobs {
+                engine.run_ok("output.job.run", json!({"job": job}));
+            }
+            let made: BTreeMap<_, _> = read_tree(&work.path().join("outputs"))
+                .into_iter()
+                .filter(|(path, _)| is_fab_output(path))
+                .collect();
+            let expected = read_tree(&frozen.join("outputs").join(name));
+            assert!(!expected.is_empty(), "v{n}/{name}: no frozen fab outputs");
+            assert!(
+                made.keys().eq(expected.keys()),
+                "v{n}/{name}: fab file set changed"
+            );
+            for (path, old) in expected {
+                assert!(
+                    made[&path] == old,
+                    "v{n}/{name}: fab bytes changed in {path}"
+                );
+            }
+        }
+    }
+}
+
 #[test]
 fn a_migrated_project_gets_the_new_fab_catalogue_only_on_explicit_source_update() {
     let (_work, mut engine) =

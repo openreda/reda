@@ -13,11 +13,12 @@
 //! goldens must show; [`between_them_the_projects_hold_every_object_the_goldens_cover`]
 //! keeps it so.
 //!
-//! **Format bumps.** On every `format::FORMAT` bump, before the migration lands, copy each
-//! reference Project as it is, still in the old format, to
-//! `tests/projects/formats/v<old FORMAT>/<project>/`. Those copies are never edited again.
-//! [`every_older_format_has_a_frozen_copy_that_opens_and_saves`] requires one per older
-//! format and checks that each still opens through the migration chain and saves.
+//! **Format bumps.** Once a release ships a format (`format::RELEASED`), copy each
+//! reference Project exactly as that release has it to `tests/projects/formats/v<n>/<project>/`
+//! and its fab outputs to `tests/projects/formats/v<n>/outputs/<project>/`. Those copies are
+//! never edited again. [`every_older_format_has_a_frozen_copy_that_opens_and_saves`] requires
+//! one per older format and checks that each still opens through the migration chain and
+//! saves; `migration.rs` checks the outputs.
 //!
 //! **Timing.** The `#[ignore]`d `time_*` tests time the main steps on each Project; run
 //! them by hand with `cargo test -p reda-engine --test reference_projects -- --ignored
