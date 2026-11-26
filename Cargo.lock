@@ -3398,6 +3398,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "reda-step"
+version = "0.0.0"
+dependencies = [
+ "flate2",
+]
+
+[[package]]
 name = "reda-testkit"
 version = "0.0.0"
 dependencies = [
