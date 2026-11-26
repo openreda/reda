@@ -84,7 +84,7 @@ One exporter in `reda-output`, reached two ways, with the same options in both:
 - **File ▸ Export ▸ STEP…** opens a small dialog: Via holes, Skip holes under, Include Not Fitted, Selection only, Export stand-ins, Name prefix. The file name is typed in the save dialog.
 - **An Output Job output kind,** off by default. It is written beside the zip, not inside it, because the zip is what the fab receives. It is named by the job's [Name Template](../v0.1/outputs.md#name-template), as `<stem>.step` beside `<stem>.zip`, and listed in the Output Manifest. The DXF output is named the same way, as `<stem>.dxf`.
 
-**Command:** `pcb.export_step`. It reaches the menu, the Command Palette, the CLI and MCP by [ADR-0001](../../adr/0001-every-action-is-a-command.md). There is no preview Command. Arguments and the Output Job schema are settled in [What Commands and file-format additions does the v0.3 data need?](https://github.com/openreda/reda/issues/440).
+**Command:** `pcb.export_step`. It reaches the menu, the Command Palette, the CLI and MCP by [ADR-0001](../../adr/0001-every-action-is-a-command.md). There is no preview Command. Arguments and the Output Job schema are in [Commands and file formats](commands.md).
 
 ## Out
 
@@ -92,4 +92,4 @@ One exporter in `reda-output`, reached two ways, with the same options in both:
 - A choice of protocol, AP242 output, and a single-part export.
 - Variant filtering, until Variants exist.
 - Rigid-flex folding, glTF, IDF/IDX and other formats (see the map's Out of scope).
-- Checking the file in commercial MCAD tools is optional ([STEP](step.md#tests)). FreeCAD and BRL-CAD checks are decided in [Which tests does v0.3 add?](https://github.com/openreda/reda/issues/441).
+- Checking the file in commercial MCAD tools is optional ([STEP](step.md#tests)). FreeCAD and BRL-CAD checks are in [testing](testing.md).

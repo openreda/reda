@@ -2,7 +2,7 @@
 
 Source: [How does the Component height rule work?](https://github.com/openreda/reda/issues/459), in scope by [Which adjacent work ships in 0.3.0, and is it one release or two?](https://github.com/openreda/reda/issues/439).
 
-DRC checks how tall Components are in two ways. A board-wide Rule sets a maximum for each side, and a Keepout can limit height inside its area. Both read the Footprint's stored `height`, which [Bodies](bodies.md#height) keeps authoritative, not the Bodies. Commands and file-format details are settled in [What Commands and file-format additions does the v0.3 data need?](https://github.com/openreda/reda/issues/440).
+DRC checks how tall Components are in two ways. A board-wide Rule sets a maximum for each side, and a Keepout can limit height inside its area. Both read the Footprint's stored `height`, which [Bodies](bodies.md#height) keeps authoritative, not the Bodies. Commands and file-format details are in [Commands and file formats](commands.md).
 
 ## What is measured
 

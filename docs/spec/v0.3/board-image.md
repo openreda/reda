@@ -18,7 +18,7 @@ A [Board Image](../../../GLOSSARY.md) is a PNG of the board drawn in 3D, headles
 | `camera` | a face name: `top`, `bottom`, `front`, `back`, `left`, `right`, `three_quarter`; or `{azimuth, elevation}` in degrees | `three_quarter` |
 | `projection` | `orthographic` or `perspective` | `orthographic` |
 | `view` | `fit` (the board) or `{objects: [uuid…]}` (fit those objects) | `fit` |
-| `show` | `bodies`, `silkscreen`, `copper`, `board`, each `{on, opacity}`; `solder_mask` on or off | all on, full opacity |
+| `show` | `bodies`, `silkscreen`, `copper`, `board`, each `{on, opacity}`; `solder_mask` and [`height_areas`](component-height.md#in-3d) on or off | all on at full opacity, except `height_areas` off |
 | `include_not_fitted` | bool | false |
 | `highlight` | UUIDs, drawn in the selection colour with everything else dimmed | none |
 | `size` | the longer side in pixels, 1 to 8192 | 1024 |
@@ -28,7 +28,7 @@ A [Board Image](../../../GLOSSARY.md) is a PNG of the board drawn in 3D, headles
 - The face names and their meaning are the 3D view's ([orientation gizmo](3d-view.md#orientation-gizmo)): `bottom` is the board turned over left to right, so text on the bottom reads correctly. `{azimuth, elevation}` turns and tilts the same way the view does, with no roll.
 - There is no rectangle in nm and no free camera position.
 - The `show` set is the 3D view menu's Show set ([3D view menu](3d-view.md#3d-view-menu)). The image never follows what the user's screen shows, as in 2D.
-- What is drawn is what the 3D view draws: material colours, the board with outline, Board Cutouts and holes, outer copper, silkscreen and each Footprint's Bodies. A Footprint with no Body, or whose Models all fail to parse, gets its [Stand-in Body](bodies.md#no-body-the-stand-in).
+- What is drawn is what the 3D view draws: material colours, the board with outline, Board Cutouts and holes, outer copper, silkscreen and each Footprint's Bodies. A Footprint with no Body, or whose Models draw nothing, gets its [Stand-in Body](bodies.md#no-body-the-stand-in).
 - Not Fitted Components are left out unless `include_not_fitted` is true, as in the [STEP export](step-export.md).
 - **Format:** PNG only.
 
@@ -55,7 +55,7 @@ The same shape as 2D:
 - **Files:** one PNG per ticked view, named `<stem>-<view>.png` from the job's [Name Template](../v0.1/outputs.md#name-template). For example, `myboard-JLCPCB-three_quarter.png` and `myboard-JLCPCB-top.png`. They are written **beside the zip, never inside it**, as are the STEP and DXF outputs, because the zip is what the fab receives.
 - Each image is listed in the Output Manifest with its hash.
 - Model problems go to the run report's warnings. They never block the run.
-- The schema is settled in [What Commands and file-format additions does the v0.3 data need?](https://github.com/openreda/reda/issues/440).
+- The schema is in [Commands and file formats](commands.md).
 
 ### Determinism
 
@@ -65,7 +65,7 @@ Board Images are exempt from the rule that the same design and REDA version give
 
 - The [3D view menu](3d-view.md#3d-view-menu) gains **Save image…**, between View and Measure.
 - It draws what is on screen through the same renderer: the camera angles, the projection, the Show set and the exact framing (centre and zoom) in use. The selection is not highlighted.
-- It is a Command of its own ([ADR-0001](../../adr/0001-every-action-is-a-command.md)), because `document.render` frames only the board or a set of objects. Its arguments are settled in [What Commands and file-format additions does the v0.3 data need?](https://github.com/openreda/reda/issues/440).
+- It is a Command of its own ([ADR-0001](../../adr/0001-every-action-is-a-command.md)), because `document.render` frames only the board or a set of objects. Its arguments are in [Commands and file formats](commands.md).
 - The save dialog asks for the file name and a size in pixels, defaulting to 2048, with a background choice of theme or transparent.
 
 ## Not in v0.3

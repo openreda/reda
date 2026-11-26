@@ -621,11 +621,11 @@ The compact floating toolbar over a Document's canvas that offers the most-used 
 _Avoid_: Quick bar, floating toolbar, palette
 
 **3D view**:
-The view mode of the PCB tab that shows the board in three dimensions, for looking, selecting and measuring. Nothing is edited in it.
+The view mode of a PCB or Footprint canvas that shows the board or Footprint in three dimensions, for looking, selecting and measuring. Nothing is edited in it, apart from placing a Model Body by picking its geometry in the Footprint editor.
 _Avoid_: 3D viewer, 3D editor, 3D window
 
 **Document view**:
-One tab showing a Document. A Document can be open in several views at once, which share its selection and Layer visibility while each keeps its own mode, camera and zoom.
+One tab showing a Document. A Document can be open in several views at once, which share its selection, Highlight, Layer visibility, active Layer and Show set while each keeps its own mode, camera, zoom, projection and grid.
 _Avoid_: Window, pane, second tab
 
 **Orientation gizmo**:
@@ -660,6 +660,10 @@ _Avoid_: Height restriction area, height zone, height Keepout
 A point on an object that the cursor snaps to, such as a Pad centre or a Wire end.
 _Avoid_: Snap point, anchor
 
+**Show set**:
+The kinds of object a 3D view or a rendered Board Image draws, each with its switch and opacity.
+_Avoid_: 3D layers, visibility set, 3D filter
+
 **Snap Distance**:
 How close the cursor must come to a Hotspot on a board or Footprint before it snaps there, as a length.
 _Avoid_: Snap radius, capture range
@@ -683,6 +687,10 @@ _Avoid_: Snap guide, work guide, guideline, construction line
 **Alignment Guide**:
 A line the editor draws during a move when the cursor comes level with another object's Hotspot; it is never stored.
 _Avoid_: Guide, axis, extension line, projection line
+
+**Alignment Range**:
+How close the cursor must come to an Alignment Guide or a Guide before it snaps to it.
+_Avoid_: Guide snap distance, alignment tolerance
 
 **Dimmed**:
 Shaded to push it back visually, while it can still be picked and edited.

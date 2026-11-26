@@ -117,10 +117,13 @@ Not a grid matter, but settled in the same ticket.
 
 | Command | Does |
 |---|---|
-| `pcb.board_grid.add / edit / remove` | Board Grids, the Default mark included |
-| `pcb.local_grid.add / edit / remove / reorder` | Local Grids |
-| `pcb.guide.add / edit / remove` | Guides on a board |
-| `footprint.guide.add / edit / remove` | Guides in a Footprint |
+| `pcb.board_grid.add / set / delete` | Board Grids, the Default mark included |
+| `pcb.local_grid.add / set / delete / reorder` | Local Grids |
+| `pcb.guide.add / set / delete` | Guides on a board |
+| `library.footprint.guide.add / edit / remove` | Guides in a Footprint |
+| `view.grids_guides.show {on}` | Show Grids & Guides |
+
+Parameters are in [Commands and file formats](commands.md#grids-and-guides-1).
 
 Moving, locking and deleting on the canvas use the existing move, lock and delete Commands, which take these kinds.
 
@@ -129,7 +132,7 @@ Moving, locking and deleting on the canvas use the existing move, lock and delet
 - PCB Document `grids`: `{board: [...], local: [...]}`. `local` is in priority order.
 - PCB Document `guides`: a list.
 - Footprint `guides`: a list. This is a new name beside the [reserved](../v0.1/architecture.md#reserved-names) ones.
-- The exact fields are settled with the rest of the v0.3 data in [What Commands and file-format additions does the v0.3 data need?](https://github.com/openreda/reda/issues/440).
+- The exact fields are in [Commands and file formats](commands.md).
 
 ## Differences from other tools
 

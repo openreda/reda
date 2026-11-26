@@ -39,6 +39,8 @@ A Preferences page, **Mouse Wheel**, holds a table of wheel actions. Each action
 
 All four are Commands, so a user who wants plain arrows to nudge can swap the keys.
 
+Keys on the digit row are matched by physical key, in 2D as in 3D ([3D view keys](3d-view.md#keys)), so a Keymap binding on a digit works on every keyboard layout. Numpad digits count as digits only in the 3D view; in 2D they keep their v0.2 Layer jumps.
+
 ### The Edit Cursor
 
 The Edit Cursor is the snapped point where a Tool acts. It follows the mouse pointer, and the arrow keys step it. v0.1 used "cursor" for both the pointer and this point.
@@ -130,10 +132,10 @@ On boards and in Footprints, the Line-family and Text records hold one set of va
 |---|---|
 | `view.cursor.step` | Moves the Edit Cursor by a number of grid steps in X and Y |
 | `view.cursor.click` | A left click at the Edit Cursor |
-| `pcb.nudge`, `footprint.nudge`, `symbol.nudge` | Nudge the selection, beside the existing `schematic.nudge` |
+| `pcb.nudge`, `library.footprint.nudge`, `library.symbol.nudge` | Nudge the selection, beside the existing `schematic.nudge` |
 | `app.defaults.reset / save / load` | Reset, write or read Object Defaults, for all kinds or one |
 
-Single values are read and set with the existing `app.preferences.get` and `app.preferences.set`. The exact Preference keys and Command parameters are settled with the rest of the v0.3 data in [What Commands and file-format additions does the v0.3 data need?](https://github.com/openreda/reda/issues/440).
+Single values are read and set with the existing `app.preferences.get` and `app.preferences.set`. The Preference keys and Command parameters are in [Commands and file formats](commands.md#input).
 
 ## Differences from other tools
 

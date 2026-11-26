@@ -48,7 +48,7 @@ This file gives the format version step, the additions to `.redapcb`, the Librar
 ### Keepout and rules
 
 - A Keepout gains `max_height` in nm, left out when none. It is refused unless `restrict` holds `footprints`, and must be positive ([Height Areas](component-height.md#height-areas)).
-- A new rule kind `component_height` with `top_max?` and `bottom_max?`. Board-wide only: a `scope` is refused. The DRC severities table gains `component_height` (E) and `height_unknown` (W).
+- A new rule kind `component_height` with `top_max?` and `bottom_max?`. Board-wide only: a `scope` is refused. The DRC severities table gains `component_height` (E) and `height_unknown` (W). The Library check gains `model_unreadable` (W) and `body_height_mismatch` (W) ([Bodies](bodies.md#library-checks)).
 
 ## Library files
 
@@ -87,7 +87,7 @@ This file gives the format version step, the additions to `.redapcb`, the Librar
 | `dxf` | `entries`, `unit` | Board Outline and drilled holes, `mm` |
 | `board_images` | `views`, `size`, `background`, `show`, `include_not_fitted` | `three_quarter`, `top`, `bottom`; 2048; `transparent`; all on; off |
 
-- The keys are the same as the parameters of `pcb.export_step`, `pcb.export_dxf` and `document.render`.
+- The keys are the same as the parameters of `pcb.export_step`, `pcb.export_dxf` and `document.render`, except that `board_images` takes `views`, a list of `camera` face names, one image each.
 - A DXF `entries` item is `board_outline`, `holes`, a Layer UUID, or `{kind: assembly | courtyard, side}`.
 - The files are named `<stem>.step`, `<stem>.dxf` and `<stem>-<view>.png` beside the zip, and listed in the Output Manifest.
 
@@ -95,8 +95,8 @@ This file gives the format version step, the additions to `.redapcb`, the Librar
 
 Per PCB Document and per Footprint tab, never dirtying a Document:
 
-- `mode`: `2d` or `3d`, the mode the canvas was last in. A board reopened in 3D enters with the tilt.
-- `view3d`: `{projection, show}`, with `show` as in `document.render`, plus `height_areas`.
+- `views`: the open [Document views](3d-view.md#side-by-side), each `{mode, projection}`. `mode` is `2d` or `3d`, the mode that view was last in; a board reopened in 3D enters with the tilt.
+- `show`: the Show set, shared by every view, as in `document.render`.
 - The 3D camera is not kept.
 
 ## Preferences
@@ -116,11 +116,11 @@ Per PCB Document and per Footprint tab, never dirtying a Document:
 - The wheel preset (REDA, Wheel scrolls, Custom) is read off the table and never stored.
 - `snap.alignment_guides` replaces `pcb.place.alignment_guides`. `pcb.zone.tool.*`, the Keepout Tool values and the Footprint editor's Pad template move under `defaults.*`.
 - `preferences.toml` has no format number, so old keys are dropped on load with a log line.
-- The 3D Preferences are still open on the [map](https://github.com/openreda/reda/issues/421).
+- The 3D view's own Preferences, `pcb.view3d.*`, are listed with its [Preferences page](3d-view.md#preferences).
 
 ## Commands
 
-All ids follow the v0.1 [definition](../v0.1/architecture.md#definition). A Command called with full params never asks. Each family keeps its existing verbs: PCB Document objects use `add`, `set` and `delete` (as `pcb.keepout.*`), and Library elements use `add`, `edit` and `remove` (as `library.footprint.pad.*`). This renames the verbs [grids-guides](grids-guides.md#commands) and [input-and-defaults](input-and-defaults.md#commands) wrote.
+All ids follow the v0.1 [definition](../v0.1/architecture.md#definition). A Command called with full params never asks. Each family keeps its existing verbs: PCB Document objects use `add`, `set` and `delete` (as `pcb.keepout.*`), and Library elements use `add`, `edit` and `remove` (as `library.footprint.pad.*`). The [grids-guides](grids-guides.md#commands) and [input-and-defaults](input-and-defaults.md#commands) tables use these names.
 
 ### Mechanical Layers
 
@@ -142,6 +142,8 @@ The `pcb.layer.*` family takes Mechanical Layers:
 | `pcb.guide.add / set / delete` | Guides on a board |
 | `library.footprint.guide.add / edit / remove` | Guides in a Footprint |
 | `pcb.align` and `schematic.align` | gain `key?`, the object that stays put |
+| `view.grids_guides.show {on}` | Show Grids & Guides; hidden ones still snap |
+| `library.board_template.save` | `objects?` can name Board Grids, Local Grids, Guides and Mechanical Layers by UUID, for Save as Template's tick rows ([grids and guides](grids-guides.md), [Mechanical Layers](mechanical-layers.md#board-templates)) |
 
 ### Input
 
@@ -164,6 +166,8 @@ Edit Commands on the Library element's undo stack, one entry each.
 | `library.footprint.body.replace_model {body, path}` | swaps the file, keeping placement and Material |
 | `library.footprint.body.save_model {body, path}` | a query: writes the Model out as `.step` or `.stpz` |
 | `library.footprint.body.seat_on_board {body}`, `.centre_on_pads {body}` | the [two aids](bodies.md#in-the-footprint-editor) |
+| `library.footprint.body.face_on_board {body, point, normal}` | a [pick](bodies.md#placing-a-model-by-picking): `point` on the face and its outward `normal` in Model coordinates. Returns the placement |
+| `library.footprint.body.move_point_to {body, from, to}` | a [pick](bodies.md#placing-a-model-by-picking): `from` in Model coordinates, `to` an X/Y point in Footprint coordinates. Returns the placement |
 | `library.footprint.body.from_courtyard {footprint}` | a new Extruded Body from the Courtyard, top at `height` |
 | `library.footprint.set_height_from_bodies {footprint}` | `height` from the top of the Bodies |
 
@@ -176,8 +180,12 @@ View Commands in the app's registry.
 | Command | Key |
 |---|---|
 | `view.3d`, `view.2d` | `3`, `2` |
-| `view.3d.look {face}` | per face, left to the 3D view keys on the map |
-| `view.3d.fit`, `view.3d.projection {projection}`, `view.3d.measure` | |
+| `view.3d.look {face}` | Shift+`1` to Shift+`7` ([keys](3d-view.md#keys)) |
+| `view.3d.fit`, `view.3d.projection {projection}` | F for fit |
+| `view.3d.measure` | `Mod`+M |
+| `view.3d.measure_clearance` | |
+| `view.3d.turn_over` | `*` |
+| `view.new_document_view` | New view of this Document ([side by side](3d-view.md#side-by-side)) |
 | `view.3d.show {kind, on?, opacity?}` | a row of the Show set |
 | `view.3d.save_image {path, size?, background?}` | the on-screen camera and framing |
 
@@ -195,7 +203,6 @@ View Commands in the app's registry.
 | `document.render` | gains `mode` and the [3D parameters](board-image.md#parameters-in-3d) |
 | `output.job.add`, `output.job.set` | take the new `outputs` switches and option blocks |
 
-## Left to other tickets
+## Tests
 
-- Goldens for the 2→3 step, the new schema and the new Commands: [Which tests does v0.3 add?](https://github.com/openreda/reda/issues/441).
-- The 3D Preferences, the face-view keys and what the 2D Tool keys do in 3D: in the map's fog.
+- Goldens for the 2→3 step, the new schema and the new Commands: [testing](testing.md).

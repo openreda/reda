@@ -14,7 +14,7 @@ One is added under `tests/projects/`, built by its own script in `tests/scenario
 
 | Project | What it carries |
 |---|---|
-| `mechanical_3d` | four [Mechanical Layers](mechanical-layers.md) with the Purposes General, Dimensions, Fabrication Notes and Reference, one of them sided bottom; generated Extruded Bodies (SOIC, chip, QFN, DIP, header); a hand-drawn Footprint with a From Courtyard Body; Model Bodies from the [STEP fixtures](#step-fixtures), one of which fails to parse and gives a Stand-in Body; Components on both sides; a Not Fitted Component; Board Cutouts, slots, plated and non-plated holes; a [Height Area](component-height.md#height-areas) and a `component_height` rule with one Waiver; a Default Board Grid, a Cartesian and a polar Local Grid, and Guides; an Output Job with `step`, `dxf` and `board_images` on |
+| `mechanical_3d` | four [Mechanical Layers](mechanical-layers.md) with the Purposes General, Dimensions, Fabrication Notes and Reference, one of them sided bottom; generated Extruded Bodies (SOIC, chip, QFN, DIP, header); a hand-drawn Footprint with a From Courtyard Body; Model Bodies from the [STEP fixtures](#step-fixtures), one of which parses but draws nothing and gives a Stand-in Body; Components on both sides; a Not Fitted Component; Board Cutouts, slots, plated and non-plated holes; a [Height Area](component-height.md#height-areas) and a `component_height` rule with one Waiver; a Default Board Grid, a Cartesian and a polar Local Grid, and Guides; an Output Job with `step`, `dxf` and `board_images` on |
 
 - The existing reference Projects get no Bodies.
 - `usb_c_mcu` also gets a STEP golden, because it has Stand-in Bodies on both sides.
@@ -124,9 +124,10 @@ Downloaded LCSC parts and vendor zips never go into the repo. They are a [hand c
   | `dxf` | [dxf](dxf.md): preview and import with each pre-fill rule, Board Outline replacement, gaps marked; export with each `entries` kind and in inch |
   | `board_image` | [board-image](board-image.md): the 3D parameters of `document.render`, the camera returned, and the `board_images` Output Job |
   | `component_height` | [component-height](component-height.md): the rule, Height Areas, a Waiver, `pcb.rules.applicable` |
-  | `grids_guides` | [grids-guides](grids-guides.md): Board Grid, Local Grid and Guide Commands, reorder, Align with `key`, carrying them in a Board Template and Save as Template |
+  | `grids_guides` | [grids-guides](grids-guides.md): Board Grid, Local Grid and Guide Commands, reorder, Align with `key`, Rotate Components to grid, Move Board Shape carrying Local Grids and Guides, carrying them in a Board Template and Save as Template's tick rows |
   | `input` | [input-and-defaults](input-and-defaults.md): `view.cursor.step` with X ≠ Y, inside a polar Local Grid and from off the grid; `view.cursor.click`; the three new nudges |
   | `object_defaults` | [Object Defaults](input-and-defaults.md#object-defaults): reset, save, and load with skipped entries counted |
+| `model_picks` | [Placing a Model by picking](bodies.md#placing-a-model-by-picking): `face_on_board` on a planar face and on a circular edge, `move_point_to` onto a Pad centre, and both on a mesh-only Model, each one undo step returning the placement |
 
 - **Refusals are Rust scenarios,** each writing nothing:
   - `purpose` on a Layer that isn't Mechanical, and a duplicate Mechanical Layer name;
@@ -173,15 +174,26 @@ Downloaded LCSC parts and vendor zips never go into the repo. They are a [hand c
   - the 2D | 3D switch and the `3` and `2` keys give `view.3d` and `view.2d`;
   - a click on a Body selects its Component, as in 2D;
   - a left drag turns the view and adds no edit Command;
-  - Measure with two clicks shows the length with its X, Y and Z parts.
-- **Footprint editor:** dropping a `.step` file gives exactly one `library.footprint.body.add_model`; Seat on board gives one `library.footprint.body.seat_on_board`.
+  - Measure with two clicks shows the length with its X, Y and Z parts, and the readout gives the height above board before the first click;
+  - Measure Clearance on two Bodies gives `view.3d.measure_clearance` and shows the shortest span;
+  - Shift+`1` to Shift+`7` give `view.3d.look`, a Tool key gives `view.2d` then starts the Tool, and an editing key gives no Command and the status-bar message;
+  - New view of this Document gives `view.new_document_view`; a selection or Layer hidden in one view shows in the other, and each keeps its own mode;
+  - a board saved in 3D reopens in 3D from `.reda/view.json`;
+  - Save image… gives one `view.3d.save_image` with the on-screen camera;
+  - the 3D view Preferences page writes `pcb.view3d.*`.
+- **Footprint editor:** dropping a `.step` file gives exactly one `library.footprint.body.add_model`, and a file over 20 MB adds a warning; Seat on board gives one `library.footprint.body.seat_on_board`; Face on board and Point to point each give one Command and Esc gives none.
 - **DXF import dialog:** changing a mapping row and then Import gives one `pcb.import_dxf` with that `mapping`.
 - **Mouse Wheel page:** a clashing combination is refused, naming the action that holds it; choosing a preset rewrites the table.
 - **Keys:**
   - arrows give `view.cursor.step`, and `Mod`+arrows give `pcb.nudge`;
   - Enter gives `view.cursor.click` in a Tool that doesn't bind Enter;
-  - Enter ends a route, and Shift+Enter places a route corner.
+  - Enter ends a route, and Shift+Enter places a route corner;
+  - with a non-US layout simulated, the top-row key in the `1` position fires a binding on `1`, with and without Shift; keypad `3` gives `view.3d` in the 3D view and `pcb.layer.activate` in 2D;
+  - G cycles the board's In-cycle Board Grids together with the user's presets, and a board opens on its Default grid.
 - **Object Defaults:** with Remember last used on, a Tool-option edit writes `defaults.*`; with it off, it doesn't.
+- **Height Areas:** during a move into a Height Area, a too-tall Component shows `component_height` live, and the 3D view's Height Areas switch draws the prism.
+- **Mechanical Layers:** a bottom-sided Mechanical Layer is shown by the Bottom Layer Set and hidden by the Top one.
+- **KiCad 3D models folder:** with a fake KiCad install on the path, the Preference fills in by auto-detection.
 - **PNG snapshots,** Linux only: the 3D view with its chip and orientation gizmo, the DXF import dialog with a gap marked, and the Mouse Wheel page.
 
 ## Fuzzing
@@ -190,7 +202,7 @@ The weekly fuzz job gains three targets: the DXF reader, the STEP reader and the
 
 ## Performance
 
-There are still no gates. `#[ignore]` timing tests cover reading the largest corpus model, the STEP export of `mechanical_3d`, and building the 3D scene for the [32-Layer board](../v0.2/testing.md#the-32-layer-limit). A frame-time budget for the 3D view is still open on the [map](https://github.com/openreda/reda/issues/421).
+There are still no gates. `#[ignore]` timing tests cover reading the largest corpus model, the STEP export of `mechanical_3d`, and building the 3D scene for the [32-Layer board](../v0.2/testing.md#the-32-layer-limit). They report against the 3D view's [frame-time targets](3d-view.md#frame-time).
 
 ## Hand acceptance checks
 

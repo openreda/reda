@@ -2,7 +2,7 @@
 
 Source: [Does REDA take a CAD kernel dependency for STEP?](https://github.com/openreda/reda/issues/430), after [Can REDA read and write STEP without a CAD kernel, and what would a kernel cost?](https://github.com/openreda/reda/issues/422) ([findings](https://github.com/openreda/reda/blob/research/step-kernel-options/docs/research/step-kernel-options.md)) and [Trial the kernel-free STEP options against real models and MCAD importers](https://github.com/openreda/reda/issues/442) ([findings](https://github.com/openreda/reda/blob/research/step-kernel-trial/research/step-kernel-trial/FINDINGS.md)). Decision record: [ADR-0018](../../adr/0018-step-read-and-written-in-house.md).
 
-This file says how REDA reads and writes STEP: the crate, the shared record model, what the reader tolerates, and what is out. What a board export contains (protocol, copper, naming) is in [STEP export](step-export.md), and what a Body is in [What is a Body on a Footprint, and how is it placed?](https://github.com/openreda/reda/issues/431).
+This file says how REDA reads and writes STEP: the crate, the shared record model, what the reader tolerates, and what is out. What a board export contains (protocol, copper, naming) is in [STEP export](step-export.md), and what a Body is in [Bodies](bodies.md).
 
 ## No CAD kernel
 
@@ -44,7 +44,7 @@ When nothing of a model can be drawn, the 3D view shows the [Stand-in Body](bodi
 ## Tests
 
 - A model corpus test measures the reader against the trial's 58 models (not committed, because of their licences) or a licence-clean equivalent. The target is OpenCascade's result: 54 at the right volume.
-- Details are decided in [Which tests does v0.3 add?](https://github.com/openreda/reda/issues/441).
+- Details are in [testing](testing.md).
 - Checking an export in commercial MCAD tools (SolidWorks, Fusion, Onshape) is optional and tracked in its own issue. FreeCAD and BRL-CAD are the importers REDA can check itself.
 
 ## Out
