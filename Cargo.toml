@@ -28,6 +28,9 @@ toml_edit = "0.25"
 # The Output Job zip (reda-output). Default features pull in aes/bzip2/lzma/zstd and C code;
 # pure-Rust deflate is all a fab zip needs, and it builds on wasm.
 zip = { version = "9.2", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+# `.stpz` (gzip STEP) in reda-step: the same flate2 and pure-Rust zlib-rs backend `zip` uses
+# above, so it adds no crate to the build.
+flate2 = { version = "1.1", default-features = false, features = ["zlib-rs"] }
 directories = "6"
 # MCP: only reda-cli uses these (it is the only crate that depends on rmcp).
 rmcp = { version = "3.9", default-features = false, features = ["server", "transport-io"] }
