@@ -58,6 +58,26 @@ _Avoid_: Land pattern, package, decal
 The closed area a Footprint keeps clear around its part, covering the body and Pads plus a margin; two parts are too close when their Courtyards overlap.
 _Avoid_: Keepout (that is a board object), placement outline
 
+**Body**:
+A 3D shape a Footprint carries; a Footprint may carry several Bodies or none.
+_Avoid_: 3D model, component body, package model
+
+**Model Body**:
+A Body drawn from an embedded Model, placed by offset and rotation.
+
+**Extruded Body**:
+A Body made from a closed outline raised from a bottom height to a top height, in a Material.
+
+**Stand-in Body**:
+The box drawn in place of a Footprint's Bodies when it has none or none can be drawn; generated, never stored.
+
+**Model**:
+A STEP file embedded in a Library or Project, which Model Bodies draw.
+_Avoid_: 3D model, model file link
+
+**Material**:
+The named colour and finish of an Extruded Body, or the override on a Model Body.
+
 **Footprint Generator**:
 A Command that calculates a Footprint for one package family from datasheet dimensions.
 _Avoid_: Footprint wizard, IPC wizard
