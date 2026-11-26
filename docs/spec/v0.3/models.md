@@ -2,7 +2,7 @@
 
 Source: [Which models does REDA ship, and how does the user bring in others?](https://github.com/openreda/reda/issues/432), after [Where do 3D models for electronic parts come from, and under what licences?](https://github.com/openreda/reda/issues/426) ([findings](https://github.com/openreda/reda/blob/research/3d-model-sources/docs/research/3d-model-sources.md)).
 
-This file says which Models REDA ships and how a user brings in a Model they downloaded: by hand in the Footprint editor, or along with a part through Import part. What a Model and a Model Body are, how a Model Body is placed and how Models are stored is in [Bodies](bodies.md). How the new EasyEDA/LCSC reader maps a part is in [EasyEDA import](easyeda-import.md). Commands and file-format details are settled in [What Commands and file-format additions does the v0.3 data need?](https://github.com/openreda/reda/issues/440).
+This file says which Models REDA ships and how a user brings in a Model they downloaded: by hand in the Footprint editor, or along with a part through Import part. What a Model and a Model Body are, how a Model Body is placed and how Models are stored is in [Bodies](bodies.md). How the new EasyEDA/LCSC reader maps a part is in [EasyEDA import](easyeda-import.md). Commands and file-format details are in [Commands and file formats](commands.md).
 
 ## What REDA ships
 

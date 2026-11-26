@@ -2,7 +2,7 @@
 
 Source: [What is a Body on a Footprint, and how is it placed?](https://github.com/openreda/reda/issues/431), after [How do other EDA tools store and attach 3D bodies and models on footprints?](https://github.com/openreda/reda/issues/424) ([findings](https://github.com/openreda/reda/blob/research/footprint-3d-bodies/docs/research/footprint-3d-bodies.md)) and [Where do 3D models for electronic parts come from, and under what licences?](https://github.com/openreda/reda/issues/426) ([findings](https://github.com/openreda/reda/blob/research/3d-model-sources/docs/research/3d-model-sources.md)).
 
-This file says what the reserved Footprint `bodies` field holds, how a Body is placed and stored, what the Footprint Generators make, and what is drawn when a Footprint has no Body. Which Models REDA ships and how the user brings others in is in [Models](models.md). What a STEP export contains, including whether it holds stand-in Bodies, is decided in [What does a STEP export contain?](https://github.com/openreda/reda/issues/434). Commands and file-format details are settled in [What Commands and file-format additions does the v0.3 data need?](https://github.com/openreda/reda/issues/440).
+This file says what the reserved Footprint `bodies` field holds, how a Body is placed and stored, what the Footprint Generators make, and what is drawn when a Footprint has no Body. Which Models REDA ships and how the user brings others in is in [Models](models.md). What a STEP export contains, including whether it holds stand-in Bodies, is in [STEP export](step-export.md). Commands and file-format details are in [Commands and file formats](commands.md).
 
 ## Bodies
 

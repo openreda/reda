@@ -38,14 +38,14 @@ This file says how the [3D view](../../../GLOSSARY.md) is entered, moved around 
 
 - **Material colours:** the solder mask, the surface finish on Pads, the silkscreen, bare board at the edge and in holes. The mask and silkscreen take the colours typed into the Stackup when they name a known colour, and the [default colours](#preferences) otherwise.
 - The board with its outline, Board Cutouts and holes; copper on the outer Layers; silkscreen; and each Footprint's Body.
-- Until a Footprint has a Body, a stand-in box is drawn from its body box and stored `height`. What a Body is, and where better models come from, is decided in [What is a Body on a Footprint, and how is it placed?](https://github.com/openreda/reda/issues/431) and [Which models does REDA ship, and how does the user bring in others?](https://github.com/openreda/reda/issues/432).
+- Until a Footprint has a Body, a stand-in box is drawn from its body box and stored `height`. What a Body is, and where better models come from, is in [Bodies](bodies.md) and [Models](models.md).
 - A Layer hidden in the Layers panel is hidden in 3D too.
 
 ## 3D view menu
 
 - In 3D a **3D view chip** takes the place the active Layer's chip has in 2D, at the canvas's top right. It opens a menu, as the Layer chip does. There is no toolbar at the bottom of the canvas.
 - The menu holds, top to bottom:
-  - **Show:** a switch and an opacity for each of Bodies, Silkscreen, Copper and Board, then a Solder mask switch. With the board faded, inner copper shows through it.
+  - **Show:** a switch and an opacity for each of Bodies, Silkscreen, Copper and Board, then a Solder mask switch and a [Height Areas](component-height.md#in-3d) switch, off by default. With the board faded, inner copper shows through it.
   - **Projection:** Orthographic or Perspective.
   - **View:** Fit and the face views, each with its key.
   - **Measure,** and **Back to 2D.**

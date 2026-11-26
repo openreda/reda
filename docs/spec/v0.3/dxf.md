@@ -100,7 +100,7 @@ A tick list. Each ticked entry becomes one DXF layer named after it.
 - **Text:** TEXT entities. A Dimension is written as its lines and text.
 - **Options:** only the unit, mm (the default) or inch.
 - **Coordinates** are measured from the [DXF origin point](#origin).
-- Whether real MCAD importers accept the file is tested under [Which tests does v0.3 add?](https://github.com/openreda/reda/issues/441).
+- Whether real MCAD importers accept the file is tested under [testing](testing.md).
 
 ### Where it lives
 

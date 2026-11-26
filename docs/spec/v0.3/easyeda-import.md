@@ -57,7 +57,7 @@ The 3D attributes (`3D Model`, `3D Model Title`, `3D Model Transform`) are not k
 | paste and mask | each Pad's paste and mask, by the KiCad path's rules |
 | silkscreen | the Silkscreen Layer |
 | Component Shape and Assembly graphics | the Assembly Layer |
-| Document and Mechanical graphics | dropped and counted, because Footprints do not draw on Mechanical Layers ([Mechanical Layers](https://github.com/openreda/reda/issues/435)) |
+| Document and Mechanical graphics | dropped and counted, because Footprints do not draw on Mechanical Layers ([Mechanical Layers](mechanical-layers.md)) |
 | other layers | dropped and counted |
 
 - **Courtyard.** EasyEDA has no dependable courtyard layer. The Courtyard is a Rect around the Pads and the Component Shape outline, grown by 0.25 mm (IPC-7351 nominal), with a note in the report.

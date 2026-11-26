@@ -2,14 +2,14 @@
 
 Source: [What does a Layer's purpose mean, and which purposes exist?](https://github.com/openreda/reda/issues/435), after the survey in [How do other EDA tools give mechanical and documentation layers a purpose?](https://github.com/openreda/reda/issues/429).
 
-This file says what a [Mechanical Layer](../../../GLOSSARY.md) is from v0.3 on, what its [Purpose](../../../GLOSSARY.md) is and what it drives, and what changes for new boards and Board Templates. The Commands and file fields are decided in [What Commands and file-format additions does the v0.3 data need?](https://github.com/openreda/reda/issues/440). How DXF import and export use the Purpose is decided in [How do DXF import and export work?](https://github.com/openreda/reda/issues/436).
+This file says what a [Mechanical Layer](../../../GLOSSARY.md) is from v0.3 on, what its [Purpose](../../../GLOSSARY.md) is and what it drives, and what changes for new boards and Board Templates. The Commands and file fields are in [Commands and file formats](commands.md). How DXF import and export use the Purpose is in [DXF](dxf.md).
 
 ## What changes from v0.2.5
 
 - Up to v0.2.5 a board has exactly one Mechanical Layer and one Documentation Layer, unnamed and unsided, told apart only by a [template convention](../v0.2.5/drawings.md#layer-convention).
 - From v0.3 there is **one kind, the Mechanical Layer**, and a board holds any number of them. The Documentation Layer kind is removed.
 - Each Mechanical Layer has a **name**, a **Purpose** and an optional **side**.
-- This breaks earlier board and Board Template files. That is allowed; there is no migration duty.
+- This breaks earlier board and Board Template files. That is allowed, but a small 2 to 3 step is written anyway ([format version](commands.md#format-version)).
 
 ## The kinds that stay
 
@@ -55,7 +55,7 @@ Defaults and matching only:
 
 - The Dimension Tool defaults to the first Dimensions Layer.
 - DXF import and export pre-fill their Layer mapping by Purpose.
-- Board Templates and Import part find their target Layer by Purpose.
+- Board Templates find their target Layer by Purpose.
 
 What it does not drive:
 
