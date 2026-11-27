@@ -144,3 +144,12 @@ pub fn grid_pitch(base: f64, nm_per_px: f64) -> Option<f64> {
     }
     None
 }
+
+/// [`grid_pitch`] for a grid with its own X and Y spacing: both coarsen together, as
+/// far as the closer one needs, so the dots stay on the grid's points.
+pub fn grid_pitch_xy(base: (f64, f64), nm_per_px: f64) -> Option<(f64, f64)> {
+    let closer = base.0.min(base.1);
+    let pitch = grid_pitch(closer, nm_per_px)?;
+    let factor = pitch / closer;
+    Some((base.0 * factor, base.1 * factor))
+}

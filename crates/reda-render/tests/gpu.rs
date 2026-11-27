@@ -353,7 +353,7 @@ fn the_grid_draws_dots_on_grid_points_over_the_scene() {
     let mut grid = Grid::new(gpu.device(), gpu.renderer());
     let spec = GridSpec {
         origin: (0.0, 0.0),
-        pitch: 10.0 * 1_000_000.0,
+        pitch: (10.0 * 1_000_000.0, 10.0 * 1_000_000.0),
         coarse: 1,
         lines: false,
         radius_px: 1.5,
@@ -401,7 +401,7 @@ fn the_grid_draws_bigger_coarse_dots_or_faint_fine_and_strong_coarse_lines() {
     let mut grid = Grid::new(gpu.device(), gpu.renderer());
     let mut spec = GridSpec {
         origin: (0.0, 0.0),
-        pitch: 10.0 * 1_000_000.0,
+        pitch: (10.0 * 1_000_000.0, 10.0 * 1_000_000.0),
         coarse: 5,
         lines: false,
         radius_px: 1.5,
@@ -434,6 +434,47 @@ fn the_grid_draws_bigger_coarse_dots_or_faint_fine_and_strong_coarse_lines() {
         "coarse {coarse:?} is stronger than fine {fine:?}"
     );
     assert_eq!(pixel(&img, 25, 65), paper, "between lines");
+}
+
+#[test]
+fn a_grid_with_its_own_y_spacing_draws_dots_on_each_axis_step() {
+    let Some(gpu) = headless() else { return };
+    // Paper only: 100 mm square filling a 100 px image, so 1 px = 1 mm.
+    let mut scene = Scene::new(SceneSource::None);
+    let c = Point::new(mm(50), mm(50));
+    push(
+        &mut scene,
+        id(1),
+        SchematicColor::Paper,
+        filled_rect(c, 100, 100),
+    );
+    let palette = Palette::shipped(Theme::Light);
+    let paper = rgb(palette.color(ColorKey::Schematic(SchematicColor::Paper)));
+    let gs = GpuScene::new(gpu.device(), &scene);
+    let mut cv = Canvas::new(gpu.device(), gpu.renderer());
+    cv.set_palette(gpu.queue(), &palette);
+    let view = view_of(&scene, 100);
+    let mut grid = Grid::new(gpu.device(), gpu.renderer());
+    // 10 mm across, 25 mm down.
+    let spec = GridSpec {
+        origin: (0.0, 0.0),
+        pitch: (10.0 * 1_000_000.0, 25.0 * 1_000_000.0),
+        coarse: 1,
+        lines: false,
+        radius_px: 1.5,
+        color: Rgba([0, 0, 0, 255]),
+        paper: None,
+    };
+    grid.set(gpu.queue(), &view, Some(&spec));
+    let img = gpu
+        .render_frame_with(&gs, &mut cv, &view, |pass| grid.draw(pass))
+        .unwrap();
+    // Document (20 mm, 25 mm) is a grid point: pixel (20, 75). (20 mm, 30 mm) is on an X
+    // line but between Y lines, so no dot; (30 mm, 50 mm) has one.
+    assert_eq!(pixel(&img, 20, 75), [0, 0, 0, 255]);
+    assert_eq!(pixel(&img, 20, 70), paper);
+    assert_eq!(pixel(&img, 30, 50), [0, 0, 0, 255]);
+    assert_eq!(pixel(&img, 25, 75), paper);
 }
 
 fn push_board(scene: &mut Scene, layer: u128, color: BoardColor, primitive: Primitive) {
@@ -625,7 +666,7 @@ fn the_grid_stops_at_the_papers_edge() {
     let mut grid = Grid::new(gpu.device(), gpu.renderer());
     let spec = GridSpec {
         origin: (0.0, 0.0),
-        pitch: 10.0 * 1_000_000.0,
+        pitch: (10.0 * 1_000_000.0, 10.0 * 1_000_000.0),
         coarse: 1,
         lines: false,
         radius_px: 1.5,

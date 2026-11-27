@@ -155,6 +155,7 @@ impl App {
                 projects_panel::register_package_dialog(&mut dialogs);
                 crate::pcb::silkscreen::register_dialogs(&mut dialogs);
                 crate::pcb::unused_layers::register(&mut dialogs);
+                crate::grid::custom_dialog::register(&mut dialogs);
                 dialogs
             },
             schematic_dialog: None,
@@ -1051,11 +1052,12 @@ impl App {
             checked.insert("view.net_cross_probe.toggle", json!({}));
         }
         if let Some(document) = self.shell.active_document().map(|d| d.document) {
-            let grid = self.shell.grid(document).0;
-            checked.insert(
-                "view.grid.set",
-                json!({ "document": document.to_string(), "grid": grid }),
-            );
+            let grid = self.shell.grid(document);
+            let mut params = json!({ "document": document.to_string(), "grid": grid.x.0 });
+            if let Some(y) = grid.y_if_not_square() {
+                params["grid_y"] = json!(y.0);
+            }
+            checked.insert("view.grid.set", params);
         }
         let cx = draw::Cx {
             shell: &self.shell,

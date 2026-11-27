@@ -58,7 +58,7 @@ pub enum Out {
 pub fn units(shell: &Shell, document: Uuid) -> Units {
     if shell.is_pcb(document) {
         shell.board_view().units
-    } else if grid::is_imperial(shell.grid(document)) {
+    } else if grid::is_imperial(shell.grid(document).x) {
         Units::Mil
     } else {
         Units::Mm
@@ -147,7 +147,7 @@ pub fn readout(shell: &Shell) -> Readout {
         kind: Some(tr!("status-active", kind = kind)),
         cursor: cursor.filter(|_| canvas),
         delta: crate::delta::text(shell, document).filter(|_| canvas),
-        grid: canvas.then(|| tr!("status-grid", grid = grid::label(shell.grid(document)))),
+        grid: canvas.then(|| tr!("status-grid", grid = grid::step_label(shell.grid(document)))),
         snap,
         layer,
         prompt: prompt(shell, document).filter(|_| canvas),
@@ -289,12 +289,12 @@ fn grid_menu(ui: &mut Ui, shell: &Shell, document: Uuid, out: &mut Vec<Out>) {
     let current = grids.of(project, document);
     let custom = grids.is_custom(document);
     for row in grids.rows(project, document) {
-        let pitch = row.snap.0;
-        let row = widgets::menu_item(grid::label(pitch)).checked(!custom && pitch == current);
+        let step = grid::Step::of_row(&row);
+        let row = widgets::menu_item(grid::step_label(step)).checked(!custom && step == current);
         if ui.add(row).clicked() {
             out.push(Out::Run(
                 "view.grid.set".into(),
-                json!({"document": document, "grid": pitch}),
+                grid::set_params(document, step),
             ));
             ui.close();
         }

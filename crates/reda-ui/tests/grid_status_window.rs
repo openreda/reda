@@ -157,7 +157,7 @@ fn the_grid_segment_opens_the_grid_menu() {
     h.run();
     h.get_all_by_label("100 mil").last().unwrap().click();
     h.run();
-    assert_eq!(h.state().shell().grid(sheet), Nm(100 * MIL));
+    assert_eq!(h.state().shell().grid(sheet).x, Nm(100 * MIL));
     h.get_by_label("Grid: 100 mil").click();
     h.run();
     h.get_all_by_label("Show visible grid")
@@ -190,10 +190,67 @@ fn mod_shift_g_asks_for_a_custom_grid_with_units() {
     h.get_by_role_and_label(Role::TextInput, "Grid")
         .type_text("20mil");
     h.run();
-    h.get_all_by_label("Run").last().unwrap().click();
+    h.get_all_by_label("Set Grid").last().unwrap().click();
     h.run();
-    assert_eq!(h.state().shell().grid(sheet), Nm(20 * MIL));
+    assert_eq!(h.state().shell().grid(sheet).x, Nm(20 * MIL));
     assert_eq!(h.state().shell().electrical_range(sheet), Nm(16 * MIL));
+}
+
+/// Opens `Mod`+Shift+G over the canvas, types `text` in Grid and sets it.
+fn custom_grid(h: &mut Harness<'static, App>, text: &str) {
+    over_canvas(h, 0.0);
+    h.key_press_modifiers(Modifiers::COMMAND | Modifiers::SHIFT, Key::G);
+    h.run();
+    h.get_by_role_and_label(Role::TextInput, "Grid").click();
+    h.run();
+    h.get_by_role_and_label(Role::TextInput, "Grid")
+        .type_text(text);
+    h.run();
+    h.get_all_by_label("Set Grid").last().unwrap().click();
+    h.run();
+}
+
+#[test]
+fn mod_shift_g_takes_one_value_or_two_in_the_documents_units() {
+    let home = TempDir::new("gh-custom-xy-home");
+    let work = TempDir::new("gh-custom-xy-work");
+    let mut h = harness(home.path(), work.path());
+    let sheet = sheet(&h);
+    // A bare number is in the sheet's units, mil.
+    custom_grid(&mut h, "20");
+    assert_eq!(h.state().shell().grid(sheet).x, Nm(20 * MIL));
+    assert!(h.query_by_label("Grid: 20 mil").is_some());
+    // A sheet keeps a single step: two values are refused and the dialog says why.
+    custom_grid(&mut h, "20, 30");
+    assert!(
+        h.query_by_label_contains("keep a single grid step")
+            .is_some(),
+        "the dialog explains"
+    );
+    assert_eq!(h.state().shell().grid(sheet).x, Nm(20 * MIL));
+    h.key_press(Key::Escape);
+    h.run();
+
+    // On a board in mm: `0.5` is square, `0.5, 1.27` is X × Y.
+    let pcb = open_board(&mut h);
+    custom_grid(&mut h, "0.5");
+    assert_eq!(
+        h.state().shell().grid(pcb),
+        reda_ui::grid::Step::square(Nm(500_000))
+    );
+    assert!(h.query_by_label("Grid: 0.5 mm").is_some(), "one value");
+    custom_grid(&mut h, "0.5, 1.27");
+    assert_eq!(
+        h.state().shell().grid(pcb),
+        reda_ui::grid::Step {
+            x: Nm(500_000),
+            y: Nm(1_270_000)
+        }
+    );
+    assert!(h.query_by_label("Grid: 0.5 × 1.27 mm").is_some(), "X × Y");
+    // Units may be typed, and may differ.
+    custom_grid(&mut h, "10mil, 0.5mm");
+    assert!(h.query_by_label("Grid: 10 mil × 0.5 mm").is_some());
 }
 
 #[test]
@@ -347,6 +404,61 @@ fn the_preferences_grid_page_edits_the_tables_and_restores_the_shipped_presets()
         rows(&h),
         reda_ui::engine::preferences::GridTables::sheet().imperial
     );
+
+    // Board and Footprint rows have an optional Step Y; sheet and Symbol rows do not.
+    assert!(
+        h.query_by_label("Schematic Sheet Imperial row 1: Step Y")
+            .is_none()
+    );
+    assert!(h.query_by_label("Symbol Metric row 1: Step Y").is_none());
+    assert!(
+        h.query_by_label("Footprint Imperial row 1: Step Y")
+            .is_some()
+    );
+    let cell = "PCB Document Metric row 3: Step Y";
+    let pcb_rows = |h: &Harness<'static, App>| {
+        h.state()
+            .shell()
+            .preferences()
+            .editing
+            .grid
+            .pcb
+            .metric
+            .clone()
+    };
+    let type_in = |h: &mut Harness<'static, App>, text: &str| {
+        h.get_by_role_and_label(Role::TextInput, cell)
+            .scroll_to_me();
+        h.run();
+        h.get_by_role_and_label(Role::TextInput, cell).click();
+        h.run();
+        h.key_press_modifiers(Modifiers::COMMAND, Key::A);
+        h.run();
+        h.key_press(Key::Backspace);
+        h.run();
+        if !text.is_empty() {
+            h.get_by_role_and_label(Role::TextInput, cell)
+                .type_text(text);
+            h.run();
+        }
+        h.key_press(Key::Tab);
+        h.run();
+    };
+    assert_eq!(
+        h.get_by_role_and_label(Role::TextInput, cell)
+            .accesskit_node()
+            .value()
+            .as_deref(),
+        Some(""),
+        "empty: the same as Snap"
+    );
+    type_in(&mut h, "1.27mm");
+    let row = pcb_rows(&h)[2];
+    assert_eq!(row.snap.0, Nm(500_000));
+    assert_eq!(row.snap_y.unwrap().0, Nm(1_270_000));
+    // Emptied, the row is square again.
+    type_in(&mut h, "");
+    assert_eq!(pcb_rows(&h)[2].snap_y, None);
 }
 
 /// The status bar's ΔX/ΔY segment's screen reader name: "Delta: ΔX … ΔY …".

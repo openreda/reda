@@ -2,7 +2,7 @@
 
 use reda_engine::model::LayerKind;
 use reda_engine::model::Uuid;
-use reda_engine::model::geom::{Nm, Point};
+use reda_engine::model::geom::Point;
 
 use super::{Grid, Objects, Rules, Snapped, Suspend, Target, snap};
 use crate::bars::{self, DocumentType};
@@ -18,7 +18,7 @@ pub fn rules(shell: &Shell, document: Uuid) -> Rules {
 
 /// [`rules`] on the grid `pitch` instead of the Document's (the Symbol editor's Pin Tool
 /// keeps Pins on their own grid).
-pub fn rules_on(shell: &Shell, document: Uuid, pitch: Nm) -> Rules {
+pub fn rules_on(shell: &Shell, document: Uuid, pitch: crate::grid::Step) -> Rules {
     let ty = bars::document_type(shell, document).unwrap_or(DocumentType::Schematic);
     let options = shell
         .engine()
@@ -32,7 +32,7 @@ pub fn rules_on(shell: &Shell, document: Uuid, pitch: Nm) -> Rules {
         DocumentType::Schematic | DocumentType::Symbol if pitch == shell.grid(document) => {
             shell.electrical_range(document)
         }
-        DocumentType::Schematic | DocumentType::Symbol => crate::grid::default_range(pitch),
+        DocumentType::Schematic | DocumentType::Symbol => crate::grid::default_range(pitch.x),
     };
     let grid = (!options.gridless && !suspend.grid()).then(|| Grid {
         pitch,

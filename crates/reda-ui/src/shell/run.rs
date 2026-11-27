@@ -161,7 +161,7 @@ impl Shell {
         if map.contains_key("wiring") {
             return params;
         }
-        let grid = document.map_or(grid::SCHEMATIC_DEFAULT, |d| self.grid(d));
+        let grid = document.map_or(grid::SCHEMATIC_DEFAULT, |d| self.grid(d).x);
         let wiring = self.preferences().schematic.wiring(grid);
         map.insert(
             "wiring".to_owned(),

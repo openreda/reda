@@ -53,7 +53,7 @@ fn frame(generation: u64, scene: &Arc<Scene>) -> CanvasFrame {
         palette: Default::default(),
         grid: Some(GridSpec {
             origin: (0.0, 0.0),
-            pitch: 1_270_000.0,
+            pitch: (1_270_000.0, 1_270_000.0),
             coarse: 1,
             lines: false,
             radius_px: 1.0,

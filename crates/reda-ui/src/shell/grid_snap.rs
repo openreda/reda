@@ -5,13 +5,14 @@
 use super::*;
 
 impl Shell {
-    /// `document`'s snap grid; it changes through `view.grid.set` and `view.grid.cycle`.
-    pub fn grid(&self, document: Uuid) -> Nm {
+    /// `document`'s snap grid, Step X and Step Y; it changes through `view.grid.set`,
+    /// `view.grid.cycle` and `view.grid.custom`. Sheets and Symbols keep a square one.
+    pub fn grid(&self, document: Uuid) -> grid::Step {
         self.engine
             .view()
             .get::<Grids>()
             .map(|g| g.of(self.engine.elements(), document))
-            .unwrap_or(grid::SCHEMATIC_DEFAULT)
+            .unwrap_or(grid::Step::square(grid::SCHEMATIC_DEFAULT))
     }
 
     /// The grids in force, their preset tables and custom values.
@@ -29,7 +30,7 @@ impl Shell {
             .view()
             .get::<Grids>()
             .map(|g| g.range(self.engine.elements(), document))
-            .unwrap_or_else(|| grid::default_range(self.grid(document)))
+            .unwrap_or_else(|| grid::default_range(self.grid(document).x))
     }
 
     /// The origin the Document's grid runs through (the Output Origin on a board).

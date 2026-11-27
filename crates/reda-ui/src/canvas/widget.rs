@@ -13,7 +13,7 @@ use reda_engine::model::geom::Point;
 use reda_engine::render::gpu::GridSpec;
 use reda_engine::render::{ColorKey, Palette, SceneSource, SchematicColor, Theme};
 
-use super::camera::{Camera, CanvasInput, grid_pitch};
+use super::camera::{Camera, CanvasInput, grid_pitch_xy};
 use super::gpu::{CanvasFrame, paint};
 use super::interact::{BoxMode, Pointer, pointer};
 use crate::bars::DocumentType;
@@ -282,7 +282,8 @@ pub fn canvas_paint(ui: &mut Ui, input: &CanvasInputs, tab: &DocumentTab, theme:
     view.mirrored = input.mirrored;
     let palette = tab.palette.palette(theme);
     let visible = tab.grid_visible;
-    let grid = grid_pitch(visible.pitch.0 as f64, view.nm_per_px)
+    let base = (visible.pitch.x.0 as f64, visible.pitch.y.0 as f64);
+    let grid = grid_pitch_xy(base, view.nm_per_px)
         .filter(|_| visible.shown)
         .map(|pitch| GridSpec {
             origin: (tab.grid_origin.x.0 as f64, tab.grid_origin.y.0 as f64),

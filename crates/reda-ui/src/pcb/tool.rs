@@ -1097,10 +1097,10 @@ pub(crate) fn snap_board(shell: &Shell, at: Point, targets: &[Target]) -> Snappe
             xy,
             &[],
             &[],
-            &snap::Rules::grid_only(Some(snap::Grid {
-                pitch: crate::grid::pcb_default(shell.board_view().units),
-                origin: Point::default(),
-            })),
+            &snap::Rules::grid_only(Some(snap::Grid::square(
+                crate::grid::pcb_default(shell.board_view().units),
+                Point::default(),
+            ))),
         ),
     }
 }

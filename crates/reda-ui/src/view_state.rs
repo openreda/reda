@@ -132,6 +132,9 @@ pub struct DocumentView {
     /// The snap grid picked; unset is the Document type's default.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub grid: Option<Nm>,
+    /// The picked grid's Step Y, when it differs from `grid` (a board or Footprint row).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub grid_y: Option<Nm>,
     /// The units lengths show in (the board's); unset follows the Preference.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub units: Option<Units>,
