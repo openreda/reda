@@ -101,11 +101,12 @@ impl Shell {
             "schematic.nudge" => {
                 let objects: Vec<Uuid> =
                     serde_json::from_value(out["objects"].clone()).unwrap_or_default();
-                let direction = serde_json::from_value(out["direction"].clone());
-                if let (Some(sheet), Ok(direction)) = (self.active_sheet(), direction) {
-                    let steps = out["steps"].as_i64().unwrap_or(1);
-                    crate::schematic_editor::nudge(self, sheet, objects, direction, steps);
+                if let Ok(by) = serde_json::from_value(out["by"].clone()) {
+                    crate::schematic_editor::nudge(self, objects, by);
                 }
+            }
+            "pcb.nudge" | "library.footprint.nudge" | "library.symbol.nudge" => {
+                crate::nudge::after_run(self, out)
             }
             "schematic.copy_as_text" => {
                 self.copied_text = out["text"].as_str().map(str::to_owned);
