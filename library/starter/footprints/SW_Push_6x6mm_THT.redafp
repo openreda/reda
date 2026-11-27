@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "footprint": {"uuid":"a2875459-87a5-4f15-97e9-6fef455c929e","name":"SW_Push_6x6mm_THT","description":"Tactile switch, 6 × 6 mm, through-hole. Per Omron B3F datasheet, PCB Processing Dimensions","height":4300000},
   "pads": [
     {"uuid":"3cc41757-3443-4d73-95d8-e897615aafeb","number":"1","kind":"plated_through_hole","shape":"circle","at":{"x":3250000,"y":2250000},"rotation":0,"width":1800000,"height":1800000,"hole":{"width":1000000,"height":1000000}},

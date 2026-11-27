@@ -22,8 +22,8 @@ use reda_engine::model::{
 };
 use reda_engine::model::{
     ConnectionStyle, CopperRole, DesignRule, DielectricKind, FabRules, LayerGroup, PadCopperShape,
-    PreferredSeeds, RuleKind, RuleLayers, RuleScope, RuleValues, UnusedLayers, ViaDiameter,
-    ViaType, ZoneConnection,
+    PreferredSeeds, Purpose, RuleKind, RuleLayers, RuleScope, RuleValues, UnusedLayers,
+    ViaDiameter, ViaType, ZoneConnection,
 };
 use reda_engine::store::{encode, load_from};
 use serde_json::Value;
@@ -91,6 +91,11 @@ struct PcbSeed {
     finish: [Option<String>; 3],
     vias: Vec<ViaSeed>,
     rules_v2: RuleSeed,
+    /// The Mechanical Layers after the Board Outline: name, Purpose and side. Repeated
+    /// names are dropped.
+    mechanical: Vec<(String, Purpose, Option<Side>)>,
+    /// The board-wide `component_height` limits, top and bottom.
+    heights: (Option<Nm>, Option<Nm>),
     /// The through-hole Free Pad's Pad Stack, `unused_layers: remove`, and Zone connection.
     pad_stack: (
         Option<PadCopperShape>,
@@ -357,6 +362,7 @@ fn build_stack(
                 _ => None,
             },
             name: (i != 0 && i != n - 1).then(|| name.clone()).flatten(),
+            purpose: Default::default(),
             role: *role,
         })
         .collect();
@@ -690,6 +696,18 @@ prop_compose! {
         finish in prop::array::uniform3(prop::option::of(any::<String>())),
         vias in prop::collection::vec(via_seed(), 0..4),
         rules_v2 in rule_seed(),
+        mechanical in prop::collection::vec(
+            (
+                "[A-Za-z0-9][A-Za-z0-9 ]{0,9}",
+                prop::sample::select(Purpose::ALL.to_vec()),
+                prop::option::of(prop_oneof![Just(Side::Top), Just(Side::Bottom)]),
+            ),
+            0..4,
+        ),
+        heights in (
+            prop::option::of((1i64..100_000_000).prop_map(Nm)),
+            prop::option::of((1i64..100_000_000).prop_map(Nm)),
+        ),
         pad_stack in (
             prop::option::of(pad_copper()),
             prop::option::of(pad_copper()),
@@ -699,7 +717,8 @@ prop_compose! {
     ) -> PcbSeed {
         PcbSeed {
             base, name, title, rules, severities, outline, cutouts, classes, nets, texts,
-            graphics, footprint, copper, stack, finish, vias, rules_v2, pad_stack,
+            graphics, footprint, copper, stack, finish, vias, rules_v2, mechanical, heights,
+            pad_stack,
         }
     }
 }
@@ -736,8 +755,22 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
         kind: LayerKind::BoardOutline,
         side: None,
         name: None,
+        purpose: Default::default(),
         role: Default::default(),
     });
+    let mut names = std::collections::BTreeSet::new();
+    for (name, purpose, side) in seed.mechanical {
+        if names.insert(name.clone()) {
+            layers.layers.push(Layer {
+                uuid: id(),
+                kind: LayerKind::Mechanical,
+                side,
+                name: Some(name),
+                purpose,
+                role: Default::default(),
+            });
+        }
+    }
     let mut classes: Vec<NetClass> = Vec::new();
     let mut rules: Vec<DesignRule> = Vec::new();
     for (name, clearance, track_width) in seed.classes {
@@ -825,6 +858,10 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
     pad.curved = Some(seed.base & 2 != 0);
     pad.length = Some(1 + (seed.base % 100) as u32);
     rules.extend(added);
+    let mut height = reda_engine::pcb::height_rules(|_| id());
+    height[0].values.top_max = seed.heights.0;
+    height[0].values.bottom_max = seed.heights.1;
+    rules.extend(height);
     let class_ids: Vec<Uuid> = classes.iter().map(|c| c.uuid).collect();
     let type_ids: Vec<Uuid> = stackup.via_types.iter().map(|v| v.uuid).collect();
     v2_rules(

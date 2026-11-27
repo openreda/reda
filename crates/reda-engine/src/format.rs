@@ -14,6 +14,7 @@ mod rules_file;
 mod schema;
 mod sheet_file;
 mod v2;
+mod v3;
 
 use std::fmt;
 use std::path::{Path, PathBuf};
@@ -38,7 +39,7 @@ pub(crate) use sheet_file::{read_sheet_file, write_sheet_file};
 /// `tests/projects/formats/v<old>/` each reference Project, one file of each standalone kind
 /// and the fab outputs of each board (see `tests/migrations.rs` and
 /// `tests/reference_projects.rs`).
-pub const FORMAT: u32 = 2;
+pub const FORMAT: u32 = 3;
 
 /// The newest format a release has shipped: 0.2.0 wrote format 2. A release ends editing
 /// its format in place, so its schemas are frozen in `docs/schemas/v<n>/` and its shapes
@@ -109,7 +110,7 @@ pub type Migration = fn(FileKind, Value) -> Result<Value, String>;
 
 /// `MIGRATIONS[i]` turns format `i + 1` into `i + 2`. Steps are kept forever, and each one
 /// gets frozen inputs and migrated output goldens under `tests/projects/formats/`.
-pub const MIGRATIONS: &[Migration] = &[v2::migrate];
+pub const MIGRATIONS: &[Migration] = &[v2::migrate, v3::migrate];
 
 const _: () = assert!(MIGRATIONS.len() == FORMAT as usize - 1);
 

@@ -184,8 +184,8 @@ fn copied_part(
 /// The fixture board: a 60 × 40 mm outline whose bottom edge is plated, a cutout, a
 /// header connector on the bottom (a second one only for `size: large`), an M3 Mechanical
 /// Part hole with a Keepout that protects it, a Free Pad hole, a Key dimensions group
-/// with a Dimension from an outline vertex to the Free Pad and a line, a Documentation
-/// group with a text, and an edge connector property.
+/// with a Dimension from an outline vertex to the Free Pad and a line, a Host board
+/// outline group with a text, and an edge connector property.
 fn fixture(header_element: Option<&str>) -> BoardTemplate {
     let mut t = BoardTemplate::new(id(100), "Fixture board");
     t.suggested_layers = 4;
@@ -251,8 +251,8 @@ fn fixture(header_element: Option<&str>) -> BoardTemplate {
     ]))
     .unwrap();
     t.drawing_groups = serde_json::from_value(json!([
-        {"uuid": s(140), "name": "Key dimensions", "layer": "mechanical"},
-        {"uuid": s(141), "name": "Host board outline (approximate)", "layer": "documentation"}
+        {"uuid": s(140), "name": "Key dimensions", "purpose": "dimensions"},
+        {"uuid": s(141), "name": "Host board outline (approximate)", "purpose": "reference"}
     ]))
     .unwrap();
     t.drawings = serde_json::from_value(json!([
@@ -477,19 +477,21 @@ fn project_new_writes_every_kind_of_template_object() {
     let text = get(&mut engine, &objects[&s(152)]["created"]);
     assert_eq!(text["text"], "HOST");
     assert_eq!(text["height"], mm(2.0));
-    let layer_of = |kind: &str| {
-        layers["layers"]
+    // Each group goes on the new board's Mechanical Layer with the group's Purpose.
+    let layer_of = |name: &str, purpose: &str| {
+        let layer = layers["layers"]
             .as_array()
             .unwrap()
             .iter()
-            .find(|l| l["kind"] == kind)
-            .unwrap()["uuid"]
-            .clone()
+            .find(|l| l["kind"] == "mechanical" && l["purpose"] == purpose)
+            .unwrap();
+        assert_eq!(layer["name"], name);
+        layer["uuid"].clone()
     };
-    assert_eq!(dimension["layer"], layer_of("mechanical"));
-    assert_eq!(text["layer"], layer_of("documentation"));
+    assert_eq!(dimension["layer"], layer_of("Dimensions", "dimensions"));
+    assert_eq!(text["layer"], layer_of("Reference", "reference"));
     let line = get(&mut engine, &objects[&s(153)]["created"]);
-    assert_eq!(line["layer"], layer_of("documentation"));
+    assert_eq!(line["layer"], layer_of("Reference", "reference"));
 
     // The edge connector property is copied.
     let setup = engine.run_ok("object.get", json!({"uuid": seeded["board"]}))["object"].clone();
@@ -545,7 +547,7 @@ fn excluding_a_hole_and_a_group_drops_what_goes_with_them() {
     let seeded = &out["seeded"];
     let objects = created(seeded);
     // The Keepout protecting the hole and the Dimension that follows it go with it; the
-    // Documentation group goes with its drawings.
+    // Host board outline group goes with its drawings.
     for gone in [120, 130, 151, 141, 152, 153, 111] {
         assert!(!objects.contains_key(&s(gone)), "{} is there", s(gone));
     }

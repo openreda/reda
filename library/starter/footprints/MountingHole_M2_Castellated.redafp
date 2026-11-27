@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "footprint": {"uuid":"ac2e8f5f-a3e8-40a7-91bb-42fb9de9bae3","name":"MountingHole_M2_Castellated","description":"Castellated half-moon for an M.2 card's M2 screw, 3.5 mm plated hole, 5.5 mm land on top and 6.0 mm below, the SATA-IO figures. Centre it on the board edge: the edge cuts it in half","height":2000000},
   "pads": [
     {"uuid":"af92254b-fa6d-432a-9d7a-1de096889234","number":"1","kind":"plated_through_hole","castellated":true,"shape":"circle","bottom":{"shape":"circle","width":6000000,"height":6000000},"at":{"x":0,"y":0},"rotation":0,"width":5500000,"height":5500000,"hole":{"width":3500000,"height":3500000}}

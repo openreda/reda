@@ -1,0 +1,8 @@
+{
+  "format": 3,
+  "library": {
+    "description": "The generic parts that ship with REDA. MIT licensed.",
+    "name": "Starter",
+    "uuid": "5a7e0000-0000-4000-8000-000000000001"
+  }
+}

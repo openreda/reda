@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "footprint": {"uuid":"fa52c198-bd89-43fa-8c5c-25cd76d48bdf","name":"MountingHole_M2","description":"Mounting hole for M2, 2.2 mm, not plated. Hole per ISO 273 fine, head per ISO 4762","height":2000000},
   "pads": [
     {"uuid":"1a944a2b-0983-4ac8-90e0-b576c2c41f44","number":"","kind":"non_plated","shape":"circle","at":{"x":0,"y":0},"rotation":0,"width":2200000,"height":2200000,"hole":{"width":2200000,"height":2200000}}

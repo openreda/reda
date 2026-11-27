@@ -225,7 +225,9 @@ pub fn page(kind: RuleKind) -> String {
         RuleKind::CourtyardClearance
         | RuleKind::Dangling
         | RuleKind::MicroSegment
-        | RuleKind::DeadCopper => return crate::tr!("board-setup-page-drc"),
+        | RuleKind::DeadCopper
+        // Its own page arrives with the Component height check.
+        | RuleKind::ComponentHeight => return crate::tr!("board-setup-page-drc"),
     };
     rule.title()
 }

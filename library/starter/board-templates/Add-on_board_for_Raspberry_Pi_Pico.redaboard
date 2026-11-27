@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "uuid": "e3455d33-0f03-42c0-9a79-7db5e0efa889",
   "name": "Add-on board for Raspberry Pi Pico",
   "description": "A 21 mm wide board that a Raspberry Pi Pico or Pico 2 plugs into, or that plugs onto one, with the two 1 x 20 sockets on the bottom matching the Pico pins and the four M2 holes on the Pico's pattern. The USB end is at the top; the height grows away from it. The corners are square, since the Pico's corner radius is not dimensioned. Raspberry Pi is a trademark of Raspberry Pi Ltd.",
@@ -135,7 +135,7 @@
     {"uuid":"fad5e40c-230a-4f60-80b5-8bde910dbe2a","part":"0a156b8f-edf7-401a-a6b2-ab9c02cc4992","footprint":"f57f4428-70f2-4222-98b7-f22226153fd2","side":"top","at":{"x":"4.8","y":"height - 2"},"locked":true}
   ],
   "drawing_groups": [
-    {"uuid":"afc7321b-46d0-49c4-8563-20e1594cca1b","name":"Key dimensions","layer":"mechanical"}
+    {"uuid":"afc7321b-46d0-49c4-8563-20e1594cca1b","name":"Key dimensions","purpose":"dimensions"}
   ],
   "drawings": [
     {"uuid":"10214e03-91aa-417a-bf91-9b0b50e3090c","group":"afc7321b-46d0-49c4-8563-20e1594cca1b","kind":"dimension","rotation":"0","a":{"x":0,"y":0},"b":{"x":"21","y":0},"offset":"-4","suffix":" mm","locked":true},

@@ -1,8 +1,8 @@
 {
-  "format": 2,
+  "format": 3,
   "sheet": {"uuid":"00000000-0000-4000-8000-000000000002"},
   "parts": [
-    {"uuid":"00000000-0000-4000-8000-000000000032","hash":"a1b29d776aad41898fcea0261a9b3983","part":{"uuid":"84b18b44-b34e-4e89-b6ee-f3fe5128db97","name":"Socket_1x20","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"6035bfb4-5c53-4ef3-a6db-628ea953b9f4"},"footprints":["d2ffb3f2-2260-4f88-9b02-27b4a0cb0949","faf19069-7635-45a5-b9b3-17f3c9fd2d0d"],"copies":["00000000-0000-4000-8000-000000000030","00000000-0000-4000-8000-000000000031"],"fields":{"value":"Socket 1x20","description":"1 × 20 socket, 2.54 or 1.27 mm pitch","keywords":"J connector socket"},"pin_map":{},"symbol":{"uuid":"6035bfb4-5c53-4ef3-a6db-628ea953b9f4","name":"Conn_1x20","designator_prefix":"J","description":"Generic connector, 1 × 20 pins"},"units":[
+    {"uuid":"00000000-0000-4000-8000-000000000033","hash":"a1b29d776aad41898fcea0261a9b3983","part":{"uuid":"84b18b44-b34e-4e89-b6ee-f3fe5128db97","name":"Socket_1x20","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"6035bfb4-5c53-4ef3-a6db-628ea953b9f4"},"footprints":["d2ffb3f2-2260-4f88-9b02-27b4a0cb0949","faf19069-7635-45a5-b9b3-17f3c9fd2d0d"],"copies":["00000000-0000-4000-8000-000000000031","00000000-0000-4000-8000-000000000032"],"fields":{"value":"Socket 1x20","description":"1 × 20 socket, 2.54 or 1.27 mm pitch","keywords":"J connector socket"},"pin_map":{},"symbol":{"uuid":"6035bfb4-5c53-4ef3-a6db-628ea953b9f4","name":"Conn_1x20","designator_prefix":"J","description":"Generic connector, 1 × 20 pins"},"units":[
       {"uuid":"4aefbaa0-2490-489b-bc54-e653c411ef00","name":"A"}
     ],"pins":[
       {"uuid":"0318d81d-4da1-485c-9ef6-36b632e7cd13","unit":"4aefbaa0-2490-489b-bc54-e653c411ef00","name":"Pin_19","number":"19","electrical_type":"passive","at":{"x":-5080000,"y":-21590000},"rotation":0,"length":2540000,"name_visible":false},
@@ -30,7 +30,7 @@
     ]}
   ],
   "footprints": [
-    {"uuid":"00000000-0000-4000-8000-000000000030","hash":"d96d26777209f9135b05bea5433bb5a6","footprint":{"uuid":"d2ffb3f2-2260-4f88-9b02-27b4a0cb0949","name":"SKTV0W64P254R1L5080T254H850B","description":"Socket, 1 × 20, 2.54 mm pitch","height":8500000},"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000031","hash":"d96d26777209f9135b05bea5433bb5a6","footprint":{"uuid":"d2ffb3f2-2260-4f88-9b02-27b4a0cb0949","name":"SKTV0W64P254R1L5080T254H850B","description":"Socket, 1 × 20, 2.54 mm pitch","height":8500000},"pads":[
       {"uuid":"00ea77ca-9d3c-412f-928a-d3bec487599e","number":"8","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":6350000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
       {"uuid":"35e88380-c2c9-4fdd-a912-e6633830e2be","number":"20","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-24130000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
       {"uuid":"3e5c86dc-f6d8-4e48-ba95-c04c39f908d8","number":"15","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-11430000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
@@ -63,7 +63,7 @@
       {"uuid":"9c7c9dad-35e2-4673-a8e2-a804f2539ec2","field":"Value","at":{"x":0,"y":-26350000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
       {"uuid":"d981b890-ab6e-48f8-ad3f-addbc056ae38","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000031","hash":"a491285b713d74b0ad186d482316dfb4","footprint":{"uuid":"faf19069-7635-45a5-b9b3-17f3c9fd2d0d","name":"SKTV0W40P127R1L2540T127H400B","description":"Socket, 1 × 20, 1.27 mm pitch","height":4000000},"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000032","hash":"a491285b713d74b0ad186d482316dfb4","footprint":{"uuid":"faf19069-7635-45a5-b9b3-17f3c9fd2d0d","name":"SKTV0W40P127R1L2540T127H400B","description":"Socket, 1 × 20, 1.27 mm pitch","height":4000000},"pads":[
       {"uuid":"007ce50e-45b0-4138-9415-7d17e40a3756","number":"5","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":6985000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
       {"uuid":"07a44249-be80-4ea0-b820-f265cb7a3755","number":"4","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":8255000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
       {"uuid":"215e66e1-3c32-4e00-ba78-ce521182a6df","number":"9","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":1905000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":800000,"height":800000}},
@@ -98,7 +98,7 @@
     ]}
   ],
   "units": [
-    {"uuid":"00000000-0000-4000-8000-000000000034","component":{"uuid":"00000000-0000-4000-8000-000000000033"},"part":"00000000-0000-4000-8000-000000000032","unit":"4aefbaa0-2490-489b-bc54-e653c411ef00","at":{"x":55880000,"y":76200000},"rotation":0,"designator":"J1","fields":{"value":"Socket 1x20","description":"1 × 20 socket, 2.54 or 1.27 mm pitch","keywords":"J connector socket"},"footprint":"d2ffb3f2-2260-4f88-9b02-27b4a0cb0949","component_type":"standard","in_bom":true,"in_cpl":true},
-    {"uuid":"00000000-0000-4000-8000-000000000038","component":{"uuid":"00000000-0000-4000-8000-000000000037"},"part":"00000000-0000-4000-8000-000000000032","unit":"4aefbaa0-2490-489b-bc54-e653c411ef00","at":{"x":71120000,"y":76200000},"rotation":0,"designator":"J2","fields":{"value":"Socket 1x20","description":"1 × 20 socket, 2.54 or 1.27 mm pitch","keywords":"J connector socket"},"footprint":"d2ffb3f2-2260-4f88-9b02-27b4a0cb0949","component_type":"standard","in_bom":true,"in_cpl":true}
+    {"uuid":"00000000-0000-4000-8000-000000000035","component":{"uuid":"00000000-0000-4000-8000-000000000034"},"part":"00000000-0000-4000-8000-000000000033","unit":"4aefbaa0-2490-489b-bc54-e653c411ef00","at":{"x":55880000,"y":76200000},"rotation":0,"designator":"J1","fields":{"value":"Socket 1x20","description":"1 × 20 socket, 2.54 or 1.27 mm pitch","keywords":"J connector socket"},"footprint":"d2ffb3f2-2260-4f88-9b02-27b4a0cb0949","component_type":"standard","in_bom":true,"in_cpl":true},
+    {"uuid":"00000000-0000-4000-8000-000000000039","component":{"uuid":"00000000-0000-4000-8000-000000000038"},"part":"00000000-0000-4000-8000-000000000033","unit":"4aefbaa0-2490-489b-bc54-e653c411ef00","at":{"x":71120000,"y":76200000},"rotation":0,"designator":"J2","fields":{"value":"Socket 1x20","description":"1 × 20 socket, 2.54 or 1.27 mm pitch","keywords":"J connector socket"},"footprint":"d2ffb3f2-2260-4f88-9b02-27b4a0cb0949","component_type":"standard","in_bom":true,"in_cpl":true}
   ]
 }

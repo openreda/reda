@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "footprint": {"uuid":"a98b17f8-5ccd-4961-80a0-035239726052","name":"LED_THT_D5.0mm_P2.54mm","description":"LED, 5 mm round, leads 2.54 mm apart","height":8600000},
   "pads": [
     {"uuid":"74141d46-6319-4f05-9e44-f274e2e07c2f","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":1270000,"y":0},"rotation":0,"width":1800000,"height":1800000,"hole":{"width":900000,"height":900000}},

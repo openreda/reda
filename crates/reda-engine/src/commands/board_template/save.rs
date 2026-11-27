@@ -15,9 +15,9 @@ use reda_library::{ElementKind, LibraryIndex, check_element_name};
 use reda_model::geom::{Millideg, Nm, Point, Vertex, contour_bounds};
 use reda_model::local_edit::local_edits;
 use reda_model::{
-    BoardTemplate, ComponentType, Dimension, DimensionEnd, DrawingKind, DrawingLayer,
-    FootprintCopy, FootprintInstance, FreePad, GraphicShape, Hotspot, Keepout, KeepoutShape,
-    KeepoutShapeKind, LayerKind, LibraryElement, PartEntry, PcbDocument, PlatedEdges, Project,
+    BoardTemplate, ComponentType, Dimension, DimensionEnd, DrawingKind, FootprintCopy,
+    FootprintInstance, FreePad, GraphicShape, Hotspot, Keepout, KeepoutShape, KeepoutShapeKind,
+    LayerKind, LibraryElement, PartEntry, PcbDocument, PlatedEdges, Project, Purpose,
     SchematicSheet, Side, TemplateBevel, TemplateBoard, TemplateContour, TemplateCopperLayer,
     TemplateDimensionEnd, TemplateDrawing, TemplateDrawingGroup, TemplateDrill,
     TemplateEdgeConnector, TemplateFollow, TemplateHole, TemplateKeepout, TemplateNumber,
@@ -47,8 +47,7 @@ pub struct SaveParams {
     pub category: Option<String>,
     /// The board objects to capture beyond the outline, which always comes: Board
     /// Cutouts, Keepouts, Components, Mechanical Parts and Free Pads by UUID, and a
-    /// Mechanical or Documentation Layer's UUID for every graphic, text and Dimension on
-    /// it. Left out, the dialog's defaults: everything but inner-layer Keepouts, with
+    /// Mechanical Layer's UUID for every graphic, text and Dimension on it. Left out, the dialog's defaults: everything but inner-layer Keepouts, with
     /// Components, Mechanical Parts and Free Pads only when Locked.
     #[serde(default)]
     pub objects: Option<Vec<Uuid>>,
@@ -70,7 +69,7 @@ impl Command for BoardTemplateSave {
         title: "Save Board as Template",
         description: "Writes the active board's outline and the chosen `objects` (Board \
                       Cutouts, Keepouts, Components, Mechanical Parts, Free Pads, and the \
-                      Mechanical and Documentation Layers' drawings) as a new Board \
+                      Mechanical Layers' drawings) as a new Board \
                       Template `board-templates/<name>.redaboard` in a writable Library: \
                       shifted so the outline's bounding box starts at (0,0), as literal \
                       numbers with each object's Locked state and fresh UUIDs. Parts and \
@@ -143,7 +142,7 @@ pub enum CandidateKind {
     Component,
     MechanicalPart,
     FreePad,
-    /// Every graphic, text and Dimension on one Mechanical or Documentation Layer.
+    /// Every graphic, text and Dimension on one Mechanical Layer.
     Drawings,
 }
 
@@ -164,9 +163,12 @@ pub struct Candidate {
     /// A Keepout's Layer, as the template names it; `None` for an inner Layer.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub layer: Option<TemplateCopperLayer>,
-    /// The drawings' Layer.
+    /// The drawings' Mechanical Layer: its name, which the drawing group takes.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub drawing_layer: Option<DrawingLayer>,
+    pub layer_name: Option<String>,
+    /// The drawings' Mechanical Layer's Purpose, which the drawing group carries.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub purpose: Option<Purpose>,
     pub locked: bool,
     /// Ticked by default.
     pub default: bool,
@@ -187,7 +189,8 @@ impl Candidate {
             footprint: None,
             side: None,
             layer: None,
-            drawing_layer: None,
+            layer_name: None,
+            purpose: None,
             locked,
             default,
             unavailable: None,
@@ -198,7 +201,7 @@ impl Candidate {
 
 /// What Save Board as Template lists for the Project's board, grouped as the dialog
 /// shows them: the outline (always captured), cutouts, Keepouts, Components, Mechanical
-/// Parts, Free Pads, then the Mechanical and Documentation drawings, each kind in board
+/// Parts, Free Pads, then the drawings of each Mechanical Layer, each kind in board
 /// order. Empty with no board.
 pub fn candidates(project: &Project) -> Vec<Candidate> {
     let Some(pcb) = project.pcb() else {
@@ -273,27 +276,20 @@ pub fn candidates(project: &Project) -> Vec<Candidate> {
             pad.locked,
         ));
     }
-    for (layer, kind) in drawing_layers(pcb) {
-        if drawings_on(pcb, layer).next().is_some() {
-            let mut c = Candidate::new(layer, CandidateKind::Drawings, false, true);
-            c.drawing_layer = Some(kind);
+    for layer in pcb
+        .layers()
+        .layers
+        .iter()
+        .filter(|l| l.kind == LayerKind::Mechanical)
+    {
+        if drawings_on(pcb, layer.uuid).next().is_some() {
+            let mut c = Candidate::new(layer.uuid, CandidateKind::Drawings, false, true);
+            c.layer_name = layer.name.clone();
+            c.purpose = Some(layer.purpose);
             out.push(c);
         }
     }
     out
-}
-
-/// The board's Mechanical and Documentation Layers, top to bottom.
-fn drawing_layers(pcb: &PcbDocument) -> Vec<(Uuid, DrawingLayer)> {
-    pcb.layers()
-        .layers
-        .iter()
-        .filter_map(|l| match l.kind {
-            LayerKind::Mechanical => Some((l.uuid, DrawingLayer::Mechanical)),
-            LayerKind::Documentation => Some((l.uuid, DrawingLayer::Documentation)),
-            _ => None,
-        })
-        .collect()
 }
 
 /// One graphic, text or Dimension.
@@ -480,17 +476,12 @@ pub(crate) fn capture(
         c.template.holes.push(hole);
     }
     for cand in of_kind(CandidateKind::Drawings) {
-        let layer = cand
-            .drawing_layer
-            .expect("a drawings candidate has a Layer");
+        let purpose = cand.purpose.expect("a drawings candidate has a Layer");
         let group = (c.ids)();
         c.template.drawing_groups.push(TemplateDrawingGroup {
             uuid: group,
-            name: match layer {
-                DrawingLayer::Mechanical => "Mechanical drawings".into(),
-                DrawingLayer::Documentation => "Documentation drawings".into(),
-            },
-            layer,
+            name: cand.layer_name.clone().unwrap_or_default(),
+            purpose,
             when: None,
         });
         for drawn in drawings_on(pcb, cand.object) {

@@ -134,7 +134,7 @@ fn a_graphic_is_deleted() {
     let mut engine = engine_with_pcb(&dir);
     let uuid = created(&engine.run_ok(
         "pcb.graphic.add_line",
-        json!({"layer": "documentation", "from": {"x": 0, "y": 0}, "to": {"x": 1, "y": 1}}),
+        json!({"layer": "mechanical", "from": {"x": 0, "y": 0}, "to": {"x": 1, "y": 1}}),
     ));
     engine.run_ok("pcb.graphic.delete", json!({"uuid": uuid}));
     assert!(pcb(&engine).graphic(uuid).is_none());

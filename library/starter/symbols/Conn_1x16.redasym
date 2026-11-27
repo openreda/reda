@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "symbol": {"uuid":"5ac5a2a9-1bb5-4622-bbc7-902e3b95a1a6","name":"Conn_1x16","designator_prefix":"J","description":"Generic connector, 1 × 16 pins"},
   "units": [
     {"uuid":"ee6c3c94-de52-40ce-9497-5f61cd9e8dc7","name":"A"}

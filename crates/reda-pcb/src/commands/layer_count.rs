@@ -211,6 +211,7 @@ fn insert_copper(
             kind: LayerKind::Copper,
             side: None,
             name: None,
+            purpose: Default::default(),
             role: CopperRole::Signal,
         }),
     );

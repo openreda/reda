@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "symbol": {"uuid":"00142cd2-1b10-491d-ba5a-9443e0ae3ae4","name":"Conn_2x10","designator_prefix":"J","description":"Generic connector, 2 × 10 pins"},
   "units": [
     {"uuid":"f216f2ba-4699-4cba-82db-75bc091115d4","name":"A"}

@@ -18,7 +18,7 @@ pub enum LayerRef {
     Copper(usize),
 }
 
-const KINDS: [(&str, LayerKind); 9] = [
+const KINDS: [(&str, LayerKind); 8] = [
     ("copper", LayerKind::Copper),
     ("silkscreen", LayerKind::Silkscreen),
     ("solder_mask", LayerKind::SolderMask),
@@ -27,7 +27,6 @@ const KINDS: [(&str, LayerKind); 9] = [
     ("assembly", LayerKind::Assembly),
     ("board_outline", LayerKind::BoardOutline),
     ("mechanical", LayerKind::Mechanical),
-    ("documentation", LayerKind::Documentation),
 ];
 
 impl LayerRef {
@@ -95,15 +94,12 @@ impl JsonSchema for LayerRef {
     }
 }
 
-/// Whether free text and graphics may be drawn on this Layer: copper, silkscreen,
-/// mechanical and documentation.
+/// Whether free text and graphics may be drawn on this Layer: copper, silkscreen and
+/// Mechanical.
 pub fn takes_graphics(layer: &Layer) -> bool {
     matches!(
         layer.kind,
-        LayerKind::Copper
-            | LayerKind::Silkscreen
-            | LayerKind::Mechanical
-            | LayerKind::Documentation
+        LayerKind::Copper | LayerKind::Silkscreen | LayerKind::Mechanical
     )
 }
 
@@ -117,7 +113,7 @@ pub fn drawing_layer<'p>(
     if !takes_graphics(layer) {
         return Err(CommandError::invalid_params(
             pointer,
-            "text and graphics go on copper, silkscreen, mechanical or documentation Layers",
+            "text and graphics go on copper, silkscreen or Mechanical Layers",
         ));
     }
     Ok(layer)

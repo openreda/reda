@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "footprint": {"uuid":"2bae9870-fe94-4979-9f49-3cf0f66c0395","name":"CardEdge_PCIe_x16","description":"PCI Express x16 card edge, 82 fingers a side: Edge Connector Pads 0.70 mm wide on a 1.0 mm pitch, B side on top and A side below, from 1.40 mm off the edge (clear of a 1.30 mm bevel; present-detect A1 and B81 from 2.40 mm), the open-hardware values; the origin is the key centreline on the finger edge","height":35000},
   "pads": [
     {"uuid":"0401ffc9-8b72-4bf7-a9ce-bd0148336ea2","number":"B75","kind":"smd","role":"edge_connector","shape":"rect","at":{"x":64500000,"y":3500000},"rotation":0,"width":700000,"height":4200000,"paste":"none"},

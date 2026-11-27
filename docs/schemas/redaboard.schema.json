@@ -108,14 +108,6 @@
       ],
       "type": "string"
     },
-    "DrawingLayer": {
-      "description": "The Layer a drawing group goes on, named symbolically.",
-      "enum": [
-        "mechanical",
-        "documentation"
-      ],
-      "type": "string"
-    },
     "EditedFrom": {
       "additionalProperties": false,
       "description": "The copy a Locally Edited Footprint came from (ADR-0013): that copy's UUID in the same\npart table and its content hash, which Sync compares with the schematic's copy.",
@@ -1107,6 +1099,36 @@
       ],
       "type": "object"
     },
+    "Purpose": {
+      "description": "What a Mechanical Layer is for. It drives defaults and matching only, never a check,\nan output or the 3D view. Free text belongs in the Layer's name.",
+      "oneOf": [
+        {
+          "const": "general",
+          "description": "Anything; the default for a new Layer.",
+          "type": "string"
+        },
+        {
+          "const": "dimensions",
+          "description": "Dimensions and their notes.",
+          "type": "string"
+        },
+        {
+          "const": "fabrication_notes",
+          "description": "Notes and drawings for the board maker.",
+          "type": "string"
+        },
+        {
+          "const": "assembly_notes",
+          "description": "Notes and drawings for the assembler.",
+          "type": "string"
+        },
+        {
+          "const": "reference",
+          "description": "Things that are not this board: a host or mating board, an enclosure, a bracket.",
+          "type": "string"
+        }
+      ]
+    },
     "Restriction": {
       "description": "A kind of object a Keepout keeps out.",
       "oneOf": [
@@ -1650,13 +1672,14 @@
     },
     "TemplateDrawingGroup": {
       "additionalProperties": false,
-      "description": "A named group of drawings on one Layer: one Includes tick in the dialog.",
+      "description": "A named group of drawings on one Mechanical Layer: one Includes tick in the dialog.",
       "properties": {
-        "layer": {
-          "$ref": "#/$defs/DrawingLayer"
-        },
         "name": {
           "type": "string"
+        },
+        "purpose": {
+          "$ref": "#/$defs/Purpose",
+          "description": "The Purpose of the Mechanical Layer the group goes on, `general` written out."
         },
         "uuid": {
           "format": "uuid",
@@ -1679,7 +1702,7 @@
       "required": [
         "uuid",
         "name",
-        "layer"
+        "purpose"
       ],
       "type": "object"
     },
@@ -2635,7 +2658,7 @@
       "type": "array"
     },
     "format": {
-      "const": 2,
+      "const": 3,
       "description": "The file-format version. REDA writes only the current one.",
       "type": "integer"
     },

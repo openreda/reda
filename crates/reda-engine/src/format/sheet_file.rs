@@ -2,7 +2,7 @@
 //!
 //! ```text
 //! {
-//!   "format": 2,
+//!   "format": 3,
 //!   "sheet": {"uuid":"…"},
 //!   "frame": {"uuid":"…","size":"a4"},
 //!   "parts": [

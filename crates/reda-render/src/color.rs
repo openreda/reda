@@ -216,7 +216,6 @@ colors! {
     AssemblyBottom: Rgba::rgb(0x8c, 0xa0, 0xc8), Rgba::rgb(0x4c, 0x60, 0x8c);
     BoardOutline: Rgba::rgb(0xe8, 0xd0, 0x40), Rgba::rgb(0x9a, 0x84, 0x00);
     Mechanical: Rgba::rgb(0xc0, 0xa0, 0x70), Rgba::rgb(0x7c, 0x60, 0x34);
-    Documentation: Rgba::rgb(0x9a, 0xa0, 0xa8), Rgba::rgb(0x50, 0x56, 0x5e);
     /// Drilled holes, drawn over every Layer.
     Hole: Rgba::rgb(0x0a, 0x0a, 0x0c), Rgba::rgb(0xfc, 0xfc, 0xfa);
     /// The Ratsnest's lines.
@@ -305,7 +304,6 @@ impl BoardColor {
             LayerKind::Assembly => C::AssemblyBottom,
             LayerKind::BoardOutline => C::BoardOutline,
             LayerKind::Mechanical => C::Mechanical,
-            LayerKind::Documentation => C::Documentation,
         }
     }
 

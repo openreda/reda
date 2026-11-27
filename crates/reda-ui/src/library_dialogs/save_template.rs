@@ -11,7 +11,7 @@ use std::any::Any;
 use egui::{Id, Role, Ui, WidgetInfo};
 use reda_engine::command::CommandError;
 use reda_engine::commands::board_template::{Candidate, CandidateKind, candidates};
-use reda_engine::model::{DrawingLayer, Side, TemplateCopperLayer, Uuid};
+use reda_engine::model::{Side, TemplateCopperLayer, Uuid};
 use serde_json::{Value, json};
 
 use crate::command_dialog::{Outcome, ParamsDialog};
@@ -202,10 +202,10 @@ fn label(c: &Candidate, n: usize) -> String {
             )
         }
         CandidateKind::FreePad => tr!("save-template-free-pad", n = n),
-        CandidateKind::Drawings => match c.drawing_layer {
-            Some(DrawingLayer::Documentation) => tr!("save-template-documentation"),
-            _ => tr!("save-template-mechanical"),
-        },
+        CandidateKind::Drawings => tr!(
+            "save-template-drawings",
+            layer = c.layer_name.clone().unwrap_or_default()
+        ),
     }
 }
 

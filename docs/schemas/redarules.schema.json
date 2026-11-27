@@ -542,6 +542,11 @@
           "const": "paste_expansion",
           "description": "Solder-paste expansion per edge or signed percent change in area; no DRC severity.",
           "type": "string"
+        },
+        {
+          "const": "component_height",
+          "description": "A Footprint `height` limit per board side: `top_max?`, `bottom_max?`. Board-wide\nonly.",
+          "type": "string"
         }
       ]
     },
@@ -571,6 +576,14 @@
         },
         "bottom": {
           "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "bottom_max": {
+          "description": "`component_height` only: the tallest Footprint `height` allowed on the bottom side.",
           "format": "int64",
           "type": [
             "integer",
@@ -753,6 +766,14 @@
         },
         "top": {
           "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "top_max": {
+          "description": "`component_height` only: the tallest Footprint `height` allowed on the top side.",
           "format": "int64",
           "type": [
             "integer",
@@ -955,7 +976,7 @@
       "type": "integer"
     },
     "format": {
-      "const": 2,
+      "const": 3,
       "description": "The file-format version. REDA writes only the current one.",
       "type": "integer"
     },

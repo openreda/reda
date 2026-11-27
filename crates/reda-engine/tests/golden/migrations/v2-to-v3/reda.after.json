@@ -1,0 +1,2328 @@
+{
+  "documents": [
+    {
+      "path": "Blinky.redasch",
+      "title": "Sheet 1",
+      "uuid": "00000000-0000-4000-8000-000000000002"
+    },
+    {
+      "path": "Blinky.redapcb",
+      "title": "Blinky",
+      "uuid": "00000000-0000-4000-8000-000000000003"
+    }
+  ],
+  "fab_presets": [
+    {
+      "bom": {
+        "columns": [
+          {
+            "header": "Comment",
+            "source": "value"
+          },
+          {
+            "header": "Designator",
+            "source": "designator"
+          },
+          {
+            "header": "Footprint",
+            "source": "footprint"
+          },
+          {
+            "header": "LCSC Part #",
+            "source": {
+              "field": "LCSC"
+            }
+          }
+        ],
+        "designator_separator": ",",
+        "group_by": [
+          "part",
+          "footprint",
+          "fields"
+        ],
+        "layout": "grouped",
+        "line_numbers": {
+          "enabled": false,
+          "start": 1,
+          "step": 1
+        },
+        "list_unplaced": false,
+        "mount_values": {
+          "smt": "SMT",
+          "tht": "THT"
+        },
+        "not_fitted": "omit",
+        "required_fields": [
+          "LCSC"
+        ],
+        "sort": [
+          "designator"
+        ]
+      },
+      "constructions": [
+        {
+          "default": true,
+          "entries": [
+            {
+              "copper": 35000
+            },
+            {
+              "kind": "core",
+              "thickness": 1530000
+            },
+            {
+              "copper": 35000
+            }
+          ],
+          "name": "2 Layer",
+          "thickness": 1600000
+        },
+        {
+          "default": true,
+          "entries": [
+            {
+              "copper": 35000
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 210400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 1065000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 210400
+            },
+            {
+              "copper": 35000
+            }
+          ],
+          "name": "JLC04161H-7628",
+          "thickness": 1600000
+        },
+        {
+          "default": false,
+          "entries": [
+            {
+              "copper": 35000
+            },
+            {
+              "dk": 4100,
+              "kind": "prepreg",
+              "material": "3313",
+              "thickness": 99400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 1265000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4100,
+              "kind": "prepreg",
+              "material": "3313",
+              "thickness": 99400
+            },
+            {
+              "copper": 35000
+            }
+          ],
+          "name": "JLC04161H-3313",
+          "thickness": 1600000
+        },
+        {
+          "default": false,
+          "entries": [
+            {
+              "copper": 35000
+            },
+            {
+              "dk": 3910,
+              "kind": "prepreg",
+              "material": "1080",
+              "thickness": 76400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 1265000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 3910,
+              "kind": "prepreg",
+              "material": "1080",
+              "thickness": 76400
+            },
+            {
+              "copper": 35000
+            }
+          ],
+          "name": "JLC04161H-1080",
+          "thickness": 1600000
+        },
+        {
+          "default": false,
+          "entries": [
+            {
+              "copper": 35000
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 218000
+            },
+            {
+              "dk": 3910,
+              "kind": "prepreg",
+              "material": "1080",
+              "thickness": 76400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 865000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 3910,
+              "kind": "prepreg",
+              "material": "1080",
+              "thickness": 76400
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 218000
+            },
+            {
+              "copper": 35000
+            }
+          ],
+          "name": "JLC04161H-7628A",
+          "thickness": 1600000
+        },
+        {
+          "default": false,
+          "entries": [
+            {
+              "copper": 35000
+            },
+            {
+              "dk": 4100,
+              "kind": "prepreg",
+              "material": "3313",
+              "thickness": 107000
+            },
+            {
+              "dk": 4100,
+              "kind": "prepreg",
+              "material": "3313",
+              "thickness": 99400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 1065000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4100,
+              "kind": "prepreg",
+              "material": "3313",
+              "thickness": 99400
+            },
+            {
+              "dk": 4100,
+              "kind": "prepreg",
+              "material": "3313",
+              "thickness": 107000
+            },
+            {
+              "copper": 35000
+            }
+          ],
+          "name": "JLC04161H-3313A",
+          "thickness": 1600000
+        },
+        {
+          "default": false,
+          "entries": [
+            {
+              "copper": 35000
+            },
+            {
+              "dk": 3910,
+              "kind": "prepreg",
+              "material": "1080",
+              "thickness": 84000
+            },
+            {
+              "dk": 3910,
+              "kind": "prepreg",
+              "material": "1080",
+              "thickness": 76400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 1065000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 3910,
+              "kind": "prepreg",
+              "material": "1080",
+              "thickness": 76400
+            },
+            {
+              "dk": 3910,
+              "kind": "prepreg",
+              "material": "1080",
+              "thickness": 84000
+            },
+            {
+              "copper": 35000
+            }
+          ],
+          "name": "JLC04161H-1080A",
+          "thickness": 1600000
+        },
+        {
+          "default": false,
+          "entries": [
+            {
+              "copper": 35000
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 218000
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 218000
+            },
+            {
+              "dk": 4160,
+              "kind": "prepreg",
+              "material": "2116",
+              "thickness": 116400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 400000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4160,
+              "kind": "prepreg",
+              "material": "2116",
+              "thickness": 116400
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 218000
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 218000
+            },
+            {
+              "copper": 35000
+            }
+          ],
+          "name": "JLC04161H-7628B",
+          "thickness": 1600000
+        },
+        {
+          "default": false,
+          "entries": [
+            {
+              "copper": 35000
+            },
+            {
+              "dk": 4160,
+              "kind": "prepreg",
+              "material": "2116",
+              "thickness": 124000
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 218000
+            },
+            {
+              "dk": 4160,
+              "kind": "prepreg",
+              "material": "2116",
+              "thickness": 116400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 600000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4160,
+              "kind": "prepreg",
+              "material": "2116",
+              "thickness": 116400
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 218000
+            },
+            {
+              "dk": 4160,
+              "kind": "prepreg",
+              "material": "2116",
+              "thickness": 124000
+            },
+            {
+              "copper": 35000
+            }
+          ],
+          "name": "JLC04161H-2116A",
+          "thickness": 1600000
+        },
+        {
+          "default": false,
+          "entries": [
+            {
+              "copper": 35000
+            },
+            {
+              "dk": 4160,
+              "kind": "prepreg",
+              "material": "2116",
+              "thickness": 124000
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 210400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 865000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 210400
+            },
+            {
+              "dk": 4160,
+              "kind": "prepreg",
+              "material": "2116",
+              "thickness": 124000
+            },
+            {
+              "copper": 35000
+            }
+          ],
+          "name": "JLC04161H-2116B",
+          "thickness": 1600000
+        },
+        {
+          "default": false,
+          "entries": [
+            {
+              "copper": 35000
+            },
+            {
+              "dk": 4160,
+              "kind": "prepreg",
+              "material": "2116",
+              "thickness": 124000
+            },
+            {
+              "dk": 3910,
+              "kind": "prepreg",
+              "material": "1080",
+              "thickness": 76400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 1065000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 3910,
+              "kind": "prepreg",
+              "material": "1080",
+              "thickness": 76400
+            },
+            {
+              "dk": 4160,
+              "kind": "prepreg",
+              "material": "2116",
+              "thickness": 124000
+            },
+            {
+              "copper": 35000
+            }
+          ],
+          "name": "JLC04161H-2116C",
+          "thickness": 1600000
+        },
+        {
+          "default": false,
+          "entries": [
+            {
+              "copper": 35000
+            },
+            {
+              "dk": 3910,
+              "kind": "prepreg",
+              "material": "1080",
+              "thickness": 84000
+            },
+            {
+              "dk": 3910,
+              "kind": "prepreg",
+              "material": "1080",
+              "thickness": 84000
+            },
+            {
+              "dk": 3910,
+              "kind": "prepreg",
+              "material": "1080",
+              "thickness": 76400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 1065000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 3910,
+              "kind": "prepreg",
+              "material": "1080",
+              "thickness": 76400
+            },
+            {
+              "dk": 3910,
+              "kind": "prepreg",
+              "material": "1080",
+              "thickness": 84000
+            },
+            {
+              "dk": 3910,
+              "kind": "prepreg",
+              "material": "1080",
+              "thickness": 84000
+            },
+            {
+              "copper": 35000
+            }
+          ],
+          "name": "JLC04161H-1080B",
+          "thickness": 1600000
+        },
+        {
+          "default": false,
+          "entries": [
+            {
+              "copper": 35000
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 218000
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 218000
+            },
+            {
+              "dk": 3910,
+              "kind": "prepreg",
+              "material": "1080",
+              "thickness": 76400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 500000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 3910,
+              "kind": "prepreg",
+              "material": "1080",
+              "thickness": 76400
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 218000
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 218000
+            },
+            {
+              "copper": 35000
+            }
+          ],
+          "name": "JLC04161H-7628G",
+          "thickness": 1600000
+        },
+        {
+          "default": false,
+          "entries": [
+            {
+              "copper": 35000
+            },
+            {
+              "dk": 4160,
+              "kind": "prepreg",
+              "material": "2116",
+              "thickness": 116400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 1265000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4160,
+              "kind": "prepreg",
+              "material": "2116",
+              "thickness": 116400
+            },
+            {
+              "copper": 35000
+            }
+          ],
+          "name": "JLC04161H-2116",
+          "thickness": 1600000
+        },
+        {
+          "default": false,
+          "entries": [
+            {
+              "copper": 35000
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 218000
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 210400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 600000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 210400
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 218000
+            },
+            {
+              "copper": 35000
+            }
+          ],
+          "name": "JLC04161H-7628E",
+          "thickness": 1600000
+        },
+        {
+          "default": false,
+          "entries": [
+            {
+              "copper": 35000
+            },
+            {
+              "dk": 4160,
+              "kind": "prepreg",
+              "material": "2116",
+              "thickness": 124000
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 210400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 700000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 210400
+            },
+            {
+              "dk": 4160,
+              "kind": "prepreg",
+              "material": "2116",
+              "thickness": 124000
+            },
+            {
+              "copper": 35000
+            }
+          ],
+          "name": "JLC04161H-2116D",
+          "thickness": 1600000
+        },
+        {
+          "default": false,
+          "entries": [
+            {
+              "copper": 35000
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 218000
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 218000
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 210400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 250000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 210400
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 218000
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 218000
+            },
+            {
+              "copper": 35000
+            }
+          ],
+          "name": "JLC04161H-7628F",
+          "thickness": 1600000
+        },
+        {
+          "default": false,
+          "entries": [
+            {
+              "copper": 35000
+            },
+            {
+              "dk": 4160,
+              "kind": "prepreg",
+              "material": "2116",
+              "thickness": 124000
+            },
+            {
+              "dk": 4160,
+              "kind": "prepreg",
+              "material": "2116",
+              "thickness": 116400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 865000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4160,
+              "kind": "prepreg",
+              "material": "2116",
+              "thickness": 116400
+            },
+            {
+              "dk": 4160,
+              "kind": "prepreg",
+              "material": "2116",
+              "thickness": 124000
+            },
+            {
+              "copper": 35000
+            }
+          ],
+          "name": "JLC04161H-2116E",
+          "thickness": 1600000
+        },
+        {
+          "default": false,
+          "entries": [
+            {
+              "copper": 35000
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 218000
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 218000
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 210400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 150000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 210400
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 218000
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 218000
+            },
+            {
+              "copper": 35000
+            }
+          ],
+          "name": "JLC04161H-7628C",
+          "thickness": 1600000
+        },
+        {
+          "default": true,
+          "entries": [
+            {
+              "copper": 35000
+            },
+            {
+              "dk": 4100,
+              "kind": "prepreg",
+              "material": "3313",
+              "thickness": 99400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 550000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4160,
+              "kind": "prepreg",
+              "material": "2116",
+              "thickness": 108800
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 550000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4100,
+              "kind": "prepreg",
+              "material": "3313",
+              "thickness": 99400
+            },
+            {
+              "copper": 35000
+            }
+          ],
+          "name": "JLC06161H-3313",
+          "thickness": 1600000
+        },
+        {
+          "default": false,
+          "entries": [
+            {
+              "copper": 35000
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 210400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 400000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 202800
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 400000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 210400
+            },
+            {
+              "copper": 35000
+            }
+          ],
+          "name": "JLC06161H-7628",
+          "thickness": 1600000
+        },
+        {
+          "default": false,
+          "entries": [
+            {
+              "copper": 35000
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 218000
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 210400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 200000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 202800
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 200000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 210400
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 218000
+            },
+            {
+              "copper": 35000
+            }
+          ],
+          "name": "JLC06161H-7628D",
+          "thickness": 1600000
+        },
+        {
+          "default": false,
+          "entries": [
+            {
+              "copper": 35000
+            },
+            {
+              "dk": 3910,
+              "kind": "prepreg",
+              "material": "1080",
+              "thickness": 76400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 550000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 210400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 550000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 3910,
+              "kind": "prepreg",
+              "material": "1080",
+              "thickness": 76400
+            },
+            {
+              "copper": 35000
+            }
+          ],
+          "name": "JLC06161H-1080",
+          "thickness": 1600000
+        },
+        {
+          "default": false,
+          "entries": [
+            {
+              "copper": 35000
+            },
+            {
+              "dk": 4160,
+              "kind": "prepreg",
+              "material": "2116",
+              "thickness": 116400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 130000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4160,
+              "kind": "prepreg",
+              "material": "2116",
+              "thickness": 116400
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 700000
+            },
+            {
+              "dk": 4160,
+              "kind": "prepreg",
+              "material": "2116",
+              "thickness": 116400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 130000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4160,
+              "kind": "prepreg",
+              "material": "2116",
+              "thickness": 116400
+            },
+            {
+              "copper": 35000
+            }
+          ],
+          "name": "JLC06161H-2116A",
+          "thickness": 1600000
+        },
+        {
+          "default": false,
+          "entries": [
+            {
+              "copper": 35000
+            },
+            {
+              "dk": 3910,
+              "kind": "prepreg",
+              "material": "1080",
+              "thickness": 76400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 600000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4100,
+              "kind": "prepreg",
+              "material": "3313",
+              "thickness": 99400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 600000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 3910,
+              "kind": "prepreg",
+              "material": "1080",
+              "thickness": 76400
+            },
+            {
+              "copper": 35000
+            }
+          ],
+          "name": "JLC06161H-1080A",
+          "thickness": 1600000
+        },
+        {
+          "default": false,
+          "entries": [
+            {
+              "copper": 35000
+            },
+            {
+              "dk": 4100,
+              "kind": "prepreg",
+              "material": "3313",
+              "thickness": 107000
+            },
+            {
+              "dk": 3910,
+              "kind": "prepreg",
+              "material": "1080",
+              "thickness": 76400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 400000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 3910,
+              "kind": "prepreg",
+              "material": "1080",
+              "thickness": 76400
+            },
+            {
+              "dk": 3910,
+              "kind": "prepreg",
+              "material": "1080",
+              "thickness": 76400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 400000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 3910,
+              "kind": "prepreg",
+              "material": "1080",
+              "thickness": 78400
+            },
+            {
+              "dk": 4100,
+              "kind": "prepreg",
+              "material": "3313",
+              "thickness": 107000
+            },
+            {
+              "copper": 35000
+            }
+          ],
+          "name": "JLC06161H-3313C",
+          "thickness": 1600000
+        },
+        {
+          "default": false,
+          "entries": [
+            {
+              "copper": 35000
+            },
+            {
+              "dk": 3910,
+              "kind": "prepreg",
+              "material": "1080",
+              "thickness": 76400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 100000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 210400
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 700000
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 210400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 100000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 3910,
+              "kind": "prepreg",
+              "material": "1080",
+              "thickness": 76400
+            },
+            {
+              "copper": 35000
+            }
+          ],
+          "name": "JLC06161H-1080B",
+          "thickness": 1600000
+        },
+        {
+          "default": false,
+          "entries": [
+            {
+              "copper": 35000
+            },
+            {
+              "dk": 4100,
+              "kind": "prepreg",
+              "material": "3313",
+              "thickness": 99400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 400000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 210400
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 210400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 400000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4100,
+              "kind": "prepreg",
+              "material": "3313",
+              "thickness": 99400
+            },
+            {
+              "copper": 35000
+            }
+          ],
+          "name": "JLC06161H-3313B",
+          "thickness": 1600000
+        },
+        {
+          "default": false,
+          "entries": [
+            {
+              "copper": 35000
+            },
+            {
+              "dk": 4100,
+              "kind": "prepreg",
+              "material": "3313",
+              "thickness": 99400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 100000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 210400
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 700000
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 210400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 100000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4100,
+              "kind": "prepreg",
+              "material": "3313",
+              "thickness": 99400
+            },
+            {
+              "copper": 35000
+            }
+          ],
+          "name": "JLC06161H-3313E",
+          "thickness": 1600000
+        },
+        {
+          "default": false,
+          "entries": [
+            {
+              "copper": 35000
+            },
+            {
+              "dk": 3910,
+              "kind": "prepreg",
+              "material": "1080",
+              "thickness": 76400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 75000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 210400
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 700000
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 210400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 75000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 3910,
+              "kind": "prepreg",
+              "material": "1080",
+              "thickness": 76400
+            },
+            {
+              "copper": 35000
+            }
+          ],
+          "name": "JLC06161H-1080C",
+          "thickness": 1600000
+        },
+        {
+          "default": false,
+          "entries": [
+            {
+              "copper": 35000
+            },
+            {
+              "dk": 4100,
+              "kind": "prepreg",
+              "material": "3313",
+              "thickness": 99400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 550000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4160,
+              "kind": "prepreg",
+              "material": "2116",
+              "thickness": 108800
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 550000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4100,
+              "kind": "prepreg",
+              "material": "3313",
+              "thickness": 99400
+            },
+            {
+              "copper": 35000
+            }
+          ],
+          "name": "JLC06161H-3313A",
+          "thickness": 1600000
+        },
+        {
+          "default": false,
+          "entries": [
+            {
+              "copper": 35000
+            },
+            {
+              "dk": 4160,
+              "kind": "prepreg",
+              "material": "2116",
+              "thickness": 116400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 500000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 3910,
+              "kind": "prepreg",
+              "material": "1080",
+              "thickness": 76400
+            },
+            {
+              "dk": 3910,
+              "kind": "prepreg",
+              "material": "1080",
+              "thickness": 76400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 500000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4160,
+              "kind": "prepreg",
+              "material": "2116",
+              "thickness": 116400
+            },
+            {
+              "copper": 35000
+            }
+          ],
+          "name": "JLC06161H-2116B",
+          "thickness": 1600000
+        },
+        {
+          "default": false,
+          "entries": [
+            {
+              "copper": 35000
+            },
+            {
+              "dk": 4160,
+              "kind": "prepreg",
+              "material": "2116",
+              "thickness": 127000
+            },
+            {
+              "dk": 4100,
+              "kind": "prepreg",
+              "material": "2313",
+              "thickness": 96400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 300000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 208400
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 208400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 300000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4100,
+              "kind": "prepreg",
+              "material": "2313",
+              "thickness": 96400
+            },
+            {
+              "dk": 4160,
+              "kind": "prepreg",
+              "material": "2116",
+              "thickness": 127000
+            },
+            {
+              "copper": 35000
+            }
+          ],
+          "name": "JLC06161H-2116",
+          "thickness": 1600000
+        },
+        {
+          "default": false,
+          "entries": [
+            {
+              "copper": 35000
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 218000
+            },
+            {
+              "dk": 3910,
+              "kind": "prepreg",
+              "material": "1080",
+              "thickness": 76400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 350000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 3910,
+              "kind": "prepreg",
+              "material": "1080",
+              "thickness": 76400
+            },
+            {
+              "dk": 3910,
+              "kind": "prepreg",
+              "material": "1080",
+              "thickness": 76400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 350000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 3910,
+              "kind": "prepreg",
+              "material": "1080",
+              "thickness": 76400
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 218000
+            },
+            {
+              "copper": 35000
+            }
+          ],
+          "name": "JLC06161H-7628B",
+          "thickness": 1600000
+        },
+        {
+          "default": false,
+          "entries": [
+            {
+              "copper": 35000
+            },
+            {
+              "dk": 4100,
+              "kind": "prepreg",
+              "material": "3313",
+              "thickness": 107000
+            },
+            {
+              "dk": 3910,
+              "kind": "prepreg",
+              "material": "1080",
+              "thickness": 76400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 250000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 210400
+            },
+            {
+              "dk": 4160,
+              "kind": "prepreg",
+              "material": "2116",
+              "thickness": 124000
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 210400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 250000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 3910,
+              "kind": "prepreg",
+              "material": "1080",
+              "thickness": 76400
+            },
+            {
+              "dk": 4100,
+              "kind": "prepreg",
+              "material": "3313",
+              "thickness": 107000
+            },
+            {
+              "copper": 35000
+            }
+          ],
+          "name": "JLC06161H-3313D",
+          "thickness": 1600000
+        },
+        {
+          "default": false,
+          "entries": [
+            {
+              "copper": 35000
+            },
+            {
+              "dk": 4160,
+              "kind": "prepreg",
+              "material": "2116",
+              "thickness": 127000
+            },
+            {
+              "dk": 4160,
+              "kind": "prepreg",
+              "material": "2116",
+              "thickness": 119400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 300000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4160,
+              "kind": "prepreg",
+              "material": "2116",
+              "thickness": 119400
+            },
+            {
+              "dk": 4160,
+              "kind": "prepreg",
+              "material": "2116",
+              "thickness": 127000
+            },
+            {
+              "dk": 4160,
+              "kind": "prepreg",
+              "material": "2116",
+              "thickness": 119400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 300000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4160,
+              "kind": "prepreg",
+              "material": "2116",
+              "thickness": 119400
+            },
+            {
+              "dk": 4160,
+              "kind": "prepreg",
+              "material": "2116",
+              "thickness": 127000
+            },
+            {
+              "copper": 35000
+            }
+          ],
+          "name": "JLC06161H-2116C",
+          "thickness": 1600000
+        },
+        {
+          "default": false,
+          "entries": [
+            {
+              "copper": 35000
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 218000
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 218000
+            },
+            {
+              "dk": 3910,
+              "kind": "prepreg",
+              "material": "1080",
+              "thickness": 76400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 100000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4160,
+              "kind": "prepreg",
+              "material": "2116",
+              "thickness": 116400
+            },
+            {
+              "dk": 4160,
+              "kind": "prepreg",
+              "material": "2116",
+              "thickness": 116400
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 4600,
+              "kind": "core",
+              "material": "FR-4",
+              "thickness": 100000
+            },
+            {
+              "copper": 15200
+            },
+            {
+              "dk": 3910,
+              "kind": "prepreg",
+              "material": "1080",
+              "thickness": 76400
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 218000
+            },
+            {
+              "dk": 4400,
+              "kind": "prepreg",
+              "material": "7628",
+              "thickness": 218000
+            },
+            {
+              "copper": 35000
+            }
+          ],
+          "name": "JLC06161H-7628A",
+          "thickness": 1600000
+        }
+      ],
+      "cpl": {
+        "bottom_position": "top_view",
+        "bottom_rotation": "negate",
+        "columns": [
+          {
+            "header": "Designator",
+            "source": "designator"
+          },
+          {
+            "header": "Mid X",
+            "source": "centre_x"
+          },
+          {
+            "header": "Mid Y",
+            "source": "centre_y"
+          },
+          {
+            "header": "Layer",
+            "source": "side"
+          },
+          {
+            "header": "Rotation",
+            "source": "rotation"
+          }
+        ],
+        "exclude_through_hole": false,
+        "side_values": {
+          "bottom": "Bottom",
+          "top": "Top"
+        },
+        "unit_suffix": false,
+        "units": "mm"
+      },
+      "gerber": {
+        "file_names": [],
+        "file_origin": "absolute",
+        "merge_drill": false,
+        "naming": "classic",
+        "outline_on_every_plot": false,
+        "slot_command": "route",
+        "x2_attributes": true
+      },
+      "name": "JLCPCB",
+      "placement_corrections": [],
+      "rules": {
+        "annular_ring": 180000,
+        "clearance": 100000,
+        "clearance_hole": {
+          "pad": 300000,
+          "via": 200000
+        },
+        "edge_clearance": 200000,
+        "hole_max": 6300000,
+        "hole_min": 200000,
+        "hole_to_hole": 450000,
+        "mask_expansion": {
+          "bottom": 0,
+          "from_hole_edge": false,
+          "tent_vias_bottom": true,
+          "tent_vias_top": true,
+          "top": 0
+        },
+        "paste_expansion": {
+          "expansion": 0
+        },
+        "preferred": {
+          "track_width": 250000,
+          "via_diameter": 660000,
+          "via_hole": 300000
+        },
+        "silk_text_height": 1000000,
+        "silk_width": 150000,
+        "track_width": 100000,
+        "via_diameter": 510000,
+        "via_hole": 150000
+      },
+      "stackup_suggestions": {
+        "copper": [
+          35000,
+          70000,
+          87500,
+          122500,
+          157500
+        ],
+        "finish": [
+          "HASL (leaded)",
+          "HASL (lead-free)",
+          "ENIG",
+          "OSP"
+        ],
+        "mask_color": [
+          "Green",
+          "Purple",
+          "Red",
+          "Yellow",
+          "Blue",
+          "White",
+          "Black"
+        ],
+        "silk_color": [],
+        "thickness": [
+          400000,
+          600000,
+          800000,
+          1000000,
+          1200000,
+          1600000,
+          2000000
+        ]
+      },
+      "uuid": "00000000-0000-4000-8000-00000000002d",
+      "zip_assembly": false
+    }
+  ],
+  "format": 3,
+  "output_jobs": [
+    {
+      "fab_preset": "00000000-0000-4000-8000-00000000002d",
+      "name": "JLCPCB",
+      "name_template": "${project}-${job}",
+      "not_fitted_paste": "keep",
+      "outputs": {
+        "bom": true,
+        "cpl": true,
+        "drill": true,
+        "drill_report": true,
+        "fab_notes": true,
+        "gerber": true,
+        "gerber_job": true,
+        "reports": true,
+        "schematic_pdf": true
+      },
+      "pcb": "00000000-0000-4000-8000-000000000003",
+      "schematic_pdf_colour": "colour",
+      "uuid": "00000000-0000-4000-8000-00000000002e"
+    }
+  ],
+  "project": {
+    "uuid": "00000000-0000-4000-8000-000000000001"
+  },
+  "properties": {
+    "author": "",
+    "company": "REDA reference Projects",
+    "date": "",
+    "revision": "A",
+    "title": "555 blinky"
+  }
+}

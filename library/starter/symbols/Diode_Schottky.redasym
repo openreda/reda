@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "symbol": {"uuid":"1dc9e0a2-8cd0-429f-aa80-97bcb550679c","name":"Diode_Schottky","designator_prefix":"D","description":"Schottky diode"},
   "units": [
     {"uuid":"bdab9218-4cf8-4dd0-828b-2b066ed2748b","name":"A"}

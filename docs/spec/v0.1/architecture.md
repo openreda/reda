@@ -98,7 +98,6 @@ These names are held for later milestones. They are additive, so they stay out o
 
 | Where | Names | Intended for |
 |---|---|---|
-| Layer | `purpose` on Mechanical and Documentation Layers | v0.3 |
 | Stackup and board | further stacks and regions, coverlay as a mask option, stiffeners as new objects | after 1.0 |
 | Rule record | `priority`; `footprint`, `pcb_net` and other scope filters | later |
 | Rule values | `slot` under `hole_size`, `by_object` under `edge_clearance` | later |
@@ -106,7 +105,6 @@ These names are held for later milestones. They are additive, so they stay out o
 | Via | `protection` (IPC-4761 type) | later |
 | Pad and Via | `testpoint` | v0.7 |
 | Placed objects | `group` | v0.5 |
-| PCB Document | `grids`, `guides` | later |
 | Pad | Polygon shape | v0.6 |
 | Pad | `jumper_id` | v0.6 |
 | Pad | full per-Layer Pad Stack mode | later |
@@ -121,14 +119,12 @@ These names are held for later milestones. They are additive, so they stay out o
 | Pin | `alt_names`, `inside` and `outside` decorations | v0.6 |
 | Pin | `swap_group` | v0.5 |
 | Pin | `package_length` | later |
-| Footprint | `bodies` | v0.3 |
 | `.redalib` | `field_template`, `check_severity_overrides` | v0.6 |
 | Library check | `unconnected_copper`, because Footprints have no copper graphics before v0.6 | v0.6 |
 | Project Settings | `higher_level_names_priority` (Higher Level Names Take Priority) | v0.5 |
 | Sheet frame | `style` (a frame template), `default_font` | v0.7 |
 | Project Settings | `text` as a value of `not_fitted_display` (a text overlay) | v0.5 |
 | Part | swap groups, equivalence id, pair group, per-Component pin permutation | v0.5 |
-| Footprint | `bodies` | v0.3 |
 | Footprint | `copper` graphics | v0.6 |
 | Component Type | `Jumper` | v0.6 |
 | Component Type | `Graphical` | v0.6 |
@@ -142,8 +138,6 @@ These names are held for later milestones. They are additive, so they stay out o
 | Waiver, Violation | an `objects` entry as `{uuid, instance}` beside a plain UUID, which means every Sheet Instance | v0.5 |
 | Report files | `reda://` cross-probe links | later |
 | Preferences | `network.*` | later |
-| Preferences | `canvas.wheel.*` | v0.3 |
-| PCB Document | `grids`, `guides` | v0.3 |
 | PCB text | `kind` (barcode, QR, Data Matrix) | v0.6 |
 | Dimension | `kind` beyond linear | v0.7 |
 | `pcb.place.obstacle_mode` | `push` | v0.4 |

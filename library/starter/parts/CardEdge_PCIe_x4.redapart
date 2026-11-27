@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "part": {"uuid":"a1ed1964-d3de-43dd-b97f-ffe5743ee5ee","name":"CardEdge_PCIe_x4","component_type":"standard","in_bom":false,"in_cpl":false,"symbol":"ce8d6ae9-c882-460e-9812-bd1070628ebd"},
   "footprints": [
     "485e03a0-c755-4a01-b4de-e758baae9e79"

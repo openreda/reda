@@ -3,31 +3,33 @@
 
 use reda_model::{
     BoardSetup, Bounds, Construction, DesignRule, DrcSeverities, FabPreset, FabRules, InDocument,
-    Layer, LayerKind, LayerSet, Object, PcbDocument, PreferredSeeds, RuleField, RuleKind,
+    Layer, LayerKind, LayerSet, Object, PcbDocument, PreferredSeeds, Purpose, RuleField, RuleKind,
     RuleScope, RuleValues, Side, Stackup, StackupSeeds, Uuid, ZoneNameScheme,
 };
 
-/// The v0.1 Layers, top to bottom.
-pub const V01_LAYERS: [(LayerKind, Option<Side>); 15] = {
+/// A new board's Layers, top to bottom: the fabrication Layers, then two unsided
+/// Mechanical Layers, Dimensions and Reference, each named after its Purpose.
+pub const NEW_BOARD_LAYERS: [(LayerKind, Option<Side>, Purpose); 15] = {
     use LayerKind::*;
     const TOP: Option<Side> = Some(Side::Top);
     const BOTTOM: Option<Side> = Some(Side::Bottom);
+    const NONE: Purpose = Purpose::General;
     [
-        (Courtyard, TOP),
-        (Assembly, TOP),
-        (Silkscreen, TOP),
-        (Paste, TOP),
-        (SolderMask, TOP),
-        (Copper, TOP),
-        (Copper, BOTTOM),
-        (SolderMask, BOTTOM),
-        (Paste, BOTTOM),
-        (Silkscreen, BOTTOM),
-        (Assembly, BOTTOM),
-        (Courtyard, BOTTOM),
-        (BoardOutline, None),
-        (Mechanical, None),
-        (Documentation, None),
+        (Courtyard, TOP, NONE),
+        (Assembly, TOP, NONE),
+        (Silkscreen, TOP, NONE),
+        (Paste, TOP, NONE),
+        (SolderMask, TOP, NONE),
+        (Copper, TOP, NONE),
+        (Copper, BOTTOM, NONE),
+        (SolderMask, BOTTOM, NONE),
+        (Paste, BOTTOM, NONE),
+        (Silkscreen, BOTTOM, NONE),
+        (Assembly, BOTTOM, NONE),
+        (Courtyard, BOTTOM, NONE),
+        (BoardOutline, None, NONE),
+        (Mechanical, None, Purpose::Dimensions),
+        (Mechanical, None, Purpose::Reference),
     ]
 };
 
@@ -251,6 +253,20 @@ pub fn multilayer_rules(mut id_for: impl FnMut(RuleKind) -> Uuid) -> Vec<DesignR
     .collect()
 }
 
+/// The board-wide records introduced by format 3: `component_height` with no limits, so
+/// nothing is checked until the user sets one.
+pub fn height_rules(mut id_for: impl FnMut(RuleKind) -> Uuid) -> Vec<DesignRule> {
+    let kind = RuleKind::ComponentHeight;
+    vec![DesignRule {
+        uuid: id_for(kind),
+        kind,
+        scope: RuleScope::BOARD,
+        values: RuleValues::default(),
+        enabled: true,
+        comment: None,
+    }]
+}
+
 /// The seeded `dead_copper` area: 100 square mil (0.0645 mm²), in square nanometres.
 pub const DEAD_COPPER_MIN_AREA: i64 = 25_400 * 25_400 * 100;
 
@@ -438,24 +454,28 @@ fn build_board(
     } else {
         StackupSeeds::default()
     };
-    let mut kinds = V01_LAYERS.to_vec();
+    let mut kinds = NEW_BOARD_LAYERS.to_vec();
     let middle = kinds
         .iter()
-        .position(|l| *l == (LayerKind::Copper, Some(Side::Bottom)))
+        .position(|l| (l.0, l.1) == (LayerKind::Copper, Some(Side::Bottom)))
         .unwrap();
     kinds.splice(
         middle..middle,
-        std::iter::repeat_n((LayerKind::Copper, None), usize::from(layers - 2)),
+        std::iter::repeat_n(
+            (LayerKind::Copper, None, Purpose::General),
+            usize::from(layers - 2),
+        ),
     );
     let layers = LayerSet {
         uuid: new_id(),
         layers: kinds
             .iter()
-            .map(|&(kind, side)| Layer {
+            .map(|&(kind, side, purpose)| Layer {
                 uuid: new_id(),
                 kind,
                 side,
-                name: None,
+                name: (kind == LayerKind::Mechanical).then(|| purpose.title().to_owned()),
+                purpose,
                 role: Default::default(),
             })
             .collect(),
@@ -511,6 +531,11 @@ fn build_board(
             objects.push(Object::DesignRule(InDocument::new(document, rule)));
         }
     }
+    objects.extend(
+        height_rules(|_| new_id())
+            .into_iter()
+            .map(|rule| Object::DesignRule(InDocument::new(document, rule))),
+    );
     let stackup = seeded_stackup(&layers, stackup, rules.preferred, construction, &mut new_id)
         .map_err(|why| reda_command::CommandError::invalid_params("/construction", why))?;
     objects.push(Object::Stackup(InDocument::new(document, stackup)));

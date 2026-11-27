@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "symbol": {"uuid":"0b05377b-6877-4891-a5eb-cdfa88d54846","name":"CardEdge_M.2_Key_B","designator_prefix":"J","description":"M.2 card edge, key B, 67 fingers"},
   "units": [
     {"uuid":"ba64610a-c335-4cdd-921f-2d4d2b809267","name":"A"}

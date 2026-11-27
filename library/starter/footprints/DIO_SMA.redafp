@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "footprint": {"uuid":"d7207e2b-b137-4fb4-a47b-9c233f186cc7","name":"DIO_SMA","description":"Diode, SMA (DO-214AC), 4.32 × 2.60 mm body. Lands per onsemi SMA case 403D, Recommended Mounting Footprint","height":2440000},
   "pads": [
     {"uuid":"55599826-1bb0-47fb-9eb1-41c6b25fbe56","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":2000000,"y":0},"rotation":0,"width":2000000,"height":2000000,"corner_ratio":50000},

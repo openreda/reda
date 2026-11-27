@@ -10,7 +10,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use reda_model::geom::{Millideg, Nm, Point, Vertex};
 use reda_model::{
-    DrawingKind, DrawingLayer, FreePad, KeepoutShapeKind, Restriction, Side, TemplateCopperLayer,
+    DrawingKind, FreePad, KeepoutShapeKind, Purpose, Restriction, Side, TemplateCopperLayer,
     TemplateFollow, Uuid,
 };
 use schemars::JsonSchema;
@@ -189,7 +189,7 @@ pub struct FrameDrill {
 pub struct FrameDrawingGroup {
     pub uuid: Uuid,
     pub name: String,
-    pub layer: DrawingLayer,
+    pub purpose: Purpose,
     #[serde(skip_serializing_if = "is_false")]
     pub excluded: bool,
     pub drawings: Vec<FrameDrawing>,

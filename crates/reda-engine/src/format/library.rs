@@ -2,7 +2,7 @@
 //!
 //! ```text
 //! {
-//!   "format": 2,
+//!   "format": 3,
 //!   "symbol": {"uuid":"…","name":"OpAmp_Dual","designator_prefix":"U"},
 //!   "units": [
 //!     {"uuid":"…","name":"A"}

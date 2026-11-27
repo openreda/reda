@@ -1286,7 +1286,7 @@
       "description": "The CPL columns, in order."
     },
     "format": {
-      "const": 2,
+      "const": 3,
       "description": "The file-format version. REDA writes only the current one.",
       "type": "integer"
     },

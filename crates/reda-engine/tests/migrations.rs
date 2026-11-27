@@ -19,7 +19,7 @@ const GOLDEN: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/golden/migratio
 const FORMATS: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/golden/formats");
 const CURRENT: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/tests/golden/formats/migrated-v2"
+    "/tests/golden/formats/migrated-v3"
 );
 
 #[test]
@@ -44,8 +44,16 @@ fn every_frozen_format_opens_and_saves_as_the_current_goldens() {
         );
         engine.run_ok("project.save", json!({}));
         let saved = read_tree(dir.path());
-        for (rel, current) in read_tree(Path::new(CURRENT)) {
-            assert_eq!(saved[&rel], current, "v{n}: {rel}");
+        assert_eq!(
+            saved
+                .keys()
+                .filter(|rel| !rel.starts_with(".reda/"))
+                .count(),
+            files.len(),
+            "v{n}"
+        );
+        for rel in files.keys() {
+            assert_golden(Path::new(CURRENT).join(rel), &saved[rel]);
         }
     }
 }
@@ -101,11 +109,37 @@ fn every_real_step_has_goldens_for_every_file_kind() {
             if n == 1 {
                 check_release_step(kind, steps);
             } else {
-                let dir = Path::new(GOLDEN).join(format!("v{n}-to-v{}", n + 1));
-                check_step_golden(&dir, steps, kind);
+                check_frozen_step(n as u32, kind);
             }
         }
     }
+}
+
+/// Runs the chain on the frozen file of `kind` that release `n` wrote, and compares the
+/// raw step output with `tests/golden/migrations/v<n>-to-v<n+1>/<ext>.after.json`.
+fn check_frozen_step(n: u32, kind: FileKind) {
+    let file = match kind {
+        FileKind::Project => "blinky_555/Blinky.reda",
+        FileKind::Pcb => "blinky_555/Blinky.redapcb",
+        FileKind::Sheet => "blinky_555/Blinky.redasch",
+        FileKind::Library => "standalone/Starter.redalib",
+        FileKind::Symbol => "standalone/Resistor.redasym",
+        FileKind::Footprint => "standalone/CAPC1005X40N.redafp",
+        FileKind::Part => "standalone/Resistor.redapart",
+        FileKind::FabPreset => "standalone/Blinky.redafab",
+        FileKind::Rules => "standalone/Blinky.redarules",
+        FileKind::BoardTemplate => "standalone/PCI_Express_add-in_card.redaboard",
+    };
+    let before: Value =
+        serde_json::from_slice(&std::fs::read(frozen_inputs(n).join(file)).unwrap()).unwrap();
+    let after = migrate_checked_with(kind, before, &MIGRATIONS[..n as usize]).unwrap();
+    let mut text = serde_json::to_string_pretty(&after).unwrap();
+    text.push('\n');
+    let dir = Path::new(GOLDEN).join(format!("v{n}-to-v{}", n + 1));
+    assert_golden(
+        dir.join(format!("{}.after.json", kind.extension())),
+        text.as_bytes(),
+    );
 }
 
 fn check_release_step(kind: FileKind, steps: &[Migration]) {
@@ -213,10 +247,15 @@ fn every_released_library_kind_moves_to_format_two_without_changing_contents() {
     ] {
         let before = std::fs::read(Path::new(V1).join(file)).unwrap();
         let mut expected: Value = serde_json::from_slice(&before).unwrap();
-        let migrated = migrate(kind, expected.clone()).unwrap();
+        let migrated = to_v2(kind, expected.clone()).unwrap();
         expected["format"] = json!(2);
         assert_eq!(migrated, expected, "{}", kind.extension());
     }
+}
+
+/// Runs only the format 1 to 2 step, checked, for tests of what that step did.
+fn to_v2(kind: FileKind, file: Value) -> Result<Value, String> {
+    migrate_checked_with(kind, file, &MIGRATIONS[..1])
 }
 
 const V1: &str = concat!(
@@ -364,7 +403,8 @@ proptest::proptest! {
             }
         }
         for layer in saved["layers"]["layers"].as_array().unwrap() {
-            proptest::prop_assert!(layer.get("name").is_none() && layer.get("role").is_none());
+            proptest::prop_assert!(layer.get("role").is_none());
+            proptest::prop_assert_eq!(layer.get("name").is_some(), layer["kind"] == "mechanical");
         }
         let stack = &saved["stackups"][0];
         let types = stack["via_types"].as_array().unwrap();
@@ -490,34 +530,72 @@ fn a_released_rules_file_changes_only_its_version_and_boardwide_via_preferences(
     let mut expected = original.clone();
     expected["format"] = json!(2);
     expected["rules"][2]["values"] = json!({"diameter":{"min":510000},"hole":{"min":150000}});
-    assert_eq!(migrate(FileKind::Rules, original).unwrap(), expected);
+    assert_eq!(to_v2(FileKind::Rules, original).unwrap(), expected);
 }
 
+/// What the canonical writer saves of the Project at `manifest`, read through the chain.
+fn saved_now(manifest: &Path) -> Vec<(String, Vec<u8>)> {
+    let (project, _) = reda_engine::store::load(manifest).unwrap();
+    reda_engine::store::encode(&project).unwrap()
+}
+
+/// Writes `files` under a new folder and saves the Project again from there.
+fn saved_after_reopen(files: &[(String, Vec<u8>)], manifest: &str) -> Vec<(String, Vec<u8>)> {
+    let reopened = TempDir::new("canonical-migration");
+    for (rel, bytes) in files {
+        let file = reopened.path().join(rel);
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::write(&file, bytes).unwrap();
+    }
+    saved_now(&reopened.path().join(manifest))
+}
+
+/// A 0.1.0 Project runs both steps, and lands where the 1 to 2 step's canonical goldens
+/// (what the format-2 writer saved of it) land through the 2 to 3 step.
 #[test]
-fn released_projects_migrate_to_canonical_goldens_and_save_identically_on_reopen() {
+fn released_v1_projects_run_both_steps_and_save_identically_on_reopen() {
     let frozen = Path::new(V1);
     let goldens = frozen.parent().unwrap().join("migrated-v2");
-    for (folder, manifest) in [
-        ("minimal_board", "Minimal.reda"),
-        ("blinky_555", "Blinky.reda"),
-        ("usb_c_mcu", "UsbMcu.reda"),
-    ] {
-        let source = frozen.join(folder);
-        let (project, _) = reda_engine::store::load(&source.join(manifest)).unwrap();
-        let files = reda_engine::store::encode(&project).unwrap();
-        let reopened = TempDir::new("canonical-migration");
+    for (folder, manifest) in V1_PROJECTS {
+        let files = saved_now(&frozen.join(folder).join(manifest));
+        let via_v2 = saved_now(&goldens.join(folder).join(manifest));
+        assert_eq!(files, via_v2, "{folder}");
+        assert_eq!(saved_after_reopen(&files, manifest), files, "{folder}");
+    }
+}
+
+/// Every 0.2.0 reference Project migrates to its canonical format-3 golden and saves the
+/// same again on reopen.
+#[test]
+fn released_v2_projects_migrate_to_canonical_goldens_and_save_identically_on_reopen() {
+    let frozen = frozen_inputs(2);
+    let goldens = frozen.parent().unwrap().join("migrated-v3");
+    for (folder, manifest) in V2_PROJECTS {
+        let files = saved_now(&frozen.join(folder).join(manifest));
         for (rel, bytes) in &files {
-            let file = reopened.path().join(rel);
-            std::fs::create_dir_all(file.parent().unwrap()).unwrap();
-            std::fs::write(&file, bytes).unwrap();
             if !rel.starts_with(".reda/") {
                 assert_golden(goldens.join(folder).join(rel), bytes);
             }
         }
-        let (again, _) = reda_engine::store::load(&reopened.path().join(manifest)).unwrap();
-        assert_eq!(reda_engine::store::encode(&again).unwrap(), files);
+        assert_eq!(saved_after_reopen(&files, manifest), files, "{folder}");
     }
 }
+
+const V1_PROJECTS: [(&str, &str); 3] = [
+    ("minimal_board", "Minimal.reda"),
+    ("blinky_555", "Blinky.reda"),
+    ("usb_c_mcu", "UsbMcu.reda"),
+];
+
+const V2_PROJECTS: [(&str, &str); 7] = [
+    ("minimal_board", "Minimal.reda"),
+    ("blinky_555", "Blinky.reda"),
+    ("usb_c_mcu", "UsbMcu.reda"),
+    ("four_layer", "FourLayer.reda"),
+    ("six_layer_hdi", "SixLayerHdi.reda"),
+    ("castellated_module", "Castellated.reda"),
+    ("m2_card", "M2Card.reda"),
+];
 
 #[test]
 fn board_wide_via_preferences_cannot_be_set_or_cleared_after_migration() {
@@ -635,8 +713,12 @@ fn a_legacy_board_with_an_explicit_null_net_class_saves_as_the_same_migrated_boa
     let golden = Path::new(V1)
         .parent()
         .unwrap()
-        .join("migrated-v2/blinky_555/Blinky.redapcb");
-    assert_eq!(migrated, std::fs::read(golden).unwrap());
+        .join("migrated-v2/blinky_555/Blinky.reda");
+    let (_, expected) = saved_now(&golden)
+        .into_iter()
+        .find(|(name, _)| name == "Blinky.redapcb")
+        .unwrap();
+    assert_eq!(migrated, expected);
 }
 
 #[test]
@@ -801,5 +883,147 @@ fn every_real_step_refuses_input_its_release_did_not_declare() {
         let why = migrate(FileKind::Project, project).unwrap_err();
         assert!(why.contains(&format!("format {n}")), "{why}");
         assert!(why.contains("hand_edited"), "{why}");
+    }
+}
+
+/// Reads a frozen format-2 file.
+fn frozen_v2(file: &str) -> Value {
+    serde_json::from_slice(&std::fs::read(frozen_inputs(2).join(file)).unwrap()).unwrap()
+}
+
+/// The format-2 Layer list of `board` with the Mechanical and Documentation Layers
+/// rewritten as the 2 to 3 step writes them, and moved right after the Board Outline.
+fn three_layers(board: &Value) -> Vec<Value> {
+    let layers = board["layers"]["layers"].as_array().unwrap();
+    let mut out: Vec<Value> = layers
+        .iter()
+        .filter(|l| l["kind"] != "mechanical" && l["kind"] != "documentation")
+        .cloned()
+        .collect();
+    let outline = out
+        .iter()
+        .position(|l| l["kind"] == "board_outline")
+        .unwrap();
+    let renamed = |kind: &'static str, name: &'static str, purpose: &'static str| {
+        layers.iter().filter(move |l| l["kind"] == kind).map(move |l| {
+            json!({"uuid": l["uuid"], "kind": "mechanical", "name": name, "purpose": purpose})
+        })
+    };
+    let mechanical: Vec<Value> = renamed("mechanical", "Dimensions", "dimensions")
+        .chain(renamed("documentation", "Reference", "reference"))
+        .collect();
+    out.splice(outline + 1..outline + 1, mechanical);
+    out
+}
+
+fn height_record(file: &Value) -> &Value {
+    file["rules"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["kind"] == "component_height")
+        .expect("a component_height record")
+}
+
+#[test]
+fn the_two_to_three_step_turns_the_old_layers_into_dimensions_and_reference() {
+    for project in ["blinky_555/Blinky.redapcb", "four_layer/FourLayer.redapcb"] {
+        let original = frozen_v2(project);
+        let migrated = migrate(FileKind::Pcb, original.clone()).unwrap();
+        let mut expected = original.clone();
+        expected["format"] = json!(3);
+        expected["layers"]["layers"] = json!(three_layers(&original));
+        let uuid = height_record(&migrated)["uuid"].clone();
+        expected["rules"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({"uuid": uuid, "kind": "component_height", "scope": {}, "values": {}}));
+        assert_eq!(migrated, expected, "{project}");
+        let kinds: Vec<_> = migrated["layers"]["layers"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .rev()
+            .take(3)
+            .map(|l| l["kind"].clone())
+            .collect();
+        assert_eq!(kinds, ["mechanical", "mechanical", "board_outline"]);
+    }
+}
+
+#[test]
+fn the_two_to_three_step_gives_the_height_record_an_identity_no_object_has() {
+    let original = frozen_v2("blinky_555/Blinky.redapcb");
+    let taken = height_record(&migrate(FileKind::Pcb, original.clone()).unwrap())["uuid"].clone();
+    let mut clash = original;
+    clash["rules"][0]["uuid"] = taken.clone();
+    let migrated = migrate(FileKind::Pcb, clash.clone()).unwrap();
+    assert_ne!(height_record(&migrated)["uuid"], taken);
+    assert_eq!(migrate(FileKind::Pcb, clash).unwrap(), migrated);
+}
+
+/// A hand-edited format-2 board its schema allowed: two Mechanical Layers, one of them
+/// before the copper, and no Documentation Layer.
+#[test]
+fn the_two_to_three_step_moves_misplaced_layers_and_numbers_a_repeated_name() {
+    let mut board = frozen_v2("minimal_board/Minimal.redapcb");
+    check_released(2, FileKind::Pcb, &board).unwrap();
+    let layers = board["layers"]["layers"].as_array_mut().unwrap();
+    let documentation = layers
+        .iter()
+        .position(|l| l["kind"] == "documentation")
+        .unwrap();
+    let mut first = layers.remove(documentation);
+    first["kind"] = json!("mechanical");
+    layers.insert(0, first.clone());
+    let migrated = migrate(FileKind::Pcb, board).unwrap();
+    let layers = migrated["layers"]["layers"].as_array().unwrap();
+    let outline = layers
+        .iter()
+        .position(|l| l["kind"] == "board_outline")
+        .unwrap();
+    assert!(layers[..outline].iter().all(|l| l["kind"] != "mechanical"));
+    let tail: Vec<_> = layers[outline + 1..]
+        .iter()
+        .map(|l| (l["uuid"].clone(), l["name"].clone()))
+        .collect();
+    assert_eq!(tail.len(), 2);
+    assert_eq!(tail[0], (first["uuid"].clone(), json!("Dimensions")));
+    assert_eq!(tail[1].1, "Dimensions 2");
+}
+
+#[test]
+fn the_two_to_three_step_names_drawing_groups_by_purpose() {
+    let original = frozen_v2("standalone/PCI_Express_add-in_card.redaboard");
+    let migrated = migrate(FileKind::BoardTemplate, original.clone()).unwrap();
+    let mut expected = original;
+    expected["format"] = json!(3);
+    for group in expected["drawing_groups"].as_array_mut().unwrap() {
+        let layer = group.as_object_mut().unwrap().remove("layer").unwrap();
+        group["purpose"] = match layer.as_str().unwrap() {
+            "mechanical" => json!("dimensions"),
+            "documentation" => json!("reference"),
+            other => panic!("{other}"),
+        };
+    }
+    assert_eq!(migrated, expected);
+    let purposes: Vec<_> = migrated["drawing_groups"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|g| g["purpose"].clone())
+        .collect();
+    assert_eq!(purposes, ["dimensions", "reference"]);
+}
+
+#[test]
+fn every_other_frozen_format_two_file_moves_to_format_three_unchanged() {
+    for (rel, kind, file) in frozen_files(&frozen_inputs(2)) {
+        if matches!(kind, FileKind::Pcb | FileKind::BoardTemplate) {
+            continue;
+        }
+        let mut expected = file.clone();
+        expected["format"] = json!(3);
+        assert_eq!(migrate(kind, file).unwrap(), expected, "{rel}");
     }
 }

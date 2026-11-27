@@ -65,7 +65,7 @@ fn copied_part(part: &str, entry: u128) -> (TemplatePart, Vec<FootprintCopy>) {
 /// A 4-layer fixture board whose outline starts at (10, 20) mm: a plated bottom edge, a
 /// cutout, a top and an all-copper Keepout, a Locked header on the bottom and an unlocked
 /// one, a Locked M3 hole, a Locked and an unlocked Free Pad, a Dimension from an outline
-/// vertex to the Locked Free Pad, a free text on Documentation and an edge connector.
+/// vertex to the Locked Free Pad, a free text on the Reference Layer and an edge connector.
 fn fixture() -> BoardTemplate {
     let mut t = BoardTemplate::new(id(100), "Offset board");
     t.suggested_layers = 4;
@@ -116,8 +116,8 @@ fn fixture() -> BoardTemplate {
     ]))
     .unwrap();
     t.drawing_groups = serde_json::from_value(json!([
-        {"uuid": s(140), "name": "Key dimensions", "layer": "mechanical"},
-        {"uuid": s(141), "name": "Notes", "layer": "documentation"}
+        {"uuid": s(140), "name": "Key dimensions", "purpose": "dimensions"},
+        {"uuid": s(141), "name": "Notes", "purpose": "reference"}
     ]))
     .unwrap();
     t.drawings = serde_json::from_value(json!([
@@ -322,11 +322,22 @@ fn saving_captures_the_defaults_shifted_to_the_origin_as_literals() {
     assert_eq!((int(&pad.at.x), int(&pad.at.y)), (mm(5.0), mm(5.0)));
     assert_eq!(int(&pad.pad.as_ref().unwrap().width), mm(3.2));
 
-    // Two drawing groups named after their Layer; a Dimension keeps the reference whose
-    // target came along, and the end on the unlocked Free Pad becomes free.
-    let mut groups: Vec<&str> = t.drawing_groups.iter().map(|g| g.name.as_str()).collect();
+    // Two drawing groups named after their Layer and carrying its Purpose; a Dimension
+    // keeps the reference whose target came along, and the end on the unlocked Free Pad
+    // becomes free.
+    let mut groups: Vec<_> = t
+        .drawing_groups
+        .iter()
+        .map(|g| (g.name.as_str(), g.purpose))
+        .collect();
     groups.sort();
-    assert_eq!(groups, ["Documentation drawings", "Mechanical drawings"]);
+    assert_eq!(
+        groups,
+        [
+            ("Dimensions", reda_engine::model::Purpose::Dimensions),
+            ("Reference", reda_engine::model::Purpose::Reference)
+        ]
+    );
     assert_eq!(t.drawings.len(), 4);
     let followed = t
         .drawings
@@ -388,7 +399,7 @@ fn objects_names_exactly_what_comes_along() {
         .layers()
         .layers
         .iter()
-        .find(|l| l.kind == reda_engine::model::LayerKind::Documentation)
+        .find(|l| l.purpose == reda_engine::model::Purpose::Reference)
         .unwrap()
         .uuid;
     b.save(
@@ -400,7 +411,7 @@ fn objects_names_exactly_what_comes_along() {
     assert_eq!(t.holes.len(), 1);
     assert!(!t.holes[0].locked);
     assert_eq!(t.drawing_groups.len(), 1);
-    assert_eq!(t.drawing_groups[0].name, "Documentation drawings");
+    assert_eq!(t.drawing_groups[0].name, "Reference");
     assert_eq!(t.drawings.len(), 2);
 }
 
@@ -579,7 +590,7 @@ fn comparable(frame: &Frame) -> Vec<String> {
                 let deg = (dy as f64).atan2(dx as f64).to_degrees();
                 row["rotation"] = json!(((deg * 1000.0).round() as i64).rem_euclid(360_000));
             }
-            push(&format!("drawing {:?}", g.layer), row);
+            push(&format!("drawing {:?}", g.purpose), row);
         }
     }
     push("board", value(&frame.board));

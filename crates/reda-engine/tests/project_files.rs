@@ -204,10 +204,11 @@ fn open_refuses_a_sheet_whose_uuid_disagrees_with_the_project_file() {
     assert_eq!(err.code, ErrorCode::Rejected);
 }
 
-/// Document-level grids and guides are reserved names for v0.3: the PCB file has no
-/// tables for them, not even empty ones, and refuses them on read.
+/// Document-level grids and guides left the reserved names with format 3, but the PCB
+/// file has no tables for them until Board Grids and Guides arrive: not even empty ones,
+/// and it refuses them on read.
 #[test]
-fn grids_and_guides_stay_reserved_in_the_pcb_file() {
+fn grids_and_guides_are_not_yet_in_the_pcb_file() {
     let (_dir, folder) = saved_project("open-reserved");
     let file = folder.join("Demo.redapcb");
     let text = std::fs::read_to_string(&file).unwrap();

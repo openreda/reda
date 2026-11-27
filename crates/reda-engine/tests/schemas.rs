@@ -7,15 +7,20 @@ use serde_json::{Value, json};
 
 const SCHEMAS: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../docs/schemas");
 
+/// The current schemas sit in `docs/schemas/` and, as the format's own copy, in
+/// `docs/schemas/v<FORMAT>/`. While the format is unreleased both follow the code; the
+/// release that ships it freezes the versioned copy as it stands.
 #[test]
 fn the_checked_in_schemas_are_fresh() {
     for kind in FileKind::ALL {
         let mut text = serde_json::to_string_pretty(&schema(kind)).unwrap();
         text.push('\n');
-        assert_golden(
-            format!("{SCHEMAS}/{}.schema.json", kind.extension()),
-            text.as_bytes(),
-        );
+        let name = format!("{}.schema.json", kind.extension());
+        assert_golden(format!("{SCHEMAS}/{name}"), text.as_bytes());
+        // A released format's copy is never blessed: the test below holds it.
+        if RELEASED < FORMAT {
+            assert_golden(format!("{SCHEMAS}/v{FORMAT}/{name}"), text.as_bytes());
+        }
     }
 }
 

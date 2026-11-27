@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "uuid": "4b5a3569-5fcc-49b3-8af9-5d5fdda27d41",
   "name": "Custom rectangle",
   "description": "A plain rectangular board of any size, optionally with rounded corners. Its lower-left corner is at the origin. It has no holes, connectors, Keepouts or drawings.",

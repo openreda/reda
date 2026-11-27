@@ -1,5 +1,5 @@
 {
-  "format": 2,
+  "format": 3,
   "symbol": {"uuid":"51328428-3f15-4566-9894-e834d0fb7d0d","name":"Fuse","designator_prefix":"F","description":"Fuse"},
   "units": [
     {"uuid":"914f659b-c304-407f-bbbf-9db8fb2598cc","name":"A"}

@@ -1176,10 +1176,8 @@ layer_colors! {
     assembly_bottom,
     /// The Board Outline.
     board_outline,
-    /// The Mechanical Layer.
+    /// Every Mechanical Layer.
     mechanical,
-    /// The Documentation Layer.
-    documentation,
 }
 
 /// Whether `text` is a colour written `#rrggbb`.
