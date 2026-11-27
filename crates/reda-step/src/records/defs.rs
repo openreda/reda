@@ -282,6 +282,25 @@ entity! {
     }
 }
 
+entity! {
+    /// A representation offered for reuse, with the placement in it that a
+    /// [`MappedItem`] lines up with its own.
+    RepresentationMap = "REPRESENTATION_MAP" {
+        mapping_origin: RecordId,
+        mapped_representation: RecordId,
+    }
+}
+
+entity! {
+    /// One use of a [`RepresentationMap`] as an item of another representation: the map's
+    /// origin moved onto `mapping_target`.
+    MappedItem = "MAPPED_ITEM" {
+        name: String,
+        mapping_source: RecordId,
+        mapping_target: RecordId,
+    }
+}
+
 // ---------------------------------------------------------------------------------------------
 // Units and measures (ISO 10303-41)
 
@@ -403,6 +422,22 @@ entity! {
         position: RecordId,
         semi_axis_1: f64,
         semi_axis_2: f64,
+    }
+}
+
+entity! {
+    /// `C(t) = o + a·(t²·x + 2t·y)`, `a` the focal distance. A plane parallel to a cone's
+    /// generator cuts it in one.
+    Parabola = "PARABOLA" { name: String, position: RecordId, focal_dist: f64 }
+}
+
+entity! {
+    /// `C(t) = o + a·cosh t·x + b·sinh t·y`. A plane parallel to a cone's axis cuts it in one.
+    Hyperbola = "HYPERBOLA" {
+        name: String,
+        position: RecordId,
+        semi_axis: f64,
+        semi_imag_axis: f64,
     }
 }
 

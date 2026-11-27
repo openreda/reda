@@ -238,6 +238,8 @@ record_enum! {
     ShapeRepresentationRelationship,
     ShapeRepresentationTransformation,
     ItemDefinedTransformation,
+    RepresentationMap,
+    MappedItem,
     // Units
     Unit,
     DimensionalExponents,
@@ -253,6 +255,8 @@ record_enum! {
     Line,
     Circle,
     Ellipse,
+    Parabola,
+    Hyperbola,
     Polyline,
     CompositeCurve,
     CompositeCurveSegment,

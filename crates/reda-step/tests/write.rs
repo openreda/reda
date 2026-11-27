@@ -7,12 +7,15 @@ use reda_step::{
     write, write_file,
 };
 
-const FIXTURES: [&str; 5] = [
+const FIXTURES: [&str; 8] = [
     "ap203_cylinder.step",
     "ap214_face_colours.step",
     "ap242_solid_colour.step",
     "inch_block.step",
     "nested_assembly.step",
+    "parabola_cut.step",
+    "hyperbola_cut.step",
+    "mapped_items.step",
 ];
 
 fn fixture(name: &str) -> StepModel {

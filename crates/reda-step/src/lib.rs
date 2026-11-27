@@ -8,9 +8,12 @@
 //!   radians.
 //! - [`write`] writes a model as AP214, and [`write_file`] gzips it when the name ends in
 //!   `.stpz`.
+//! - [`StepModel::mesh`] tessellates a model's faces into coloured meshes, keeping its assembly
+//!   tree and placements; [`load`] reads, converts to millimetres and meshes in one go.
 //!
 //! REDA takes no CAD kernel (ADR-0018): the parser, writer and records are REDA's own.
 
+mod mesh;
 mod model;
 pub mod part21;
 mod read;
@@ -18,6 +21,10 @@ pub mod records;
 mod units;
 mod write;
 
+pub use mesh::{
+    BoundingBox, Colour, Instance, Loaded, Mesh, MeshFace, MeshOptions, MeshedModel, Node, Part,
+    Solid, Transform, load,
+};
 pub use model::{AP214_APPLICATION, AP214_SCHEMA, Header, Protocol, StepModel};
 pub use read::{Read, ReadError, read, read_file};
 pub use records::{Record, RecordId};
