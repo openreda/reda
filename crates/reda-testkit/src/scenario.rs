@@ -19,23 +19,46 @@
 //! Blessing (`REDA_BLESS=1`) rewrites the goldens, removes stale ones, and rewrites each
 //! script as the replay's Journal, so steps written without a `result` get one. The
 //! temporary folders are written back as the script's own placeholder paths.
+//!
+//! [`run_scenarios_with`] replays through another runner of Commands, such as an app
+//! window for the scripts that use its view Commands; everything else is the same.
 
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use reda_engine::{journal, store};
+use reda_engine::journal::ScriptEntry;
+use reda_engine::{Engine, journal, store};
 
 use crate::{TempDir, read_tree, starter_library, test_engine_with_library};
 
 /// The one file the goldens leave out: its content `*` would ignore itself.
 const SKIPPED: &str = ".reda/.gitignore";
 
+/// What replaying a script left.
+pub struct Replayed {
+    /// The goldens' side: [`project_files`] after the last step.
+    pub files: BTreeMap<String, Vec<u8>>,
+    /// The script's own steps as replayed, in the Journal format (`journal::export`):
+    /// what blessing writes back as the script.
+    pub journal: String,
+}
+
 /// Runs every scenario script in `dir` and panics listing every failure.
 /// With `REDA_BLESS=1` it rewrites the goldens and scripts instead.
 #[track_caller]
 pub fn run_scenarios(dir: impl AsRef<Path>) {
+    run_scenarios_with(dir, replay_on_engine);
+}
+
+/// [`run_scenarios`], replaying each script's steps with `replay`. The steps' `project.new`
+/// paths already point at a temporary folder.
+#[track_caller]
+pub fn run_scenarios_with(
+    dir: impl AsRef<Path>,
+    replay: impl FnMut(&[ScriptEntry]) -> Result<Replayed, String>,
+) {
     let bless = std::env::var_os("REDA_BLESS").is_some_and(|v| v == "1");
-    let failures = scenario_failures(dir.as_ref(), bless);
+    let failures = scenario_failures_with(dir.as_ref(), bless, replay);
     if !failures.is_empty() {
         panic!(
             "{} scenario failure(s); rerun with REDA_BLESS=1 to accept changed goldens\n{}",
@@ -49,6 +72,15 @@ pub fn run_scenarios(dir: impl AsRef<Path>) {
 /// and scripts of each script that replays, rather than comparing. A folder with no script
 /// is a failure.
 pub fn scenario_failures(dir: &Path, bless: bool) -> Vec<String> {
+    scenario_failures_with(dir, bless, replay_on_engine)
+}
+
+/// [`scenario_failures`], replaying each script's steps with `replay`.
+pub fn scenario_failures_with(
+    dir: &Path,
+    bless: bool,
+    mut replay: impl FnMut(&[ScriptEntry]) -> Result<Replayed, String>,
+) -> Vec<String> {
     let mut scripts: Vec<_> = std::fs::read_dir(dir)
         .map(|entries| {
             entries
@@ -65,7 +97,7 @@ pub fn scenario_failures(dir: &Path, bless: bool) -> Vec<String> {
     let mut failures = Vec::new();
     for script in scripts {
         let name = script.file_name().unwrap().to_string_lossy().into_owned();
-        if let Err(mut more) = run_one(&script, bless) {
+        if let Err(mut more) = run_one(&script, bless, &mut replay) {
             for failure in &mut more {
                 *failure = format!("{name}: {failure}");
             }
@@ -75,30 +107,54 @@ pub fn scenario_failures(dir: &Path, bless: bool) -> Vec<String> {
     failures
 }
 
-fn run_one(script: &Path, bless: bool) -> Result<(), Vec<String>> {
+/// The goldens' side of `engine`'s open Project: every file it would save but
+/// `.reda/.gitignore`, and the files of its Project Libraries inside its folder as they
+/// are on disk. Nothing while no Project is open.
+pub fn project_files(engine: &Engine) -> Result<BTreeMap<String, Vec<u8>>, String> {
+    let mut files = BTreeMap::new();
+    let Some(project) = engine.project() else {
+        return Ok(files);
+    };
+    let encoded = store::encode(project).map_err(|e| format!("encoding: {e}"))?;
+    files.extend(encoded.into_iter().filter(|(path, _)| path != SKIPPED));
+    if let Some(folder) = engine.location() {
+        for library in project
+            .props()
+            .libraries
+            .iter()
+            .filter(|l| !l.starts_with(".."))
+        {
+            for (path, bytes) in read_tree(&folder.join(library)) {
+                files.insert(format!("{library}/{path}"), bytes);
+            }
+        }
+    }
+    Ok(files)
+}
+
+/// Replays `steps` on a fresh test engine with the starter Library.
+fn replay_on_engine(steps: &[ScriptEntry]) -> Result<Replayed, String> {
+    let mut engine = test_engine_with_library(&starter_library());
+    journal::replay(&mut engine, steps).map_err(|e| e.to_string())?;
+    Ok(Replayed {
+        files: project_files(&engine)?,
+        journal: journal::export(engine.journal()),
+    })
+}
+
+fn run_one(
+    script: &Path,
+    bless: bool,
+    replay: &mut impl FnMut(&[ScriptEntry]) -> Result<Replayed, String>,
+) -> Result<(), Vec<String>> {
     let text = std::fs::read_to_string(script).map_err(|e| vec![format!("unreadable: {e}")])?;
     let mut steps = journal::parse(&text).map_err(|e| vec![e.to_string()])?;
     let work = TempDir::new("scenario");
     let placeholders = journal::relocate_new_projects(&mut steps, work.path());
-    let mut engine = test_engine_with_library(&starter_library());
-    journal::replay(&mut engine, &steps).map_err(|e| vec![e.to_string()])?;
-    let mut actual = BTreeMap::new();
-    if let Some(project) = engine.project() {
-        let files = store::encode(project).map_err(|e| vec![format!("encoding: {e}")])?;
-        actual.extend(files.into_iter().filter(|(path, _)| path != SKIPPED));
-        if let Some(folder) = engine.location() {
-            for library in project
-                .props()
-                .libraries
-                .iter()
-                .filter(|l| !l.starts_with(".."))
-            {
-                for (path, bytes) in read_tree(&folder.join(library)) {
-                    actual.insert(format!("{library}/{path}"), bytes);
-                }
-            }
-        }
-    }
+    let Replayed {
+        files: actual,
+        journal: exported,
+    } = replay(&steps).map_err(|e| vec![e])?;
 
     let golden_dir = script.with_extension("");
     if bless {
@@ -109,7 +165,7 @@ fn run_one(script: &Path, bless: bool) -> Result<(), Vec<String>> {
                 .and_then(|()| std::fs::write(&path, bytes))
                 .map_err(|e| vec![format!("blessing {}: {e}", path.display())])?;
         }
-        let mut exported = journal::export(engine.journal());
+        let mut exported = exported;
         for (i, placeholder) in placeholders.iter().enumerate() {
             let Some(placeholder) = placeholder.as_str() else {
                 continue;

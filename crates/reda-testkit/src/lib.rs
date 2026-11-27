@@ -17,7 +17,10 @@ pub use engine::{
 };
 pub use files::{TempDir, read_tree};
 pub use probe::{probe_commands, probe_engine};
-pub use scenario::{run_scenarios, scenario_failures};
+pub use scenario::{
+    Replayed, project_files, run_scenarios, run_scenarios_with, scenario_failures,
+    scenario_failures_with,
+};
 pub use slow::slow_commands;
 
 /// The REDA version every test engine names as the generator of its output files, so
