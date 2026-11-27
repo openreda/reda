@@ -1445,6 +1445,14 @@ fn snapshot_of_the_keyboard_shortcuts_page() {
 }
 
 #[test]
+fn snapshot_of_the_mouse_wheel_page() {
+    preferences_snapshot(
+        Some(reda_ui::preferences_dialog::PageId::MOUSE_WHEEL),
+        "preferences_mouse_wheel_dark",
+    );
+}
+
+#[test]
 fn the_visible_board_grid_follows_output_origin_and_returns_to_zero_when_removed() {
     let home = TempDir::new("app-grid-origin-home");
     let work = TempDir::new("app-grid-origin-work");

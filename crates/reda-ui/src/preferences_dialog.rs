@@ -53,6 +53,8 @@ impl PageId {
     pub const CHECKS: PageId = PageId("checks");
     /// Grid presets and the visible grid, with the editable preset tables.
     pub const GRID: PageId = PageId("editing.grid");
+    /// The wheel mapping: a preset, the action table, zoom speed and the touchpad.
+    pub const MOUSE_WHEEL: PageId = PageId("editing.mouse_wheel");
     /// The last page, generated from the schema: every key with its value, default and
     /// description.
     pub const ALL_SETTINGS: PageId = PageId("all");

@@ -37,7 +37,8 @@ pub fn parse(text: &str) -> Loaded {
 pub(super) fn parse_with(text: &str, aliases: &[(&str, &str)]) -> Loaded {
     match text.parse::<DocumentMut>() {
         Ok(doc) => {
-            let (values, warnings) = read_doc(&doc, aliases);
+            let (mut values, mut warnings) = read_doc(&doc, aliases);
+            untangle_wheel(&mut values, &mut warnings);
             Loaded {
                 values: serde_json::from_value(values).expect("read_doc keeps the values valid"),
                 warnings,
@@ -94,14 +95,17 @@ pub(super) fn set_with(
     })?;
 
     let reset = value.is_null();
+    let (mut current, _) = read_doc(&doc, aliases);
     let new = if reset {
+        apply(&mut current, key, default.clone())
+            .map_err(|why| CommandError::rejected(format!("{key}: {why}")))?;
         default.clone()
     } else {
-        let (mut current, _) = read_doc(&doc, aliases);
         apply(&mut current, key, value)
             .map_err(|why| CommandError::invalid_params("/value", format!("{key}: {why}")))?;
         leaf(&current, key).cloned().expect("a known key")
     };
+    refuse_wheel_clash(&current, key)?;
 
     for (old, _) in aliases.iter().filter(|(_, new)| *new == key) {
         remove_leaf(doc.as_table_mut(), &segments(old));
@@ -153,6 +157,10 @@ pub fn reset(dirs: &UserDirs, keys: &[String]) -> Result<Vec<String>, CommandErr
         }
         remove_leaf(doc.as_table_mut(), &segments(key));
     }
+    let (values, _) = read_doc(&doc, ALIASES);
+    for key in keys {
+        refuse_wheel_clash(&values, canonical(key, ALIASES))?;
+    }
     drop_retired(&mut doc);
     let after = doc.to_string();
     if after != text {
@@ -182,6 +190,45 @@ pub fn value_of<'k>(prefs: &Preferences, key: &'k str) -> Option<(&'k str, Value
     let key = canonical(key, ALIASES);
     let json = serde_json::to_value(prefs).expect("Preferences serialise");
     Some((key, leaf(&json, key)?.clone()))
+}
+
+/// The wheel table of a valid Preferences value.
+fn wheel_of(values: &Value) -> super::Wheel {
+    serde_json::from_value(values["canvas"]["wheel"].clone()).expect("a valid wheel table")
+}
+
+/// Refuses a change that leaves `key`, a wheel action's key, sharing its combination
+/// with another action in `values`.
+fn refuse_wheel_clash(values: &Value, key: &str) -> Result<(), CommandError> {
+    let Some(action) = super::WheelAction::of_key(key) else {
+        return Ok(());
+    };
+    match wheel_of(values).refusal(action) {
+        Some(why) => Err(CommandError::rejected(format!("{key}: {why}"))),
+        None => Ok(()),
+    }
+}
+
+/// A wheel table whose actions share a combination (written by hand) falls back to the
+/// REDA table's bindings, with a warning naming the two.
+fn untangle_wheel(values: &mut Value, warnings: &mut Vec<String>) {
+    let mut wheel = wheel_of(values);
+    let Some((a, b)) = wheel.clash() else {
+        return;
+    };
+    warnings.push(format!(
+        "preferences.toml: {} and {} share {} ({} and {}); using the REDA wheel table",
+        a.title(),
+        b.title(),
+        wheel.binding(a).describe(),
+        a.key(),
+        b.key()
+    ));
+    let reda = super::WheelPreset::Reda.table();
+    for action in super::WheelAction::ALL {
+        wheel.bind(action, reda.binding(action));
+    }
+    values["canvas"]["wheel"] = serde_json::to_value(wheel).expect("Preferences serialise");
 }
 
 /// The defaults as JSON: every leaf is a key.

@@ -21,6 +21,24 @@ use crate::widgets;
 /// How near a click counts as on an object, in points.
 const PICK_POINTS: f64 = 5.0;
 
+/// The Commands of the wheel's Layer steps this frame (Step Layer in the wheel mapping):
+/// one `pcb.layer.step` per step, next for the wheel turned towards the user.
+pub fn wheel_layer_steps(input: &CanvasInputs) -> Vec<(String, Value)> {
+    let direction = if input.layer_steps > 0 {
+        "next"
+    } else {
+        "previous"
+    };
+    (0..input.layer_steps.unsigned_abs())
+        .map(|_| {
+            (
+                "pcb.layer.step".to_owned(),
+                json!({ "direction": direction }),
+            )
+        })
+        .collect()
+}
+
 /// Feeds this frame's pointer events on the board `document`'s canvas to the Tool: a
 /// press, drag and release (a click is a press and release), and with no button down the
 /// cursor snaps for the marker. The Tool runs its Commands itself; its rubber band is the

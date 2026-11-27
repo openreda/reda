@@ -87,6 +87,9 @@ pub struct CanvasInputs {
     pub mirrored: bool,
     /// Primary-button events for the active Tool, in Document coordinates.
     pub events: Vec<Pointer>,
+    /// Copper Layers the wheel steps this frame (positive is the next one), where the
+    /// wheel mapping binds Step Layer; only a board acts on it.
+    pub layer_steps: i32,
 }
 
 impl CanvasInputs {
@@ -142,13 +145,15 @@ pub fn canvas(ui: &mut Ui, tab: &mut DocumentTab, theme: Theme) {
         SceneSource::Pcb(_) => DocumentType::Pcb,
         _ => DocumentType::Schematic,
     };
-    let input = canvas_input(ui, tab, kind, None);
+    let wheel = reda_engine::preferences::Wheel::default();
+    let input = canvas_input(ui, tab, kind, None, &wheel);
     canvas_paint(ui, &input, tab, theme);
 }
 
 /// Lays out `tab`'s canvas, a Document of type `kind`, filling the space left in `ui`;
 /// moves its camera, and returns the frame's pointer events. `auto_pan` is the Preference
-/// while an operation is in flight, which pans the view at the canvas edge.
+/// while an operation is in flight, which pans the view at the canvas edge; `wheel` is the
+/// wheel mapping, which zooms, pans or steps the Layer.
 ///
 /// The canvas is one accessible element: it names the Document and describes how many of
 /// its objects are selected.
@@ -157,6 +162,7 @@ pub fn canvas_input(
     tab: &mut DocumentTab,
     kind: DocumentType,
     auto_pan: Option<&reda_engine::preferences::AutoPan>,
+    wheel: &reda_engine::preferences::Wheel,
 ) -> CanvasInputs {
     let (rect, response) = ui.allocate_exact_size(ui.available_size(), Sense::click_and_drag());
     let title = tab.title.as_str();
@@ -199,18 +205,20 @@ pub fn canvas_input(
     }
 
     let mut input = CanvasInput::default();
+    let mut layer_steps = 0;
     if response.hovered() {
         input.pointer = response.hover_pos().map(|p| mirror(rect, p, mirrored));
-        ui.input(|i| {
-            input.scroll = i.smooth_scroll_delta.y;
-            input.zoom = i.zoom_delta();
-        });
+        let gesture = crate::wheel::read(ui.ctx(), wheel, &mut tab.wheel);
+        input.scroll = gesture.zoom;
+        input.zoom = gesture.pinch;
+        input.pan = gesture.pan;
+        layer_steps = gesture.layer_steps;
     }
     if response.dragged_by(PointerButton::Secondary) || response.dragged_by(PointerButton::Middle) {
-        input.pan = response.drag_delta();
-        if mirrored {
-            input.pan.x = -input.pan.x;
-        }
+        input.pan += response.drag_delta();
+    }
+    if mirrored {
+        input.pan.x = -input.pan.x;
     }
     let gesture = input.pan != egui::Vec2::ZERO
         || input.scroll != 0.0
@@ -262,6 +270,7 @@ pub fn canvas_input(
         camera,
         mirrored,
         events,
+        layer_steps,
     }
 }
 

@@ -133,6 +133,8 @@ pub struct DocumentTab {
     pub navigating: bool,
     /// Auto-pan's state while an operation is in flight.
     pub auto_pan: crate::canvas::auto_pan::AutoPan,
+    /// The part of a wheel Layer step a smooth scroll has made.
+    pub wheel: crate::wheel::WheelState,
 }
 
 /// How many earlier views a canvas keeps for Alt+←.
@@ -192,6 +194,7 @@ impl DocumentTab {
             palette: PaletteHandle::default(),
             history: Vec::new(),
             navigating: false,
+            wheel: crate::wheel::WheelState::default(),
             auto_pan: Default::default(),
         }
     }
