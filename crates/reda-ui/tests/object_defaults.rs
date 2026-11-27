@@ -179,7 +179,7 @@ fn with_remember_last_used_on_a_tool_option_edit_writes_the_record() {
         w.last_entry(),
         (
             "app.preferences.set".to_owned(),
-            json!({"key": "defaults.pcb.line.silkscreen.width", "value": 300_000})
+            json!({"key": "defaults.pcb.line.silkscreen.width", "value": "0.3mm"})
         )
     );
     assert!(
@@ -213,7 +213,7 @@ fn with_remember_last_used_off_a_tool_option_edit_lasts_until_the_tool_is_left()
         w.last_entry(),
         (
             "tool.option.set".to_owned(),
-            json!({"key": "defaults.pcb.line.silkscreen.width", "value": 300_000})
+            json!({"key": "defaults.pcb.line.silkscreen.width", "value": "0.3mm"})
         )
     );
     assert_eq!(prefs_text(&w.home), before, "the record is not written");
