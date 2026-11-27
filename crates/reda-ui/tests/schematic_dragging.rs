@@ -363,6 +363,25 @@ fn mod_arrows_nudge_the_selection_one_grid_or_ten_one_undo_step_each() {
 }
 
 #[test]
+fn a_nudge_puts_the_first_selected_object_off_the_grid_on_the_next_grid_line() {
+    let dir = TempDir::new("nudge-off-grid");
+    let home = TempDir::new("nudge-off-grid-home");
+    let mut shell = shell(&dir, &home);
+    let off = wire(&mut shell, &[(1020, 510), (1520, 510)]);
+    let on = wire(&mut shell, &[(0, 2000), (500, 2000)]);
+    shell
+        .run("selection.set", json!({"objects": [off, on]}))
+        .unwrap();
+    // On the 50 mil grid the first Wire's first vertex goes from x = 1020 to 1050.
+    press(&mut shell, "Mod+Right");
+    assert_eq!(vertices(&shell, off), [(1050, 510), (1550, 510)]);
+    assert_eq!(vertices(&shell, on), [(30, 2000), (530, 2000)]);
+    // Down ten from y = 510: the first step lands on 500.
+    press(&mut shell, "Shift+Mod+Down");
+    assert_eq!(vertices(&shell, off), [(1050, 50), (1550, 50)]);
+}
+
+#[test]
 fn the_grab_preferences_pick_where_a_moved_object_is_held() {
     let grabbed = |hot: bool, center: bool| {
         let dir = TempDir::new("grab");

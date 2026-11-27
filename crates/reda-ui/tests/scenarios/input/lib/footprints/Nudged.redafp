@@ -1,0 +1,14 @@
+{
+  "format": 3,
+  "footprint": {"uuid":"00000000-0000-4000-8000-000000000035","name":"Nudged"},
+  "pads": [
+    {"uuid":"00000000-0000-4000-8000-000000000038","number":"1","kind":"smd","shape":"rect","at":{"x":1000000,"y":-10000000},"rotation":0,"width":1000000,"height":1000000}
+  ],
+  "graphics": [
+    {"uuid":"00000000-0000-4000-8000-000000000039","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":1700000,"y":-9000000},"end":{"x":2700000,"y":-9000000}},"width":120000}
+  ],
+  "texts": [
+    {"uuid":"00000000-0000-4000-8000-000000000036","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
+    {"uuid":"00000000-0000-4000-8000-000000000037","field":"Value","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
+  ]
+}

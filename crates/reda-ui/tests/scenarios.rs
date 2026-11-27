@@ -3,10 +3,11 @@
 //! frames drawn after every step, through `reda_testkit::run_scenarios_with`: goldens,
 //! blessing and placeholders work as for `tests/scenarios/`.
 //!
-//! A script here may use the app's view Commands, which need a window: `view.cursor.step`
-//! and `view.cursor.click` (the `input` scenario, docs/spec/v0.3/testing.md#scenarios).
-//! What a step makes a Tool do (a click placing a Via) runs on the canvas's next frame,
-//! so it is not a line of the script; the goldens show it.
+//! A script here may use the app's view Commands, which need a window: `view.cursor.step`,
+//! `view.cursor.click` and the nudges `pcb.nudge`, `library.footprint.nudge` and
+//! `library.symbol.nudge` (the `input` scenario, docs/spec/v0.3/testing.md#scenarios).
+//! What a step makes a Tool do (a click placing a Via), or the edit a nudge runs, is not
+//! a line of the script; the goldens show it.
 
 use std::path::{Path, PathBuf};
 

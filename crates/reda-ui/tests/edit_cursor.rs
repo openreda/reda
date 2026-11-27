@@ -172,6 +172,45 @@ fn a_step_moves_by_whole_grid_steps_and_from_off_the_grid_lands_on_the_next_line
 }
 
 #[test]
+fn arrows_step_the_edit_cursor_and_mod_arrows_nudge_the_selection() {
+    let mut w = window();
+    let footprint = {
+        let pcb = shell(&w).engine().project().unwrap().pcb().unwrap();
+        (pcb.footprints().find(|f| f.at == mm(2.1, 0.1)).unwrap()).uuid
+    };
+    shell_run(&mut w, "selection.set", json!({"objects": [footprint]}));
+    let from = shell(&w).engine().journal().len();
+    press(&mut w, Modifiers::NONE, Key::ArrowRight);
+    press(&mut w, Modifiers::COMMAND, Key::ArrowRight);
+    press(&mut w, Modifiers::COMMAND | Modifiers::SHIFT, Key::ArrowUp);
+    let ran: Vec<(String, Value)> = journal_from(&w, from)
+        .into_iter()
+        .filter(|(id, _)| id.starts_with("view.cursor") || id.starts_with("pcb."))
+        .collect();
+    assert_eq!(
+        ran,
+        [
+            (
+                "view.cursor.step".into(),
+                json!({"document": w.pcb, "dx": 1, "dy": 0})
+            ),
+            ("pcb.nudge".into(), json!({"dx": 1, "dy": 0})),
+            (
+                "pcb.move".into(),
+                json!({"objects": [footprint], "by": {"x": 900_000, "y": 0}})
+            ),
+            ("pcb.nudge".into(), json!({"dx": 0, "dy": 10})),
+            (
+                "pcb.move".into(),
+                json!({"objects": [footprint], "by": {"x": 0, "y": 9_900_000}})
+            ),
+        ]
+    );
+    let pcb = shell(&w).engine().project().unwrap().pcb().unwrap();
+    assert_eq!(pcb.footprint(footprint).unwrap().at, mm(3.0, 10.0));
+}
+
+#[test]
 fn arrows_and_enter_place_a_via_on_the_grid_point_a_hotspot_is_beside() {
     let mut w = window();
     shell_run(&mut w, "tool.activate:via", json!({}));
@@ -411,6 +450,12 @@ fn auto_pan_follows_the_edit_cursor_out_of_view_unless_it_is_off() {
 #[test]
 fn a_focused_text_field_keeps_the_arrows_and_enter() {
     let mut w = window();
+    // A Footprint is selected, so Mod+arrows could nudge it.
+    let footprint = {
+        let pcb = shell(&w).engine().project().unwrap().pcb().unwrap();
+        (pcb.footprints().find(|f| f.at == mm(0.0, 0.0)).unwrap()).uuid
+    };
+    shell_run(&mut w, "selection.set", json!({"objects": [footprint]}));
     w.h.hover_at(on_screen(&w, mm(0.0, 0.0)));
     w.h.run();
     // The Library panel's search field takes the keyboard; the board stays the active
@@ -430,14 +475,24 @@ fn a_focused_text_field_keeps_the_arrows_and_enter() {
     let start = shell(&w).engine().journal().len();
     press(&mut w, Modifiers::NONE, Key::ArrowLeft);
     press(&mut w, Modifiers::SHIFT, Key::ArrowRight);
+    // Mod+arrows move by words in the field; they don't nudge the selection.
+    press(&mut w, Modifiers::COMMAND, Key::ArrowLeft);
+    press(
+        &mut w,
+        Modifiers::COMMAND | Modifiers::SHIFT,
+        Key::ArrowRight,
+    );
     let ids: Vec<String> = journal_from(&w, start)
         .into_iter()
         .map(|(id, _)| id)
         .collect();
     assert!(
-        !ids.iter().any(|id| id.starts_with("view.cursor")),
+        !ids.iter()
+            .any(|id| id.starts_with("view.cursor") || id.ends_with(".nudge")),
         "{ids:?}"
     );
+    let pcb = shell(&w).engine().project().unwrap().pcb().unwrap();
+    assert_eq!(pcb.footprint(footprint).unwrap().at, mm(0.0, 0.0));
     assert_eq!(keyed(&w), None);
 }
 

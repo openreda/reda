@@ -279,7 +279,10 @@ impl Command for Click {
 
 /// The grid `document`'s arrows step on, whether its grid level is in force, and whether
 /// it is a board seen from below (screen right is Document left).
-fn step_grid(cx: &mut Context<'_>, document: Uuid) -> Result<(StepGrid, bool, bool), CommandError> {
+pub(crate) fn step_grid(
+    cx: &mut Context<'_>,
+    document: Uuid,
+) -> Result<(StepGrid, bool, bool), CommandError> {
     let project = cx.project()?;
     let ty = crate::grid::document_type(project, document)
         .ok_or_else(|| CommandError::not_found(format!("no canvas {document} with a grid")))?;
