@@ -88,7 +88,7 @@ pub fn gesture(
                     MouseWheelUnit::Line => *delta * line_points,
                     MouseWheelUnit::Page => *delta * page_points,
                 };
-                if pans(prefs.touchpad, *source, *unit) {
+                if pans(prefs.touchpad, *source) {
                     out.pan += delta;
                     continue;
                 }
@@ -119,22 +119,22 @@ pub fn gesture(
 }
 
 /// Whether a scroll pans the view as a touchpad's does rather than following the table.
-fn pans(mode: Touchpad, source: MouseWheelSource, unit: MouseWheelUnit) -> bool {
+fn pans(mode: Touchpad, source: MouseWheelSource) -> bool {
     match mode {
         Touchpad::Pan => true,
         Touchpad::Wheel => false,
-        Touchpad::Auto => is_touchpad(source, unit),
+        Touchpad::Auto => is_touchpad(source),
     }
 }
 
-/// Whether the system reports the scroll as a touchpad's. egui-winit names the source on
-/// macOS only; elsewhere it is unknown, and winit gives precise (point) deltas only for a
-/// finger scroll (Wayland's finger and continuous axis sources), wheels in lines.
-fn is_touchpad(source: MouseWheelSource, unit: MouseWheelUnit) -> bool {
+/// Whether the system reports the scroll as a touchpad's. A scroll of unknown source
+/// follows the table as a wheel's does, even with precise (point) deltas: egui-winit
+/// names the source on macOS only, and a delta's unit is no report of where it came from
+/// (winit on Wayland gives points for any scroll without a wheel click).
+fn is_touchpad(source: MouseWheelSource) -> bool {
     match source {
         MouseWheelSource::Trackpad | MouseWheelSource::Momentum => true,
-        MouseWheelSource::Wheel => false,
-        MouseWheelSource::Unknown => unit == MouseWheelUnit::Point,
+        MouseWheelSource::Wheel | MouseWheelSource::Unknown => false,
     }
 }
 

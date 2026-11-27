@@ -119,7 +119,8 @@ fn touchpad_auto_pans_for_touchpad_scrolls_and_follows_the_table_for_wheels() {
             );
         }
     }
-    // Precise deltas of unknown source are a touchpad's (winit on Wayland), lines a wheel's.
+    // A scroll of unknown source follows the table, precise (points) or in lines: only a
+    // scroll the system reports as a touchpad's pans.
     let precise = read(
         &[finger(
             vec2(0.0, 6.0),
@@ -128,7 +129,7 @@ fn touchpad_auto_pans_for_touchpad_scrolls_and_follows_the_table_for_wheels() {
         )],
         &auto,
     );
-    assert_eq!((precise.zoom, precise.pan), (0.0, vec2(0.0, 6.0)));
+    assert_eq!((precise.zoom, precise.pan), (6.0, Vec2::ZERO));
     let lines = Event::MouseWheel {
         unit: MouseWheelUnit::Line,
         delta: vec2(0.0, 1.0),
