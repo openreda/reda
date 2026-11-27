@@ -143,7 +143,8 @@ fn the_text_tool_asks_for_its_words() {
     w.h.run();
     let at = on_screen(&w, 10, 10);
     click(&mut w, at);
-    w.h.get_by_role(Role::TextInput).type_text("REV A");
+    w.h.get_by_role_and_label(Role::TextInput, "Text")
+        .type_text("REV A");
     w.h.run();
     w.h.get_by_label("Place Text").click();
     w.h.run();

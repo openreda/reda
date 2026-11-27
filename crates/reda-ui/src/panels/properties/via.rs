@@ -35,6 +35,9 @@ pub(super) fn tool_options(ui: &mut Ui, shell: &Shell) -> Option<Vec<Out>> {
     );
     menu.response
         .widget_info(|| WidgetInfo::labeled(Role::ComboBox, true, &label));
+    let mut record = Vec::new();
+    super::tool_defaults::rows_of_tool(ui, shell, &mut record);
+    out.extend(record.into_iter().map(|(id, params)| Out::Run(id, params)));
     Some(out)
 }
 

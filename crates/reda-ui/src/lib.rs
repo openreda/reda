@@ -39,6 +39,7 @@ pub mod messages;
 pub mod modal;
 pub mod navigation;
 pub mod new_project;
+pub mod object_defaults;
 mod os;
 pub mod pad_form;
 pub mod palette;

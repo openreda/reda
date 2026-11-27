@@ -17,7 +17,8 @@
 //!   ([`super::measure`] keeps it); the next click starts another.
 //!
 //! Nothing runs while a shape is drawn: [`Draw::preview`] gives what to draw over the
-//! canvas. A finished shape runs exactly one Command; the measure Tool changes
+//! canvas. A finished shape runs exactly one Command, with the values of its kind's
+//! Object Defaults ([`crate::object_defaults`]) in its params; the measure Tool changes
 //! nothing. Points snap like the select Tool's (Pads, Track ends and
 //! Vias, else the grid).
 
@@ -26,7 +27,7 @@ mod geometry;
 use reda_engine::model::geom::{Nm, Point};
 use reda_engine::model::{LayerKind, Project, Uuid};
 use reda_engine::pcb::Copper;
-use reda_engine::preferences::{ArcToolMode, KeepoutToolShape};
+use reda_engine::preferences::{ArcToolMode, DrawingKind, KeepoutToolShape, ObjectDefaults};
 use serde_json::{Value, json};
 
 use crate::shell::Shell;
@@ -35,10 +36,6 @@ use crate::tools::Tool;
 use crate::tr;
 
 pub use geometry::arc_through;
-
-/// The Free Pad the Free Pad Tool places: plated, round, 2 mm across, with a 1 mm hole.
-const FREE_PAD_WIDTH: &str = "2mm";
-const FREE_PAD_HOLE: &str = "1mm";
 
 /// What a Tool in progress draws over the canvas, in board nm.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -272,7 +269,7 @@ impl Draw {
 
     /// The cursor is at `at` with no button down.
     pub fn hover(&mut self, shell: &Shell, at: Point) -> Snapped {
-        let keepout = shell.preferences().pcb.keepout.shape;
+        let keepout = crate::object_defaults::current(shell).pcb.keepout.shape;
         if keepout != self.keepout && self.points.is_empty() {
             self.keepout = keepout;
         }
@@ -319,11 +316,18 @@ impl Draw {
         self.dragged = false;
     }
 
-    /// `tool.finish` (Enter): closes a polygon with three corners or more.
+    /// `tool.finish` (Enter): closes a polygon with three corners or more, or places a
+    /// Dimension on its two ends at its Object Default's offset.
     pub fn finish(&mut self, shell: &mut Shell) {
-        if self.shape() == Shape::Polygon && self.points.len() > 2 {
+        let enough = match self.shape() {
+            Shape::Polygon => self.points.len() > 2,
+            Shape::Dimension => self.ends.len() == 2,
+            _ => false,
+        };
+        if enough {
             let points = std::mem::take(&mut self.points);
             self.commit(shell, &points);
+            self.ends.clear();
         }
     }
 
@@ -349,12 +353,16 @@ impl Draw {
         if text.trim().is_empty() {
             return;
         }
-        let Some(layer) = graphics_layer(shell) else {
+        let Some((kind, layer)) = graphics_layer(shell) else {
             return;
         };
+        let defaults = crate::object_defaults::current(shell).pcb.text;
+        let look = defaults.of(kind);
         let _ = shell.run_reporting(
             "pcb.text.add",
-            json!({"layer": layer, "text": text, "x": at.x, "y": at.y}),
+            json!({"layer": layer, "text": text, "x": at.x, "y": at.y,
+                   "height": look.height.nm().0, "thickness": look.thickness.nm().0,
+                   "font": look.font, "justify": defaults.justify}),
         );
     }
 
@@ -477,7 +485,12 @@ impl Draw {
                 let copper = active_layer(shell).is_some_and(|(kind, _)| kind == LayerKind::Copper);
                 (!copper).then(|| tr!("pcb-draw-needs-copper"))
             }
-            Tool::Keepout if !shell.preferences().pcb.keepout.all_layers => {
+            Tool::Keepout
+                if !crate::object_defaults::current(shell)
+                    .pcb
+                    .keepout
+                    .all_layers =>
+            {
                 let copper = active_layer(shell).is_some_and(|(kind, _)| kind == LayerKind::Copper);
                 (!copper).then(|| tr!("pcb-draw-needs-copper"))
             }
@@ -515,7 +528,11 @@ impl Draw {
 
     fn command(&self, shell: &mut Shell, points: &[Point]) -> Option<(&'static str, Value)> {
         let vertices = || -> Value { points.iter().map(|p| xy(*p)).collect() };
-        let layer = || graphics_layer(shell);
+        let defaults: ObjectDefaults = crate::object_defaults::current(shell);
+        let pcb = &defaults.pcb;
+        let drawing = graphics_layer(shell);
+        let layer = || drawing.map(|(_, uuid)| uuid);
+        let kind = drawing.map_or(DrawingKind::Copper, |(kind, _)| kind);
         Some(match self.tool {
             Tool::BoardOutline => ("pcb.board_outline.add", json!({"vertices": vertices()})),
             Tool::BoardOutlineRect => {
@@ -531,7 +548,7 @@ impl Draw {
                 if let Some(net) = net {
                     params["net"] = json!(net);
                 }
-                zone_tool_values(shell, &mut params);
+                zone_values(&pcb.zone, &mut params);
                 ("pcb.zone.add", params)
             }
             Tool::ZoneCutout => {
@@ -542,7 +559,7 @@ impl Draw {
                 )
             }
             Tool::Keepout => {
-                let options = shell.preferences().pcb.keepout.clone();
+                let options = defaults.pcb.keepout.clone();
                 let vertices: Value = match (options.shape, points) {
                     (KeepoutToolShape::Rectangle, [a, b]) => geometry::rect_corners(*a, *b)
                         .iter()
@@ -560,12 +577,17 @@ impl Draw {
             }
             Tool::Line => (
                 "pcb.graphic.add_line",
-                json!({"layer": layer()?, "from": xy(points[0]), "to": xy(points[1])}),
+                json!({"layer": layer()?, "from": xy(points[0]), "to": xy(points[1]),
+                       "width": pcb.line.of(kind).width.nm().0}),
             ),
-            Tool::Rect => (
-                "pcb.graphic.add_rect",
-                json!({"layer": layer()?, "from": xy(points[0]), "to": xy(points[1])}),
-            ),
+            Tool::Rect => {
+                let rect = pcb.rectangle.of(kind);
+                (
+                    "pcb.graphic.add_rect",
+                    json!({"layer": layer()?, "from": xy(points[0]), "to": xy(points[1]),
+                           "width": rect.width.nm().0, "filled": rect.fill}),
+                )
+            }
             Tool::Arc if self.arc == ArcToolMode::Center => {
                 let Some((end, sweep)) = geometry::arc_about(points[0], points[1], points[2])
                 else {
@@ -575,7 +597,7 @@ impl Draw {
                 (
                     "pcb.graphic.add_arc",
                     json!({"layer": layer()?, "from": xy(points[1]), "to": xy(end),
-                           "sweep": sweep.0}),
+                           "sweep": sweep.0, "width": pcb.arc.of(kind).width.nm().0}),
                 )
             }
             Tool::Arc if self.arc == ArcToolMode::Circle => {
@@ -583,9 +605,11 @@ impl Draw {
                 let (centre, edge) = (points[0], points[1]);
                 let opposite = centre + (centre - edge);
                 let layer = layer()?;
+                let width = pcb.arc.of(kind).width.nm().0;
                 let half = |from: Point, to: Point| {
                     json!({"id": "pcb.graphic.add_arc", "params":
-                        {"layer": layer, "from": xy(from), "to": xy(to), "sweep": 180_000}})
+                        {"layer": layer, "from": xy(from), "to": xy(to), "sweep": 180_000,
+                         "width": width}})
                 };
                 (
                     "batch",
@@ -600,7 +624,7 @@ impl Draw {
                 (
                     "pcb.graphic.add_arc",
                     json!({"layer": layer()?, "from": xy(points[0]), "to": xy(points[1]),
-                           "sweep": sweep.0}),
+                           "sweep": sweep.0, "width": pcb.arc.of(kind).width.nm().0}),
                 )
             }
             Tool::Dimension => {
@@ -608,19 +632,38 @@ impl Draw {
                     return None;
                 };
                 let rotation = super::dimension_edit::rotation_of(a.point, b.point);
-                let offset = super::dimension_edit::offset_of(a.point, rotation, points[2]);
+                let d = &pcb.dimension;
+                // The third click sets where the line sits; Enter on two ends uses the
+                // record's offset.
+                let offset = match points.get(2) {
+                    Some(at) => super::dimension_edit::offset_of(a.point, rotation, *at).0,
+                    None => d.offset.nm().0,
+                };
                 (
                     "pcb.dimension.add",
                     json!({"layer": layer()?, "a": super::dimension_edit::end_param(a),
                            "b": super::dimension_edit::end_param(b),
-                           "rotation": rotation.0, "offset": offset.0}),
+                           "rotation": rotation.0, "offset": offset,
+                           "width": d.width.nm().0,
+                           "extension_width": d.extension_width.nm().0,
+                           "gap": d.gap.nm().0, "text_gap": d.text_gap.nm().0,
+                           "arrow_size": d.arrow_size.nm().0,
+                           "arrow_length": d.arrow_length.nm().0,
+                           "arrow_position": d.arrow_position, "precision": d.precision,
+                           "units": d.units, "format": d.format,
+                           "style": {"height": d.text_height.nm().0}}),
                 )
             }
-            Tool::FreePad => (
-                "pcb.free_pad.add",
-                json!({"kind": "plated_through_hole", "shape": "circle", "at": xy(points[0]),
-                       "width": FREE_PAD_WIDTH, "hole": {"width": FREE_PAD_HOLE}}),
-            ),
+            Tool::FreePad => {
+                let pad = &pcb.free_pad;
+                let mut params = json!({"kind": pad.kind, "shape": pad.shape,
+                                        "at": xy(points[0]), "width": pad.width.nm().0,
+                                        "height": pad.height.nm().0});
+                if pad.kind != reda_engine::model::PadKind::Smd {
+                    params["hole"] = json!({"width": pad.hole.nm().0});
+                }
+                ("pcb.free_pad.add", params)
+            }
             Tool::OutputOrigin => ("pcb.output_origin.set", json!({"at": xy(points[0])})),
             Tool::MoveBy => {
                 let by = points[1] - points[0];
@@ -656,9 +699,8 @@ impl Draw {
     }
 }
 
-/// The Zone Tool's values for a new Zone, from its Preference, into `params`.
-fn zone_tool_values(shell: &Shell, params: &mut Value) {
-    let values = &shell.preferences().pcb.zone.tool;
+/// The Zone record's values for a new Zone, into `params`.
+fn zone_values(values: &reda_engine::preferences::ZoneDefaults, params: &mut Value) {
     if let Some(c) = values.clearance {
         params["clearance"] = json!(c.nm().0);
     }
@@ -700,15 +742,15 @@ fn active_layer(shell: &Shell) -> Option<(LayerKind, Uuid)> {
     Some((layer.kind, uuid))
 }
 
-/// The active Layer, when free text and graphics may go on it: copper, silkscreen,
-/// Mechanical.
-fn graphics_layer(shell: &Shell) -> Option<Uuid> {
+/// The active Layer, with the Layer kind whose Object Defaults it takes, when free text
+/// and graphics may go on it: copper, silkscreen, Mechanical.
+fn graphics_layer(shell: &Shell) -> Option<(DrawingKind, Uuid)> {
     let (kind, uuid) = active_layer(shell)?;
-    matches!(
+    let allowed = matches!(
         kind,
         LayerKind::Copper | LayerKind::Silkscreen | LayerKind::Mechanical
-    )
-    .then_some(uuid)
+    );
+    Some((DrawingKind::of_layer(kind).filter(|_| allowed)?, uuid))
 }
 
 /// The active copper Layer, and the Net of the copper under `first` on it, which a new

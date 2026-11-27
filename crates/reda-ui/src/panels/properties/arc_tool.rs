@@ -1,5 +1,5 @@
 //! The arc Tool's options in Properties: how it places (docs/spec/v0.1/pcb.md#text-and-graphics),
-//! kept in the `pcb.arc.mode` Preference.
+//! kept in the `pcb.arc.mode` Preference, then its Object Defaults.
 
 use egui::{Role, Ui, WidgetInfo};
 use reda_engine::preferences::ArcToolMode;
@@ -37,5 +37,6 @@ pub(super) fn tool_options(ui: &mut Ui, shell: &Shell) -> Option<Vec<(&'static s
             ));
         }
     }
+    super::tool_defaults::rows_of_tool(ui, shell, &mut out);
     Some(out)
 }

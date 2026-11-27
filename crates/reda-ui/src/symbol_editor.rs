@@ -52,10 +52,6 @@ type P = (f64, f64);
 
 /// The grid Pins snap to: 50 mil, as the Library check expects.
 pub const PIN_GRID: Nm = Nm::from_mil(50);
-/// The stroke width of drawn graphics: 10 mil.
-pub const LINE_WIDTH: Nm = Nm::from_mil(10);
-/// The height of placed text: 50 mil.
-pub const TEXT_SIZE: Nm = Nm::from_mil(50);
 /// Where pasted Pins without a position start, and how far apart they go.
 const PASTE_COLUMN_X: Nm = Nm::from_mil(-300);
 const PASTE_PITCH: Nm = Nm::from_mil(100);
@@ -186,7 +182,7 @@ pub fn finish(shell: &mut Shell, symbol: Uuid) -> Option<Invocation> {
     let shape = (points.len() >= 3).then(|| shape_of(Tool::Polygon, points))??;
     canvas.interaction = Interaction::Idle;
     show(shell, symbol, None);
-    Some(add_graphic(symbol, unit, shape))
+    Some(add_graphic(shell, symbol, unit, shape))
 }
 
 /// Runs the active Tool on a frame's pointer `events` over the Symbol `symbol`'s canvas,
@@ -407,10 +403,13 @@ impl Cx<'_> {
         let (number, name) = next_pin(self.symbol, last.as_ref(), steps.primary, steps.secondary);
         *last = Some((number.clone(), name.clone()));
         let at = self.snap(at);
+        let pin = crate::object_defaults::current(self.shell).symbol.pin;
         self.run(
             "library.symbol.pin.add",
             json!({"symbol": self.element(), "unit": unit, "name": name, "number": number,
-                   "at": json_point(at), "rotation": rotation.0}),
+                   "at": json_point(at), "rotation": rotation.0,
+                   "length": pin.length.nm().0, "electrical_type": pin.electrical_type,
+                   "name_visible": pin.name_visible, "number_visible": pin.number_visible}),
         );
     }
 
@@ -447,7 +446,7 @@ impl Cx<'_> {
             return Interaction::Drafting { tool, points };
         }
         if let Some(shape) = shape_of(tool, &points) {
-            let (id, params) = add_graphic(self.element(), unit, shape);
+            let (id, params) = add_graphic(self.shell, self.element(), unit, shape);
             self.run(&id, params);
         }
         Interaction::Idle
@@ -493,10 +492,21 @@ pub(crate) fn shape_of(tool: Tool, points: &[Point]) -> Option<Value> {
     })
 }
 
-fn add_graphic(symbol: Uuid, unit: Uuid, shape: Value) -> Invocation {
+/// The `library.symbol.graphic.add` of `shape`, with the width and fill of its kind's
+/// Object Defaults (text has its height in the shape).
+fn add_graphic(shell: &Shell, symbol: Uuid, unit: Uuid, shape: Value) -> Invocation {
+    let d = crate::object_defaults::current(shell).symbol;
+    let (width, fill) = match shape["kind"].as_str().unwrap_or_default() {
+        "rect" => (d.rectangle.width, d.rectangle.fill),
+        "circle" => (d.circle.width, d.circle.fill),
+        "polygon" => (d.polygon.width, d.polygon.fill),
+        "arc" => (d.arc.width, false),
+        _ => (d.line.width, false),
+    };
     (
         "library.symbol.graphic.add".to_owned(),
-        json!({"symbol": symbol, "unit": unit, "shape": shape, "width": LINE_WIDTH.0}),
+        json!({"symbol": symbol, "unit": unit, "shape": shape, "width": width.nm().0,
+               "fill": fill}),
     )
 }
 
@@ -506,9 +516,10 @@ pub fn commit_text(shell: &mut Shell, symbol: Uuid, text: &str) -> Option<Invoca
     let unit = shown_unit(shell, symbol);
     let (at, _) = canvas_mut(shell, symbol).text.take()?;
     let unit = unit.filter(|_| !text.trim().is_empty())?;
+    let size = crate::object_defaults::current(shell).schematic.text.height;
     let shape = json!({"kind": "text", "at": json_point(at), "text": text,
-                       "size": TEXT_SIZE.0, "rotation": 0});
-    Some(add_graphic(symbol, unit, shape))
+                       "size": size.nm().0, "rotation": 0});
+    Some(add_graphic(shell, symbol, unit, shape))
 }
 
 /// Keeps the Text Tool's typing between frames.

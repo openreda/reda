@@ -48,6 +48,7 @@ pub const PAGES: &[Page] = &[
     top("checks"),
     top("display"),
     top("libraries"),
+    top("defaults"),
     top("fab_presets"),
     top("agents"),
     top("keyboard_shortcuts"),
@@ -113,6 +114,7 @@ pub fn page_of(key: &str) -> &'static str {
         ("libraries", _) => "libraries",
         ("agents", _) => "agents",
         ("keymap", _) => "keyboard_shortcuts",
+        ("defaults", _) => "defaults",
         _ => "general",
     }
 }

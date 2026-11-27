@@ -1383,6 +1383,73 @@ context = "tool:arc"
 key = "Backspace"
 command = "tool.undo_segment"
 
+# Tab moves the keyboard to a placing Tool's options in Properties: its Object Defaults.
+
+[[bind]]
+context = "tool:line"
+key = "Tab"
+command = "tool.edit_properties"
+
+[[bind]]
+context = "tool:rect"
+key = "Tab"
+command = "tool.edit_properties"
+
+[[bind]]
+context = "tool:arc"
+key = "Tab"
+command = "tool.edit_properties"
+
+[[bind]]
+context = "tool:circle"
+key = "Tab"
+command = "tool.edit_properties"
+
+[[bind]]
+context = "tool:polygon"
+key = "Tab"
+command = "tool.edit_properties"
+
+[[bind]]
+context = "tool:text"
+key = "Tab"
+command = "tool.edit_properties"
+
+[[bind]]
+context = "tool:dimension"
+key = "Tab"
+command = "tool.edit_properties"
+
+[[bind]]
+context = "tool:free_pad"
+key = "Tab"
+command = "tool.edit_properties"
+
+[[bind]]
+context = "tool:via"
+key = "Tab"
+command = "tool.edit_properties"
+
+[[bind]]
+context = "tool:zone"
+key = "Tab"
+command = "tool.edit_properties"
+
+[[bind]]
+context = "tool:keepout"
+key = "Tab"
+command = "tool.edit_properties"
+
+[[bind]]
+context = "tool:pad"
+key = "Tab"
+command = "tool.edit_properties"
+
+[[bind]]
+context = "tool:pin"
+key = "Tab"
+command = "tool.edit_properties"
+
 # Part tabs.
 
 [[bind]]

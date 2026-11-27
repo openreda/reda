@@ -1,6 +1,6 @@
 //! The Footprint editor on a Shell, without a window: an open Footprint is a Document tab
 //! (with or without a Project), and the shared canvas Tools turn pointer events into the
-//! `library.footprint.*` Commands: Pads from the Pad Tool's settings, graphics on the
+//! `library.footprint.*` Commands: Pads from the Pad's Object Defaults, graphics on the
 //! chosen Layer, moving Pads and the Designator and value text, and the origin.
 
 use std::path::{Path, PathBuf};
@@ -15,7 +15,7 @@ use reda_ui::engine::command::{FixedClock, SeededIds};
 use reda_ui::engine::model::{
     Footprint, FootprintLayer, LibraryElement, PadKind, PadShape, Shape, Uuid,
 };
-use reda_ui::footprint_editor::{self, PadTemplate};
+use reda_ui::footprint_editor;
 use reda_ui::keymap::{self, Chord};
 use reda_ui::layout::TabKey;
 use reda_ui::shell::Shell;
@@ -142,32 +142,30 @@ fn a_new_footprint_opens_in_a_document_tab_with_no_project_open() {
 }
 
 #[test]
-fn the_pad_tool_places_pads_from_its_settings_with_the_next_number() {
+fn the_pad_tool_places_pads_from_its_object_defaults_with_the_next_number() {
     let home = TempDir::new("fpe-pad");
     let mut shell = shell(&home);
     let fp = new_footprint(&mut shell);
     shell.run("tool.activate:pad", json!({})).unwrap();
     assert_eq!(shell.tool(), Tool::Pad);
 
-    footprint_editor::set_pad_template(
-        &mut shell,
-        PadTemplate {
-            kind: PadKind::PlatedThroughHole,
-            shape: PadShape::Oval,
-            width: reda_ui::engine::model::geom::Nm(1_700_000),
-            height: reda_ui::engine::model::geom::Nm(2_000_000),
-            hole: Some((
-                reda_ui::engine::model::geom::Nm(800_000),
-                reda_ui::engine::model::geom::Nm(1_200_000),
-            )),
-            mask_margin: Some(reda_ui::engine::model::geom::Nm(50_000)),
-            paste_margin: None,
-            ..PadTemplate::default()
-        },
-    )
-    .unwrap();
-    let last = shell.engine().journal().last().unwrap().id.clone();
-    assert_eq!(last, "view.footprint_tool.set");
+    // The Pad Tool places from the `defaults.footprint.pad` Object Default.
+    for (field, value) in [
+        ("kind", json!("plated_through_hole")),
+        ("shape", json!("oval")),
+        ("width", json!("1.7mm")),
+        ("height", json!("2mm")),
+        ("hole_width", json!("0.8mm")),
+        ("hole_height", json!("1.2mm")),
+        ("mask_margin", json!("0.05mm")),
+    ] {
+        shell
+            .run(
+                "app.preferences.set",
+                json!({"key": format!("defaults.footprint.pad.{field}"), "value": value}),
+            )
+            .unwrap();
+    }
     // Clicks snap to the 0.5 mm grid.
     feed(&mut shell, fp, &[click(mm(0.1, 0.1)), click(mm(2.6, -0.1))]);
     let f = footprint(&shell, fp);
@@ -439,4 +437,76 @@ fn the_footprint_editor_snaps_onto_its_hotspots_within_the_snap_distance() {
     };
     assert_eq!((start.x.0, start.y.0), (2_630_000, -170_000));
     assert_eq!((end.x.0, end.y.0), (4_000_000, 1_000_000));
+}
+
+#[test]
+fn footprint_graphics_and_text_start_from_the_records_shared_with_boards() {
+    let home = TempDir::new("fpe-defaults");
+    let mut shell = shell(&home);
+    let fp = new_footprint(&mut shell);
+    for (key, value) in [
+        ("defaults.pcb.line.silkscreen.width", json!("0.2mm")),
+        ("defaults.pcb.circle.assembly.fill", json!(true)),
+        ("defaults.pcb.text.silkscreen.height", json!("0.8mm")),
+        ("defaults.pcb.text.silkscreen.thickness", json!("0.12mm")),
+    ] {
+        shell
+            .run("app.preferences.set", json!({"key": key, "value": value}))
+            .unwrap();
+    }
+    for (tool, layer) in [
+        ("line", FootprintLayer::SilkscreenTop),
+        ("rect", FootprintLayer::CourtyardBottom),
+        ("circle", FootprintLayer::AssemblyTop),
+    ] {
+        footprint_editor::set_layer(&mut shell, layer).unwrap();
+        shell
+            .run(&format!("tool.activate:{tool}"), json!({}))
+            .unwrap();
+        drag(&mut shell, fp, mm(-1.0, -1.0), mm(1.0, 2.0));
+    }
+    let f = footprint(&shell, fp);
+    let find = |layer| f.graphics.iter().find(|g| g.layer == layer).unwrap();
+    let line = find(FootprintLayer::SilkscreenTop);
+    assert_eq!((line.width.0, line.fill), (200_000, false));
+    // The shipped Courtyard width, 0.05 mm.
+    let rect = find(FootprintLayer::CourtyardBottom);
+    assert_eq!((rect.width.0, rect.fill), (50_000, false));
+    let circle = find(FootprintLayer::AssemblyTop);
+    assert_eq!((circle.width.0, circle.fill), (100_000, true));
+
+    footprint_editor::set_layer(&mut shell, FootprintLayer::SilkscreenTop).unwrap();
+    shell.run("tool.activate:text", json!({})).unwrap();
+    feed(&mut shell, fp, &[click(mm(3.0, 3.0))]);
+    let f = footprint(&shell, fp);
+    let text = f.texts.iter().find(|t| t.at.x.0 == 3_000_000).unwrap();
+    assert_eq!(text.style.height.0, 800_000);
+    assert_eq!(text.style.thickness.0, 120_000);
+    // Centred in a Footprint.
+    assert_eq!(
+        text.style.justify,
+        reda_ui::engine::model::TextJustify::CENTER
+    );
+}
+
+#[test]
+fn the_through_hole_pad_preset_lasts_while_the_pad_tool_runs() {
+    let home = TempDir::new("fpe-pad-preset");
+    let mut shell = shell(&home);
+    let fp = new_footprint(&mut shell);
+    shell.run("tool.activate:th_pad", json!({})).unwrap();
+    feed(&mut shell, fp, &[click(mm(0.0, 3.0))]);
+    shell.run("tool.activate:select", json!({})).unwrap();
+    shell.run("tool.activate:pad", json!({})).unwrap();
+    feed(&mut shell, fp, &[click(mm(3.0, 3.0))]);
+    let f = footprint(&shell, fp);
+    let mut pads = f.pads.clone();
+    pads.sort_by_key(|p| p.at.x);
+    assert_eq!(pads[0].kind, PadKind::PlatedThroughHole);
+    assert_eq!(pads[0].hole.unwrap().width.0, 800_000);
+    assert_eq!(pads[1].kind, PadKind::Smd, "the record again");
+    assert_eq!(
+        shell.preferences().defaults.footprint.pad.kind,
+        PadKind::Smd
+    );
 }
