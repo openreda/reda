@@ -258,7 +258,7 @@ fn the_text_tool_asks_for_its_words_where_it_is_clicked_turned_by_space() {
     assert_eq!(
         params,
         &json!({"document": SHEET, "at": {"x": 500 * 25_400, "y": 500 * 25_400},
-                "rotation": 90_000})
+                "rotation": 90_000, "height": 50 * 25_400})
     );
     // The words are left for the dialog the window opens.
     let registry = shell.engine().registry();
@@ -272,4 +272,73 @@ fn the_text_tool_asks_for_its_words_where_it_is_clicked_turned_by_space() {
     let texts: Vec<_> = project.schematic_sheet(sheet()).unwrap().texts().collect();
     assert_eq!(texts.len(), 1);
     assert_eq!(texts[0].text, "Note");
+}
+
+#[test]
+fn the_sheet_tools_place_from_their_object_defaults_for_the_tools_run() {
+    let dir = TempDir::new("graphics-defaults");
+    let mut shell = shell(&dir);
+    let option = |shell: &mut Shell, key: &str, value: serde_json::Value| {
+        shell
+            .run("tool.option.set", json!({"key": key, "value": value}))
+            .unwrap();
+    };
+    press(&mut shell, "R");
+    option(&mut shell, "defaults.schematic.rectangle.fill", json!(true));
+    click(&mut shell, at(100.0, 100.0));
+    click(&mut shell, at(500.0, 300.0));
+    let project = shell.engine().project().unwrap();
+    let filled: Vec<bool> = project
+        .schematic_sheet(sheet())
+        .unwrap()
+        .graphics()
+        .map(|g| match g.shape {
+            reda_ui::engine::model::SheetShape::Rect { filled, .. } => filled,
+            _ => false,
+        })
+        .collect();
+    assert_eq!(filled, [true]);
+
+    press(&mut shell, "P");
+    assert_eq!(shell.tool(), Tool::Port);
+    option(
+        &mut shell,
+        "defaults.schematic.port.direction",
+        json!("out"),
+    );
+    assert_eq!(click(&mut shell, at(800.0, 0.0)), ["schematic.port.add"]);
+    let project = shell.engine().project().unwrap();
+    let port = project
+        .schematic_sheet(sheet())
+        .unwrap()
+        .ports()
+        .next()
+        .unwrap();
+    assert_eq!(port.direction, reda_ui::engine::model::PortDirection::Out);
+
+    press(&mut shell, "T");
+    option(
+        &mut shell,
+        "defaults.schematic.text.height",
+        json!("100mil"),
+    );
+    let commands = schematic_editor::pointer(
+        &mut shell,
+        sheet(),
+        &[Pointer::Click {
+            at: at(0.0, 800.0),
+            modifiers: Modifiers::NONE,
+        }],
+        Scale::at(MIL),
+    );
+    assert_eq!(commands[0].1["height"], json!(100 * 25_400));
+    // A value the record refuses is refused here too.
+    assert!(
+        shell
+            .run(
+                "tool.option.set",
+                json!({"key": "defaults.schematic.text.height", "value": 0})
+            )
+            .is_err()
+    );
 }

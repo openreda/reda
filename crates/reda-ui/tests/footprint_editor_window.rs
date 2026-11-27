@@ -880,3 +880,37 @@ fn a_library_pad_can_remove_unused_lands_and_return_to_surface_mount() {
     assert_eq!(p.kind, reda_ui::engine::model::PadKind::Smd);
     assert!(p.unused_layers.is_keep());
 }
+
+#[test]
+fn the_pad_tools_options_in_properties_edit_its_object_default() {
+    let home = TempDir::new("fpe-window-pad-defaults");
+    let mut shell = shell(home.path());
+    new_footprint(&mut shell, "Defaults");
+    shell
+        .run("panel.show", json!({"panel": "properties"}))
+        .unwrap();
+    shell.run("tool.activate:pad", json!({})).unwrap();
+    let mut h = harness(shell);
+    h.get_by_label("Pad Tool options");
+    // The inspector's Pad Tool rows show the same record; the last Shape is Properties'.
+    pick(&mut h, "Shape", "Chamfered rectangle");
+    assert_eq!(
+        last_entry(&h),
+        (
+            "app.preferences.set".to_owned(),
+            json!({"key": "defaults.footprint.pad.shape", "value": "chamfered_rect"})
+        )
+    );
+    // The chamfer shows once the shape has one.
+    type_into(&mut h, "Chamfer", "25");
+    assert_eq!(
+        h.state()
+            .shell()
+            .preferences()
+            .defaults
+            .footprint
+            .pad
+            .chamfer_ratio,
+        reda_ui::engine::model::Ratio::percent(25)
+    );
+}

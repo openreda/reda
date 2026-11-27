@@ -11,13 +11,15 @@ use reda_engine::model::{
 };
 use serde_json::{Value, json};
 
-use super::{PadTemplate, ToolSettings, tool_settings};
+use super::{ToolSettings, tool_settings};
 use crate::element_editor::{self, Invocation};
 use crate::settings::layout;
 use crate::shell::Shell;
 use crate::theme::TokensExt as _;
 use crate::tr;
 use crate::widgets::{self, Tooltip as _};
+use reda_engine::command::Length;
+use reda_engine::preferences::PadDefaults;
 
 /// The panel's width in points: a side Dock's, so the Pad rows (the same as Free Pad
 /// Properties in a Dock) fit, plus the gap the panel keeps from the canvas. At 13 px: it
@@ -88,7 +90,7 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, element: Uuid) -> Vec<Invocation> {
         }
         let before = tool_settings(shell);
         let mut settings = before.clone();
-        tool_settings_ui(ui, id, &mut settings);
+        tool_settings_ui(ui, id, shell, &mut settings, &mut out);
         let before_layer = super::preview_layer(shell.engine(), &footprint);
         let mut layer = before_layer;
         widgets::form(id.with("copper-preview")).show(ui, |ui| {
@@ -118,10 +120,10 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, element: Uuid) -> Vec<Invocation> {
                 json!({"preview":{"footprint":element,"layer":layer}}),
             ));
         }
-        if (&settings.pad, settings.layer) != (&before.pad, before.layer) {
+        if settings.layer != before.layer {
             out.push(cmd(
                 "view.footprint_tool.set",
-                json!({ "pad": settings.pad, "layer": settings.layer }),
+                json!({ "layer": settings.layer }),
             ));
         }
         ui.separator();
@@ -253,9 +255,18 @@ fn cmd(id: &str, params: Value) -> Invocation {
     (id.to_owned(), params)
 }
 
-fn tool_settings_ui(ui: &mut Ui, id: Id, opts: &mut ToolSettings) {
+/// The Pad Tool's record (`defaults.footprint.pad`, as Tool-option edits) and the
+/// drawing Layer.
+fn tool_settings_ui(
+    ui: &mut Ui,
+    id: Id,
+    shell: &Shell,
+    opts: &mut ToolSettings,
+    out: &mut Vec<Invocation>,
+) {
     crate::settings::strong(ui, tr!("footprint-pad-tool"));
-    let pad = &mut opts.pad;
+    let before = crate::object_defaults::current(shell).footprint.pad;
+    let mut pad = before.clone();
     widgets::form(id.with("pad-tool")).show(ui, |ui| {
         combo(
             ui,
@@ -275,8 +286,16 @@ fn tool_settings_ui(ui: &mut Ui, id: Id, opts: &mut ToolSettings) {
             shape_name,
         );
         ui.end_row();
-        template_lengths(ui, id, pad);
+        template_lengths(ui, id, &mut pad);
     });
+    let (was, now) = (json!(before), json!(pad));
+    for (field, value) in now.as_object().expect("a record is an object") {
+        if was[field] != *value {
+            let key = format!("defaults.footprint.pad.{field}");
+            let (id, params) = crate::object_defaults::edit(shell, &key, value.clone());
+            out.push(cmd(id, params));
+        }
+    }
     ui.add_space(ui.tokens().space.stack);
     crate::settings::strong(ui, tr!("footprint-drawing"));
     widgets::form(id.with("drawing")).show(ui, |ui| {
@@ -292,73 +311,37 @@ fn tool_settings_ui(ui: &mut Ui, id: Id, opts: &mut ToolSettings) {
     });
 }
 
-fn template_lengths(ui: &mut Ui, id: Id, pad: &mut PadTemplate) {
-    if let Some(Some(w)) = length(
-        ui,
-        id.with("w"),
-        &tr!("footprint-pad-width"),
-        Some(pad.width),
-        false,
-    ) {
-        pad.width = w;
-    }
-    ui.end_row();
-    if let Some(Some(h)) = length(
-        ui,
-        id.with("h"),
-        &tr!("footprint-pad-height"),
-        Some(pad.height),
-        false,
-    ) {
-        pad.height = h;
-    }
-    ui.end_row();
+fn template_lengths(ui: &mut Ui, id: Id, pad: &mut PadDefaults) {
+    let row = |ui: &mut Ui, key: &str, label: String, value: &mut Length| {
+        if let Some(Some(v)) = length(ui, id.with(key), &label, Some(value.nm()), false) {
+            *value = Length(v);
+        }
+        ui.end_row();
+    };
+    row(ui, "w", tr!("footprint-pad-width"), &mut pad.width);
+    row(ui, "h", tr!("footprint-pad-height"), &mut pad.height);
     if pad.kind != PadKind::Smd {
-        let (hw, hh) = pad
-            .hole
-            .unwrap_or((super::DEFAULT_HOLE, super::DEFAULT_HOLE));
-        if let Some(Some(w)) = length(
-            ui,
-            id.with("hw"),
-            &tr!("footprint-hole-width"),
-            Some(hw),
-            false,
-        ) {
-            pad.hole = Some((w, hh));
+        row(ui, "hw", tr!("footprint-hole-width"), &mut pad.hole_width);
+        row(ui, "hh", tr!("footprint-hole-height"), &mut pad.hole_height);
+    }
+    let optional = |ui: &mut Ui, key: &str, label: String, value: &mut Option<Length>| {
+        if let Some(v) = length(ui, id.with(key), &label, value.map(Length::nm), true) {
+            *value = v.map(Length);
         }
         ui.end_row();
-        let (hw, hh) = pad.hole.unwrap_or((hw, hh));
-        if let Some(Some(h)) = length(
-            ui,
-            id.with("hh"),
-            &tr!("footprint-hole-height"),
-            Some(hh),
-            false,
-        ) {
-            pad.hole = Some((hw, h));
-        }
-        ui.end_row();
-    }
-    if let Some(m) = length(
+    };
+    optional(
         ui,
-        id.with("mask"),
-        &tr!("footprint-mask-margin"),
-        pad.mask_margin,
-        true,
-    ) {
-        pad.mask_margin = m;
-    }
-    ui.end_row();
-    if let Some(m) = length(
+        "mask",
+        tr!("footprint-mask-margin"),
+        &mut pad.mask_margin,
+    );
+    optional(
         ui,
-        id.with("paste"),
-        &tr!("footprint-paste-margin"),
-        pad.paste_margin,
-        true,
-    ) {
-        pad.paste_margin = m;
-    }
-    ui.end_row();
+        "paste",
+        tr!("footprint-paste-margin"),
+        &mut pad.paste_margin,
+    );
 }
 
 /// The properties of the one selected part.

@@ -476,7 +476,9 @@ impl Cx<'_> {
             ),
             Tool::Port => (
                 "schematic.port.add",
-                json!({"document": document, "name": p.name, "at": at, "rotation": rotation}),
+                json!({"document": document, "name": p.name, "at": at, "rotation": rotation,
+                       "direction": crate::object_defaults::current(self.shell)
+                           .schematic.port.direction}),
             ),
             Tool::PowerPort => (
                 "schematic.power_port.add",
@@ -489,7 +491,9 @@ impl Cx<'_> {
             // The words are left out: the window asks for them.
             Tool::Text => (
                 "schematic.text.add",
-                json!({"document": document, "at": at, "rotation": rotation}),
+                json!({"document": document, "at": at, "rotation": rotation,
+                       "height": crate::object_defaults::current(self.shell)
+                           .schematic.text.height.nm().0}),
             ),
             _ => return,
         };

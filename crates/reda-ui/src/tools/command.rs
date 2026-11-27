@@ -49,6 +49,7 @@ typed_commands! {
     InsertVertex => "tool.insert_vertex",
     EditProperties => "tool.edit_properties",
     SetAutoWire => "tool.auto_wire.set",
+    SetOption => "tool.option.set",
     Copy => "tool.copy",
     Duplicate => "tool.duplicate",
     Paste => "tool.paste",

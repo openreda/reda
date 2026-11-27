@@ -532,16 +532,18 @@ impl Command for ToolActivate {
             return Ok(ToolActivateResult { tool, run });
         }
         cx.view::<ActiveTool>()?.0 = tool;
-        if p.pad_kind.is_some() || p.layer.is_some() {
-            let settings = &mut cx
-                .view::<crate::footprint_editor::FootprintEditorState>()?
-                .settings;
-            if let Some(kind) = p.pad_kind {
-                settings.pad.kind = kind;
-            }
-            if let Some(layer) = p.layer {
-                settings.layer = layer;
-            }
+        // Leaving a Tool ends its Tool-option edits that Remember last used did not keep.
+        if tool != current {
+            cx.view::<crate::object_defaults::SessionEdits>()?.0.clear();
+        }
+        if let Some(kind) = p.pad_kind {
+            let edits = cx.view::<crate::object_defaults::SessionEdits>()?;
+            crate::object_defaults::preset_pad_kind(edits, kind);
+        }
+        if let Some(layer) = p.layer {
+            cx.view::<crate::footprint_editor::FootprintEditorState>()?
+                .settings
+                .layer = layer;
         }
         cx.view::<PowerPortName>()?.0 = match tool {
             Tool::PowerPort => p.name,
@@ -934,7 +936,8 @@ pub struct EditPropertiesResult {
 
 /// `tool.edit_properties` (Tab): the active Tool's properties. The Wire Tool opens (or
 /// closes) its Auto Wire options, the Break Wire Tool its Cutting Length and Display
-/// options; a Part being placed opens the Properties Panel.
+/// options; a Part being placed opens the Properties Panel; a Tool that places from
+/// Object Defaults shows its Tool options there and moves the keyboard to them.
 struct ToolEditProperties;
 
 impl Command for ToolEditProperties {
@@ -947,7 +950,11 @@ impl Command for ToolEditProperties {
                       Box, Show Extremity Markers), which write straight back to the \
                       Preferences; for a Part being placed, the Properties Panel, whose \
                       edits later placements keep; for a Net Label, Port or Power Port \
-                      being placed, an in-place edit of its name (the Tool pauses).",
+                      being placed, an in-place edit of its name (the Tool pauses); for a \
+                      Tool that places from Object Defaults (Line, Rect, Arc, Circle, \
+                      Polygon, Text, Dimension, Free Pad, Via, Zone, Keepout, Pad, Pin), \
+                      its Tool options in the Properties Panel, with the keyboard in the \
+                      first field.",
         category: "tool",
         icon: "properties",
         kind: Kind::View,
@@ -956,18 +963,19 @@ impl Command for ToolEditProperties {
     type Output = EditPropertiesResult;
 
     fn run(&self, cx: &mut Context<'_>, _: NoParams) -> Result<EditPropertiesResult, CommandError> {
-        let tool = only_in(
-            cx,
-            &[
-                Tool::Wire,
-                Tool::BreakWire,
-                Tool::Place,
-                Tool::NetLabel,
-                Tool::Port,
-                Tool::PowerPort,
-            ],
-            "Edit Tool Properties",
-        )?;
+        let mut tools = vec![
+            Tool::Wire,
+            Tool::BreakWire,
+            Tool::Place,
+            Tool::NetLabel,
+            Tool::Port,
+            Tool::PowerPort,
+        ];
+        tools.extend_from_slice(crate::object_defaults::OPTION_TOOLS);
+        let tool = only_in(cx, &tools, "Edit Tool Properties")?;
+        if crate::object_defaults::OPTION_TOOLS.contains(&tool) {
+            cx.view::<crate::object_defaults::FocusRequest>()?.0 += 1;
+        }
         if tool == Tool::Wire {
             let wire = cx.view::<WireTool>()?;
             wire.options_open = !wire.options_open;

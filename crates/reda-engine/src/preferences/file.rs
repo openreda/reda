@@ -6,7 +6,7 @@ use reda_command::{CommandError, UserDirs};
 use serde_json::{Map, Value};
 use toml_edit::{DocumentMut, Item, Table, TableLike};
 
-use super::{ALIASES, KEPT_AT_DEFAULT, Preferences};
+use super::{ALIASES, KEPT_AT_DEFAULT, Preferences, RETIRED};
 
 /// The Preferences as read from the file, with a warning for every key that was ignored.
 #[derive(Clone, Debug, PartialEq)]
@@ -110,6 +110,7 @@ pub(super) fn set_with(
     for (old, _) in aliases.iter().filter(|(_, new)| *new == key) {
         remove_leaf(doc.as_table_mut(), &segments(old));
     }
+    drop_retired(&mut doc);
     if reset || (new == default && !KEPT_AT_DEFAULT.contains(&key)) {
         remove_leaf(doc.as_table_mut(), &segments(key));
     } else {
@@ -160,6 +161,7 @@ pub fn reset(dirs: &UserDirs, keys: &[String]) -> Result<Vec<String>, CommandErr
     for key in keys {
         refuse_wheel_clash(&values, canonical(key, ALIASES))?;
     }
+    drop_retired(&mut doc);
     let after = doc.to_string();
     if after != text {
         crate::fs::write_atomic(&path, after.as_bytes())
@@ -167,6 +169,19 @@ pub fn reset(dirs: &UserDirs, keys: &[String]) -> Result<Vec<String>, CommandErr
     }
     changed.sort();
     Ok(changed)
+}
+
+/// `prefs` with the dotted `key` set to `value`, checked as a write would check it, without
+/// touching the file: for values a front end keeps for the session. Refuses an unknown key
+/// with why.
+pub fn applied(prefs: &Preferences, key: &str, value: Value) -> Result<Preferences, String> {
+    let key = canonical(key, ALIASES);
+    if leaf(&defaults(), key).is_none() {
+        return Err(format!("{key} is not a Preference"));
+    }
+    let mut json = serde_json::to_value(prefs).expect("Preferences serialise");
+    apply(&mut json, key, value).map_err(|why| format!("{key}: {why}"))?;
+    Ok(serde_json::from_value(json).expect("apply keeps the values valid"))
 }
 
 /// The value of a dotted key (or an old spelling of one) in `prefs`, with the current
@@ -271,6 +286,12 @@ fn read_doc(doc: &DocumentMut, aliases: &[(&str, &str)]) -> (Value, Vec<String>)
     let mut warnings = Vec::new();
     for (key, value) in leaves {
         let key = canonical(&key, aliases).to_owned();
+        if let Some(now) = retired(&key) {
+            warnings.push(format!(
+                "preferences.toml: {key} is dropped: Object Defaults are under {now} now"
+            ));
+            continue;
+        }
         if leaf(&defaults, &key).is_none() {
             warnings.push(format!(
                 "preferences.toml: {key} is not a Preference; ignored"
@@ -287,6 +308,25 @@ fn read_doc(doc: &DocumentMut, aliases: &[(&str, &str)]) -> (Value, Vec<String>)
         }
     }
     (values, warnings)
+}
+
+/// Where the kind of value a retired `key` held lives now, if it is retired.
+fn retired(key: &str) -> Option<&'static str> {
+    RETIRED
+        .iter()
+        .find(|(prefix, _)| key.starts_with(prefix))
+        .map(|(_, now)| *now)
+}
+
+/// Takes every retired key out of `doc`, keeping their sections and comments.
+fn drop_retired(doc: &mut DocumentMut) {
+    let mut leaves = Vec::new();
+    collect_leaves(doc.as_table(), "", &mut leaves);
+    for (key, _) in leaves {
+        if retired(&key).is_some() {
+            remove_leaf(doc.as_table_mut(), &segments(&key));
+        }
+    }
 }
 
 fn collect_leaves(table: &dyn TableLike, prefix: &str, out: &mut Vec<(String, Item)>) {

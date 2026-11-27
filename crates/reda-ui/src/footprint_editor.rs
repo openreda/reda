@@ -4,9 +4,9 @@
 //!
 //! - Select picks Pads, graphics and the Designator and value text (click, Shift+click,
 //!   box), and dragging moves them on the grid: one `library.footprint.move` on release.
-//! - Pad places a Pad per click from the Pad Tool's settings ([`PadTemplate`]: SMD,
-//!   plated or non-plated; circle, rectangle, rounded rectangle or oval; a round hole or a
-//!   slot; mask and paste margins), numbered one past the highest number.
+//! - Pad places a Pad per click from the `defaults.footprint.pad` Object Default (SMD,
+//!   plated or non-plated; its shape and size; a round hole or a slot; mask and paste
+//!   margins), numbered one past the highest number.
 //! - Line, Rect and Circle draw on the drawing Layer ([`ToolSettings::layer`]: Silkscreen,
 //!   Courtyard or Assembly, top or bottom) by dragging.
 //! - Origin moves the origin to a click, then hands back to Select.
@@ -24,10 +24,11 @@ pub(crate) use preview::{CopperLayer, preview_layer};
 use std::collections::BTreeMap;
 
 use reda_engine::command::{Command, CommandError, Context, Kind, Meta, Registry};
-use reda_engine::model::geom::{Millideg, Nm, Point};
+use reda_engine::model::geom::{Nm, Point};
 use reda_engine::model::{
-    Footprint, FootprintLayer, LibraryElement, PadKind, PadShape, Ratio, Uuid, auto_increment,
+    Footprint, FootprintLayer, LibraryElement, PadKind, PadShape, Uuid, auto_increment,
 };
+use reda_engine::preferences::{DrawingKind, PadDefaults};
 use serde_json::{Value, json};
 
 use crate::canvas::interact::Pointer;
@@ -43,96 +44,41 @@ type P = (f64, f64);
 /// Segments a circle in flight is drawn with.
 const CIRCLE_SEGMENTS: usize = 48;
 
-/// What the Pad Tool places.
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct PadTemplate {
-    pub kind: PadKind,
-    pub shape: PadShape,
-    pub width: Nm,
-    pub height: Nm,
-    /// For a rounded rectangle and the uncut corners of a chamfered one; `None` takes the
-    /// Command's default.
-    pub corner_ratio: Option<Ratio>,
-    /// For a chamfered rectangle; `None` is [`DEFAULT_CHAMFER_RATIO`].
-    #[serde(default)]
-    pub chamfer_ratio: Option<Ratio>,
-    pub rotation: Millideg,
-    /// The hole of a through-hole Pad, as (width, height): equal is round, else a slot.
-    /// SMD Pads ignore it.
-    pub hole: Option<(Nm, Nm)>,
-    /// Per-Pad overrides of the board's margins; `None` keeps the board's.
-    pub mask_margin: Option<Nm>,
-    pub paste_margin: Option<Nm>,
-}
-
-impl Default for PadTemplate {
-    /// A 1 × 1.5 mm rectangular SMD Pad.
-    fn default() -> PadTemplate {
-        PadTemplate {
-            kind: PadKind::Smd,
-            shape: PadShape::Rect,
-            width: Nm(1_000_000),
-            height: Nm(1_500_000),
-            corner_ratio: None,
-            chamfer_ratio: None,
-            rotation: Millideg(0),
-            hole: None,
-            mask_margin: None,
-            paste_margin: None,
+/// `library.footprint.pad.add` params for the Pad record `pad` at `at` with `number`.
+pub fn pad_params(pad: &PadDefaults, footprint: Uuid, number: &str, at: Point) -> Value {
+    let mut p = json!({
+        "footprint": footprint,
+        "number": number,
+        "kind": pad.kind,
+        "shape": pad.shape,
+        "at": {"x": at.x.0, "y": at.y.0},
+        "width": pad.width.nm().0,
+        "height": pad.height.nm().0,
+    });
+    if pad.shape == PadShape::ChamferedRect {
+        p["chamfer_ratio"] = json!(pad.chamfer_ratio.0);
+    }
+    if pad.kind != PadKind::Smd {
+        p["hole"] = json!({"width": pad.hole_width.nm().0, "height": pad.hole_height.nm().0});
+    }
+    if let Some(m) = pad.mask_margin {
+        p["mask"] = json!({"top": {"expansion": m.nm().0}});
+        if pad.kind != PadKind::Smd {
+            p["mask"]["bottom"] = json!({"expansion": m.nm().0});
         }
     }
-}
-
-/// The chamfer a chamfered Pad gets when its settings name none.
-pub const DEFAULT_CHAMFER_RATIO: Ratio = Ratio::percent(50);
-
-/// The hole a through-hole Pad gets when its settings name none: 0.8 mm round.
-const DEFAULT_HOLE: Nm = Nm(800_000);
-
-impl PadTemplate {
-    /// `library.footprint.pad.add` params for this Pad at `at` with `number`.
-    pub fn params(&self, footprint: Uuid, number: &str, at: Point) -> Value {
-        let mut p = json!({
-            "footprint": footprint,
-            "number": number,
-            "kind": self.kind,
-            "shape": self.shape,
-            "at": {"x": at.x.0, "y": at.y.0},
-            "rotation": self.rotation.0,
-            "width": self.width.0,
-            "height": self.height.0,
-        });
-        let cornered = matches!(self.shape, PadShape::RoundedRect | PadShape::ChamferedRect);
-        if cornered && let Some(r) = self.corner_ratio {
-            p["corner_ratio"] = json!(r.0);
-        }
-        if self.shape == PadShape::ChamferedRect {
-            p["chamfer_ratio"] = json!(self.chamfer_ratio.unwrap_or(DEFAULT_CHAMFER_RATIO).0);
-        }
-        if self.kind != PadKind::Smd {
-            let (w, h) = self.hole.unwrap_or((DEFAULT_HOLE, DEFAULT_HOLE));
-            p["hole"] = json!({"width": w.0, "height": h.0});
-        }
-        if let Some(m) = self.mask_margin {
-            p["mask"] = json!({"top": {"expansion": m.0}});
-            if self.kind != PadKind::Smd {
-                p["mask"]["bottom"] = json!({"expansion": m.0});
-            }
-        }
-        if self.kind == PadKind::Smd
-            && let Some(m) = self.paste_margin
-        {
-            p["paste"] = json!({"expansion": m.0});
-        }
-        p
+    if pad.kind == PadKind::Smd
+        && let Some(m) = pad.paste_margin
+    {
+        p["paste"] = json!({"expansion": m.nm().0});
     }
+    p
 }
 
-/// The Footprint Tools' settings, shared by every Footprint tab.
+/// The Footprint Tools' settings, shared by every Footprint tab. What the Pad Tool places
+/// and how graphics and text look are Object Defaults ([`crate::object_defaults`]).
 #[derive(Clone, Debug, PartialEq)]
 pub struct ToolSettings {
-    pub pad: PadTemplate,
     /// The Layer Line, Rect, Circle, Arc and Polygon draw on, and Text places on (on the
     /// Silkscreen of the same side for a Courtyard Layer).
     pub layer: FootprintLayer,
@@ -143,7 +89,6 @@ pub struct ToolSettings {
 impl Default for ToolSettings {
     fn default() -> ToolSettings {
         ToolSettings {
-            pad: PadTemplate::default(),
             layer: FootprintLayer::SilkscreenTop,
             text_field: reda_engine::model::DESIGNATOR_FIELD.to_owned(),
         }
@@ -211,11 +156,6 @@ pub fn tool_settings(shell: &Shell) -> ToolSettings {
     state(shell).settings
 }
 
-/// Sets what the Pad Tool places (`view.footprint_tool.set`).
-pub fn set_pad_template(shell: &mut Shell, pad: PadTemplate) -> Result<Value, CommandError> {
-    shell.run("view.footprint_tool.set", json!({ "pad": pad }))
-}
-
 /// Sets the Layer Line, Rect and Circle draw on (`view.footprint_tool.set`).
 pub fn set_layer(shell: &mut Shell, layer: FootprintLayer) -> Result<Value, CommandError> {
     shell.run("view.footprint_tool.set", json!({ "layer": layer }))
@@ -232,9 +172,6 @@ pub struct ToolSetParams {
     /// The copper group to preview in one open Footprint.
     #[serde(default)]
     preview: Option<preview::Preview>,
-    /// What the Pad Tool places.
-    #[serde(default)]
-    pub pad: Option<PadTemplate>,
     /// The Layer Line, Rect, Circle, Arc and Polygon draw on.
     #[serde(default)]
     pub layer: Option<FootprintLayer>,
@@ -249,9 +186,10 @@ impl Command for ToolSet {
     const META: Meta = Meta {
         id: "view.footprint_tool.set",
         title: "Set Footprint Tool Settings",
-        description: "Sets what the Footprint editor's Pad Tool places and the Layer its \
-                      Line, Rect and Circle Tools draw on. View state, shared by every \
-                      Footprint tab.",
+        description: "Sets the Layer the Footprint editor's Line, Rect and Circle Tools \
+                      draw on and the field its Text Tool places. View state, shared by \
+                      every Footprint tab. What the Pad Tool places is the \
+                      `defaults.footprint.pad` Object Default.",
         category: "view",
         icon: "pad",
         kind: Kind::View,
@@ -264,17 +202,13 @@ impl Command for ToolSet {
             preview.apply(cx)?;
         }
         let settings = &mut cx.view::<FootprintEditorState>()?.settings;
-        if let Some(pad) = p.pad {
-            settings.pad = pad;
-        }
         if let Some(layer) = p.layer {
             settings.layer = layer;
         }
         if let Some(field) = p.text_field.filter(|f| !f.trim().is_empty()) {
             settings.text_field = field.trim().to_owned();
         }
-        let mut out = json!({ "pad": settings.pad, "layer": settings.layer,
-                              "text_field": settings.text_field });
+        let mut out = json!({ "layer": settings.layer, "text_field": settings.text_field });
         if let Some(preview) = p.preview {
             out["preview"] = json!(preview);
         }
@@ -377,12 +311,24 @@ pub fn finish(shell: &mut Shell, element: Uuid) -> Option<Invocation> {
     Some(graphic_add(shell, element, shape))
 }
 
-/// The `library.footprint.graphic.add` of `shape` on the drawing Layer.
+/// The `library.footprint.graphic.add` of `shape` on the drawing Layer, with the width
+/// and fill of its kind's Object Defaults for that Layer kind.
 fn graphic_add(shell: &Shell, element: Uuid, shape: Value) -> Invocation {
     let layer = tool_settings(shell).layer;
+    let kind = DrawingKind::of_footprint(layer);
+    let pcb = crate::object_defaults::current(shell).pcb;
+    let outline = |o: &reda_engine::preferences::Outline| (o.width, o.fill);
+    let (width, fill) = match shape["kind"].as_str().unwrap_or_default() {
+        "rect" => outline(pcb.rectangle.of(kind)),
+        "circle" => outline(pcb.circle.of(kind)),
+        "polygon" => outline(pcb.polygon.of(kind)),
+        "arc" => (pcb.arc.of(kind).width, false),
+        _ => (pcb.line.of(kind).width, false),
+    };
     (
         "library.footprint.graphic.add".to_owned(),
-        json!({"footprint": element, "layer": layer, "shape": shape}),
+        json!({"footprint": element, "layer": layer, "shape": shape,
+               "width": width.nm().0, "fill": fill}),
     )
 }
 
@@ -591,18 +537,21 @@ impl Cx<'_> {
                 state_mut(self.shell)
                     .last_pads
                     .insert(self.element, number.clone());
-                let params = tool_settings(self.shell)
-                    .pad
-                    .params(self.element, &number, at);
+                let pad = crate::object_defaults::current(self.shell).footprint.pad;
+                let params = pad_params(&pad, self.element, &number, at);
                 self.run("library.footprint.pad.add", params);
             }
             Tool::Text => {
                 let settings = tool_settings(self.shell);
+                let layer = inspector::text_layer(settings.layer);
+                let defaults = crate::object_defaults::current(self.shell);
+                let look = defaults.pcb.text.of(DrawingKind::of_footprint(layer));
                 self.run(
                     "library.footprint.text.add",
                     json!({"footprint": self.element, "field": settings.text_field,
-                           "at": {"x": at.x.0, "y": at.y.0},
-                           "layer": inspector::text_layer(settings.layer)}),
+                           "at": {"x": at.x.0, "y": at.y.0}, "layer": layer,
+                           "height": look.height.nm().0, "thickness": look.thickness.nm().0,
+                           "font": look.font, "justify": defaults.footprint.text.justify}),
                 );
             }
             Tool::Origin => {
@@ -737,10 +686,7 @@ impl Cx<'_> {
             Tool::Line if from != to => json!({"kind": "line", "start": p(from), "end": p(to)}),
             _ => return,
         };
-        let layer = tool_settings(self.shell).layer;
-        self.run(
-            "library.footprint.graphic.add",
-            json!({"footprint": self.element, "layer": layer, "shape": shape}),
-        );
+        let (id, params) = graphic_add(self.shell, self.element, shape);
+        self.run(&id, params);
     }
 }

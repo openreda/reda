@@ -58,6 +58,7 @@ fn the_tree_lists_the_pages_with_settings_and_indents_sub_pages() {
         (0, "Checks"),
         (0, "Display"),
         (0, "Libraries"),
+        (0, "Defaults"),
         (0, "Fab Presets"),
         (0, "Agents"),
         (0, "Keyboard Shortcuts"),
@@ -346,7 +347,8 @@ fn search_finds_settings_on_every_page_by_name_and_description() {
         [
             "editing.grab_hot_spot",
             "schematic.electrical_snap",
-            "pcb.electrical_snap"
+            "pcb.electrical_snap",
+            "defaults.symbol.pin.electrical_type"
         ]
     );
     assert_eq!(found("COLOUR theme"), ["general.theme"]);

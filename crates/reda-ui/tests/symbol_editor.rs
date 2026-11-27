@@ -819,3 +819,55 @@ fn hovering_a_pin_shows_its_description() {
     f.events(symbol, &[Pointer::Hover((500.0 * MIL, 500.0 * MIL))]);
     assert_eq!(symbol_editor::hover_text(&f.shell, symbol), None);
 }
+
+#[test]
+fn the_symbol_tools_place_from_their_object_defaults() {
+    let mut f = Fixture::new("sym-defaults");
+    let symbol = f.new_symbol("Body");
+    for (key, value) in [
+        ("defaults.symbol.pin.length", json!("200mil")),
+        ("defaults.symbol.pin.electrical_type", json!("input")),
+        ("defaults.symbol.pin.number_visible", json!(false)),
+        ("defaults.symbol.rectangle.width", json!("5mil")),
+        ("defaults.symbol.rectangle.fill", json!(true)),
+        ("defaults.symbol.line.width", json!("20mil")),
+        ("defaults.schematic.text.height", json!("80mil")),
+    ] {
+        f.shell
+            .run("app.preferences.set", json!({"key": key, "value": value}))
+            .unwrap();
+    }
+    f.key("P");
+    f.click(symbol, 0.0, 0.0);
+    let pin = f.symbol(symbol).pins[0].clone();
+    assert_eq!(pin.length, Nm::from_mil(200));
+    assert_eq!(pin.electrical_type, reda_ui::engine::model::PinType::Input);
+    assert!(pin.name_visible);
+    assert!(!pin.number_visible);
+    f.key("R");
+    f.click(symbol, -100.0, -100.0);
+    f.click(symbol, 100.0, 100.0);
+    f.key("L");
+    f.click(symbol, 0.0, 200.0);
+    f.click(symbol, 100.0, 200.0);
+    f.key("T");
+    f.click(symbol, 0.0, 300.0);
+    let (id, params) = symbol_editor::commit_text(&mut f.shell, symbol, "OUT").unwrap();
+    f.shell.run(&id, params).unwrap();
+    let graphics = f.symbol(symbol).graphics;
+    let of = |want: &str| {
+        graphics
+            .iter()
+            .find(|g| format!("{:?}", g.shape).starts_with(want))
+            .unwrap_or_else(|| panic!("a {want}"))
+            .clone()
+    };
+    let rect = of("Rect");
+    assert_eq!((rect.width, rect.fill), (Nm::from_mil(5), true));
+    let line = of("Line");
+    assert_eq!((line.width, line.fill), (Nm::from_mil(20), false));
+    let Shape::Text { size, .. } = of("Text").shape else {
+        panic!("a text");
+    };
+    assert_eq!(size, Nm::from_mil(80));
+}
