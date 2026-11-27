@@ -342,12 +342,50 @@ fn the_dimension(b: &Board) -> reda_ui::engine::model::Dimension {
 fn place_dimension(b: &mut Board) -> (Uuid, Uuid) {
     let (va, vb) = two_pads(b);
     let silk = b.layer(LayerKind::Silkscreen, Some(Side::Top));
-    b.activate(silk);
     b.tool("dimension");
+    b.activate(silk);
     b.click(mm(0.0, 0.0));
     b.click(mm(10.0, 0.0));
     b.click(mm(5.0, 3.0));
     (va, vb)
+}
+
+#[test]
+fn the_dimension_tool_starts_on_the_first_dimensions_layer_in_layer_order() {
+    let mut b = board();
+    let doc = b.pcb().uuid;
+    let first = |b: &Board| {
+        b.pcb()
+            .layers()
+            .layers
+            .iter()
+            .find(|l| l.purpose == reda_ui::engine::model::Purpose::Dimensions)
+            .unwrap()
+            .uuid
+    };
+    let dimensions = first(&b);
+    let active = |b: &Board| {
+        let project = b.shell.engine().project().unwrap();
+        b.shell.board_view().active_layer(project)
+    };
+    assert_ne!(active(&b), Some(dimensions));
+    b.tool("dimension");
+    assert_eq!(active(&b), Some(dimensions));
+    b.click(mm(0.0, 0.0));
+    b.click(mm(10.0, 0.0));
+    b.click(mm(5.0, 3.0));
+    assert_eq!(the_dimension(&b).layer, dimensions);
+    // A Dimensions Layer moved ahead of it is the default from then on.
+    let out = run(
+        &mut b.shell,
+        "pcb.layer.add",
+        json!({"document": doc, "kind": "mechanical", "purpose": "dimensions",
+               "before": dimensions}),
+    );
+    let ahead = uuid(&out["result"]["uuid"]);
+    b.tool("select");
+    b.tool("dimension");
+    assert_eq!(active(&b), Some(ahead));
 }
 
 #[test]
@@ -394,8 +432,8 @@ fn the_dimension_tool_attaches_its_ends_to_the_hotspots_under_the_clicks() {
 fn a_dimension_end_in_free_space_has_no_reference_and_previews_while_placed() {
     let mut b = board();
     let silk = b.layer(LayerKind::Silkscreen, Some(Side::Top));
-    b.activate(silk);
     b.tool("dimension");
+    b.activate(silk);
     b.click(mm(20.0, 20.0));
     b.shell.pcb_hover(mm(25.0, 20.0));
     assert_eq!(

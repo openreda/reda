@@ -534,3 +534,160 @@ fn the_layers_panel_creates_an_outline_zone_on_the_context_layers_net() {
         (bottom, Some(w.gnd), true)
     );
 }
+
+fn mechanical_layer(w: &Window, name: &str) -> reda_ui::engine::model::Layer {
+    let pcb = shell(w).engine().project().unwrap().pcb().unwrap();
+    pcb.layers()
+        .layers
+        .iter()
+        .find(|l| l.kind == LayerKind::Mechanical && l.name.as_deref() == Some(name))
+        .unwrap_or_else(|| panic!("no Mechanical Layer {name}"))
+        .clone()
+}
+
+fn click_set(w: &mut Window, set: &str) {
+    w.h.get_by_role_and_label(Role::Button, set).scroll_to_me();
+    w.h.run();
+    w.h.get_by_role_and_label(Role::Button, set).click();
+    w.h.run();
+    assert_eq!(last_command(w), "pcb.view.layer_set.apply");
+}
+
+#[test]
+fn a_bottom_sided_mechanical_layer_is_shown_by_the_bottom_layer_set_and_hidden_by_the_top_one() {
+    let mut w = window();
+    let reference = mechanical_layer(&w, "Reference").uuid;
+    w.h.state_mut()
+        .shell_mut()
+        .run(
+            "pcb.layer.set",
+            json!({"layer": reference, "side": "bottom"}),
+        )
+        .unwrap();
+    w.h.run();
+    let hidden = |w: &Window, layer: Uuid| shell(w).board_view().layers.hidden.contains(&layer);
+    let dimensions = mechanical_layer(&w, "Dimensions").uuid;
+    click_set(&mut w, "Bottom");
+    assert!(!hidden(&w, reference), "the Bottom set shows it");
+    assert!(hidden(&w, dimensions), "an unsided Layer has no side's set");
+    click_set(&mut w, "Top");
+    assert!(hidden(&w, reference), "the Top set hides it");
+    assert!(hidden(&w, dimensions));
+}
+
+/// Right-clicks the Layers panel row of `layer` and picks `item` from its menu.
+fn row_menu(w: &mut Window, layer: &str, item: &str) {
+    let row =
+        w.h.get_all_by_label(layer)
+            .find(|n| n.accesskit_node().role() != Role::CheckBox)
+            .unwrap_or_else(|| panic!("no row {layer}"));
+    row.scroll_to_me();
+    w.h.run();
+    let row =
+        w.h.get_all_by_label(layer)
+            .find(|n| n.accesskit_node().role() != Role::CheckBox)
+            .unwrap();
+    row.click_secondary();
+    w.h.run();
+    w.h.get_by_label(item).click();
+    w.h.run();
+}
+
+fn choose(w: &mut Window, combo: &str, option: &str) {
+    w.h.get_by_role_and_label(Role::ComboBox, combo).click();
+    w.h.run();
+    w.h.get_all_by_label(option).last().unwrap().click();
+    w.h.run();
+}
+
+#[test]
+fn the_layers_panel_adds_edits_moves_and_removes_mechanical_layers() {
+    let mut w = window();
+    w.h.run();
+    let start = shell(&w).engine().journal().len();
+
+    // Add: named after the chosen Purpose, numbered on a clash.
+    w.h.get_by_label("Add Mechanical Layer…").scroll_to_me();
+    w.h.run();
+    w.h.get_by_label("Add Mechanical Layer…").click();
+    w.h.run();
+    choose(&mut w, "Purpose", "Dimensions");
+    w.h.get_by_role_and_label(Role::Button, "Add Layer").click();
+    w.h.run();
+    assert_eq!(last_command(&w), "pcb.layer.add");
+    let added = mechanical_layer(&w, "Dimensions 2");
+    assert_eq!(added.purpose, reda_ui::engine::model::Purpose::Dimensions);
+
+    // Edit: rename and side it.
+    row_menu(&mut w, "Dimensions 2", "Edit Mechanical Layer…");
+    w.h.get_by_role_and_label(Role::TextInput, "Name").click();
+    w.h.run();
+    w.h.key_press_modifiers(Modifiers::COMMAND, egui::Key::A);
+    w.h.run();
+    w.h.get_by_role_and_label(Role::TextInput, "Name")
+        .type_text("Drawing");
+    w.h.run();
+    choose(&mut w, "Side", "Bottom");
+    w.h.get_by_role_and_label(Role::Button, "Apply").click();
+    w.h.run();
+    assert_eq!(last_command(&w), "pcb.layer.set");
+    let edited = mechanical_layer(&w, "Drawing");
+    assert_eq!(edited.uuid, added.uuid);
+    assert_eq!(edited.side, Some(Side::Bottom));
+
+    // Move Up, ahead of Reference.
+    row_menu(&mut w, "Drawing", "Move Up");
+    assert_eq!(last_command(&w), "pcb.layer.move");
+    let pcb = shell(&w).engine().project().unwrap().pcb().unwrap();
+    let names: Vec<_> = pcb
+        .layers()
+        .layers
+        .iter()
+        .filter(|l| l.kind == LayerKind::Mechanical)
+        .map(|l| l.name.clone().unwrap())
+        .collect();
+    assert_eq!(names, ["Dimensions", "Drawing", "Reference"]);
+
+    // Remove with objects on it asks first, listing them.
+    w.h.state_mut()
+        .shell_mut()
+        .run(
+            "pcb.graphic.add_line",
+            json!({"layer": added.uuid, "from": {"x": 0, "y": 0}, "to": {"x": "5mm", "y": 0}}),
+        )
+        .unwrap();
+    w.h.run();
+    row_menu(&mut w, "Drawing", "Remove Layer…");
+    assert_eq!(last_command(&w), "pcb.graphic.add_line", "it asks first");
+    assert!(
+        w.h.query_by_label_contains("on Drawing will be deleted")
+            .is_some(),
+        "the question lists what goes"
+    );
+    w.h.get_by_role_and_label(Role::Button, "Remove Layer")
+        .click();
+    w.h.run();
+    assert_eq!(last_command(&w), "pcb.layer.remove");
+    let pcb = shell(&w).engine().project().unwrap().pcb().unwrap();
+    assert!(pcb.layers().layer(added.uuid).is_none());
+    assert_eq!(pcb.graphics().count(), 0);
+
+    // An empty Layer goes at once.
+    row_menu(&mut w, "Reference", "Remove Layer…");
+    assert_eq!(last_command(&w), "pcb.layer.remove");
+    let edits: Vec<_> = shell(&w).engine().journal()[start..]
+        .iter()
+        .map(|e| e.id.as_str())
+        .filter(|id| id.starts_with("pcb.layer."))
+        .collect();
+    assert_eq!(
+        edits,
+        [
+            "pcb.layer.add",
+            "pcb.layer.set",
+            "pcb.layer.move",
+            "pcb.layer.remove",
+            "pcb.layer.remove"
+        ]
+    );
+}
