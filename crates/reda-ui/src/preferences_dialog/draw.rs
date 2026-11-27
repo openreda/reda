@@ -24,6 +24,7 @@ use crate::widgets::{self, Column, Tooltip as _};
 
 mod appearance;
 mod pages;
+mod pointer;
 mod shortcuts_page;
 
 pub(super) use appearance::FontLists;
@@ -362,7 +363,9 @@ impl PreferencesDialog {
     fn setting_row(&mut self, ui: &mut Ui, cx: &mut Cx<'_>, setting: &Setting, label: f32) {
         self.row(ui, cx, setting, label, |dialog, ui, cx| {
             // The Appearance settings have controls of their own, wherever they show.
-            if !dialog.appearance_control(ui, cx, setting) {
+            if !dialog.appearance_control(ui, cx, setting)
+                && !dialog.refused_control(ui, cx, setting)
+            {
                 dialog.editor(ui, cx, setting);
             }
         });
@@ -372,6 +375,9 @@ impl PreferencesDialog {
             layout::caption_warning(ui, indent, warning);
         }
         if let Some(caption) = self.appearance_caption(ui, cx, setting) {
+            layout::caption(ui, indent, caption);
+        }
+        if let Some(caption) = self.refused_caption(ui, setting) {
             layout::caption(ui, indent, caption);
         }
         if let Some(caption) = schema::caption(&setting.key) {

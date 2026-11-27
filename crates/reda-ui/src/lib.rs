@@ -21,6 +21,7 @@ pub mod cross_probe;
 pub mod delta;
 mod dialogs;
 mod docking;
+pub mod edit_cursor;
 pub mod element_editor;
 pub mod footprint_editor;
 pub mod grid;

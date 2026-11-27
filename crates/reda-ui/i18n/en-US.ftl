@@ -2868,6 +2868,8 @@ tab-out-of-sync = { $tab }, out of sync: { $count ->
 
 # Shared canvas selection.
 pref-editing-click-clears-selection = Click Clears Selection
+pref-canvas-arrows-move-pointer = Arrow keys move the mouse pointer
+pref-canvas-arrows-move-pointer-refused = Your desktop does not let REDA move the mouse pointer.
 pref-editing-directional-rectangle = Directional Rectangle
 pref-editing-protect-locked-objects = Protect Locked Objects
 pref-editing-grid-style = Visible Grid Style

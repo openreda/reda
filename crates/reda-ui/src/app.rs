@@ -87,6 +87,9 @@ pub struct App {
     /// Whether the OS allowed motion when REDA started: what `general.animate` follows
     /// while it is unset.
     os_allows_motion: bool,
+    /// Whether the desktop lets REDA move the system pointer with the arrow keys' Edit
+    /// Cursor ([`crate::edit_cursor::desktop_moves_pointer`]).
+    desktop_moves_pointer: bool,
     /// A Crash Report from an earlier run, not yet offered.
     crash_report: Option<PathBuf>,
     /// The control port, for agents.
@@ -142,6 +145,7 @@ impl App {
             render_state: None,
             theme_installed: false,
             os_allows_motion: true,
+            desktop_moves_pointer: true,
             help: Default::default(),
             palette: None,
             palette_recent: Vec::new(),
@@ -162,6 +166,14 @@ impl App {
             closing: Closing::default(),
             relink_confirm: None,
         }
+    }
+
+    /// Whether the desktop lets REDA move the system pointer. Without this it does; where
+    /// it does not, **Arrow keys move the mouse pointer** shows ticked and disabled, and
+    /// the Edit Cursor leaves the pointer behind.
+    pub fn with_desktop_moves_pointer(mut self, allows: bool) -> App {
+        self.desktop_moves_pointer = allows;
+        self
     }
 
     /// What the OS reduced-motion setting said at launch: `general.animate` follows it
@@ -277,6 +289,7 @@ impl App {
         if !self.theme_installed {
             theme::fonts::set_source(&ctx, self.shell.font_source());
             theme::motion::system::remember(&ctx, self.os_allows_motion);
+            crate::edit_cursor::remember_moves_pointer(&ctx, self.desktop_moves_pointer);
             // The first frame is drawn as the Preferences ask, fonts included.
             theme::set(&ctx, &theme::settings(self.shell.preferences()));
             ctx.set_theme(theme::preference(self.shell.preferences()));
@@ -1351,6 +1364,7 @@ pub fn run(
                 App::new(shell)
                     .with_title_bar(startup)
                     .with_os_motion(os_motion.allows_motion(theme::motion::system::LAUNCH_WAIT))
+                    .with_desktop_moves_pointer(crate::edit_cursor::desktop_moves_pointer())
                     .with_render_state(render_state.clone())
                     .with_bridge(bridge)
                     .watching_preferences()

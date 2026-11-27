@@ -66,6 +66,7 @@ pub fn page_of(key: &str) -> &'static str {
         ("editing", name) if name.starts_with("auto_pan.") => "editing.auto_pan",
         ("editing", name) if name.starts_with("highlight.") => "editing.highlight",
         ("editing", _) => "editing",
+        ("canvas", "arrows_move_pointer") => "editing",
         ("general", "default_layout") => "window",
         // Appearance is a place in the tree, not a rename: its keys stay `general.*`.
         (

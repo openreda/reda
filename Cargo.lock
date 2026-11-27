@@ -3438,6 +3438,7 @@ dependencies = [
  "egui_kittest",
  "fluent-bundle",
  "objc2-app-kit 0.3.2",
+ "proptest",
  "reda-control",
  "reda-engine",
  "reda-testkit",

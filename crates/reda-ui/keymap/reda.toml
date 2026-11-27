@@ -285,6 +285,251 @@ key = "Alt+Left"
 command = "view.previous"
 params = { document = "$active_document" }
 
+# The Edit Cursor: the arrows move it one grid step (Shift: ten), idle or with a Tool in
+# flight, carrying the object in flight. Enter clicks at it where the Tool has not bound
+# Enter (the Tools that finish on Enter keep that), and Shift+Enter clicks everywhere, so
+# a route corner or a polygon vertex can be placed by keys.
+
+[[bind]]
+context = "schematic"
+key = "Left"
+command = "view.cursor.step"
+params = { document = "$active_document", dx = -1, dy = 0 }
+
+[[bind]]
+context = "schematic"
+key = "Right"
+command = "view.cursor.step"
+params = { document = "$active_document", dx = 1, dy = 0 }
+
+[[bind]]
+context = "schematic"
+key = "Up"
+command = "view.cursor.step"
+params = { document = "$active_document", dx = 0, dy = 1 }
+
+[[bind]]
+context = "schematic"
+key = "Down"
+command = "view.cursor.step"
+params = { document = "$active_document", dx = 0, dy = -1 }
+
+[[bind]]
+context = "schematic"
+key = "Shift+Left"
+command = "view.cursor.step"
+params = { document = "$active_document", dx = -10, dy = 0 }
+
+[[bind]]
+context = "schematic"
+key = "Shift+Right"
+command = "view.cursor.step"
+params = { document = "$active_document", dx = 10, dy = 0 }
+
+[[bind]]
+context = "schematic"
+key = "Shift+Up"
+command = "view.cursor.step"
+params = { document = "$active_document", dx = 0, dy = 10 }
+
+[[bind]]
+context = "schematic"
+key = "Shift+Down"
+command = "view.cursor.step"
+params = { document = "$active_document", dx = 0, dy = -10 }
+
+[[bind]]
+context = "schematic"
+key = "Enter"
+command = "view.cursor.click"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "schematic"
+key = "Shift+Enter"
+command = "view.cursor.click"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "pcb"
+key = "Left"
+command = "view.cursor.step"
+params = { document = "$active_document", dx = -1, dy = 0 }
+
+[[bind]]
+context = "pcb"
+key = "Right"
+command = "view.cursor.step"
+params = { document = "$active_document", dx = 1, dy = 0 }
+
+[[bind]]
+context = "pcb"
+key = "Up"
+command = "view.cursor.step"
+params = { document = "$active_document", dx = 0, dy = 1 }
+
+[[bind]]
+context = "pcb"
+key = "Down"
+command = "view.cursor.step"
+params = { document = "$active_document", dx = 0, dy = -1 }
+
+[[bind]]
+context = "pcb"
+key = "Shift+Left"
+command = "view.cursor.step"
+params = { document = "$active_document", dx = -10, dy = 0 }
+
+[[bind]]
+context = "pcb"
+key = "Shift+Right"
+command = "view.cursor.step"
+params = { document = "$active_document", dx = 10, dy = 0 }
+
+[[bind]]
+context = "pcb"
+key = "Shift+Up"
+command = "view.cursor.step"
+params = { document = "$active_document", dx = 0, dy = 10 }
+
+[[bind]]
+context = "pcb"
+key = "Shift+Down"
+command = "view.cursor.step"
+params = { document = "$active_document", dx = 0, dy = -10 }
+
+[[bind]]
+context = "pcb"
+key = "Enter"
+command = "view.cursor.click"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "pcb"
+key = "Shift+Enter"
+command = "view.cursor.click"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "symbol"
+key = "Left"
+command = "view.cursor.step"
+params = { document = "$active_document", dx = -1, dy = 0 }
+
+[[bind]]
+context = "symbol"
+key = "Right"
+command = "view.cursor.step"
+params = { document = "$active_document", dx = 1, dy = 0 }
+
+[[bind]]
+context = "symbol"
+key = "Up"
+command = "view.cursor.step"
+params = { document = "$active_document", dx = 0, dy = 1 }
+
+[[bind]]
+context = "symbol"
+key = "Down"
+command = "view.cursor.step"
+params = { document = "$active_document", dx = 0, dy = -1 }
+
+[[bind]]
+context = "symbol"
+key = "Shift+Left"
+command = "view.cursor.step"
+params = { document = "$active_document", dx = -10, dy = 0 }
+
+[[bind]]
+context = "symbol"
+key = "Shift+Right"
+command = "view.cursor.step"
+params = { document = "$active_document", dx = 10, dy = 0 }
+
+[[bind]]
+context = "symbol"
+key = "Shift+Up"
+command = "view.cursor.step"
+params = { document = "$active_document", dx = 0, dy = 10 }
+
+[[bind]]
+context = "symbol"
+key = "Shift+Down"
+command = "view.cursor.step"
+params = { document = "$active_document", dx = 0, dy = -10 }
+
+[[bind]]
+context = "symbol"
+key = "Enter"
+command = "view.cursor.click"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "symbol"
+key = "Shift+Enter"
+command = "view.cursor.click"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "footprint"
+key = "Left"
+command = "view.cursor.step"
+params = { document = "$active_document", dx = -1, dy = 0 }
+
+[[bind]]
+context = "footprint"
+key = "Right"
+command = "view.cursor.step"
+params = { document = "$active_document", dx = 1, dy = 0 }
+
+[[bind]]
+context = "footprint"
+key = "Up"
+command = "view.cursor.step"
+params = { document = "$active_document", dx = 0, dy = 1 }
+
+[[bind]]
+context = "footprint"
+key = "Down"
+command = "view.cursor.step"
+params = { document = "$active_document", dx = 0, dy = -1 }
+
+[[bind]]
+context = "footprint"
+key = "Shift+Left"
+command = "view.cursor.step"
+params = { document = "$active_document", dx = -10, dy = 0 }
+
+[[bind]]
+context = "footprint"
+key = "Shift+Right"
+command = "view.cursor.step"
+params = { document = "$active_document", dx = 10, dy = 0 }
+
+[[bind]]
+context = "footprint"
+key = "Shift+Up"
+command = "view.cursor.step"
+params = { document = "$active_document", dx = 0, dy = 10 }
+
+[[bind]]
+context = "footprint"
+key = "Shift+Down"
+command = "view.cursor.step"
+params = { document = "$active_document", dx = 0, dy = -10 }
+
+[[bind]]
+context = "footprint"
+key = "Enter"
+command = "view.cursor.click"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "footprint"
+key = "Shift+Enter"
+command = "view.cursor.click"
+params = { document = "$active_document" }
+
 # The schematic canvas. "$selection" is what is selected on the sheet, "$selectable"
 # everything that can be, "$clipboard" what was last copied or cut, and "$cursor" where the
 # pointer last was over the sheet, on its grid.

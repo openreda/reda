@@ -100,13 +100,15 @@ impl Shell {
         self.focus_state().request.take()
     }
 
-    /// Centres `document`'s canvas on where the pointer last was over it (`view.recenter`,
-    /// Home), keeping the zoom; nothing while the pointer has not been over it.
+    /// Centres `document`'s canvas on its Edit Cursor (`view.recenter`, Home): where the
+    /// arrow keys put it, else where the pointer last was over it, keeping the zoom;
+    /// nothing while the pointer has not been over it.
     pub fn recenter(&mut self, document: Uuid) {
+        let edit_cursor = crate::edit_cursor::of(self, document).and_then(|c| c.shown());
         let Some(tab) = self.document_tab_mut(document) else {
             return;
         };
-        if let Some(at) = tab.cursor {
+        if let Some(at) = edit_cursor.or(tab.cursor) {
             self.jump(
                 document,
                 crate::navigation::Jump::To(Point::new(Nm(at.0 as i64), Nm(at.1 as i64))),

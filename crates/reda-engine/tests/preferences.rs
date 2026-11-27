@@ -844,3 +844,25 @@ fn the_appearance_page_holds_the_look_and_stays_under_general_keys() {
         json!({"reset": ["general.text_size", "general.theme"]})
     );
 }
+
+#[test]
+fn arrows_move_the_pointer_by_default_and_the_key_is_on_the_editing_page() {
+    let home = TempDir::new("prefs-arrows-pointer");
+    let out = get(home.path(), "canvas.arrows_move_pointer");
+    assert_eq!(
+        (out["value"].clone(), out["default"].clone()),
+        (json!(true), json!(true))
+    );
+    assert_eq!(
+        reda_engine::preferences::pages::page_of("canvas.arrows_move_pointer"),
+        "editing"
+    );
+    test_engine_in(home.path()).run_ok(
+        "app.preferences.set",
+        json!({"key": "canvas.arrows_move_pointer", "value": false}),
+    );
+    assert_eq!(
+        read_prefs(home.path()),
+        "[canvas]\narrows_move_pointer = false\n"
+    );
+}
