@@ -13,6 +13,7 @@ mod plated_edge;
 pub(crate) mod rules;
 mod sheet_frame;
 mod teardrops;
+mod tool_defaults;
 mod track;
 mod unit;
 mod via;
@@ -70,6 +71,20 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
         ));
     let toggle = focused && ui.input_mut(take_units_toggle);
     let mut out = content(ui, shell);
+    // Tab with a Tool that places from Object Defaults: the keyboard goes to its options,
+    // once per press.
+    if let Some(request) = shell
+        .engine()
+        .view()
+        .get::<crate::object_defaults::FocusRequest>()
+    {
+        let id = Id::NULL.with("properties-tool-options-focus");
+        let seen: u64 = ui.data(|d| d.get_temp(id)).unwrap_or_default();
+        if request.0 != seen {
+            ui.data_mut(|d| d.insert_temp(id, request.0));
+            tool_defaults::focus_first(ui.ctx(), shell);
+        }
+    }
     if toggle {
         out.push(Out::Units(match units(shell) {
             Units::Mm => Units::Mil,
@@ -107,6 +122,9 @@ fn content(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
         return run(commands);
     }
     if let Some(commands) = arc_tool::tool_options(ui, shell) {
+        return run(commands);
+    }
+    if let Some(commands) = tool_defaults::show(ui, shell) {
         return run(commands);
     }
     // A running Tool's options replace the overview.

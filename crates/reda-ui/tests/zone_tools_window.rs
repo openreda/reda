@@ -108,7 +108,7 @@ fn zone(w: &mut Window) -> Uuid {
 }
 
 #[test]
-fn the_zone_tool_options_in_properties_set_its_preference() {
+fn the_zone_tool_options_in_properties_set_its_object_defaults() {
     let mut w = window();
     run(&mut w, "tool.activate:zone", json!({}));
     w.h.run();
@@ -122,17 +122,17 @@ fn the_zone_tool_options_in_properties_set_its_preference() {
         last_entry(&w),
         (
             "app.preferences.set".to_owned(),
-            json!({"key": "pcb.zone.tool.pour_over", "value": "all"})
+            json!({"key": "defaults.pcb.zone.pour_over", "value": "all"})
         )
     );
     assert_eq!(
-        shell(&w).preferences().pcb.zone.tool.pour_over,
+        shell(&w).preferences().defaults.pcb.zone.pour_over,
         reda_ui::engine::model::PourOver::All
     );
     w.h.get_by_role_and_label(Role::CheckBox, "Remove Unconnected Islands")
         .click();
     w.h.run();
-    assert!(!shell(&w).preferences().pcb.zone.tool.remove_unconnected);
+    assert!(!shell(&w).preferences().defaults.pcb.zone.remove_unconnected);
 }
 
 #[test]
@@ -147,7 +147,7 @@ fn the_keepout_tool_options_pick_its_shape_and_what_it_keeps_out() {
     w.h.get_by_role_and_label(Role::CheckBox, "Footprints")
         .click();
     w.h.run();
-    let prefs = &shell(&w).preferences().pcb.keepout;
+    let prefs = &shell(&w).preferences().defaults.pcb.keepout;
     assert_eq!(
         prefs.shape,
         reda_ui::engine::preferences::KeepoutToolShape::Circle

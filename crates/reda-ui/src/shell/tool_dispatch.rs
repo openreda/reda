@@ -90,6 +90,9 @@ impl Shell {
                 Tool::Place => {
                     let _ = self.run_reporting("panel.show:properties", json!({}));
                 }
+                tool if crate::object_defaults::OPTION_TOOLS.contains(&tool) => {
+                    let _ = self.run_reporting("panel.show:properties", json!({}));
+                }
                 _ => {}
             },
             Place | SetPlacement => crate::placement::refresh(self),
@@ -107,7 +110,7 @@ impl Shell {
                 }
             }
             // These Commands carry out their entire action in the registry.
-            SetAutoWire | PlaceUnit => {}
+            SetAutoWire | SetOption | PlaceUnit => {}
         }
         for (id, params) in edits {
             let _ = self.run_reporting(&id, params);

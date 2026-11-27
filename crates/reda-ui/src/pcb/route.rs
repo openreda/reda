@@ -979,9 +979,11 @@ impl Router {
             return;
         };
         let kind = shell.board_view().stitching_type(pcb);
+        let teardrop = crate::object_defaults::current(shell).pcb.via.teardrop;
         let _ = shell.run_reporting(
             "pcb.via.add",
-            json!({"at": {"x": at.x, "y": at.y},"from":kind.from,"to":kind.to}),
+            json!({"at": {"x": at.x, "y": at.y}, "from": kind.from, "to": kind.to,
+                   "teardrop": teardrop}),
         );
         self.check(shell, at);
     }

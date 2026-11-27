@@ -1,7 +1,8 @@
 //! Zones in Properties: a selected Zone's outline and filled areas (read-only), how it
 //! pours over its own Net's copper and its islands; and, while the Zone, Zone Cutout or
-//! Keepout Tool is active, that Tool's options, which its Preference keeps for the next
-//! shape (docs/spec/v0.1/pcb.md#creating-zones).
+//! Keepout Tool is active, that Tool's options: its Object Defaults (`defaults.pcb.zone`,
+//! `defaults.pcb.keepout`), edited as [`crate::object_defaults::edit`] says
+//! (docs/spec/v0.1/pcb.md#creating-zones).
 
 use egui::{Role, Ui, WidgetInfo};
 use reda_engine::model::{Object, PourOver, Restriction};
@@ -26,14 +27,12 @@ pub(super) fn tool_options(ui: &mut Ui, shell: &Shell) -> Option<Vec<(&'static s
     ui.label(tr!("properties-tool-options", tool = tool_title(tool)));
     ui.separator();
     let set = |key: &str, value: Value| {
-        (
-            "app.preferences.set",
-            json!({"key": format!("pcb.{key}"), "value": value}),
-        )
+        crate::object_defaults::edit(shell, &format!("defaults.pcb.{key}"), value)
     };
+    let defaults = crate::object_defaults::current(shell);
     match tool {
         Tool::Zone => {
-            let values = shell.preferences().pcb.zone.tool.clone();
+            let values = defaults.pcb.zone.clone();
             let units = shell.board_view().units;
             widgets::form("properties-zone-tool").show(ui, |ui| {
                 for (name, value) in [
@@ -54,13 +53,13 @@ pub(super) fn tool_options(ui: &mut Ui, shell: &Shell) -> Option<Vec<(&'static s
                         } else {
                             json!(with_unit(&text, units, false))
                         };
-                        out.push(set(&format!("zone.tool.{name}"), value));
+                        out.push(set(&format!("zone.{name}"), value));
                     }
                     ui.end_row();
                 }
                 let pour = pour_over(ui, "zone-tool", &Shared::Same(values.pour_over));
                 if let Some(p) = pour {
-                    out.push(set("zone.tool.pour_over", json!(p)));
+                    out.push(set("zone.pour_over", json!(p)));
                 }
                 ui.end_row();
                 let area = crate::panels::navigator::format_area(values.min_island_area.0, units);
@@ -74,7 +73,7 @@ pub(super) fn tool_options(ui: &mut Ui, shell: &Shell) -> Option<Vec<(&'static s
                         text.trim()
                     };
                     out.push(set(
-                        "zone.tool.min_island_area",
+                        "zone.min_island_area",
                         json!(with_unit(text, units, true)),
                     ));
                 }
@@ -88,11 +87,11 @@ pub(super) fn tool_options(ui: &mut Ui, shell: &Shell) -> Option<Vec<(&'static s
                 ))
                 .clicked()
             {
-                out.push(set("zone.tool.remove_unconnected", json!(on)));
+                out.push(set("zone.remove_unconnected", json!(on)));
             }
         }
         Tool::Keepout => {
-            let values = shell.preferences().pcb.keepout.clone();
+            let values = defaults.pcb.keepout.clone();
             let shapes = [
                 (KeepoutToolShape::Polygon, tr!("properties-keepout-polygon")),
                 (

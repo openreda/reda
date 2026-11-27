@@ -361,6 +361,13 @@ impl Shell {
         if engine.registry().get("view.footprint_tool.set").is_none() {
             engine.register(crate::footprint_editor::register_all);
         }
+        if engine
+            .registry()
+            .get(crate::object_defaults::OPTION_SET)
+            .is_none()
+        {
+            engine.register(crate::object_defaults::register_all);
+        }
         if engine.registry().get("library.paste_array").is_none() {
             engine.register(crate::library_dialogs::paste_array::register_all);
         }
@@ -414,6 +421,12 @@ impl Shell {
             .view_mut()
             .set(crate::properties::commands::RevealRules::default());
         engine.view_mut().set(ActiveTool::default());
+        engine
+            .view_mut()
+            .set(crate::object_defaults::SessionEdits::default());
+        engine
+            .view_mut()
+            .set(crate::object_defaults::FocusRequest::default());
         engine.view_mut().set(pcb::placing::PlaceFlight::default());
         engine.view_mut().set(pcb::CopperCycle::default());
         engine

@@ -97,9 +97,14 @@ impl Cx<'_> {
             Tool::Rect if !d.points.is_empty() => {
                 let from = d.points[0];
                 if from.x != p.x && from.y != p.y {
+                    let filled = crate::object_defaults::current(self.shell)
+                        .schematic
+                        .rectangle
+                        .fill;
                     self.commands.push((
                         "schematic.graphic.add_rect".to_owned(),
-                        json!({"document": self.document, "from": at(from), "to": at(p)}),
+                        json!({"document": self.document, "from": at(from), "to": at(p),
+                               "filled": filled}),
                     ));
                     d.committed = outline(from, p);
                     d.points.clear();

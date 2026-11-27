@@ -387,12 +387,12 @@ fn draw_square(b: &mut Board) {
 }
 
 #[test]
-fn the_zone_tool_pre_fills_from_its_preference() {
+fn the_zone_tool_pre_fills_from_its_object_defaults() {
     let mut b = board();
-    pref(&mut b, "pcb.zone.tool.pour_over", json!("all"));
-    pref(&mut b, "pcb.zone.tool.clearance", json!("0.4mm"));
-    pref(&mut b, "pcb.zone.tool.remove_unconnected", json!(false));
-    pref(&mut b, "pcb.zone.tool.min_island_area", json!("1mm2"));
+    pref(&mut b, "defaults.pcb.zone.pour_over", json!("all"));
+    pref(&mut b, "defaults.pcb.zone.clearance", json!("0.4mm"));
+    pref(&mut b, "defaults.pcb.zone.remove_unconnected", json!(false));
+    pref(&mut b, "defaults.pcb.zone.min_island_area", json!("1mm2"));
     b.tool("zone");
     draw_square(&mut b);
     let z = b.pcb().zones().next().expect("a Zone").clone();
@@ -422,11 +422,11 @@ fn the_keepout_tool_draws_rectangles_and_circles_by_its_options() {
     let mut b = board();
     let top = b.layer(LayerKind::Copper, Some(Side::Top));
     run(&mut b.shell, "pcb.layer.activate", json!({"layer": top}));
-    pref(&mut b, "pcb.keepout.shape", json!("rectangle"));
-    pref(&mut b, "pcb.keepout.all_layers", json!(false));
+    pref(&mut b, "defaults.pcb.keepout.shape", json!("rectangle"));
+    pref(&mut b, "defaults.pcb.keepout.all_layers", json!(false));
     pref(
         &mut b,
-        "pcb.keepout.restrict",
+        "defaults.pcb.keepout.restrict",
         json!(["tracks", "footprints"]),
     );
     b.tool("keepout");
@@ -445,8 +445,8 @@ fn the_keepout_tool_draws_rectangles_and_circles_by_its_options() {
         ]
     );
 
-    pref(&mut b, "pcb.keepout.shape", json!("circle"));
-    pref(&mut b, "pcb.keepout.all_layers", json!(true));
+    pref(&mut b, "defaults.pcb.keepout.shape", json!("circle"));
+    pref(&mut b, "defaults.pcb.keepout.all_layers", json!(true));
     b.click(mm(10.0, 10.0));
     b.click(mm(12.0, 10.0));
     let k = b
