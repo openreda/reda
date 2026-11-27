@@ -34,7 +34,7 @@ workspace = true
 productName = "REDA"
 identifier = "com.openreda.reda"
 publisher = "openreda"
-copyright = "Copyright (c) 2026 Michael Jensen. MIT licensed."
+copyright = "Copyright (c) 2026 Michael Jensen. Licensed under GPL-2.0-or-later."
 description = "Electronic design automation: capture schematics, lay out PCBs and produce fab outputs."
 homepage = "https://openreda.com"
 # The .deb Maintainer field.

@@ -6,7 +6,7 @@ members = ["crates/*"]
 version = "0.0.0"
 edition = "2024"
 rust-version = "1.96"
-license = "MIT"
+license = "GPL-2.0-or-later"
 repository = "https://github.com/openreda/reda"
 publish = false
 

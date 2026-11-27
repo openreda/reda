@@ -24,5 +24,5 @@ accepted = [
 # Only what ships: build scripts, proc macros' build deps and test-only crates do not.
 ignore-build-dependencies = true
 ignore-dev-dependencies = true
-# The workspace crates are REDA itself (MIT, publish = false).
+# The workspace crates are REDA itself (GPL-2.0-or-later, publish = false).
 private = { ignore = true }

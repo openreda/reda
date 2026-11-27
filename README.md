@@ -1,8 +1,10 @@
 # REDA
 
-REDA is an MIT-licensed electronic design automation (EDA) tool written in Rust. In one window you capture a circuit on Schematic Sheets, lay out the PCB that realises it, and produce the files a fab needs to make and assemble the board. The same Commands drive the GUI, the `reda` command-line tool and MCP, so AI agents can work on a design too.
+REDA is a free and open-source electronic design automation (EDA) tool written in Rust. In one window you capture a circuit on Schematic Sheets, lay out the PCB that realises it, and produce the files a fab needs to make and assemble the board. The same Commands drive the GUI, the `reda` command-line tool and MCP, so AI agents can work on a design too.
 
 REDA is at an early stage. Expect missing features, rough edges and file-format changes between releases.
+
+The public source code and releases live at **<https://github.com/openreda/openreda>**, under the GNU General Public License, version 2 or later. See [Licence and repositories](#licence-and-repositories) for how development works until v1.0.
 
 Website: **<https://openreda.github.io/reda/>**
 
@@ -18,7 +20,7 @@ The app draws these itself from the newest `main`, so they always show REDA as i
 
 ## Download
 
-Releases are published by hand on [GitHub Releases](https://github.com/openreda/reda/releases). The [`latest`](https://github.com/openreda/reda/releases/tag/latest) release always holds the newest build, with the version left out of the file names.
+Releases are published by hand on [GitHub Releases](https://github.com/openreda/openreda/releases). The [`latest`](https://github.com/openreda/openreda/releases/tag/latest) release always holds the newest build, with the version left out of the file names.
 
 | System | File |
 |---|---|
@@ -78,6 +80,18 @@ Local builds report their version as `<version>-dev+<git hash>`.
 - [`GLOSSARY.md`](GLOSSARY.md): the domain vocabulary.
 - [`AGENTS.md`](AGENTS.md): how the repository is organised.
 
-## License
+## Licence and repositories
 
-REDA is MIT licensed; see [LICENSE](LICENSE).
+**Public releases are GPL.** The source code published at [openreda/openreda](https://github.com/openreda/openreda), and every release built from it, is licensed under the GNU General Public License, version 2 or (at your option) any later version (`GPL-2.0-or-later`). The full text is in [LICENSE](LICENSE). The Starter Library in [`library/`](library/), the symbols, footprints, parts and board templates that ship with REDA, stays under the MIT License (see [library/LICENSE](library/LICENSE)), so you can use and adapt its parts without the GPL applying. The GPL covers REDA itself, not your work: schematics, boards and fab outputs you make with REDA are yours, under whatever terms you choose.
+
+**Development happens in a private repository.** Milestones are planned and built in `openreda/reda`, which is not public. Until REDA is ready for general use at v1.0, we publish source releases from it to [openreda/openreda](https://github.com/openreda/openreda) as development goes along. The public repository's history may be squashed or rewritten between source releases.
+
+**Contributions are accepted under MIT.** Pull requests to openreda/openreda are welcome, but by opening one you agree to license your contribution under the [MIT License](CONTRIBUTING.md#licence-of-contributions), not the GPL. We keep the right to maintain our own internal version of REDA that is not under the GPL, and MIT-licensed contributions let us carry your change into it as well as into the GPL releases. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full terms.
+
+### Why GPL now, and MIT later
+
+Our goal is for REDA to be MIT licensed. We are not there yet because of when REDA is being built. With AI tools, a fork of an open project can be taken, extended and sold as a paid product very quickly. During early, active development, before REDA has established itself, an MIT release would let anyone do that with the work done so far. The GPL is our protection in the meantime: anyone may use, study, change and share REDA, but anyone who distributes a version of it must publish their source under the same terms.
+
+The split is not a plan for a closed edition. We do not intend to release a closed-source REDA with extra features. The GPL release is where our work goes. We keep the non-GPL internal version, and take contributions under MIT, so that we can move the whole project, contributions included, to MIT without having to track down every contributor. When REDA has been around long enough and is established, we intend to switch the public releases to the MIT License.
+
+Third-party code, fonts and data that ship with REDA keep their own licences; they are listed in the `THIRD_PARTY_NOTICES` file in every release and in the app's About box.

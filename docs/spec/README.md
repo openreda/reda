@@ -1,6 +1,6 @@
 # REDA product spec
 
-REDA is an MIT-licensed electronic design automation (EDA) tool written in Rust with egui. It is one application with one window. In it a user captures a circuit on Schematic Sheets, lays out the PCB Document that realises it, and produces the files a fab needs to make and assemble the board.
+REDA is a free and open-source electronic design automation (EDA) tool written in Rust with egui. It is one application with one window. In it a user captures a circuit on Schematic Sheets, lays out the PCB Document that realises it, and produces the files a fab needs to make and assemble the board.
 
 This spec gathers the decisions made on the [wayfinder map](https://github.com/openreda/reda/issues/1) so that implementers do not have to read the issue threads. It restates only what an implementer needs. Each section links the ticket or ADR that holds the reasoning. When this spec and a ticket disagree, the ticket's resolution comment wins, and this spec should be fixed. Domain terms (capitalised: Project, Component, Net…) are defined in [`GLOSSARY.md`](../../GLOSSARY.md).
 
@@ -18,7 +18,7 @@ This spec gathers the decisions made on the [wayfinder map](https://github.com/o
 - **Its own identity.** REDA borrows proven workflow ideas, but it is not a UI clone of KiCad or of any commercial suite, and it never aims for 1:1 parity with another tool.
 - **Platforms.** Windows, macOS and Linux desktops come first. A WebAssembly build (maybe a read-only viewer) is a far-future goal, so the engine crates stay free of UI and OS dependencies and build for `wasm32-unknown-unknown`.
 - **Every action is a Command** ([ADR-0001](../adr/0001-every-action-is-a-command.md)). The GUI, the `reda` CLI and MCP all run the same schema-described Commands. AI agents drive REDA through MCP and the CLI. REDA has no in-app assistant.
-- **Permissive only** ([ADR-0002](../adr/0002-permissive-licensing-and-third-party-data.md)). REDA is MIT. Dependencies are permissive, and no GPL or LGPL code is linked or copied. REDA can read third-party library data that the user supplies, but never ships it.
+- **Permissive dependencies** ([ADR-0002](../adr/0002-permissive-licensing-and-third-party-data.md), [ADR-0017](../adr/0017-gpl-public-releases-mit-contributions.md)). Public releases are GPL-2.0-or-later, contributions come in under MIT, and REDA keeps the right to a version outside the GPL. Dependencies are permissive, and no GPL or LGPL code is linked or copied. REDA can read third-party library data that the user supplies, but never ships it.
 - **Few dependencies.** REDA uses crates for substantial pieces that are hard to write well (polygon ops, GUI, MCP, file dialogs, fonts) and writes small utilities itself (see `AGENTS.md`).
 - **Built by agents.** A solo maintainer builds REDA, with AI agents doing much of the implementation. That is why v0.1 is specified for AFK agents: tests are Command-level scenarios, outputs are checked with goldens, and every change lands through a PR that passes CI (see [Testing](v0.1/quality-and-release.md#testing)).
 
@@ -41,6 +41,7 @@ This spec gathers the decisions made on the [wayfinder map](https://github.com/o
 | [0013](../adr/0013-placed-pads-edit-a-local-footprint-copy.md) | Editing a placed Footprint's Pads gives that instance a local Footprint copy, which Sync does not revert. |
 | [0014](../adr/0014-reda-draws-its-own-title-bar.md) | REDA draws its own Title bar on Wayland, Windows and macOS, merged with the menus, with the system title bar as a fallback. |
 | [0015](../adr/0015-chrome-styling-goes-through-theme-tokens-and-reda-widgets.md) | Chrome styling goes through one `Tokens` value and REDA widgets, enforced by a source-scanning test. |
+| [0017](../adr/0017-gpl-public-releases-mit-contributions.md) | Public releases are GPL-2.0-or-later; contributions come in under MIT, so a non-GPL internal version stays possible. |
 
 ## Research behind the decisions
 

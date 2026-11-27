@@ -21,7 +21,7 @@ fn main() {
     let mut out = String::from(
         "THIRD-PARTY NOTICES\n\
          \n\
-         REDA is MIT-licensed. It ships with the third-party data and Rust crates below, \
+         REDA is licensed under GPL-2.0-or-later. It ships with the third-party data and Rust crates below, \
          under their own licences.\n",
     );
 

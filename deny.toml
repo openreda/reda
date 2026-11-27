@@ -50,7 +50,7 @@ exceptions = [
 unused-allowed-license = "allow"
 
 [licenses.private]
-# Workspace crates are never published (publish = false); their licence is the repo's MIT.
+# Workspace crates are never published (publish = false); their licence is REDA's own (ADR-0017).
 ignore = true
 
 [bans]
