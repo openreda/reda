@@ -738,9 +738,12 @@ impl App {
                         FileRequest::ExportChangeList => "changes.html",
                         _ => "redarules",
                     };
-                    let name = (self.shell.engine().project())
-                        .map(|p| format!("{}.{extension}", p.props().name))
-                        .unwrap_or_default();
+                    let name = match request {
+                        FileRequest::SaveDefaults => "object-defaults.toml".to_owned(),
+                        _ => (self.shell.engine().project())
+                            .map(|p| format!("{}.{extension}", p.props().name))
+                            .unwrap_or_default(),
+                    };
                     self.files
                         .start_save(ctx, Pick::SettingsFile(window, request), name);
                 }

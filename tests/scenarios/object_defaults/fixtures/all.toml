@@ -1,0 +1,222 @@
+[defaults]
+
+[defaults.pcb]
+
+[defaults.pcb.line]
+
+[defaults.pcb.line.assembly]
+width = "0.1mm"
+
+[defaults.pcb.line.copper]
+width = "0.15mm"
+
+[defaults.pcb.line.courtyard]
+width = "0.05mm"
+
+[defaults.pcb.line.mechanical]
+width = "0.15mm"
+
+[defaults.pcb.line.silkscreen]
+width = "0.2mm"
+
+[defaults.pcb.rectangle]
+
+[defaults.pcb.rectangle.assembly]
+fill = false
+width = "0.1mm"
+
+[defaults.pcb.rectangle.copper]
+fill = false
+width = "0.15mm"
+
+[defaults.pcb.rectangle.courtyard]
+fill = false
+width = "0.05mm"
+
+[defaults.pcb.rectangle.mechanical]
+fill = false
+width = "0.15mm"
+
+[defaults.pcb.rectangle.silkscreen]
+fill = false
+width = "0.15mm"
+
+[defaults.pcb.arc]
+
+[defaults.pcb.arc.assembly]
+width = "0.1mm"
+
+[defaults.pcb.arc.copper]
+width = "0.15mm"
+
+[defaults.pcb.arc.courtyard]
+width = "0.05mm"
+
+[defaults.pcb.arc.mechanical]
+width = "0.15mm"
+
+[defaults.pcb.arc.silkscreen]
+width = "0.15mm"
+
+[defaults.pcb.circle]
+
+[defaults.pcb.circle.assembly]
+fill = false
+width = "0.1mm"
+
+[defaults.pcb.circle.copper]
+fill = false
+width = "0.15mm"
+
+[defaults.pcb.circle.courtyard]
+fill = false
+width = "0.05mm"
+
+[defaults.pcb.circle.mechanical]
+fill = false
+width = "0.15mm"
+
+[defaults.pcb.circle.silkscreen]
+fill = false
+width = "0.15mm"
+
+[defaults.pcb.polygon]
+
+[defaults.pcb.polygon.assembly]
+fill = false
+width = "0.1mm"
+
+[defaults.pcb.polygon.copper]
+fill = false
+width = "0.15mm"
+
+[defaults.pcb.polygon.courtyard]
+fill = false
+width = "0.05mm"
+
+[defaults.pcb.polygon.mechanical]
+fill = false
+width = "0.15mm"
+
+[defaults.pcb.polygon.silkscreen]
+fill = false
+width = "0.15mm"
+
+[defaults.pcb.text]
+
+[defaults.pcb.text.assembly]
+font = "Hershey Roman Simplex"
+height = "1mm"
+thickness = "0.15mm"
+
+[defaults.pcb.text.copper]
+font = "Hershey Roman Simplex"
+height = "1mm"
+thickness = "0.15mm"
+
+[defaults.pcb.text.courtyard]
+font = "Hershey Roman Simplex"
+height = "1mm"
+thickness = "0.15mm"
+
+[defaults.pcb.text.justify]
+h = "left"
+v = "bottom"
+
+[defaults.pcb.text.mechanical]
+font = "Hershey Roman Simplex"
+height = "1mm"
+thickness = "0.15mm"
+
+[defaults.pcb.text.silkscreen]
+font = "Hershey Roman Simplex"
+height = "1mm"
+thickness = "0.15mm"
+
+[defaults.pcb.dimension]
+arrow_length = "2mm"
+arrow_position = "inside"
+arrow_size = "1mm"
+extension_width = "0.15mm"
+format = "value_unit"
+gap = "0.5mm"
+offset = "2mm"
+precision = 2
+text_gap = "0.25mm"
+text_height = "1mm"
+units = "automatic"
+width = "0.15mm"
+
+[defaults.pcb.free_pad]
+height = "2mm"
+hole = "1mm"
+kind = "plated_through_hole"
+shape = "circle"
+width = "2mm"
+
+[defaults.pcb.zone]
+min_island_area = "0mm2"
+pour_over = "zones_only"
+remove_unconnected = true
+
+[defaults.pcb.keepout]
+all_layers = true
+restrict = ["tracks", "vias", "zones", "smd_pads", "tht_pads"]
+shape = "polygon"
+
+[defaults.pcb.via]
+teardrop = false
+
+[defaults.footprint]
+
+[defaults.footprint.pad]
+chamfer_ratio = 50000
+height = "1.5mm"
+hole_height = "0.8mm"
+hole_width = "0.8mm"
+kind = "smd"
+shape = "rect"
+width = "1mm"
+
+[defaults.footprint.text]
+
+[defaults.footprint.text.justify]
+h = "center"
+v = "center"
+
+[defaults.symbol]
+
+[defaults.symbol.pin]
+electrical_type = "passive"
+length = "200mil"
+name_visible = true
+number_visible = true
+
+[defaults.symbol.line]
+width = "10mil"
+
+[defaults.symbol.rectangle]
+fill = false
+width = "10mil"
+
+[defaults.symbol.arc]
+width = "10mil"
+
+[defaults.symbol.circle]
+fill = false
+width = "10mil"
+
+[defaults.symbol.polygon]
+fill = false
+width = "10mil"
+
+[defaults.schematic]
+
+[defaults.schematic.text]
+height = "50mil"
+
+[defaults.schematic.rectangle]
+fill = false
+
+[defaults.schematic.port]
+direction = "bidirectional"

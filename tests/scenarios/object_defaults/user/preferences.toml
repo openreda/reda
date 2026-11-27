@@ -1,0 +1,16 @@
+[defaults]
+
+[defaults.symbol]
+
+[defaults.symbol.pin]
+electrical_type = "input"
+length = "150mil"
+
+[defaults.pcb]
+
+[defaults.pcb.line]
+
+[defaults.pcb.line.silkscreen]
+width = "0.2mm"
+
+[defaults.pcb.via]

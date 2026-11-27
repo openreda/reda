@@ -211,7 +211,9 @@ impl BoardSetupDraft {
                 self.import = None;
                 self.preview_import(shell, path, None);
             }
-            FileRequest::ExportChangeList => {}
+            FileRequest::ExportChangeList
+            | FileRequest::SaveDefaults
+            | FileRequest::LoadDefaults => {}
         }
     }
 

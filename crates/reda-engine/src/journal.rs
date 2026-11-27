@@ -154,6 +154,14 @@ pub fn move_new_projects(
     replaced
 }
 
+/// Rewrites every param of `steps` that is the path `from`, or a path inside it, to the
+/// same place under `to`: the scenario harness points a script's `/fixtures` at a copy.
+pub fn relocate_paths(steps: &mut [ScriptEntry], from: &Path, to: &Path) {
+    for step in steps {
+        move_paths(&mut step.params, from, to);
+    }
+}
+
 /// Rewrites every string in `value` that is `from` or a path inside it to the same place
 /// under `to`.
 fn move_paths(value: &mut Value, from: &Path, to: &Path) {

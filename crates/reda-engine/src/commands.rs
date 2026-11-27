@@ -17,6 +17,7 @@ pub mod library;
 pub mod library_check;
 pub mod local_edits;
 pub mod net_info;
+pub mod object_defaults;
 pub mod output_run;
 pub mod package;
 pub mod pcb_update;
@@ -69,6 +70,7 @@ pub fn register_all(registry: &mut Registry) {
     pcb_update::register_all(registry);
     port_partners::register_all(registry);
     preferences::register_all(registry);
+    object_defaults::register_all(registry);
     project::register_all(registry);
     package::register_all(registry);
     properties::register_all(registry);

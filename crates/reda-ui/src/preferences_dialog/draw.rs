@@ -11,7 +11,7 @@ use std::path::PathBuf;
 
 use egui::{Color32, Role, Ui, WidgetInfo};
 use reda_engine::command::CommandError;
-use serde_json::json;
+use serde_json::{Value, json};
 
 use super::{Choice, Kind, PageId, PreferencesDialog, Setting, schema};
 use crate::bridge::Bridge;
@@ -23,6 +23,7 @@ use crate::tr;
 use crate::widgets::{self, Column, Tooltip as _};
 
 mod appearance;
+mod defaults;
 mod mouse_wheel;
 mod pages;
 mod pointer;
@@ -57,6 +58,9 @@ pub enum Outcome {
     PickFolder,
     /// Show this folder in the file manager ("Open folder").
     ShowFolder(PathBuf),
+    /// The Defaults page wants a file picked; the answer goes to
+    /// [`PreferencesDialog::picked_file`].
+    PickFile(crate::settings::FileRequest),
 }
 
 /// What the page drawing may use.
@@ -255,6 +259,7 @@ impl PreferencesDialog {
             PageId::AGENTS => self.agents(ui, cx),
             PageId::KEYBOARD_SHORTCUTS => self.keyboard_shortcuts(ui, cx),
             PageId::MOUSE_WHEEL => self.mouse_wheel(ui, cx),
+            PageId::DEFAULTS => self.defaults_page(ui, cx),
             PageId::ALL_SETTINGS => self.all_settings_table(ui, cx),
             page => {
                 let mut rows = self.rows(cx.shell, page);
@@ -496,6 +501,44 @@ impl PreferencesDialog {
                 }
                 if response.lost_focus() {
                     self.commit_text(cx.shell, key, &text);
+                }
+            }
+            Kind::Length { .. } | Kind::Percent => {
+                let mut text = self.text(cx.shell, key);
+                let problem = self.problem(key).map(|p| Problem::new(key, p));
+                let response = text_editor(ui, &setting.label, &mut text, None, problem.as_ref());
+                if response.changed() {
+                    self.edit_text(key, text.clone());
+                }
+                if response.lost_focus() {
+                    self.commit_text(cx.shell, key, &text);
+                }
+            }
+            Kind::Flags(choices) => {
+                let mut on: Vec<Value> = value.as_array().cloned().unwrap_or_default();
+                let mut changed = false;
+                ui.horizontal_wrapped(|ui| {
+                    ui.set_max_width(EDITOR_WIDTH * 2.0);
+                    for choice in choices {
+                        let mut ticked = on.contains(&choice.value);
+                        if ui
+                            .add(widgets::checkbox(&mut ticked, choice.label.as_str()))
+                            .changed()
+                        {
+                            if ticked {
+                                on.push(choice.value.clone());
+                            } else {
+                                on.retain(|v| *v != choice.value);
+                            }
+                            changed = true;
+                        }
+                    }
+                });
+                if changed {
+                    let _ = self.set(cx.shell, key, Value::Array(on));
+                }
+                if let Some(problem) = self.problem(key).map(|p| Problem::new(key, p)) {
+                    crate::settings::problem_label(ui, &problem);
                 }
             }
             Kind::List => {

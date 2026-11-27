@@ -41,6 +41,13 @@ pub enum Kind {
     Text,
     /// A list of text, such as folders.
     List,
+    /// A length (or with `area`, an area) typed with its unit, which it keeps; a bare
+    /// number is in the editor's default units. `optional` ones can be left blank.
+    Length { area: bool, optional: bool },
+    /// A share stored in thousandths of a percent, typed in percent.
+    Percent,
+    /// Any of a few values, each ticked on its own.
+    Flags(Vec<Choice>),
 }
 
 /// One value of a [`Kind::Choice`].
@@ -231,6 +238,50 @@ fn resolve<'s>(schema: &'s Value, node: &'s Value) -> &'s Value {
 
 fn kind(schema: &Value, node: &Value, key: &str) -> Kind {
     let node = resolve(schema, node);
+    // An optional value: one of its type and null.
+    let variants = node["anyOf"]
+        .as_array()
+        .or_else(|| node["oneOf"].as_array());
+    if let Some(variants) = variants
+        && variants.len() == 2
+        && let Some(null) = variants.iter().position(|v| v["type"] == "null")
+    {
+        let inner = kind(schema, &variants[1 - null], key);
+        return match inner {
+            Kind::Length { area, .. } => Kind::Length {
+                area,
+                optional: true,
+            },
+            other => other,
+        };
+    }
+    if let Some(variants) = node["oneOf"].as_array() {
+        let format = |f: &str| variants.iter().any(|v| v["format"] == f);
+        if format("length") || format("area") {
+            return Kind::Length {
+                area: format("area"),
+                optional: false,
+            };
+        }
+    }
+    if node["type"] == "integer"
+        && node["maximum"] == 100_000
+        && node["description"]
+            .as_str()
+            .is_some_and(|d| d.to_lowercase().contains("thousandths of a percent"))
+    {
+        return Kind::Percent;
+    }
+    // An Object Default's set, such as what a Keepout keeps out, is ticked choice by
+    // choice. Other sets (the Hotspots left out) offer only some of their type's values
+    // and stay a count until they have an editor of their own.
+    if node["type"] == "array"
+        && key.starts_with("defaults.")
+        && let Kind::Choice(choices) = kind(schema, &node["items"], key)
+        && !choices.is_empty()
+    {
+        return Kind::Flags(choices);
+    }
     if let Some(values) = node["enum"].as_array() {
         // A number from a list of steps, such as the UI scale: shown as a percentage.
         if values.iter().all(Value::is_number) {
@@ -247,11 +298,16 @@ fn kind(schema: &Value, node: &Value, key: &str) -> Kind {
         return Kind::Choice(values.map(|v| choice(key, v, None)).collect());
     }
     if let Some(variants) = node["oneOf"].as_array() {
+        // Documented values come one per variant (`const`), the rest together (`enum`).
         let choices = variants
             .iter()
-            .filter_map(|v| {
-                let value = v["const"].as_str()?;
-                Some(choice(key, value, v["description"].as_str()))
+            .flat_map(|v| {
+                let described = v["const"]
+                    .as_str()
+                    .map(|value| choice(key, value, v["description"].as_str()));
+                let listed = v["enum"].as_array().into_iter().flatten();
+                let listed = listed.filter_map(|e| Some(choice(key, e.as_str()?, None)));
+                described.into_iter().chain(listed).collect::<Vec<_>>()
             })
             .collect();
         return Kind::Choice(choices);

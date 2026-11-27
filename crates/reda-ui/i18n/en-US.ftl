@@ -532,6 +532,74 @@ tool-option-direction-in = In
 tool-option-direction-out = Out
 tool-option-direction-bidirectional = Bidirectional
 pref-page-defaults = Defaults
+defaults-filter = Filter kinds
+defaults-filter-hint = Filter kinds and fields
+defaults-reset-all = Reset all kinds
+defaults-save-all = Save all As…
+defaults-load = Load…
+defaults-reset-kind = Reset
+defaults-save-kind = Save As…
+defaults-none-found = No kind matches the filter.
+defaults-kind-modified = { $kind } ({ $count })
+defaults-reset-done = { $count ->
+    [one] Reset 1 value to its shipped default.
+   *[other] Reset { $count } values to their shipped defaults.
+}
+defaults-saved = Saved { $count ->
+    [one] 1 kind
+   *[other] { $count } kinds
+} to { $path }.
+defaults-loaded = Loaded { $kinds ->
+    [one] 1 kind
+   *[other] { $kinds } kinds
+} of Object Defaults; { $skipped ->
+    [0] no entry skipped.
+    [one] 1 entry skipped.
+   *[other] { $skipped } entries skipped.
+}
+defaults-save-title = Save Object Defaults
+defaults-load-title = Load Object Defaults
+defaults-file-filter = Object Defaults
+defaults-group-pcb-footprint = PCB and Footprint
+defaults-group-pcb = PCB
+defaults-group-footprint = Footprint
+defaults-group-symbol = Symbol
+defaults-group-symbol-schematic = Symbol and Schematic
+defaults-group-schematic = Schematic
+defaults-part-copper = Copper
+defaults-part-silkscreen = Silkscreen
+defaults-part-courtyard = Courtyard
+defaults-part-assembly = Assembly
+defaults-part-mechanical = Mechanical
+defaults-part-justify = Justify
+defaults-kind-pcb-line = Line
+defaults-kind-pcb-rectangle = Rectangle
+defaults-kind-pcb-arc = Arc
+defaults-kind-pcb-circle = Circle
+defaults-kind-pcb-polygon = Polygon
+defaults-kind-pcb-text = Text
+defaults-kind-pcb-dimension = Dimension
+defaults-kind-pcb-free-pad = Free Pad
+defaults-kind-pcb-zone = Zone
+defaults-kind-pcb-keepout = Keepout
+defaults-kind-pcb-via = Via
+defaults-kind-footprint-pad = Pad
+defaults-kind-footprint-text = Text
+defaults-kind-symbol-pin = Pin
+defaults-kind-symbol-line = Line
+defaults-kind-symbol-rectangle = Rectangle
+defaults-kind-symbol-arc = Arc
+defaults-kind-symbol-circle = Circle
+defaults-kind-symbol-polygon = Polygon
+defaults-kind-schematic-text = Text
+defaults-kind-schematic-rectangle = Rectangle
+defaults-kind-schematic-port = Port
+pref-defaults-pcb-keepout-restrict-tracks = Tracks
+pref-defaults-pcb-keepout-restrict-vias = Vias
+pref-defaults-pcb-keepout-restrict-zones = Zones
+pref-defaults-pcb-keepout-restrict-smd-pads = SMD Pads
+pref-defaults-pcb-keepout-restrict-tht-pads = THT Pads
+pref-defaults-pcb-keepout-restrict-footprints = Footprints
 pref-defaults-remember-last-used = Remember last used
 pref-defaults-pcb-dimension-arrow-position-inside = Inside
 pref-defaults-pcb-dimension-arrow-position-outside = Outside

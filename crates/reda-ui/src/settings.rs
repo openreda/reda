@@ -41,6 +41,10 @@ pub enum FileRequest {
     ImportRules,
     /// Where the Change List's Export writes its report (`.html` or `.json`).
     ExportChangeList,
+    /// Where Preferences ▸ Defaults' Save As… writes Object Defaults (`.toml`).
+    SaveDefaults,
+    /// The Object Defaults file Preferences ▸ Defaults' Load… reads.
+    LoadDefaults,
 }
 
 /// One Command a page wants run when the dialog applies.

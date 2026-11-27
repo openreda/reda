@@ -9,7 +9,6 @@ use reda_engine::preferences;
 use reda_testkit::{TempDir, test_engine_in};
 use serde_json::{Value, json};
 
-const MM: i64 = 1_000_000;
 const MIL: i64 = 25_400;
 
 fn shipped(key: &str) -> Value {
@@ -36,11 +35,11 @@ fn the_line_family_on_boards_and_footprints_has_a_width_per_layer_kind() {
     // The Per Layer kind table: Copper 0.15, Silkscreen 0.15, Courtyard 0.05,
     // Assembly 0.1, Mechanical 0.15 mm.
     let widths = [
-        ("copper", 150_000),
-        ("silkscreen", 150_000),
-        ("courtyard", 50_000),
-        ("assembly", 100_000),
-        ("mechanical", 150_000),
+        ("copper", "0.15mm"),
+        ("silkscreen", "0.15mm"),
+        ("courtyard", "0.05mm"),
+        ("assembly", "0.1mm"),
+        ("mechanical", "0.15mm"),
     ];
     for kind in ["line", "rectangle", "arc", "circle", "polygon"] {
         for (layer_kind, width) in widths {
@@ -67,8 +66,8 @@ fn text_on_boards_and_footprints_is_one_millimetre_high_in_the_stroke_font() {
         "mechanical",
     ] {
         let at = |field: &str| shipped(&format!("defaults.pcb.text.{layer_kind}.{field}"));
-        assert_eq!(at("height"), json!(MM), "{layer_kind}");
-        assert_eq!(at("thickness"), json!(150_000), "{layer_kind}");
+        assert_eq!(at("height"), json!("1mm"), "{layer_kind}");
+        assert_eq!(at("thickness"), json!("0.15mm"), "{layer_kind}");
         assert_eq!(at("font"), json!("Hershey Roman Simplex"), "{layer_kind}");
     }
     // Left and bottom on a board, centred in a Footprint.
@@ -88,30 +87,30 @@ fn text_on_boards_and_footprints_is_one_millimetre_high_in_the_stroke_font() {
 fn the_board_kinds_ship_the_tables_values() {
     for (key, value) in [
         // Dimension
-        ("defaults.pcb.dimension.width", json!(150_000)),
-        ("defaults.pcb.dimension.extension_width", json!(150_000)),
-        ("defaults.pcb.dimension.offset", json!(2 * MM)),
-        ("defaults.pcb.dimension.gap", json!(500_000)),
-        ("defaults.pcb.dimension.text_gap", json!(250_000)),
-        ("defaults.pcb.dimension.arrow_size", json!(MM)),
-        ("defaults.pcb.dimension.arrow_length", json!(2 * MM)),
+        ("defaults.pcb.dimension.width", json!("0.15mm")),
+        ("defaults.pcb.dimension.extension_width", json!("0.15mm")),
+        ("defaults.pcb.dimension.offset", json!("2mm")),
+        ("defaults.pcb.dimension.gap", json!("0.5mm")),
+        ("defaults.pcb.dimension.text_gap", json!("0.25mm")),
+        ("defaults.pcb.dimension.arrow_size", json!("1mm")),
+        ("defaults.pcb.dimension.arrow_length", json!("2mm")),
         ("defaults.pcb.dimension.arrow_position", json!("inside")),
         ("defaults.pcb.dimension.precision", json!(2)),
         ("defaults.pcb.dimension.units", json!("automatic")),
         ("defaults.pcb.dimension.format", json!("value_unit")),
-        ("defaults.pcb.dimension.text_height", json!(MM)),
+        ("defaults.pcb.dimension.text_height", json!("1mm")),
         // Free Pad
         ("defaults.pcb.free_pad.kind", json!("plated_through_hole")),
         ("defaults.pcb.free_pad.shape", json!("circle")),
-        ("defaults.pcb.free_pad.width", json!(2 * MM)),
-        ("defaults.pcb.free_pad.height", json!(2 * MM)),
-        ("defaults.pcb.free_pad.hole", json!(MM)),
+        ("defaults.pcb.free_pad.width", json!("2mm")),
+        ("defaults.pcb.free_pad.height", json!("2mm")),
+        ("defaults.pcb.free_pad.hole", json!("1mm")),
         // Zone
         ("defaults.pcb.zone.clearance", Value::Null),
         ("defaults.pcb.zone.min_width", Value::Null),
         ("defaults.pcb.zone.pour_over", json!("zones_only")),
         ("defaults.pcb.zone.remove_unconnected", json!(true)),
-        ("defaults.pcb.zone.min_island_area", json!(0)),
+        ("defaults.pcb.zone.min_island_area", json!("0mm2")),
         // Keepout: everything but Footprints.
         ("defaults.pcb.keepout.shape", json!("polygon")),
         ("defaults.pcb.keepout.all_layers", json!(true)),
@@ -133,29 +132,29 @@ fn the_library_and_sheet_kinds_ship_the_tables_values() {
         // chamfer, no margins.
         ("defaults.footprint.pad.kind", json!("smd")),
         ("defaults.footprint.pad.shape", json!("rect")),
-        ("defaults.footprint.pad.width", json!(MM)),
-        ("defaults.footprint.pad.height", json!(1_500_000)),
-        ("defaults.footprint.pad.hole_width", json!(800_000)),
-        ("defaults.footprint.pad.hole_height", json!(800_000)),
+        ("defaults.footprint.pad.width", json!("1mm")),
+        ("defaults.footprint.pad.height", json!("1.5mm")),
+        ("defaults.footprint.pad.hole_width", json!("0.8mm")),
+        ("defaults.footprint.pad.hole_height", json!("0.8mm")),
         ("defaults.footprint.pad.chamfer_ratio", json!(50_000)),
         ("defaults.footprint.pad.mask_margin", Value::Null),
         ("defaults.footprint.pad.paste_margin", Value::Null),
         // Symbol Pin
-        ("defaults.symbol.pin.length", json!(100 * MIL)),
+        ("defaults.symbol.pin.length", json!("100mil")),
         ("defaults.symbol.pin.electrical_type", json!("passive")),
         ("defaults.symbol.pin.name_visible", json!(true)),
         ("defaults.symbol.pin.number_visible", json!(true)),
         // Symbol graphics: 10 mil, not filled.
-        ("defaults.symbol.line.width", json!(10 * MIL)),
-        ("defaults.symbol.arc.width", json!(10 * MIL)),
-        ("defaults.symbol.rectangle.width", json!(10 * MIL)),
+        ("defaults.symbol.line.width", json!("10mil")),
+        ("defaults.symbol.arc.width", json!("10mil")),
+        ("defaults.symbol.rectangle.width", json!("10mil")),
         ("defaults.symbol.rectangle.fill", json!(false)),
-        ("defaults.symbol.circle.width", json!(10 * MIL)),
+        ("defaults.symbol.circle.width", json!("10mil")),
         ("defaults.symbol.circle.fill", json!(false)),
-        ("defaults.symbol.polygon.width", json!(10 * MIL)),
+        ("defaults.symbol.polygon.width", json!("10mil")),
         ("defaults.symbol.polygon.fill", json!(false)),
         // Text in Symbols and on sheets, shared: 50 mil.
-        ("defaults.schematic.text.height", json!(50 * MIL)),
+        ("defaults.schematic.text.height", json!("50mil")),
         ("defaults.schematic.rectangle.fill", json!(false)),
         ("defaults.schematic.port.direction", json!("bidirectional")),
     ] {
@@ -199,7 +198,7 @@ fn a_record_value_is_set_and_read_back_through_the_preferences() {
         "app.preferences.set",
         json!({"key": "defaults.pcb.line.silkscreen.width", "value": "0.2mm"}),
     );
-    assert_eq!(out["value"], json!(200_000));
+    assert_eq!(out["value"], json!("0.2mm"));
     let text = std::fs::read_to_string(UserDirs::under(home.path()).preferences_file()).unwrap();
     assert!(text.contains("[defaults.pcb.line.silkscreen]"), "{text}");
     let prefs = preferences::load(&UserDirs::under(home.path())).values;
@@ -286,5 +285,77 @@ fn defaults_are_on_their_own_preferences_page() {
     assert_eq!(
         preferences::pages::page_of("defaults.pcb.zone.pour_over"),
         "defaults"
+    );
+}
+
+#[test]
+fn a_length_keeps_the_unit_it_was_typed_in() {
+    let home = TempDir::new("defaults-unit");
+    let mut engine = test_engine_in(home.path());
+    for (key, typed) in [
+        ("defaults.symbol.pin.length", "200mil"),
+        ("defaults.pcb.line.silkscreen.width", "0.2mm"),
+        ("defaults.pcb.free_pad.hole", "40mil"),
+        ("defaults.footprint.pad.width", "1500um"),
+        ("defaults.pcb.zone.clearance", "0.5 mm"),
+    ] {
+        let out = engine.run_ok("app.preferences.set", json!({"key": key, "value": typed}));
+        let kept = typed.replace(' ', "");
+        assert_eq!(out["value"], json!(kept), "{key}");
+        let got = engine.run_ok("app.preferences.get", json!({"key": key}));
+        assert_eq!(got["value"], json!(kept), "{key}");
+    }
+    let prefs = preferences::load(&UserDirs::under(home.path())).values;
+    assert_eq!(prefs.defaults.symbol.pin.length.nm().0, 200 * MIL);
+    assert_eq!(prefs.defaults.pcb.line.silkscreen.width.nm().0, 200_000);
+    assert_eq!(prefs.defaults.pcb.free_pad.hole.nm().0, 40 * MIL);
+    assert_eq!(prefs.defaults.footprint.pad.width.nm().0, 1_500_000);
+    assert_eq!(
+        prefs.defaults.pcb.zone.clearance.map(|c| c.nm().0),
+        Some(500_000)
+    );
+    let text = std::fs::read_to_string(UserDirs::under(home.path()).preferences_file()).unwrap();
+    assert!(text.contains("length = \"200mil\""), "{text}");
+    assert!(text.contains("width = \"0.2mm\""), "{text}");
+    // The shipped 10 mil written in millimetres is another value: it is kept in the file,
+    // not dropped as the default.
+    engine.run_ok(
+        "app.preferences.set",
+        json!({"key": "defaults.symbol.line.width", "value": "0.254mm"}),
+    );
+    let text = std::fs::read_to_string(UserDirs::under(home.path()).preferences_file()).unwrap();
+    assert!(text.contains("width = \"0.254mm\""), "{text}");
+    // A bare number is nanometres, with no unit of its own.
+    let out = engine.run_ok(
+        "app.preferences.set",
+        json!({"key": "defaults.symbol.arc.width", "value": 300_000}),
+    );
+    assert_eq!(out["value"], json!(300_000));
+}
+
+#[test]
+fn an_area_keeps_the_unit_it_was_typed_in() {
+    let home = TempDir::new("defaults-area");
+    let mut engine = test_engine_in(home.path());
+    let key = "defaults.pcb.zone.min_island_area";
+    let out = engine.run_ok(
+        "app.preferences.set",
+        json!({"key": key, "value": "0.5mm2"}),
+    );
+    assert_eq!(out["value"], json!("0.5mm2"));
+    let prefs = preferences::load(&UserDirs::under(home.path())).values;
+    assert_eq!(
+        prefs.defaults.pcb.zone.min_island_area.nm2(),
+        500_000_000_000
+    );
+    let out = engine.run_ok(
+        "app.preferences.set",
+        json!({"key": key, "value": "100sqmil"}),
+    );
+    assert_eq!(out["value"], json!("100mil2"));
+    let prefs = preferences::load(&UserDirs::under(home.path())).values;
+    assert_eq!(
+        prefs.defaults.pcb.zone.min_island_area.nm2(),
+        64_516_000_000
     );
 }

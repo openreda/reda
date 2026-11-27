@@ -214,6 +214,9 @@ impl SettingsWindows {
                 PreferencesOutcome::ShowFolder(folder) => {
                     self.requests.push(Request::ShowFolder(folder));
                 }
+                PreferencesOutcome::PickFile(request) => {
+                    self.requests.push(Request::PickFile(window, request));
+                }
             }
             return;
         }
@@ -271,6 +274,12 @@ impl SettingsWindows {
         request: FileRequest,
         path: &std::path::Path,
     ) {
+        if window == SettingsWindow::Preferences {
+            if let Some(dialog) = &mut self.preferences {
+                dialog.picked_file(shell, request, path);
+            }
+            return;
+        }
         if let Some(dialog) = self.dialogs.get_mut(&window) {
             dialog.picked_file(shell, request, path);
         }

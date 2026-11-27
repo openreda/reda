@@ -40,7 +40,7 @@ pub(super) fn tool_options(ui: &mut Ui, shell: &Shell) -> Option<Vec<(&'static s
                     ("min_width", values.min_width),
                 ] {
                     let shown = value
-                        .map(|v| crate::pcb::view::format_length(v.nm(), units))
+                        .map(|v| crate::object_defaults::shown_length(v, units))
                         .unwrap_or_default();
                     let label = match name {
                         "clearance" => tr!("properties-clearance"),
@@ -62,7 +62,7 @@ pub(super) fn tool_options(ui: &mut Ui, shell: &Shell) -> Option<Vec<(&'static s
                     out.push(set("zone.pour_over", json!(p)));
                 }
                 ui.end_row();
-                let area = crate::panels::navigator::format_area(values.min_island_area.0, units);
+                let area = crate::object_defaults::shown_area(values.min_island_area, units);
                 let label = tr!("properties-min-island-area");
                 if let Some(text) =
                     text_field(ui, "zone-tool-island", &label, &Shared::Same(area), true)

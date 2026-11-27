@@ -1,0 +1,9 @@
+{"id":"app.preferences.set","source":"cli","params":{"key":"defaults.symbol.pin.length","value":"200mil"},"result":{"key":"defaults.symbol.pin.length","value":"200mil"}}
+{"id":"app.preferences.set","source":"cli","params":{"key":"defaults.pcb.line.silkscreen.width","value":"0.2mm"},"result":{"key":"defaults.pcb.line.silkscreen.width","value":"0.2mm"}}
+{"id":"app.preferences.set","source":"cli","params":{"key":"defaults.pcb.via.teardrop","value":false},"result":{"key":"defaults.pcb.via.teardrop","value":false}}
+{"id":"app.defaults.save","source":"cli","params":{"path":"/fixtures/all.toml"},"result":{"entries":105,"kinds":["pcb.line","pcb.rectangle","pcb.arc","pcb.circle","pcb.polygon","pcb.text","pcb.dimension","pcb.free_pad","pcb.zone","pcb.keepout","pcb.via","footprint.pad","footprint.text","symbol.pin","symbol.line","symbol.rectangle","symbol.arc","symbol.circle","symbol.polygon","schematic.text","schematic.rectangle","schematic.port"],"path":"/fixtures/all.toml"}}
+{"id":"app.defaults.save","source":"cli","params":{"kind":"pcb.line","path":"/fixtures/line.toml"},"result":{"entries":5,"kinds":["pcb.line"],"path":"/fixtures/line.toml"}}
+{"id":"app.defaults.reset","source":"cli","params":{"kind":"symbol.pin"},"result":{"reset":["defaults.symbol.pin.length"]}}
+{"id":"app.defaults.reset","source":"cli","params":{},"result":{"reset":["defaults.pcb.line.silkscreen.width","defaults.pcb.via.teardrop"]}}
+{"id":"app.defaults.load","source":"cli","params":{"path":"/fixtures/line.toml"},"result":{"kinds":["pcb.line"],"skipped":0,"warnings":[]}}
+{"id":"app.defaults.load","source":"cli","params":{"path":"/fixtures/shared.toml"},"result":{"kinds":["pcb.via","symbol.pin"],"skipped":4,"warnings":["general.theme is not an Object Default","defaults.symbol.pin.colour is not a field of symbol.pin","pcb.zone.tool.clearance is not an Object Default","defaults.pcb.via.teardrop is unreadable (invalid type: string \"yes\", expected a boolean)"]}}

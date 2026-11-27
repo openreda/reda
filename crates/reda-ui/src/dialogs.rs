@@ -84,6 +84,13 @@ impl FileDialogs {
             Pick::SettingsFile(_, FileRequest::ImportRules) => rfd::AsyncFileDialog::new()
                 .set_title(tr!("rules-import-title"))
                 .add_filter(tr!("rules-filter"), &["redarules"]),
+            Pick::SettingsFile(_, FileRequest::SaveDefaults) => rfd::AsyncFileDialog::new()
+                .set_title(tr!("defaults-save-title"))
+                .add_filter(tr!("defaults-file-filter"), &["toml"])
+                .set_file_name(file_name),
+            Pick::SettingsFile(_, FileRequest::LoadDefaults) => rfd::AsyncFileDialog::new()
+                .set_title(tr!("defaults-load-title"))
+                .add_filter(tr!("defaults-file-filter"), &["toml"]),
             Pick::ExportJournal => rfd::AsyncFileDialog::new()
                 .set_title(tr!("journal-export-title"))
                 .add_filter(tr!("journal-export-filter"), &["jsonl"])
@@ -108,16 +115,17 @@ impl FileDialogs {
                 | Pick::ImportSymbol
                 | Pick::ImportFootprint
                 | Pick::Relink(..)
-                | Pick::SettingsFile(_, FileRequest::ImportRules) => block_on(dialog.pick_file()),
+                | Pick::SettingsFile(_, FileRequest::ImportRules | FileRequest::LoadDefaults) => {
+                    block_on(dialog.pick_file())
+                }
                 Pick::NewProjectLocation | Pick::LibraryFolder | Pick::SettingsFolder(_) => {
                     block_on(dialog.pick_folder())
                 }
                 Pick::ExportJournal
                 | Pick::ExportPdf
                 | Pick::SettingsFile(_, FileRequest::ExportRules)
-                | Pick::SettingsFile(_, FileRequest::ExportChangeList) => {
-                    block_on(dialog.save_file())
-                }
+                | Pick::SettingsFile(_, FileRequest::ExportChangeList)
+                | Pick::SettingsFile(_, FileRequest::SaveDefaults) => block_on(dialog.save_file()),
             };
             let _ = tx.send(picked.map(|h| h.path().to_owned()));
             ctx.request_repaint();

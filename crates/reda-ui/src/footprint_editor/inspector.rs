@@ -18,8 +18,8 @@ use crate::shell::Shell;
 use crate::theme::TokensExt as _;
 use crate::tr;
 use crate::widgets::{self, Tooltip as _};
-use reda_engine::command::Length;
 use reda_engine::preferences::PadDefaults;
+use reda_engine::preferences::{TypedLength, Units};
 
 /// The panel's width in points: a side Dock's, so the Pad rows (the same as Free Pad
 /// Properties in a Dock) fit, plus the gap the panel keeps from the canvas. At 13 px: it
@@ -312,9 +312,9 @@ fn tool_settings_ui(
 }
 
 fn template_lengths(ui: &mut Ui, id: Id, pad: &mut PadDefaults) {
-    let row = |ui: &mut Ui, key: &str, label: String, value: &mut Length| {
-        if let Some(Some(v)) = length(ui, id.with(key), &label, Some(value.nm()), false) {
-            *value = Length(v);
+    let row = |ui: &mut Ui, key: &str, label: String, value: &mut TypedLength| {
+        if let Some(Some(v)) = typed_length(ui, id.with(key), &label, Some(*value), false) {
+            *value = v;
         }
         ui.end_row();
     };
@@ -324,9 +324,9 @@ fn template_lengths(ui: &mut Ui, id: Id, pad: &mut PadDefaults) {
         row(ui, "hw", tr!("footprint-hole-width"), &mut pad.hole_width);
         row(ui, "hh", tr!("footprint-hole-height"), &mut pad.hole_height);
     }
-    let optional = |ui: &mut Ui, key: &str, label: String, value: &mut Option<Length>| {
-        if let Some(v) = length(ui, id.with(key), &label, value.map(Length::nm), true) {
-            *value = v.map(Length);
+    let optional = |ui: &mut Ui, key: &str, label: String, value: &mut Option<TypedLength>| {
+        if let Some(v) = typed_length(ui, id.with(key), &label, *value, true) {
+            *value = v;
         }
         ui.end_row();
     };
@@ -619,6 +619,28 @@ fn length(
         return optional.then_some(None).filter(|_| current.is_some());
     }
     let value = parse_length(&typed)?;
+    (Some(value) != current).then_some(Some(value))
+}
+
+/// A Pad Tool length, kept in the unit it was typed in: a bare number is in mm. Returns
+/// the new value when it changed (`None` inside for a cleared optional one).
+fn typed_length(
+    ui: &mut Ui,
+    id: Id,
+    label: &str,
+    current: Option<TypedLength>,
+    optional: bool,
+) -> Option<Option<TypedLength>> {
+    ui.add(widgets::form_name(label));
+    let shown = current
+        .map(|v| v.shown().unwrap_or_else(|| format_mm(v.nm())))
+        .unwrap_or_default();
+    let typed = text_field(ui, id, label, &shown)?;
+    if typed.is_empty() {
+        return optional.then_some(None).filter(|_| current.is_some());
+    }
+    let value = crate::object_defaults::typed_value(&typed, Units::Mm, false);
+    let value = TypedLength::parse(value.as_str()?).ok()?;
     (Some(value) != current).then_some(Some(value))
 }
 
