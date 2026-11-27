@@ -35,4 +35,30 @@ One file per analytic surface and curve the mesher evaluates (`tests/mesh.rs`). 
 
 The planes, lines and circles of the reader fixtures above, and `ap203_cylinder.step`'s `SEAM_CURVE` with pcurves, are meshed too. FreeCAD opened `half_apple.step` as a valid solid of 42.6431 mm³ and box (-3, -3, 0) to (3, 3, 2); the closed form is π times the integral of (1 + √(4 - z²))² over z from 0 to 2, less that of (1 - √(4 - z²))² from √3 to 2.
 
-The fixtures for the tolerant-reading cases and for B-spline surfaces and curves are added with them.
+## Freeform fixtures
+
+One file per freeform surface and curve the mesher evaluates (`tests/freeform.rs`), drawn by a FreeCAD 1.1.4 script (Part's `toNurbs`, `BSplineSurface`, `BSplineCurve`, `extrude` and `revolve`) and written by FreeCAD's STEP export; REDA's own drawings under the repository's MIT licence. Where the shape has a closed form the volume is that; FreeCAD's own volume of a rational B-spline solid is off by up to 1% (21.388 for the cylinder, 33.4957 for the sphere), so it is used only where there is no closed form.
+
+| File | What it covers | Volume (mm³) |
+|---|---|---|
+| `bspline_bulge.step` | A 10 x 8 x 2 block whose top is a non-rational bicubic **B-spline surface** (a Bézier patch, its four inner control points raised 1.5), bounded by four **B-spline curves** | 190 (160 + 1.5 · 80 · (1/2)²) |
+| `nurbs_cylinder.step` | A cylinder r = 1.5, h = 3 converted to NURBS: a **rational B-spline surface** closed on itself, joined by a degree-1 B-spline seam, between two **rational B-spline curves** (circles) on bilinear B-spline planes | 21.205750 (π · 1.5² · 3) |
+| `nurbs_sphere.step` | A sphere r = 2 converted to NURBS: one rational B-spline face whose first and last columns of control points **collapse to poles**, bounded by its seam | 33.510322 (4/3 · π · 2³) |
+| `extruded_spline.step` | A closed periodic B-spline profile extruded 3 mm: a **surface of linear extrusion** between two planes bounded by the B-spline | 56.976972 (FreeCAD) |
+| `revolved_spline.step` | A vase: an open B-spline profile from the axis out and up, revolved a whole turn and capped by a plane: a **surface of revolution** whose curve meets the axis at a pole | 32.400102 (FreeCAD) |
+
+## Tolerant-reading fixtures
+
+One file per tolerant-reading case (docs/spec/v0.3/step.md#tolerant-reading, `tests/tolerant.rs`). Each is a well-made fixture with its bounds or shells edited by a one-off script, so what it should draw is known; all are REDA's own, under the repository's MIT licence. `banded_pin.step` and `cup_wall.step` start from FreeCAD 1.1.4 drawings (a cylinder cut by a cross hole; a B-spline profile revolved a whole turn), the others from the fixtures above.
+
+| File | Edit | What it should draw |
+|---|---|---|
+| `open_box.step` | `ap214_face_colours.step` without its top, the five faces an `OPEN_SHELL` of a `SHELL_BASED_SURFACE_MODEL` | Five faces, 500 mm², **meshed open** |
+| `slit_loop.step` | `ap214_face_colours.step` with an inner bound on its top that runs out along a line and back | The bound **encloses no area and is dropped**; the block closed, 1000 mm³ |
+| `banded_pin.step` | A pin r = 2, h = 5 drilled across by a hole r = 0.5; its side face's seam edges taken out, leaving it bounded by its two circles and the hole's two ends, one of which the seam ran through | The **band face split along a seam** clear of the holes; closed, 59.714956 mm³ (FreeCAD, which reads it as valid) |
+| `revolved_cap.step` | `revolved_spline.step` with its side face bounded by its top circle alone, its seam and pole taken out | The **open surface of revolution closed at its pole**; closed, 32.400102 mm³ |
+| `cup_wall.step` | A cup wall (a B-spline profile off the axis at both ends, revolved) bounded by its top circle alone, its seam and bottom circle taken out | The face **split along a seam** down to its curve's end and left open; FreeCAD's area of the whole wall, 36.302046 mm² |
+| `failing_solid.step` | `ap214_face_colours.step` plus a second block, `broken block`, 20 mm along x, whose bottom lies on a sphere of negative radius | The **failing solid skipped and reported**, the first block drawn |
+| `draws_nothing.step` | `ap214_face_colours.step` with its bottom on a sphere of negative radius | **Nothing drawn**, and reported as such; the records still read |
+
+FreeCAD does not read `revolved_cap.step` or `cup_wall.step` as valid: it does not close a face that the file leaves without its seam.
