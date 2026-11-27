@@ -75,6 +75,7 @@ mod tool_preview;
 pub mod tools;
 mod user_preferences;
 pub mod view_state;
+pub mod wheel;
 pub mod widgets;
 pub mod working_state;
 pub mod zone_refill;

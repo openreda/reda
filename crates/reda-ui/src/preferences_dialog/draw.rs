@@ -23,6 +23,7 @@ use crate::tr;
 use crate::widgets::{self, Column, Tooltip as _};
 
 mod appearance;
+mod mouse_wheel;
 mod pages;
 mod pointer;
 mod shortcuts_page;
@@ -253,6 +254,7 @@ impl PreferencesDialog {
             PageId::FAB_PRESETS => self.fab_presets(ui, cx),
             PageId::AGENTS => self.agents(ui, cx),
             PageId::KEYBOARD_SHORTCUTS => self.keyboard_shortcuts(ui, cx),
+            PageId::MOUSE_WHEEL => self.mouse_wheel(ui, cx),
             PageId::ALL_SETTINGS => self.all_settings_table(ui, cx),
             page => {
                 let mut rows = self.rows(cx.shell, page);
@@ -352,7 +354,7 @@ impl PreferencesDialog {
         let name = tr!("pref-reset-named", setting = setting.label.as_str());
         dot.widget_info(|| WidgetInfo::labeled(Role::Button, true, name.clone()));
         let dot = dot.tooltip(tr!("pref-reset-dot"));
-        if dot.clicked() {
+        if dot.clicked() && !self.wheel_reset_refused(cx, key) {
             let keys = [setting.key.clone()];
             self.reset_with(cx, |d, shell| d.reset_keys(shell, &keys));
         }

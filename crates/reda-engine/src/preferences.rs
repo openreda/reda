@@ -17,6 +17,7 @@ mod defaults;
 mod file;
 mod grid;
 pub mod pages;
+mod wheel;
 
 use std::collections::BTreeSet;
 use std::num::NonZeroU32;
@@ -37,6 +38,9 @@ pub use defaults::{
 };
 pub use file::{Loaded, applied, load, parse, reset, set, value_of};
 pub use grid::{DisplayPrecision, GridPreferences, GridRow, GridStyle, GridTables};
+pub use wheel::{
+    Touchpad, Wheel, WheelAction, WheelBinding, WheelModifiers, WheelPreset, ZOOM_SPEEDS,
+};
 
 /// Renamed keys: `(old, new)`. A file that still uses an old key is read as the new one,
 /// and the next write of that key replaces the old spelling.
@@ -57,7 +61,7 @@ pub struct Preferences {
     pub general: General,
     /// Editing shared by every canvas: selection, grids, the delta and display precision.
     pub editing: SelectionEditing,
-    /// Input on every editor's canvas: the arrow keys' Edit Cursor.
+    /// Input on every editor's canvas: the arrow keys' Edit Cursor and the wheel mapping.
     pub canvas: Canvas,
     pub user: User,
     /// Editing in Schematic Sheets.
@@ -143,12 +147,16 @@ pub struct Canvas {
     /// arrows step, where the desktop lets an application move it. Off, the Edit Cursor
     /// leaves the pointer behind until the mouse moves.
     pub arrows_move_pointer: bool,
+    /// The wheel mapping: which modifiers make the wheel zoom, scroll or step the Layer,
+    /// and how a touchpad scrolls.
+    pub wheel: Wheel,
 }
 
 impl Default for Canvas {
     fn default() -> Canvas {
         Canvas {
             arrows_move_pointer: true,
+            wheel: Wheel::default(),
         }
     }
 }
@@ -1314,6 +1322,7 @@ impl Preferences {
             ));
         }
         grid::check(&self.editing.grid, &self.editing.display_precision)?;
+        self.canvas.wheel.check()?;
         self.defaults
             .check()
             .map_err(|(key, why)| ("defaults", format!("{key}: {why}")))?;
