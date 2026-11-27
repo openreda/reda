@@ -380,12 +380,14 @@ impl Keymap {
         wanted: impl Fn(&Chord) -> bool,
     ) -> Vec<Action> {
         let mut actions = Vec::new();
-        let mut handled_asterisk: Option<bool> = None;
+        let mut handled_key: Option<bool> = None;
         input.events.retain(|event| {
-            // A native '*' key is followed by its text in the same event
-            // batch. A binding consumes both; a focused text field keeps it.
-            if let Some(handled) = handled_asterisk.take()
-                && matches!(event, egui::Event::Text(text) if text == "*")
+            // A native '*' key, or a top-row digit key matched by its place, is followed
+            // by its text in the same event batch. A binding consumes both (so the `"` a
+            // Danish Shift+2 types does not run a binding on `"` as well); a focused text
+            // field keeps it.
+            if let Some(handled) = handled_key.take()
+                && matches!(event, egui::Event::Text(_))
             {
                 return !handled;
             }
@@ -395,9 +397,9 @@ impl Keymap {
                 .filter(|chord| wanted(chord))
                 .find_map(|chord| self.lookup(chord, active));
             if matches!(event, egui::Event::Key { .. })
-                && chords.first().is_some_and(|c| c.key == KeyName::Char('*'))
+                && (Chord::on_top_row(event) || chords.iter().any(|c| c.key == KeyName::Char('*')))
             {
-                handled_asterisk = Some(found.is_some());
+                handled_key = Some(found.is_some());
             }
             match found {
                 Some(action) => {

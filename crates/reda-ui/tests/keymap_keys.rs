@@ -224,3 +224,165 @@ fn the_settings_dialog_is_a_project_dialog() {
     assert_eq!(undo.params["document"], "project");
     assert!(undo.outcome.is_ok(), "the Project edit was undone");
 }
+
+/// A key pressed on a simulated keyboard layout, as egui-winit delivers it: the logical
+/// `key` (what the layout produces, or the physical key where egui has no name for it),
+/// the `physical` key (its US position), then the `text` it types, in one event batch.
+fn press_on_layout(
+    h: &mut Harness<'static, App>,
+    key: Key,
+    physical: Key,
+    modifiers: Modifiers,
+    text: &str,
+) {
+    let events = &mut h.input_mut().events;
+    events.push(egui::Event::ModifiersChanged(modifiers));
+    events.push(egui::Event::Key {
+        key,
+        physical_key: Some(physical),
+        pressed: true,
+        repeat: false,
+        modifiers,
+    });
+    if !text.is_empty() {
+        events.push(egui::Event::Text(text.into()));
+    }
+    events.push(egui::Event::ModifiersChanged(Modifiers::NONE));
+    h.run();
+}
+
+/// Bindings on the top-row `1`, with and without Shift.
+const DIGIT_ONE: &str = r#"
+[[bind]]
+key = "1"
+command = "view.theme.set:dark"
+
+[[bind]]
+key = "Shift+1"
+command = "view.theme.set:light"
+"#;
+
+#[test]
+fn a_binding_on_a_digit_fires_from_the_top_row_key_on_any_layout() {
+    let home = TempDir::new("keys-layout");
+    let mut h = harness(&home, DIGIT_ONE);
+    let mut seen = 0;
+    ran(&mut h, &mut seen);
+
+    // US: the plain key types `1`, Shift+1 types `!`.
+    press_on_layout(&mut h, Key::Num1, Key::Num1, Modifiers::NONE, "1");
+    assert_eq!(ran(&mut h, &mut seen), ["view.theme.set:dark"]);
+    press_on_layout(
+        &mut h,
+        Key::Exclamationmark,
+        Key::Num1,
+        Modifiers::SHIFT,
+        "!",
+    );
+    assert_eq!(ran(&mut h, &mut seen), ["view.theme.set:light"]);
+
+    // Czech: the plain key types `+`, Shift gives the digit.
+    press_on_layout(&mut h, Key::Plus, Key::Num1, Modifiers::NONE, "+");
+    assert_eq!(ran(&mut h, &mut seen), ["view.theme.set:dark"]);
+    press_on_layout(&mut h, Key::Num1, Key::Num1, Modifiers::SHIFT, "1");
+    assert_eq!(ran(&mut h, &mut seen), ["view.theme.set:light"]);
+
+    // AZERTY: the plain key types `&` (egui has no key for it, so the key event carries
+    // the physical key), Shift gives the digit.
+    press_on_layout(&mut h, Key::Num1, Key::Num1, Modifiers::NONE, "&");
+    assert_eq!(ran(&mut h, &mut seen), ["view.theme.set:dark"]);
+    press_on_layout(&mut h, Key::Num1, Key::Num1, Modifiers::SHIFT, "1");
+    assert_eq!(ran(&mut h, &mut seen), ["view.theme.set:light"]);
+
+    // The numpad's `1` (marked by the native adapter) is not the top-row key.
+    press_on_layout(&mut h, Key::Num1, Key::F24, Modifiers::NONE, "1");
+    assert_eq!(ran(&mut h, &mut seen), Vec::<String>::new());
+}
+
+#[test]
+fn a_digit_binding_takes_the_character_its_key_types_along() {
+    // Danish: Shift+2 types `"`. Only the digit's binding runs, not the one on `"`.
+    let home = TempDir::new("keys-layout-text");
+    let mut h = harness(
+        &home,
+        r#"
+[[bind]]
+key = "Shift+2"
+command = "view.theme.set:dark"
+
+[[bind]]
+key = '"'
+command = "view.theme.set:light"
+"#,
+    );
+    let mut seen = 0;
+    ran(&mut h, &mut seen);
+    press_on_layout(&mut h, Key::Num2, Key::Num2, Modifiers::SHIFT, "\"");
+    assert_eq!(ran(&mut h, &mut seen), ["view.theme.set:dark"]);
+    // The key that types `"` on a US layout (Shift+') still runs the `"` binding.
+    press_on_layout(&mut h, Key::Quote, Key::Quote, Modifiers::SHIFT, "\"");
+    assert_eq!(ran(&mut h, &mut seen), ["view.theme.set:light"]);
+}
+
+#[test]
+fn shift_8_typing_an_asterisk_is_the_digit_first_and_the_asterisk_otherwise() {
+    let star = r#"
+[[bind]]
+key = "*"
+command = "view.theme.set:light"
+"#;
+    // US: Shift+8 types `*`. The native adapter marks it F22 (typed with Shift) and keeps
+    // the top-row key as the physical key.
+    let shift_8 = |h: &mut Harness<'static, App>| {
+        press_on_layout(h, Key::F22, Key::Num8, Modifiers::SHIFT, "*");
+    };
+    let home = TempDir::new("keys-layout-star");
+    let mut h = harness(
+        &home,
+        &format!("{star}\n[[bind]]\nkey = \"Shift+8\"\ncommand = \"view.theme.set:dark\"\n"),
+    );
+    let mut seen = 0;
+    ran(&mut h, &mut seen);
+    shift_8(&mut h);
+    assert_eq!(ran(&mut h, &mut seen), ["view.theme.set:dark"]);
+    // A dedicated multiply key (F23, marked F24) is only `*`.
+    press_on_layout(&mut h, Key::F23, Key::F24, Modifiers::NONE, "*");
+    assert_eq!(ran(&mut h, &mut seen), ["view.theme.set:light"]);
+
+    let home = TempDir::new("keys-layout-star-only");
+    let mut h = harness(&home, star);
+    let mut seen = 0;
+    ran(&mut h, &mut seen);
+    shift_8(&mut h);
+    assert_eq!(ran(&mut h, &mut seen), ["view.theme.set:light"]);
+}
+
+#[test]
+fn other_keys_are_still_matched_by_logical_key() {
+    let home = TempDir::new("keys-layout-logical");
+    let mut h = harness(
+        &home,
+        r#"
+[[bind]]
+key = "A"
+command = "view.theme.set:dark"
+
+[[bind]]
+key = "Q"
+command = "view.theme.set:light"
+
+[[bind]]
+key = "+"
+command = "view.theme.set:follow_os"
+"#,
+    );
+    let mut seen = 0;
+    ran(&mut h, &mut seen);
+    // AZERTY: the key in the US Q position types `a`.
+    press_on_layout(&mut h, Key::A, Key::Q, Modifiers::NONE, "a");
+    assert_eq!(ran(&mut h, &mut seen), ["view.theme.set:dark"]);
+    // Czech: the top-row `1` key types `+`. No binding takes the digit, so the binding
+    // on `+` runs.
+    press_on_layout(&mut h, Key::Plus, Key::Num1, Modifiers::NONE, "+");
+    assert_eq!(ran(&mut h, &mut seen), ["view.theme.set:follow_os"]);
+}

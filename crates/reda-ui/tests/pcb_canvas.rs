@@ -1326,6 +1326,80 @@ fn a_keypad_digit_jumps_and_the_same_main_row_digit_leaves_the_layer_alone() {
 }
 
 #[test]
+fn keypad_1_to_9_jump_to_l1_to_l9_and_the_top_row_digits_on_any_layout_do_not() {
+    let mut w = window_with_layers(0.25, 10);
+    w.h.run();
+    let at = w.h.get_by_role(Role::Canvas).rect().center();
+    w.h.drag_at(at);
+    w.h.drop_at(at);
+    w.h.run();
+    let copper: Vec<_> = shell(&w)
+        .engine()
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .map(|l| l.uuid)
+        .collect();
+    let active = |w: &Window| {
+        shell(w)
+            .board_view()
+            .active_layer(shell(w).engine().project().unwrap())
+    };
+    let digits = [
+        Key::Num1,
+        Key::Num2,
+        Key::Num3,
+        Key::Num4,
+        Key::Num5,
+        Key::Num6,
+        Key::Num7,
+        Key::Num8,
+        Key::Num9,
+    ];
+    for (n, digit) in digits.into_iter().enumerate() {
+        // The native adapter marks the numpad digit with the physical key F24.
+        w.h.event(egui::Event::Key {
+            key: digit,
+            physical_key: Some(Key::F24),
+            pressed: true,
+            repeat: false,
+            modifiers: Modifiers::NONE,
+        });
+        w.h.run();
+        assert_eq!(active(&w), Some(copper[n]), "keypad {}", n + 1);
+        assert_eq!(
+            last_command(&w),
+            format!("pcb.layer.activate:{}", n + 1),
+            "keypad {}",
+            n + 1
+        );
+    }
+    // The top-row keys are not Layer jumps: on a US layout they type the digit, and on a
+    // Czech one (ě, š, č, ...) egui has no key for what they type, so both arrive as the
+    // digit with the top-row physical key.
+    let before = shell(&w).engine().journal().len();
+    for digit in digits {
+        w.h.input_mut().events.push(egui::Event::Key {
+            key: digit,
+            physical_key: Some(digit),
+            pressed: true,
+            repeat: false,
+            modifiers: Modifiers::NONE,
+        });
+        w.h.run();
+    }
+    assert_eq!(active(&w), Some(copper[8]));
+    assert!(
+        shell(&w).engine().journal()[before..]
+            .iter()
+            .all(|e| !e.id.starts_with("pcb.layer.")),
+        "no Layer jump or step from the top row"
+    );
+}
+
+#[test]
 fn resting_on_a_layer_row_solos_it_with_pins_until_the_pointer_leaves() {
     use reda_ui::engine::render::SceneLayer;
     let mut w = window_with_layers(0.05, 4);
