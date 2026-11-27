@@ -267,3 +267,6 @@ fn join_runs(runs: &mut [UvRun], k: usize, per: f64) -> Result<i64, String> {
     }
     Ok(w as i64)
 }
+
+#[cfg(test)]
+mod tests;
