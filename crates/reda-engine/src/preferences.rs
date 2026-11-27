@@ -42,6 +42,8 @@ pub struct Preferences {
     pub general: General,
     /// Editing shared by every canvas: selection, grids, the delta and display precision.
     pub editing: SelectionEditing,
+    /// Input on every editor's canvas: the arrow keys' Edit Cursor.
+    pub canvas: Canvas,
     pub user: User,
     /// Editing in Schematic Sheets.
     pub schematic: SchematicEditing,
@@ -114,6 +116,24 @@ pub struct SelectionEditing {
     pub auto_pan: AutoPan,
     /// How a result is shown: Messages, Find, Select Similar, Show and Cross-probe.
     pub highlight: HighlightPreferences,
+}
+
+/// Input on every editor's canvas (docs/spec/v0.3/input-and-defaults.md).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct Canvas {
+    /// Arrow keys move the mouse pointer: the system pointer follows the Edit Cursor the
+    /// arrows step, where the desktop lets an application move it. Off, the Edit Cursor
+    /// leaves the pointer behind until the mouse moves.
+    pub arrows_move_pointer: bool,
+}
+
+impl Default for Canvas {
+    fn default() -> Canvas {
+        Canvas {
+            arrows_move_pointer: true,
+        }
+    }
 }
 
 impl Default for SelectionEditing {

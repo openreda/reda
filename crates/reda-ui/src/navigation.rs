@@ -160,7 +160,10 @@ pub struct DocumentResult {
     document: Uuid,
 }
 
-fn canvas_of(cx: &mut Context<'_>, document: Option<Uuid>) -> Result<Uuid, CommandError> {
+pub(crate) fn canvas_of(
+    cx: &mut Context<'_>,
+    document: Option<Uuid>,
+) -> Result<Uuid, CommandError> {
     match document {
         Some(document) => Ok(document),
         None => cx

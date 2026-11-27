@@ -41,6 +41,8 @@ pub struct PageId(&'static str);
 
 impl PageId {
     pub const GENERAL: PageId = PageId("general");
+    /// Editing shared by every canvas, the arrow keys' Edit Cursor among it.
+    pub const EDITING: PageId = PageId("editing");
     /// Theme, Density, text size, UI scale and fonts. Its keys stay `general.*`.
     pub const APPEARANCE: PageId = PageId("appearance");
     pub const LIBRARIES: PageId = PageId("libraries");

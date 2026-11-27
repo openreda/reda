@@ -40,6 +40,7 @@ windows.workspace = true
 
 [dev-dependencies]
 egui_kittest.workspace = true
+proptest.workspace = true
 reda-testkit = { path = "../reda-testkit" }
 
 [lints]

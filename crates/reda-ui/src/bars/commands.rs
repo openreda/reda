@@ -105,6 +105,7 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(crate::navigation::Recenter);
     registry.add(crate::navigation::PreviousView);
     registry.add(crate::navigation::NextSelected);
+    crate::edit_cursor::register_all(registry);
     registry.add(SetTheme);
     registry.add(OpenSettings);
     registry.add(SetUiScale);

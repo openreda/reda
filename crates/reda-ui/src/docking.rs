@@ -1129,12 +1129,13 @@ impl Cx<'_, '_> {
                     return;
                 };
                 let busy = busy || doc.interaction != crate::schematic_editor::Interaction::Idle;
-                let input = canvas_input(ui, doc, kind, busy.then_some(&auto_pan));
+                let mut input = canvas_input(ui, doc, kind, busy.then_some(&auto_pan));
                 // Shown on the board for a settings window, the canvas only pans and zooms.
                 let view_only = self.shell.view_only(*uuid);
                 let edits = if view_only {
                     Vec::new()
                 } else {
+                    crate::edit_cursor::canvas(ui, self.shell, *uuid, &mut input);
                     let (modifiers, pressed) =
                         ui.input(|i| (i.modifiers, i.pointer.primary_down()));
                     self.shell.hold_snap_keys(*uuid, modifiers, pressed);

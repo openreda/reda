@@ -92,6 +92,35 @@ impl AutoPan {
     }
 }
 
+/// How the view follows an Edit Cursor the arrow keys put at the screen point `at`
+/// (docs/spec/v0.3/input-and-defaults.md#the-edit-cursor): nothing while it is inside
+/// the edge band's inner edge of `rect`; else Re-Center centres on it, the panning styles
+/// pan just far enough to bring it back there, and Off leaves it out of view.
+pub fn follow(prefs: &AutoPanPreference, rect: Rect, at: Pos2) -> Pan {
+    let inner = rect.shrink(EDGE);
+    let past = |p: f32, lo: f32, hi: f32| {
+        if p < lo {
+            p - lo
+        } else if p > hi {
+            p - hi
+        } else {
+            0.0
+        }
+    };
+    let v = vec2(
+        past(at.x, inner.left(), inner.right()),
+        past(at.y, inner.top(), inner.bottom()),
+    );
+    if v == Vec2::ZERO {
+        return Pan::Still;
+    }
+    match prefs.style {
+        AutoPanStyle::Off => Pan::Still,
+        AutoPanStyle::Ballistic | AutoPanStyle::FixedSizeJump => Pan::By(v),
+        AutoPanStyle::ReCenter => Pan::Center(at),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -188,6 +217,34 @@ mod tests {
         assert_eq!(
             by(a.step(&p, RECT, pos2(200.0, 290.0), true, 0.1)),
             vec2(0.0, 300.0)
+        );
+    }
+
+    #[test]
+    fn a_keyed_cursor_out_of_view_is_followed_under_each_style() {
+        // Inside the band's inner edge nothing moves.
+        let inside = pos2(200.0, 150.0);
+        for style in [
+            AutoPanStyle::Ballistic,
+            AutoPanStyle::FixedSizeJump,
+            AutoPanStyle::ReCenter,
+        ] {
+            assert_eq!(follow(&prefs(style), RECT, inside), Pan::Still);
+        }
+        // Off never follows.
+        let past = pos2(450.0, -30.0);
+        assert_eq!(follow(&prefs(AutoPanStyle::Off), RECT, past), Pan::Still);
+        // The panning styles bring it back just inside the band: 450 is 74 past its
+        // inner edge at 376, and -30 is 54 above the one at 24.
+        for style in [AutoPanStyle::Ballistic, AutoPanStyle::FixedSizeJump] {
+            assert_eq!(
+                follow(&prefs(style), RECT, past),
+                Pan::By(vec2(74.0, -54.0))
+            );
+        }
+        assert_eq!(
+            follow(&prefs(AutoPanStyle::ReCenter), RECT, past),
+            Pan::Center(past)
         );
     }
 

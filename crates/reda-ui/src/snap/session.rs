@@ -43,12 +43,14 @@ pub fn rules_on(shell: &Shell, document: Uuid, pitch: Nm) -> Rules {
         (_, SnapMode::On | SnapMode::AllLayers) => Objects::All,
         (_, SnapMode::ActiveLayer) => active_layer(shell, document).unwrap_or(Objects::All),
     };
+    // Arrow steps are an exact count of grid steps: no Hotspot or guide catches them.
+    let keyed = crate::edit_cursor::keyed(shell, document);
     Rules {
         capture,
         grid,
-        objects,
+        objects: if keyed { Objects::Off } else { objects },
         off: options.hotspots_off,
-        guides: !suspend.objects(),
+        guides: !suspend.objects() && !keyed,
     }
 }
 

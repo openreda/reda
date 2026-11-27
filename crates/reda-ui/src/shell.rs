@@ -387,6 +387,9 @@ impl Shell {
         engine.view_mut().set(Selection::default());
         engine
             .view_mut()
+            .set(crate::edit_cursor::EditCursors::default());
+        engine
+            .view_mut()
             .set(selection::picking::Picking::default());
         engine.view_mut().set(Highlight::default());
         engine
