@@ -442,7 +442,8 @@ pub struct BoardViewPreferences {
     /// `layer_color` comes back.
     pub net_color_zoom_out: NetColorZoomOut,
     /// Layer sets the user saved, each a name and its Layers by kind and side (such as
-    /// `copper_top`), so a set applies to any board.
+    /// `copper_top`) and Mechanical Layers by name (`mechanical:Dimensions`), so a set
+    /// applies to any board.
     pub layer_sets: Vec<SavedLayerSet>,
     /// How the Layer control shows on the canvas: a `swatch` at the top right (a chip
     /// of the active Layer, opening a list), or a `strip` of chips along the bottom.
@@ -490,7 +491,8 @@ pub enum NetColorZoomOut {
 #[serde(deny_unknown_fields)]
 pub struct SavedLayerSet {
     pub name: String,
-    /// The Layers shown, by kind and side, such as `copper_top` or `board_outline`.
+    /// The Layers shown, by kind and side, such as `copper_top` or `board_outline`, and
+    /// Mechanical Layers by name, such as `mechanical:Dimensions`.
     pub layers: Vec<String>,
 }
 

@@ -14,7 +14,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use super::view::{BoardView, VIEW_TYPES, layer_key};
+use super::view::{BoardView, VIEW_TYPES, set_key};
 use crate::view_state::{KindDisplay, LabelView};
 
 /// The Layer sets every board has, in the order the Layer control lists them.
@@ -154,9 +154,12 @@ impl Command for LayerSetApply {
         } else if let Some(saved) = saved.into_iter().find(|s| s.name == p.set) {
             let keys: BTreeSet<String> = saved.layers.into_iter().collect();
             let layers = &set;
+            // Sets saved before Layers had these keys: `copper` for every inner Layer,
+            // `mechanical` for every Mechanical Layer.
             Box::new(move |l: &Layer| {
-                keys.contains(&layer_key(layers, l))
+                keys.contains(&set_key(layers, l))
                     || (l.kind == LayerKind::Copper && l.side.is_none() && keys.contains("copper"))
+                    || (l.kind == LayerKind::Mechanical && keys.contains("mechanical"))
             })
         } else {
             return Err(CommandError::invalid_params(
@@ -233,7 +236,8 @@ pub struct LayerSetNameParams {
 #[derive(Serialize, JsonSchema)]
 pub struct SavedSet {
     pub name: String,
-    /// Its Layers by kind and side, such as `copper_top`.
+    /// Its Layers by kind and side, such as `copper_top`, and Mechanical Layers by name,
+    /// such as `mechanical:Dimensions`.
     pub layers: Vec<String>,
 }
 
@@ -244,7 +248,8 @@ impl Command for LayerSetSave {
         id: "pcb.view.layer_set.save",
         title: "Save Layer Set",
         description: "Saves the Layers now shown as a named Layer set in the Preferences, by \
-                      Layer kind and side, so it applies to any board. A set of the same \
+                      Layer kind and side (Mechanical Layers by name), so it applies to any \
+                      board. A set of the same \
                       name is replaced; the built-in names are refused.",
         category: "pcb_view",
         icon: "layers",
@@ -277,7 +282,7 @@ impl Command for LayerSetSave {
             .layers
             .iter()
             .filter(|l| !hidden.contains(&l.uuid))
-            .map(|l| layer_key(&set, l))
+            .map(|l| set_key(&set, l))
             .collect();
         let mut sets = saved_sets(cx);
         sets.retain(|s| s.name != name);

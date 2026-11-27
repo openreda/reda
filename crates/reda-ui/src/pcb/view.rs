@@ -509,7 +509,8 @@ pub fn color_key(kind: LayerKind, side: Option<Side>) -> String {
     }
 }
 
-/// Preference key shared by the Layer's swatch override and saved Layer Sets.
+/// Preference key of the Layer's swatch override: inner copper by position, every other
+/// Layer by its [`color_key`].
 pub fn layer_key(set: &LayerSet, layer: &Layer) -> String {
     if layer.kind == LayerKind::Copper
         && layer.side.is_none()
@@ -518,6 +519,16 @@ pub fn layer_key(set: &LayerSet, layer: &Layer) -> String {
         format!("inner_{}", n - 1)
     } else {
         color_key(layer.kind, layer.side)
+    }
+}
+
+/// A Layer's key in a saved Layer Set: its [`layer_key`], except that a Mechanical Layer
+/// goes by its name (`mechanical:Dimensions`), unique among the board's Mechanical Layers,
+/// so a set tells them apart and still applies to any board.
+pub fn set_key(set: &LayerSet, layer: &Layer) -> String {
+    match (&layer.kind, &layer.name) {
+        (LayerKind::Mechanical, Some(name)) => format!("mechanical:{name}"),
+        _ => layer_key(set, layer),
     }
 }
 
