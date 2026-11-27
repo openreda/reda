@@ -1,14 +1,24 @@
-//! Meshing a model: every face on a plane, cylinder, cone, sphere or torus tessellated within
-//! a chord tolerance into triangles with its colour, grouped by solid and by part, with the
-//! assembly tree and its placements.
+//! Meshing a model: every face tessellated within a chord tolerance into triangles with its
+//! colour, grouped by solid and by part, with the assembly tree and its placements. Faces lie
+//! on planes, cylinders, cones, spheres, tori, B-spline surfaces (rational or not), surfaces
+//! of revolution and surfaces of linear extrusion; edges run along lines, conics and B-spline
+//! curves.
 //!
 //! [`StepModel::mesh`] takes a model in millimetres (see [`StepModel::to_millimetres`]);
-//! [`load`] reads, converts and meshes a file in one go. A face that cannot be meshed is left
-//! out and reported in [`MeshedModel::warnings`]; the rest of the model is still drawn.
+//! [`load`] reads, converts and meshes a file in one go.
+//!
+//! The mesher draws what it can of an imperfect model rather than refusing it: an open shell
+//! is meshed open, a bound that encloses no area is dropped, a band face whose bounds run
+//! around its surface with no seam between them is split along one, and a face with one bound
+//! around its surface is closed at its pole or along its open end. A solid with a face that
+//! still cannot be meshed is skipped and reported in [`MeshedModel::warnings`], and the rest of
+//! the model is drawn; a model of which nothing can be drawn says so there too.
 
 mod assembly;
+mod bspline;
 mod curve;
 mod face;
+mod freeform;
 mod geometry;
 mod style;
 mod surface;
@@ -297,6 +307,9 @@ pub fn load(bytes: &[u8], options: &MeshOptions) -> Result<Loaded, ReadError> {
 /// At most this many warnings name single faces; the rest are counted.
 const MAX_WARNINGS: usize = 50;
 
+/// The warning for a model that parsed but of which nothing could be drawn.
+pub const DRAWS_NOTHING: &str = "nothing in the model can be drawn";
+
 impl StepModel {
     /// Meshes every product's solids and builds the assembly tree. Lengths are taken as the
     /// model holds them, so convert it with [`StepModel::to_millimetres`] first.
@@ -314,11 +327,15 @@ impl StepModel {
             warnings.truncate(MAX_WARNINGS);
             warnings.push(format!("and {more} more"));
         }
-        MeshedModel {
+        let mut meshed = MeshedModel {
             parts,
             roots,
             warnings,
+        };
+        if meshed.draws_nothing() {
+            meshed.warnings.push(DRAWS_NOTHING.to_string());
         }
+        meshed
     }
 }
 
@@ -410,12 +427,15 @@ impl Mesher<'_> {
         out
     }
 
+    /// One solid's mesh, or `None` (with a warning) when it draws nothing or a face of it
+    /// cannot be meshed: a solid is drawn whole or not at all.
     fn solid(&mut self, item: RecordId, name: &str, shells: Vec<ShellUse>) -> Option<Solid> {
         let m = self.model;
         let solid_colour = self.colours.get(&item).copied();
         let mut mesh = Mesh::default();
         let mut closed = true;
         let mut failed = 0;
+        let mut first_failure: Option<String> = None;
         for u in &shells {
             let Some(shell) = m.get::<Shell>(u.shell) else {
                 self.warn(format!(
@@ -438,7 +458,7 @@ impl Mesher<'_> {
                     }
                     Err(e) => {
                         failed += 1;
-                        self.warn(e);
+                        first_failure.get_or_insert(e);
                     }
                 }
             }
@@ -460,6 +480,17 @@ impl Mesher<'_> {
                 f.triangles = f.triangles.start + first..f.triangles.end + first;
                 f
             }));
+        }
+        if let Some(e) = first_failure {
+            let more = match failed {
+                1 => String::new(),
+                n => format!(" (and {} more faces)", n - 1),
+            };
+            self.warn(format!(
+                "solid #{} '{name}' is skipped: {e}{more}",
+                item.0 + 1
+            ));
+            return None;
         }
         if mesh.triangles.is_empty() {
             self.warn(format!(

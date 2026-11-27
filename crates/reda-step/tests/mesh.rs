@@ -3,53 +3,11 @@
 //! each fixture was drawn with (tests/fixtures/README.md), as FreeCAD (OpenCascade) measured
 //! them, not values derived from the mesher.
 
+mod common;
+
+use common::*;
 use reda_step::records::Face;
-use reda_step::{Colour, Loaded, Mesh, MeshOptions, Node, Transform, load};
-
-fn fixture(name: &str) -> Loaded {
-    fixture_with(name, &MeshOptions::default())
-}
-
-fn fixture_with(name: &str, options: &MeshOptions) -> Loaded {
-    let path = format!("{}/tests/fixtures/{name}", env!("CARGO_MANIFEST_DIR"));
-    let bytes = std::fs::read(&path).unwrap_or_else(|e| panic!("{path}: {e}"));
-    let loaded = load(&bytes, options).unwrap_or_else(|e| panic!("{path}: {e}"));
-    assert!(loaded.warnings.is_empty(), "{name}: {:?}", loaded.warnings);
-    loaded
-}
-
-fn assert_close(what: &str, got: f64, want: f64, relative: f64) {
-    assert!(
-        (got - want).abs() <= relative * want.abs(),
-        "{what}: {got} is not within {}% of {want}",
-        relative * 100.0
-    );
-}
-
-/// The one solid of a single-part fixture meshes closed at the expected volume.
-fn assert_solid(name: &str, volume: f64) {
-    let loaded = fixture(name);
-    let meshed = &loaded.meshed;
-    let solids: Vec<_> = meshed.parts.iter().flat_map(|p| &p.solids).collect();
-    assert_eq!(solids.len(), 1, "{name}: one solid");
-    let mesh = &solids[0].mesh;
-    assert!(!mesh.triangles.is_empty(), "{name}: triangles");
-    assert!(mesh.is_closed(), "{name}: the mesh is closed");
-    assert_normals_agree(name, mesh);
-    // The default tolerances keep the volume within the corpus grade of 1 %.
-    assert_close(name, mesh.volume(), volume, 0.01);
-    assert_close(name, meshed.volume(), volume, 0.01);
-
-    // Finer tolerances close in on the exact volume.
-    let fine = MeshOptions {
-        chord: 0.0005,
-        angle: 2f64.to_radians(),
-    };
-    let fine = fixture_with(name, &fine);
-    assert_close(name, fine.meshed.volume(), volume, 0.001);
-    let mesh = &fine.meshed.parts[0].solids[0].mesh;
-    assert!(mesh.is_closed(), "{name}: the fine mesh is closed");
-}
+use reda_step::{Colour, MeshOptions, Node, Transform, load};
 
 #[test]
 fn a_block_of_planes_and_lines_meshes_closed() {
@@ -155,11 +113,6 @@ fn a_void_is_meshed_facing_into_its_solid() {
     assert_eq!(solid.mesh.faces.len(), 7);
 }
 
-fn fixture_text(name: &str) -> String {
-    let path = format!("{}/tests/fixtures/{name}", env!("CARGO_MANIFEST_DIR"));
-    std::fs::read_to_string(path).unwrap()
-}
-
 #[test]
 fn an_ellipse_is_cut_the_same_whichever_semi_axis_comes_first() {
     // The same ellipse written with its semi-axes the other way round: semi_axis_2 the longer,
@@ -190,60 +143,6 @@ fn an_ellipse_is_cut_the_same_whichever_semi_axis_comes_first() {
         mesh.triangles.len()
     };
     assert_eq!(triangles(&swapped), triangles(&text));
-}
-
-#[test]
-fn a_face_that_cannot_be_meshed_is_reported_and_the_rest_drawn() {
-    let path = format!(
-        "{}/tests/fixtures/ap214_face_colours.step",
-        env!("CARGO_MANIFEST_DIR")
-    );
-    let text = std::fs::read_to_string(path).unwrap();
-    // The bottom face's plane becomes a sphere of negative radius.
-    let broken = text.replace("#60=PLANE('',#59);", "#60=SPHERICAL_SURFACE('',#59,-1.);");
-    assert_ne!(broken, text);
-    let loaded = load(broken.as_bytes(), &MeshOptions::default()).unwrap();
-    let solid = &loaded.meshed.parts[0].solids[0];
-    assert_eq!(solid.mesh.faces.len(), 5, "the other faces are drawn");
-    assert!(!solid.mesh.is_closed());
-    assert_eq!(
-        loaded.meshed.warnings.len(),
-        1,
-        "{:?}",
-        loaded.meshed.warnings
-    );
-    let w = &loaded.meshed.warnings[0];
-    assert!(
-        w.starts_with("face #") && w.contains("its radius is not positive"),
-        "{w}"
-    );
-    assert_eq!(loaded.warnings, loaded.meshed.warnings);
-}
-
-/// Each triangle's winding and its vertices' normals point the same way (outwards, since the
-/// volume comes out positive).
-fn assert_normals_agree(name: &str, mesh: &Mesh) {
-    for t in &mesh.triangles {
-        let [a, b, c] = t.map(|i| mesh.positions[i as usize]);
-        let (u, v) = (sub(b, a), sub(c, a));
-        let n = [
-            u[1] * v[2] - u[2] * v[1],
-            u[2] * v[0] - u[0] * v[2],
-            u[0] * v[1] - u[1] * v[0],
-        ];
-        for &i in t {
-            let vn = mesh.normals[i as usize];
-            let d = n[0] * vn[0] + n[1] * vn[1] + n[2] * vn[2];
-            assert!(
-                d >= 0.0,
-                "{name}: a vertex normal faces against its triangle"
-            );
-        }
-    }
-}
-
-fn sub(a: [f64; 3], b: [f64; 3]) -> [f64; 3] {
-    [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
 }
 
 fn assert_box(name: &str, min: [f64; 3], max: [f64; 3]) {

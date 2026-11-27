@@ -9,7 +9,8 @@
 //! - [`write`] writes a model as AP214, and [`write_file`] gzips it when the name ends in
 //!   `.stpz`.
 //! - [`StepModel::mesh`] tessellates a model's faces into coloured meshes, keeping its assembly
-//!   tree and placements; [`load`] reads, converts to millimetres and meshes in one go.
+//!   tree and placements; [`load`] reads, converts to millimetres and meshes in one go. It draws
+//!   what it can of an imperfect model, and says what it left out.
 //!
 //! REDA takes no CAD kernel (ADR-0018): the parser, writer and records are REDA's own.
 
@@ -22,8 +23,8 @@ mod units;
 mod write;
 
 pub use mesh::{
-    BoundingBox, Colour, Instance, Loaded, Mesh, MeshFace, MeshOptions, MeshedModel, Node, Part,
-    Solid, Transform, load,
+    BoundingBox, Colour, DRAWS_NOTHING, Instance, Loaded, Mesh, MeshFace, MeshOptions, MeshedModel,
+    Node, Part, Solid, Transform, load,
 };
 pub use model::{AP214_APPLICATION, AP214_SCHEMA, Header, Protocol, StepModel};
 pub use read::{Read, ReadError, read, read_file};
