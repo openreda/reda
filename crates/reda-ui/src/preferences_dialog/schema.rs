@@ -272,7 +272,11 @@ fn kind(schema: &Value, node: &Value, key: &str) -> Kind {
     {
         return Kind::Percent;
     }
+    // An Object Default's set, such as what a Keepout keeps out, is ticked choice by
+    // choice. Other sets (the Hotspots left out) offer only some of their type's values
+    // and stay a count until they have an editor of their own.
     if node["type"] == "array"
+        && key.starts_with("defaults.")
         && let Kind::Choice(choices) = kind(schema, &node["items"], key)
         && !choices.is_empty()
     {
