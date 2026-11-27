@@ -24,11 +24,12 @@ pub struct Camera {
 pub struct CanvasInput {
     /// The pointer position, if it is over the canvas.
     pub pointer: Option<Pos2>,
-    /// Wheel scroll in points; positive (up) zooms in.
+    /// Wheel zoom in points, as the wheel mapping gives it; positive zooms in.
     pub scroll: f32,
-    /// A pinch or Ctrl+wheel zoom factor; 0 or 1 means none.
+    /// A pinch's zoom factor; 0 or 1 means none.
     pub zoom: f32,
-    /// How far a right- or middle-button drag moved this frame, in points.
+    /// How far a right- or middle-button drag or a wheel scroll moved the content this
+    /// frame, in points.
     pub pan: Vec2,
 }
 

@@ -75,6 +75,13 @@ const ORDER: &[&str] = &[
     "editing.highlight.dim",
     "editing.highlight.dim_strength",
     "editing.highlight.mask_strength",
+    "canvas.wheel.zoom",
+    "canvas.wheel.scroll_x",
+    "canvas.wheel.scroll_y",
+    "canvas.wheel.step_layer",
+    "canvas.wheel.zoom_speed",
+    "canvas.wheel.reverse_zoom",
+    "canvas.wheel.touchpad",
     "display.cursor",
     "display.inactive_layer_mode",
 ];

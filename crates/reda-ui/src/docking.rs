@@ -1125,11 +1125,19 @@ impl Cx<'_, '_> {
                     || self.shell.pcb_tool().moving()
                     || self.shell.router().routing();
                 let auto_pan = self.shell.preferences().editing.auto_pan.clone();
+                let wheel = self.shell.preferences().canvas.wheel.clone();
                 let Some(doc) = self.shell.document_tab_mut(*uuid) else {
                     return;
                 };
                 let busy = busy || doc.interaction != crate::schematic_editor::Interaction::Idle;
-                let mut input = canvas_input(ui, doc, kind, busy.then_some(&auto_pan));
+                let mut input = canvas_input(ui, doc, kind, busy.then_some(&auto_pan), &wheel);
+                // `pcb.layer.step` steps the active board's Layer.
+                let active = self.shell.active_document().map(|d| d.document) == Some(*uuid);
+                if kind == bars::DocumentType::Pcb && active {
+                    self.frame
+                        .commands
+                        .extend(crate::pcb::canvas::wheel_layer_steps(&input));
+                }
                 // Shown on the board for a settings window, the canvas only pans and zooms.
                 let view_only = self.shell.view_only(*uuid);
                 let edits = if view_only {

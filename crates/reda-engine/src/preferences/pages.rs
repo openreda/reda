@@ -36,6 +36,7 @@ pub const PAGES: &[Page] = &[
     under("editing", "editing.grid"),
     under("editing", "editing.auto_pan"),
     under("editing", "editing.highlight"),
+    under("editing", "editing.mouse_wheel"),
     top("schematic"),
     under("schematic", "schematic.wires"),
     under("schematic", "schematic.names_units"),
@@ -67,6 +68,7 @@ pub fn page_of(key: &str) -> &'static str {
         ("editing", name) if name.starts_with("highlight.") => "editing.highlight",
         ("editing", _) => "editing",
         ("canvas", "arrows_move_pointer") => "editing",
+        ("canvas", name) if name.starts_with("wheel.") => "editing.mouse_wheel",
         ("general", "default_layout") => "window",
         // Appearance is a place in the tree, not a rename: its keys stay `general.*`.
         (
