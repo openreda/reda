@@ -1,0 +1,57 @@
+# Weekly STEP model corpus run (docs/spec/v0.3/testing.md#model-corpus): fetches the 40 openly
+# fetchable models of crates/reda-step/tests/corpus/step-corpus.tsv at their pinned commits and
+# grades the reader against FreeCAD's reference volumes, as the STEP kernel trial (#442) did.
+# Scheduled and manual only: it never runs on pull requests, so it never gates a merge. The
+# target, OpenCascade's 54 of 58 at the right volume, is reported in the job summary, not
+# enforced; the run fails only when a model crashes the reader or times out.
+# Run it locally with the commands in crates/reda-step/tests/corpus/main.rs.
+name: STEP corpus
+
+on:
+  schedule:
+    - cron: "41 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  corpus:
+    name: STEP model corpus
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the pinned toolchain
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+      # The models are pinned by commit and SHA-256, so a cached copy is only refetched when
+      # the manifest changes.
+      - uses: actions/cache@v4
+        with:
+          path: step-corpus
+          key: step-corpus-${{ hashFiles('crates/reda-step/tests/corpus/step-corpus.tsv') }}
+      - name: Fetch the 40 fetchable models
+        run: bash crates/reda-step/tests/corpus/fetch.sh step-corpus
+      - name: Grade the reader and time the largest model
+        env:
+          REDA_STEP_CORPUS: ${{ github.workspace }}/step-corpus
+          REDA_STEP_CORPUS_REPORT: ${{ github.workspace }}/step-corpus-report.md
+        run: >
+          cargo test --locked --release -p reda-step --test corpus --
+          --ignored --nocapture --test-threads 1 corpus_models time_reading
+      - name: Write the report to the job summary
+        if: always()
+        run: |
+          if [ -f step-corpus-report.md ]; then
+            cat step-corpus-report.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: step-corpus-report
+          path: step-corpus-report.md
+          if-no-files-found: ignore
