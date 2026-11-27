@@ -1,0 +1,20 @@
+[defaults]
+
+[defaults.pcb]
+
+[defaults.pcb.line]
+
+[defaults.pcb.line.assembly]
+width = "0.1mm"
+
+[defaults.pcb.line.copper]
+width = "0.15mm"
+
+[defaults.pcb.line.courtyard]
+width = "0.05mm"
+
+[defaults.pcb.line.mechanical]
+width = "0.15mm"
+
+[defaults.pcb.line.silkscreen]
+width = "0.2mm"

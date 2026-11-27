@@ -2,6 +2,165 @@
   "commands": [
     {
       "category": "app",
+      "description": "Replaces the Object Defaults of the kinds a TOML file holds with its values and leaves the other kinds alone. Entries it does not know or cannot read are skipped and counted; nothing is written unless the whole load can be. Returns the kinds replaced, the skipped count and a warning per skipped entry.",
+      "icon": "preferences",
+      "id": "app.defaults.load",
+      "kind": "file",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "description": "A TOML file of Object Defaults, as `app.defaults.save` writes: absolute, or\nrelative to the Project folder.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "LoadParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "AnyValue"
+      },
+      "title": "Load Object Defaults"
+    },
+    {
+      "category": "app",
+      "description": "Puts the Object Defaults of one kind (such as `pcb.line`), or of every kind, back to the shipped values. Remember last used and the rest of Preferences stay. Returns the keys that changed.",
+      "icon": "preferences",
+      "id": "app.defaults.reset",
+      "kind": "file",
+      "params": {
+        "$defs": {
+          "ObjectDefaultsKind": {
+            "description": "A kind of object with Object Defaults: its keys are `defaults.<kind>.*`.",
+            "enum": [
+              "pcb.line",
+              "pcb.rectangle",
+              "pcb.arc",
+              "pcb.circle",
+              "pcb.polygon",
+              "pcb.text",
+              "pcb.dimension",
+              "pcb.free_pad",
+              "pcb.zone",
+              "pcb.keepout",
+              "pcb.via",
+              "footprint.pad",
+              "footprint.text",
+              "symbol.pin",
+              "symbol.line",
+              "symbol.rectangle",
+              "symbol.arc",
+              "symbol.circle",
+              "symbol.polygon",
+              "schematic.text",
+              "schematic.rectangle",
+              "schematic.port"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ObjectDefaultsKind"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The kind to reset; without one, every kind."
+          }
+        },
+        "title": "ResetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "AnyValue"
+      },
+      "title": "Reset Object Defaults"
+    },
+    {
+      "category": "app",
+      "description": "Writes the Object Defaults of one kind, or of every kind, to a TOML file holding the `defaults.*` table as preferences.toml writes it, every field included. Returns the kinds and how many values were written.",
+      "icon": "preferences",
+      "id": "app.defaults.save",
+      "kind": "file",
+      "params": {
+        "$defs": {
+          "ObjectDefaultsKind": {
+            "description": "A kind of object with Object Defaults: its keys are `defaults.<kind>.*`.",
+            "enum": [
+              "pcb.line",
+              "pcb.rectangle",
+              "pcb.arc",
+              "pcb.circle",
+              "pcb.polygon",
+              "pcb.text",
+              "pcb.dimension",
+              "pcb.free_pad",
+              "pcb.zone",
+              "pcb.keepout",
+              "pcb.via",
+              "footprint.pad",
+              "footprint.text",
+              "symbol.pin",
+              "symbol.line",
+              "symbol.rectangle",
+              "symbol.arc",
+              "symbol.circle",
+              "symbol.polygon",
+              "schematic.text",
+              "schematic.rectangle",
+              "schematic.port"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ObjectDefaultsKind"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The kind to save; without one, every kind."
+          },
+          "path": {
+            "description": "The TOML file to write: absolute, or relative to the Project folder.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "SaveParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "AnyValue"
+      },
+      "title": "Save Object Defaults"
+    },
+    {
+      "category": "app",
       "description": "Reads the user's Preferences: one key with its default and description, or every value with warnings for keys in preferences.toml that were ignored.",
       "icon": "preferences",
       "id": "app.preferences.get",

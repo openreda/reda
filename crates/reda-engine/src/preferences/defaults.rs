@@ -10,7 +10,6 @@
 //! The Line family and Text on boards and in Footprints hold one set per Layer kind, and
 //! the two editors share them (`defaults.pcb.<kind>.<layer_kind>.<field>`).
 
-use reda_command::{AreaValue, Length};
 use reda_model::geom::Nm;
 use reda_model::{
     ArrowPosition, DimensionFormat, DimensionUnits, FootprintLayer, HERSHEY_FONT, LayerKind,
@@ -22,6 +21,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
 use super::KeepoutToolShape;
+use super::typed::{LengthUnit, TypedArea, TypedLength};
 
 /// Every kind's Object Defaults, and whether Tool-option edits are kept.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -109,8 +109,8 @@ impl DrawingKind {
     }
 
     /// The shipped Line-family width of this kind.
-    fn width(self) -> Length {
-        Length(match self {
+    fn width(self) -> TypedLength {
+        mm(match self {
             DrawingKind::Courtyard => Nm::from_um(50),
             DrawingKind::Assembly => Nm::from_um(100),
             DrawingKind::Copper | DrawingKind::Silkscreen | DrawingKind::Mechanical => {
@@ -125,7 +125,7 @@ impl DrawingKind {
 #[serde(default, deny_unknown_fields)]
 pub struct Stroke {
     /// The pen width.
-    pub width: Length,
+    pub width: TypedLength,
 }
 
 impl Default for Stroke {
@@ -141,7 +141,7 @@ impl Default for Stroke {
 #[serde(default, deny_unknown_fields)]
 pub struct Outline {
     /// The outline's pen width.
-    pub width: Length,
+    pub width: TypedLength,
     /// Filled as well as outlined.
     pub fill: bool,
 }
@@ -169,9 +169,9 @@ impl From<Stroke> for Outline {
 #[serde(default, deny_unknown_fields)]
 pub struct TextLook {
     /// The capital height.
-    pub height: Length,
+    pub height: TypedLength,
     /// The pen width of stroke-font text.
-    pub thickness: Length,
+    pub thickness: TypedLength,
     /// The font family, such as `Hershey Roman Simplex` (the stroke font) or `Noto Sans`.
     pub font: String,
 }
@@ -179,8 +179,8 @@ pub struct TextLook {
 impl Default for TextLook {
     fn default() -> TextLook {
         TextLook {
-            height: Length(Nm::from_mm(1)),
-            thickness: Length(Nm::from_um(150)),
+            height: mm(Nm::from_mm(1)),
+            thickness: mm(Nm::from_um(150)),
             font: HERSHEY_FONT.to_owned(),
         }
     }
@@ -305,19 +305,19 @@ impl PcbTextDefaults {
 #[serde(default, deny_unknown_fields)]
 pub struct DimensionDefaults {
     /// The pen width of the dimension line and arrows.
-    pub width: Length,
+    pub width: TypedLength,
     /// The pen width of the extension lines.
-    pub extension_width: Length,
+    pub extension_width: TypedLength,
     /// How far the dimension line sits from its first end.
-    pub offset: Length,
+    pub offset: TypedLength,
     /// How far each extension line stops short of its point and runs past the line.
-    pub gap: Length,
+    pub gap: TypedLength,
     /// The space between the dimension line and the text.
-    pub text_gap: Length,
+    pub text_gap: TypedLength,
     /// The length of each arrowhead side.
-    pub arrow_size: Length,
+    pub arrow_size: TypedLength,
     /// With outside arrows, how far the line runs past each extension line.
-    pub arrow_length: Length,
+    pub arrow_length: TypedLength,
     /// Where the arrows sit: `inside` or `outside`.
     pub arrow_position: ArrowPosition,
     /// Digits after the decimal point, 0 to 6.
@@ -327,24 +327,24 @@ pub struct DimensionDefaults {
     /// How the value is written: `none`, `value`, `value_unit` or `value_bracketed_unit`.
     pub format: DimensionFormat,
     /// The text's capital height.
-    pub text_height: Length,
+    pub text_height: TypedLength,
 }
 
 impl Default for DimensionDefaults {
     fn default() -> DimensionDefaults {
         DimensionDefaults {
-            width: Length(Nm::from_um(150)),
-            extension_width: Length(Nm::from_um(150)),
-            offset: Length(Nm::from_mm(2)),
-            gap: Length(Nm::from_um(500)),
-            text_gap: Length(Nm::from_um(250)),
-            arrow_size: Length(Nm::from_mm(1)),
-            arrow_length: Length(Nm::from_mm(2)),
+            width: mm(Nm::from_um(150)),
+            extension_width: mm(Nm::from_um(150)),
+            offset: mm(Nm::from_mm(2)),
+            gap: mm(Nm::from_um(500)),
+            text_gap: mm(Nm::from_um(250)),
+            arrow_size: mm(Nm::from_mm(1)),
+            arrow_length: mm(Nm::from_mm(2)),
             arrow_position: ArrowPosition::Inside,
             precision: 2,
             units: DimensionUnits::Automatic,
             format: DimensionFormat::ValueUnit,
-            text_height: Length(Nm::from_mm(1)),
+            text_height: mm(Nm::from_mm(1)),
         }
     }
 }
@@ -358,11 +358,11 @@ pub struct FreePadDefaults {
     /// `circle`, `rect`, `rounded_rect`, `oval` or `chamfered_rect`.
     pub shape: PadShape,
     /// The copper's width.
-    pub width: Length,
+    pub width: TypedLength,
     /// The copper's height.
-    pub height: Length,
+    pub height: TypedLength,
     /// The round hole's diameter, for a Pad with a hole.
-    pub hole: Length,
+    pub hole: TypedLength,
 }
 
 impl Default for FreePadDefaults {
@@ -370,9 +370,9 @@ impl Default for FreePadDefaults {
         FreePadDefaults {
             kind: PadKind::PlatedThroughHole,
             shape: PadShape::Circle,
-            width: Length(Nm::from_mm(2)),
-            height: Length(Nm::from_mm(2)),
-            hole: Length(Nm::from_mm(1)),
+            width: mm(Nm::from_mm(2)),
+            height: mm(Nm::from_mm(2)),
+            hole: mm(Nm::from_mm(1)),
         }
     }
 }
@@ -383,15 +383,15 @@ impl Default for FreePadDefaults {
 pub struct ZoneDefaults {
     /// The gap to other Nets' copper, where it is larger than the clearance rule's;
     /// unset, the rule alone.
-    pub clearance: Option<Length>,
+    pub clearance: Option<TypedLength>,
     /// The narrowest copper the fill may leave; unset, the Net's `track_width` minimum.
-    pub min_width: Option<Length>,
+    pub min_width: Option<TypedLength>,
     /// How the fill treats copper of its own Net: `zones_only`, `all` or `none`.
     pub pour_over: PourOver,
     /// Remove fill pieces that touch no copper of the Zone's Net.
     pub remove_unconnected: bool,
     /// Fill pieces smaller than this area are dropped, such as `0.5mm2`.
-    pub min_island_area: AreaValue,
+    pub min_island_area: TypedArea,
 }
 
 impl Default for ZoneDefaults {
@@ -401,7 +401,7 @@ impl Default for ZoneDefaults {
             min_width: None,
             pour_over: PourOver::default(),
             remove_unconnected: true,
-            min_island_area: AreaValue(0),
+            min_island_area: TypedArea::new(0, LengthUnit::Mm),
         }
     }
 }
@@ -464,20 +464,20 @@ pub struct PadDefaults {
     /// `circle`, `rect`, `rounded_rect`, `oval` or `chamfered_rect`.
     pub shape: PadShape,
     /// The copper's width.
-    pub width: Length,
+    pub width: TypedLength,
     /// The copper's height.
-    pub height: Length,
+    pub height: TypedLength,
     /// The hole's width, for a Pad with a hole.
-    pub hole_width: Length,
+    pub hole_width: TypedLength,
     /// The hole's height: equal to the width is round, else a slot.
-    pub hole_height: Length,
+    pub hole_height: TypedLength,
     /// The chamfer of a chamfered rectangle, in thousandths of a percent of half the
     /// shorter side.
     pub chamfer_ratio: Ratio,
     /// The solder mask margin; unset, the board's.
-    pub mask_margin: Option<Length>,
+    pub mask_margin: Option<TypedLength>,
     /// The paste margin of an SMD Pad; unset, the board's.
-    pub paste_margin: Option<Length>,
+    pub paste_margin: Option<TypedLength>,
 }
 
 impl Default for PadDefaults {
@@ -485,10 +485,10 @@ impl Default for PadDefaults {
         PadDefaults {
             kind: PadKind::Smd,
             shape: PadShape::Rect,
-            width: Length(Nm::from_mm(1)),
-            height: Length(Nm::from_um(1500)),
-            hole_width: Length(Nm::from_um(800)),
-            hole_height: Length(Nm::from_um(800)),
+            width: mm(Nm::from_mm(1)),
+            height: mm(Nm::from_um(1500)),
+            hole_width: mm(Nm::from_um(800)),
+            hole_height: mm(Nm::from_um(800)),
             chamfer_ratio: Ratio::percent(50),
             mask_margin: None,
             paste_margin: None,
@@ -551,9 +551,7 @@ pub struct SymbolDefaults {
 
 impl Default for SymbolDefaults {
     fn default() -> SymbolDefaults {
-        let stroke = Stroke {
-            width: Length(Nm::from_mil(10)),
-        };
+        let stroke = Stroke { width: mil(10) };
         SymbolDefaults {
             pin: PinDefaults::default(),
             line: stroke.clone(),
@@ -570,7 +568,7 @@ impl Default for SymbolDefaults {
 #[serde(default, deny_unknown_fields)]
 pub struct PinDefaults {
     /// From the connection end to the body.
-    pub length: Length,
+    pub length: TypedLength,
     /// The electrical type ERC checks.
     pub electrical_type: PinType,
     /// Show the Pin's name.
@@ -582,7 +580,7 @@ pub struct PinDefaults {
 impl Default for PinDefaults {
     fn default() -> PinDefaults {
         PinDefaults {
-            length: Length(Nm::from_mil(100)),
+            length: mil(100),
             electrical_type: PinType::Passive,
             name_visible: true,
             number_visible: true,
@@ -607,14 +605,12 @@ pub struct SchematicDefaults {
 #[serde(default, deny_unknown_fields)]
 pub struct SheetTextDefaults {
     /// The capital height.
-    pub height: Length,
+    pub height: TypedLength,
 }
 
 impl Default for SheetTextDefaults {
     fn default() -> SheetTextDefaults {
-        SheetTextDefaults {
-            height: Length(Nm::from_mil(50)),
-        }
+        SheetTextDefaults { height: mil(50) }
     }
 }
 
@@ -638,7 +634,7 @@ impl ObjectDefaults {
     /// Range rules serde cannot express; returns the offending key and why.
     pub(super) fn check(&self) -> Result<(), (String, String)> {
         let mut lengths: Vec<(String, Nm, bool)> = Vec::new();
-        let mut add = |key: String, value: &Length, zero_ok: bool| {
+        let mut add = |key: String, value: &TypedLength, zero_ok: bool| {
             lengths.push((key, value.nm(), zero_ok));
         };
         let pcb = &self.pcb;
@@ -735,7 +731,7 @@ impl ObjectDefaults {
                 "a Dimension shows at most 6 digits after the point".into(),
             ));
         }
-        if pcb.zone.min_island_area.0 < 0 {
+        if pcb.zone.min_island_area.nm2() < 0 {
             return Err((
                 "defaults.pcb.zone.min_island_area".into(),
                 "it cannot be negative".into(),
@@ -763,4 +759,102 @@ impl ObjectDefaults {
         }
         Ok(())
     }
+}
+
+/// A shipped length, written in millimetres.
+const fn mm(nm: Nm) -> TypedLength {
+    TypedLength::new(nm, LengthUnit::Mm)
+}
+
+/// A shipped length of `mils` mil, written in mil.
+const fn mil(mils: i64) -> TypedLength {
+    TypedLength::new(Nm::from_mil(mils), LengthUnit::Mil)
+}
+
+/// An editor whose placing Tools start from Object Defaults.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum DefaultsEditor {
+    Pcb,
+    Footprint,
+    Symbol,
+    Schematic,
+}
+
+/// One kind of object with a record of its own, such as `pcb.line`: its keys are
+/// `defaults.<id>.*`. `app.defaults.reset`, `save` and `load` work kind by kind.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct DefaultsKind {
+    /// `<section>.<kind>`, such as `pcb.line` or `symbol.pin`.
+    pub id: &'static str,
+    /// The editors whose Tools place from it; the Line family and Text on boards are
+    /// shared with Footprints, sheet Text with Symbols.
+    pub editors: &'static [DefaultsEditor],
+}
+
+impl DefaultsKind {
+    /// The key prefix of its fields, `defaults.<id>`.
+    pub fn prefix(&self) -> String {
+        format!("defaults.{}", self.id)
+    }
+
+    /// Every key of its record, in key order.
+    pub fn keys(&self) -> Vec<String> {
+        let prefix = format!("{}.", self.prefix());
+        super::keys()
+            .into_iter()
+            .filter(|k| k.starts_with(&prefix))
+            .collect()
+    }
+}
+
+const fn kind(id: &'static str, editors: &'static [DefaultsEditor]) -> DefaultsKind {
+    DefaultsKind { id, editors }
+}
+
+const BOARD_AND_FOOTPRINT: &[DefaultsEditor] = &[DefaultsEditor::Pcb, DefaultsEditor::Footprint];
+const BOARD: &[DefaultsEditor] = &[DefaultsEditor::Pcb];
+const FOOTPRINT: &[DefaultsEditor] = &[DefaultsEditor::Footprint];
+const SYMBOL: &[DefaultsEditor] = &[DefaultsEditor::Symbol];
+const SYMBOL_AND_SHEET: &[DefaultsEditor] = &[DefaultsEditor::Symbol, DefaultsEditor::Schematic];
+const SHEET: &[DefaultsEditor] = &[DefaultsEditor::Schematic];
+
+/// Every kind with a record, in the order of the spec's Kinds and fields table.
+pub const KINDS: &[DefaultsKind] = &[
+    kind("pcb.line", BOARD_AND_FOOTPRINT),
+    kind("pcb.rectangle", BOARD_AND_FOOTPRINT),
+    kind("pcb.arc", BOARD_AND_FOOTPRINT),
+    kind("pcb.circle", BOARD_AND_FOOTPRINT),
+    kind("pcb.polygon", BOARD_AND_FOOTPRINT),
+    kind("pcb.text", BOARD_AND_FOOTPRINT),
+    kind("pcb.dimension", BOARD),
+    kind("pcb.free_pad", BOARD),
+    kind("pcb.zone", BOARD),
+    kind("pcb.keepout", BOARD),
+    kind("pcb.via", BOARD),
+    kind("footprint.pad", FOOTPRINT),
+    kind("footprint.text", FOOTPRINT),
+    kind("symbol.pin", SYMBOL),
+    kind("symbol.line", SYMBOL),
+    kind("symbol.rectangle", SYMBOL),
+    kind("symbol.arc", SYMBOL),
+    kind("symbol.circle", SYMBOL),
+    kind("symbol.polygon", SYMBOL),
+    kind("schematic.text", SYMBOL_AND_SHEET),
+    kind("schematic.rectangle", SHEET),
+    kind("schematic.port", SHEET),
+];
+
+/// The kind `id`, such as `pcb.line`.
+pub fn defaults_kind(id: &str) -> Option<&'static DefaultsKind> {
+    KINDS.iter().find(|k| k.id == id)
+}
+
+/// The kind whose record holds the dotted Preference `key`, if any.
+pub fn kind_of_key(key: &str) -> Option<&'static DefaultsKind> {
+    let rest = key.strip_prefix("defaults.")?;
+    let mut parts = rest.splitn(3, '.');
+    let (section, name, _field) = (parts.next()?, parts.next()?, parts.next()?);
+    KINDS
+        .iter()
+        .find(|k| k.id.split_once('.') == Some((section, name)))
 }

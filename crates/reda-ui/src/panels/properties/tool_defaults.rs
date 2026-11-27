@@ -8,10 +8,9 @@
 //! field ([`focus_first`]).
 
 use egui::{Id, Role, Ui, WidgetInfo};
-use reda_engine::model::geom::Nm;
 use serde_json::{Value, json};
 
-use super::{Shared, parse_length, text_field, units};
+use super::{Shared, text_field, units};
 use crate::object_defaults::{self, Field, FieldKind, Group};
 use crate::preferences_dialog::{self as prefs, Kind};
 use crate::shell::Shell;
@@ -135,20 +134,17 @@ fn row(
     units: reda_engine::preferences::Units,
 ) -> Option<Value> {
     let label = label(key, field.name);
-    let length = |v: &Value| {
-        v.as_i64()
-            .map(|nm| crate::pcb::view::format_length(Nm(nm), units))
-            .unwrap_or_default()
-    };
     match field.kind {
         FieldKind::Length | FieldKind::OptionalLength => {
-            let typed = text_field(ui, key, &label, &Shared::Same(length(current)), true)?;
+            // In the unit it was typed in; a bare number typed is in the panel's units.
+            let shown = object_defaults::shown_value(current, units, false);
+            let typed = text_field(ui, key, &label, &Shared::Same(shown), true)?;
             let text = typed.trim();
             if text.is_empty() {
                 // Blank unsets an optional length; a required one keeps its value.
                 return (field.kind == FieldKind::OptionalLength).then_some(Value::Null);
             }
-            Some(parse_length(text, units).map_or_else(|| json!(text), |nm| json!(nm.0)))
+            Some(object_defaults::typed_value(text, units, false))
         }
         FieldKind::Count => {
             let shown = current.as_i64().map(|n| n.to_string()).unwrap_or_default();

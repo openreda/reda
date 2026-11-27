@@ -232,6 +232,8 @@ impl Shell {
             base,
             "app.preferences.set"
                 | "app.preferences.reset"
+                | "app.defaults.reset"
+                | "app.defaults.load"
                 | "view.theme.set"
                 | "view.ui_scale.set"
                 | "view.ui_scale.step"

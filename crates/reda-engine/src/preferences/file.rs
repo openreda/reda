@@ -232,23 +232,23 @@ fn untangle_wheel(values: &mut Value, warnings: &mut Vec<String>) {
 }
 
 /// The defaults as JSON: every leaf is a key.
-fn defaults() -> Value {
+pub(super) fn defaults() -> Value {
     serde_json::to_value(Preferences::default()).expect("Preferences serialise")
 }
 
-fn canonical<'a>(key: &'a str, aliases: &[(&'a str, &'a str)]) -> &'a str {
+pub(super) fn canonical<'a>(key: &'a str, aliases: &[(&'a str, &'a str)]) -> &'a str {
     aliases
         .iter()
         .find(|(old, _)| *old == key)
         .map_or(key, |(_, new)| new)
 }
 
-fn segments(key: &str) -> Vec<&str> {
+pub(super) fn segments(key: &str) -> Vec<&str> {
     key.split('.').collect()
 }
 
 /// The value at a dotted key, if the key is a leaf (not a section).
-fn leaf<'v>(json: &'v Value, key: &str) -> Option<&'v Value> {
+pub(super) fn leaf<'v>(json: &'v Value, key: &str) -> Option<&'v Value> {
     let mut node = json;
     for segment in key.split('.') {
         node = node.as_object()?.get(segment)?;
@@ -259,7 +259,7 @@ fn leaf<'v>(json: &'v Value, key: &str) -> Option<&'v Value> {
 /// Sets `key` in a valid Preferences value, keeping it valid: refuses a value that does
 /// not fit the schema or its range rules. Leaves `json` normalised (`2` becomes `2.0` for
 /// a float).
-fn apply(json: &mut Value, key: &str, value: Value) -> Result<(), String> {
+pub(super) fn apply(json: &mut Value, key: &str, value: Value) -> Result<(), String> {
     let mut candidate = json.clone();
     let mut node = &mut candidate;
     for segment in key.split('.') {
@@ -276,7 +276,7 @@ fn apply(json: &mut Value, key: &str, value: Value) -> Result<(), String> {
 
 /// Every key in the file applied over the defaults, old (aliased) spellings first so the
 /// current spelling wins. Returns the values and a warning per ignored key.
-fn read_doc(doc: &DocumentMut, aliases: &[(&str, &str)]) -> (Value, Vec<String>) {
+pub(super) fn read_doc(doc: &DocumentMut, aliases: &[(&str, &str)]) -> (Value, Vec<String>) {
     let mut leaves = Vec::new();
     collect_leaves(doc.as_table(), "", &mut leaves);
     leaves.sort_by_key(|(key, _)| canonical(key, aliases) == key.as_str());
@@ -311,7 +311,7 @@ fn read_doc(doc: &DocumentMut, aliases: &[(&str, &str)]) -> (Value, Vec<String>)
 }
 
 /// Where the kind of value a retired `key` held lives now, if it is retired.
-fn retired(key: &str) -> Option<&'static str> {
+pub(super) fn retired(key: &str) -> Option<&'static str> {
     RETIRED
         .iter()
         .find(|(prefix, _)| key.starts_with(prefix))
@@ -319,7 +319,7 @@ fn retired(key: &str) -> Option<&'static str> {
 }
 
 /// Takes every retired key out of `doc`, keeping their sections and comments.
-fn drop_retired(doc: &mut DocumentMut) {
+pub(super) fn drop_retired(doc: &mut DocumentMut) {
     let mut leaves = Vec::new();
     collect_leaves(doc.as_table(), "", &mut leaves);
     for (key, _) in leaves {
@@ -329,7 +329,7 @@ fn drop_retired(doc: &mut DocumentMut) {
     }
 }
 
-fn collect_leaves(table: &dyn TableLike, prefix: &str, out: &mut Vec<(String, Item)>) {
+pub(super) fn collect_leaves(table: &dyn TableLike, prefix: &str, out: &mut Vec<(String, Item)>) {
     for (name, item) in table.iter() {
         let key = format!("{prefix}{name}");
         match item.as_table_like() {
@@ -339,7 +339,7 @@ fn collect_leaves(table: &dyn TableLike, prefix: &str, out: &mut Vec<(String, It
     }
 }
 
-fn to_json(item: &Item) -> Option<Value> {
+pub(super) fn to_json(item: &Item) -> Option<Value> {
     value_to_json(item.as_value()?)
 }
 
@@ -360,7 +360,7 @@ fn value_to_json(value: &toml_edit::Value) -> Option<Value> {
     })
 }
 
-fn to_toml(value: &Value) -> Result<toml_edit::Value, CommandError> {
+pub(super) fn to_toml(value: &Value) -> Result<toml_edit::Value, CommandError> {
     Ok(match value {
         Value::Bool(b) => (*b).into(),
         Value::Number(n) => match n.as_i64() {
@@ -392,7 +392,7 @@ fn to_toml(value: &Value) -> Result<toml_edit::Value, CommandError> {
 
 /// Sets the leaf at `path`, creating sections as needed. An existing value keeps its
 /// surrounding whitespace and trailing comment.
-fn set_leaf(table: &mut dyn TableLike, path: &[&str], value: toml_edit::Value) {
+pub(super) fn set_leaf(table: &mut dyn TableLike, path: &[&str], value: toml_edit::Value) {
     match path {
         [] => {}
         [leaf] => match table.get_mut(leaf) {
@@ -420,7 +420,7 @@ fn set_leaf(table: &mut dyn TableLike, path: &[&str], value: toml_edit::Value) {
 }
 
 /// Removes the leaf at `path` if it is there. Sections are kept, with any comments.
-fn remove_leaf(table: &mut dyn TableLike, path: &[&str]) {
+pub(super) fn remove_leaf(table: &mut dyn TableLike, path: &[&str]) {
     match path {
         [] => {}
         [leaf] => {

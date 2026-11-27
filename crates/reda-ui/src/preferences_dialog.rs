@@ -22,6 +22,7 @@ use crate::shell::Shell;
 use crate::tr;
 
 mod check_grid;
+mod defaults_page;
 mod draw;
 mod fab_preset_pages;
 mod grid_tables;
@@ -29,6 +30,7 @@ mod schema;
 pub mod shortcuts;
 mod user_keymap;
 
+pub use defaults_page::{DefaultsPage, KindGroup, KindRow, fields as defaults_fields};
 pub use draw::Outcome;
 pub use fab_preset_pages::{UserPresetPages, user_source};
 pub use schema::{Choice, Kind, Setting, preference_keys, search, setting};
@@ -55,14 +57,17 @@ impl PageId {
     pub const GRID: PageId = PageId("editing.grid");
     /// The wheel mapping: a preset, the action table, zoom speed and the touchpad.
     pub const MOUSE_WHEEL: PageId = PageId("editing.mouse_wheel");
+    /// Object Defaults: the kinds by editor, each kind's fields, Reset, Save As… and Load….
+    pub const DEFAULTS: PageId = PageId("defaults");
     /// The last page, generated from the schema: every key with its value, default and
     /// description.
     pub const ALL_SETTINGS: PageId = PageId("all");
 
     /// Pages drawn by hand rather than as a list of settings, shown even with no setting
     /// of their own.
-    const OWN_CONTENT: [PageId; 5] = [
+    const OWN_CONTENT: [PageId; 6] = [
         PageId::LIBRARIES,
+        PageId::DEFAULTS,
         PageId::FAB_PRESETS,
         PageId::AGENTS,
         PageId::KEYBOARD_SHORTCUTS,
@@ -181,6 +186,8 @@ pub struct PreferencesDialog {
     /// The installed families the font dropdowns offer, listed the first time one is
     /// drawn.
     font_lists: Option<draw::FontLists>,
+    /// The Defaults page.
+    pub defaults: DefaultsPage,
 }
 
 impl Default for PreferencesDialog {
@@ -202,6 +209,7 @@ impl PreferencesDialog {
             shortcuts: Shortcuts::default(),
             preset_pages: None,
             font_lists: None,
+            defaults: DefaultsPage::default(),
         }
     }
 
@@ -272,7 +280,17 @@ impl PreferencesDialog {
         if let Some(text) = self.texts.get(key) {
             return text.clone();
         }
-        as_text(&self.value(shell, key))
+        let value = self.value(shell, key);
+        match schema::setting(key).kind {
+            Kind::Length { area, .. } => {
+                crate::object_defaults::shown_value(&value, units_of(shell, key), area)
+            }
+            Kind::Percent => value
+                .as_f64()
+                .map(|r| format!("{} %", r / 1000.0))
+                .unwrap_or_default(),
+            _ => as_text(&value),
+        }
     }
 
     /// Keeps `text` as what is being typed into `key`'s field.
@@ -292,8 +310,21 @@ impl PreferencesDialog {
                 Ok(n) if n > 0 => Ok(json!(n)),
                 _ => Err(tr!("pref-not-a-count")),
             },
-            Kind::Number => match text.parse::<f64>() {
-                Ok(n) if n.is_finite() => Ok(json!(n)),
+            Kind::Number => match (text.parse::<i64>(), text.parse::<f64>()) {
+                // A whole number stays whole, for the keys that hold integers.
+                (Ok(n), _) => Ok(json!(n)),
+                (_, Ok(n)) if n.is_finite() => Ok(json!(n)),
+                _ => Err(tr!("pref-not-a-number")),
+            },
+            // Blank puts a length back to its default, which unsets an optional one.
+            Kind::Length { .. } if text.is_empty() => Ok(Value::Null),
+            Kind::Length { area, .. } => Ok(crate::object_defaults::typed_value(
+                text,
+                units_of(shell, key),
+                area,
+            )),
+            Kind::Percent => match text.trim_end_matches('%').trim().parse::<f64>() {
+                Ok(n) if n.is_finite() => Ok(json!((n * 1000.0).round() as i64)),
                 _ => Err(tr!("pref-not-a-number")),
             },
             _ if text.is_empty() => Ok(Value::Null),
@@ -547,6 +578,19 @@ fn defaults() -> &'static Value {
 fn leaf(json: &Value, key: &str) -> Value {
     let pointer = format!("/{}", key.replace('.', "/"));
     json.pointer(&pointer).cloned().unwrap_or(Value::Null)
+}
+
+/// The units a length setting shows a bare number of nanometres in, and reads a bare
+/// number typed into it in: the sheet editors' default units for Schematic settings and
+/// Symbol and Schematic Object Defaults, else the board's.
+pub(crate) fn units_of(shell: &Shell, key: &str) -> preferences::Units {
+    let prefs = shell.preferences();
+    let sheets = ["schematic.", "defaults.symbol.", "defaults.schematic."];
+    if sheets.iter().any(|p| key.starts_with(p)) {
+        prefs.schematic.default_units
+    } else {
+        prefs.pcb.default_units
+    }
 }
 
 fn value(prefs: &Preferences, key: &str) -> Value {

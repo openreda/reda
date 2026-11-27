@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 
 use reda_engine::command::{Command, CommandError, Context, Kind, Meta, Registry};
 use reda_engine::model::{FootprintLayer, LayerKind};
-use reda_engine::preferences::{self, DrawingKind, ObjectDefaults};
+use reda_engine::preferences::{self, DrawingKind, ObjectDefaults, TypedArea, TypedLength, Units};
 use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -304,6 +304,54 @@ pub fn value(defaults: &ObjectDefaults, key: &str) -> Value {
         node = node.get(segment).cloned().unwrap_or(Value::Null);
     }
     node
+}
+
+/// A record's length as a field shows it: in the unit it was typed in, else (a bare
+/// number of nanometres) in `units`.
+pub fn shown_length(length: TypedLength, units: Units) -> String {
+    length
+        .shown()
+        .unwrap_or_else(|| crate::pcb::view::format_length(length.nm(), units))
+}
+
+/// A record's area as a field shows it: in the unit it was typed in, else in `units`.
+pub fn shown_area(area: TypedArea, units: Units) -> String {
+    area.shown()
+        .unwrap_or_else(|| crate::panels::navigator::format_area(area.nm2(), units))
+}
+
+/// A length or area field's value as JSON (`"0.15mm"`, `150000` or `null`) as the field
+/// shows it.
+pub fn shown_value(value: &Value, units: Units, area: bool) -> String {
+    let typed = |text: &str| {
+        if area {
+            TypedArea::parse(text).ok().map(|a| shown_area(a, units))
+        } else {
+            TypedLength::parse(text)
+                .ok()
+                .map(|l| shown_length(l, units))
+        }
+    };
+    match value {
+        Value::String(s) => typed(s).unwrap_or_else(|| s.clone()),
+        Value::Number(n) => typed(&n.to_string()).unwrap_or_default(),
+        _ => String::new(),
+    }
+}
+
+/// What a length (or `area`) typed into a field sets, keeping its unit: `"0.2 mm"` is
+/// `"0.2mm"`, and a bare number is in `units`. Text that is no value is passed on as it
+/// is, for the Preference to refuse.
+pub fn typed_value(text: &str, units: Units, area: bool) -> Value {
+    let t = text.trim().replace(' ', "").replace('²', "2");
+    if t.parse::<f64>().is_err() {
+        return json!(t);
+    }
+    let unit = match units {
+        Units::Mm => "mm",
+        Units::Mil => "mil",
+    };
+    json!(format!("{t}{unit}{}", if area { "2" } else { "" }))
 }
 
 /// Puts `kind` into the session's Pad record, as the SMD and through-hole Pad Presets of

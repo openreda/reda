@@ -14,9 +14,11 @@
 
 mod checks;
 mod defaults;
+pub mod defaults_file;
 mod file;
 mod grid;
 pub mod pages;
+mod typed;
 mod wheel;
 
 use std::collections::BTreeSet;
@@ -31,13 +33,15 @@ use serde_json::Value;
 
 pub use checks::{CheckDisplay, CheckDisplays, OVERLAY_BY_DEFAULT, OverlayStyle, OverlayZoomedOut};
 pub use defaults::{
-    DimensionDefaults, DrawingKind, FootprintDefaults, FootprintTextDefaults, FreePadDefaults,
-    Justify, KeepoutDefaults, ObjectDefaults, Outline, OutlineByKind, PadDefaults, PcbDefaults,
-    PcbTextDefaults, PinDefaults, PortDefaults, SchematicDefaults, SheetRectangleDefaults,
-    SheetTextDefaults, Stroke, StrokeByKind, SymbolDefaults, TextLook, ViaDefaults, ZoneDefaults,
+    DefaultsEditor, DefaultsKind, DimensionDefaults, DrawingKind, FootprintDefaults,
+    FootprintTextDefaults, FreePadDefaults, Justify, KINDS, KeepoutDefaults, ObjectDefaults,
+    Outline, OutlineByKind, PadDefaults, PcbDefaults, PcbTextDefaults, PinDefaults, PortDefaults,
+    SchematicDefaults, SheetRectangleDefaults, SheetTextDefaults, Stroke, StrokeByKind,
+    SymbolDefaults, TextLook, ViaDefaults, ZoneDefaults, defaults_kind, kind_of_key,
 };
 pub use file::{Loaded, applied, load, parse, reset, set, value_of};
 pub use grid::{DisplayPrecision, GridPreferences, GridRow, GridStyle, GridTables};
+pub use typed::{LengthUnit, TypedArea, TypedLength};
 pub use wheel::{
     Touchpad, Wheel, WheelAction, WheelBinding, WheelModifiers, WheelPreset, ZOOM_SPEEDS,
 };

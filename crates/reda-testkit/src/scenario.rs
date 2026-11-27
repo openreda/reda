@@ -20,6 +20,16 @@
 //! script as the replay's Journal, so steps written without a `result` get one. The
 //! temporary folders are written back as the script's own placeholder paths.
 //!
+//! **Fixtures:** a param under the placeholder folder `/fixtures` names a file of the
+//! script's own `fixtures/<name>/` folder beside it (a hand-written file to load, say). The
+//! harness copies that folder to a temporary one first, so a script that writes there
+//! leaves the repo alone, and every file the script wrote or changed there is a golden too,
+//! under `<name>/fixtures/`.
+//!
+//! **Preferences:** the engine replay has a per-user folder of its own, empty at the start,
+//! so a script can run `app.preferences.*` and `app.defaults.*`. The `preferences.toml` it
+//! leaves is a golden, `<name>/user/preferences.toml`.
+//!
 //! [`run_scenarios_with`] replays through another runner of Commands, such as an app
 //! window for the scripts that use its view Commands; everything else is the same.
 
@@ -29,10 +39,15 @@ use std::path::Path;
 use reda_engine::journal::ScriptEntry;
 use reda_engine::{Engine, journal, store};
 
-use crate::{TempDir, read_tree, starter_library, test_engine_with_library};
+use reda_engine::command::UserDirs;
+
+use crate::{TempDir, read_tree, starter_library, test_engine_with_library_in};
 
 /// The one file the goldens leave out: its content `*` would ignore itself.
 const SKIPPED: &str = ".reda/.gitignore";
+
+/// The placeholder folder a script names its fixtures by.
+const FIXTURES: &str = "/fixtures";
 
 /// What replaying a script left.
 pub struct Replayed {
@@ -134,10 +149,15 @@ pub fn project_files(engine: &Engine) -> Result<BTreeMap<String, Vec<u8>>, Strin
 
 /// Replays `steps` on a fresh test engine with the starter Library.
 fn replay_on_engine(steps: &[ScriptEntry]) -> Result<Replayed, String> {
-    let mut engine = test_engine_with_library(&starter_library());
+    let home = TempDir::new("scenario-home");
+    let mut engine = test_engine_with_library_in(&starter_library(), home.path());
     journal::replay(&mut engine, steps).map_err(|e| e.to_string())?;
+    let mut files = project_files(&engine)?;
+    if let Ok(bytes) = std::fs::read(UserDirs::under(home.path()).preferences_file()) {
+        files.insert("user/preferences.toml".to_owned(), bytes);
+    }
     Ok(Replayed {
-        files: project_files(&engine)?,
+        files,
         journal: journal::export(engine.journal()),
     })
 }
@@ -151,10 +171,25 @@ fn run_one(
     let mut steps = journal::parse(&text).map_err(|e| vec![e.to_string()])?;
     let work = TempDir::new("scenario");
     let placeholders = journal::relocate_new_projects(&mut steps, work.path());
+    let name = script.file_stem().unwrap_or_default();
+    let given = read_tree(&script.with_file_name("fixtures").join(name));
+    let fixtures = work.path().join("fixtures");
+    for (path, bytes) in &given {
+        let path = fixtures.join(path);
+        std::fs::create_dir_all(path.parent().unwrap())
+            .and_then(|()| std::fs::write(&path, bytes))
+            .map_err(|e| vec![format!("copying fixture {}: {e}", path.display())])?;
+    }
+    journal::relocate_paths(&mut steps, Path::new(FIXTURES), &fixtures);
     let Replayed {
-        files: actual,
+        files: mut actual,
         journal: exported,
     } = replay(&steps).map_err(|e| vec![e])?;
+    for (path, bytes) in read_tree(&fixtures) {
+        if given.get(&path) != Some(&bytes) {
+            actual.insert(format!("fixtures/{path}"), bytes);
+        }
+    }
 
     let golden_dir = script.with_extension("");
     if bless {
@@ -165,16 +200,16 @@ fn run_one(
                 .and_then(|()| std::fs::write(&path, bytes))
                 .map_err(|e| vec![format!("blessing {}: {e}", path.display())])?;
         }
-        let mut exported = exported;
+        let escaped = |s: &str| {
+            let quoted = serde_json::to_string(s).expect("strings serialise");
+            quoted[1..quoted.len() - 1].to_owned()
+        };
+        let mut exported = exported.replace(&escaped(&fixtures.to_string_lossy()), FIXTURES);
         for (i, placeholder) in placeholders.iter().enumerate() {
             let Some(placeholder) = placeholder.as_str() else {
                 continue;
             };
             let relocated = work.path().join((i + 1).to_string());
-            let escaped = |s: &str| {
-                let quoted = serde_json::to_string(s).expect("strings serialise");
-                quoted[1..quoted.len() - 1].to_owned()
-            };
             exported = exported.replace(
                 &escaped(&relocated.to_string_lossy()),
                 &escaped(placeholder),

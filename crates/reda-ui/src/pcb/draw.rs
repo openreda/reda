@@ -709,7 +709,7 @@ fn zone_values(values: &reda_engine::preferences::ZoneDefaults, params: &mut Val
     }
     params["pour_over"] = json!(values.pour_over);
     params["remove_unconnected"] = json!(values.remove_unconnected);
-    params["min_island_area"] = json!(values.min_island_area.0);
+    params["min_island_area"] = json!(values.min_island_area.nm2());
 }
 
 /// A circle about `centre` through `edge`, as two half-circle arcs.

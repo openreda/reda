@@ -1,0 +1,14 @@
+# Object Defaults passed on by a colleague, edited by hand.
+[general]
+theme = "dark"
+
+[defaults.symbol.pin]
+length = "150mil"
+electrical_type = "input"
+colour = "red"
+
+[defaults.pcb.via]
+teardrop = "yes"
+
+[pcb.zone.tool]
+clearance = "1mm"
