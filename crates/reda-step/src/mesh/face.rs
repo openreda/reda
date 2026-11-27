@@ -1,31 +1,31 @@
-//! One face to triangles: its bounds mapped into the surface's parameter space, triangulated
-//! there with constrained Delaunay (`spade`) between the bounds, and mapped back onto the
-//! surface.
+//! One face to triangles: its bounds mapped into the surface's parameter space
+//! ([`uv`], the trimming curve fitter), closed into polygons there, triangulated with
+//! constrained Delaunay between them ([`cdt`]) and mapped back onto the surface.
 //!
 //! - Boundary points keep the 3D positions of their edges' samples, so faces that share an
 //!   edge share its points exactly and the mesh closes.
-//! - On a periodic surface the parameter of each edge's run is unwrapped along the run, and
-//!   the runs are joined end to end: a seam edge used twice lands on both sides of the
-//!   parameter rectangle. Where two runs meet at a pole or a cone's apex (where `u` means
-//!   nothing) the join is made from the other end, and the pole point is split into one
-//!   point per side so the triangulation sees the pole as a segment.
-//! - Inside the bounds, curved surfaces get a grid of points at the steps the chord tolerance
-//!   allows, kept clear of the bounds.
-//! - Triangles are kept by parity: those reached across an odd number of bounds from outside.
+//! - What a well-made file would not hold is drawn rather than refused:
+//!   - a bound that encloses no area (a slit, or an edge out and back) is dropped;
+//!   - a band face whose bounds each run once around the surface's axis, with no seam edge
+//!     between them, is split along a seam drawn between them;
+//!   - a face with one bound around the axis (a cap with no seam) is closed at the pole the
+//!     surface meets its axis at, or along the open end of its range (the end of a surface of
+//!     revolution's curve).
+
+mod cdt;
+mod uv;
 
 use std::collections::HashMap;
-use std::f64::consts::TAU;
-
-use spade::handles::{FixedFaceHandle, PossiblyOuterTag};
-use spade::{ConstrainedDelaunayTriangulation, Point2, Triangulation};
 
 use super::MeshOptions;
+use super::freeform::End;
 use super::geometry::V3;
-use super::surface::Surface;
+use super::surface::{Surface, UvBox};
 use crate::StepModel;
 use crate::records::{
-    EdgeLoop, Face, FaceBound, FaceBoundKind, OrientedEdge, RecordId, VertexLoop,
+    EdgeCurve, EdgeLoop, Face, FaceBound, FaceBoundKind, OrientedEdge, RecordId, VertexLoop,
 };
+use uv::{UvLoop, wrap_near};
 
 /// A face's triangles: positions, normals and triangles over them, facing outwards.
 #[derive(Default)]
@@ -35,12 +35,19 @@ pub(crate) struct FaceMesh {
     pub triangles: Vec<[u32; 3]>,
 }
 
-/// Samples each edge once for every face that uses it.
+/// Samples each edge once for every face that uses it. Two edges between the same vertices
+/// along the same curve (a file that gives neighbouring faces an edge each instead of one
+/// between them) take the same points, so the faces still meet.
 pub(crate) struct EdgeCache<'a> {
     model: &'a StepModel,
     options: &'a MeshOptions,
     edges: HashMap<RecordId, Result<Vec<V3>, String>>,
+    /// The edges sampled so far between each pair of vertices.
+    between: HashMap<(RecordId, RecordId), Vec<RecordId>>,
 }
+
+/// How near, in mm, two edges' points must all be for the edges to count as one.
+const TWIN: f64 = 1e-6;
 
 impl<'a> EdgeCache<'a> {
     pub fn new(model: &'a StepModel, options: &'a MeshOptions) -> Self {
@@ -48,16 +55,42 @@ impl<'a> EdgeCache<'a> {
             model,
             options,
             edges: HashMap::new(),
+            between: HashMap::new(),
         }
     }
 
     fn edge(&mut self, id: RecordId) -> Result<&[V3], String> {
-        let (model, options) = (self.model, self.options);
-        self.edges
-            .entry(id)
-            .or_insert_with(|| super::curve::sample_edge(model, id, options))
-            .as_deref()
-            .map_err(|e| e.clone())
+        if !self.edges.contains_key(&id) {
+            let sampled = self.sample(id);
+            self.edges.insert(id, sampled);
+        }
+        self.edges[&id].as_deref().map_err(|e| e.clone())
+    }
+
+    fn sample(&mut self, id: RecordId) -> Result<Vec<V3>, String> {
+        let points = super::curve::sample_edge(self.model, id, self.options)?;
+        let Some(e) = self.model.get::<EdgeCurve>(id) else {
+            return Ok(points);
+        };
+        let ends = (e.edge_start.min(e.edge_end), e.edge_start.max(e.edge_end));
+        let twins = self.between.entry(ends).or_default();
+        for &t in twins.iter() {
+            let Some(Ok(other)) = self.edges.get(&t) else {
+                continue;
+            };
+            if other.len() != points.len() {
+                continue;
+            }
+            let near = |a: &V3, b: &V3| (*a - *b).length() <= TWIN;
+            if other.iter().zip(&points).all(|(a, b)| near(a, b)) {
+                return Ok(other.clone());
+            }
+            if other.iter().rev().zip(&points).all(|(a, b)| near(a, b)) {
+                return Ok(other.iter().rev().copied().collect());
+            }
+        }
+        twins.push(id);
+        Ok(points)
     }
 }
 
@@ -74,11 +107,20 @@ struct Bound3 {
 }
 
 /// A boundary point in parameter space with its 3D position.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 struct UvPoint {
     u: f64,
     v: f64,
     pos: V3,
+}
+
+impl UvPoint {
+    fn c(&self, k: usize) -> f64 {
+        if k == 0 { self.u } else { self.v }
+    }
+    fn c_mut(&mut self, k: usize) -> &mut f64 {
+        if k == 0 { &mut self.u } else { &mut self.v }
+    }
 }
 
 /// Meshes face `id`, or says why it cannot be (`face #n: ...`). `reversed` turns it inside
@@ -93,6 +135,7 @@ pub(crate) fn mesh_face(
 
 fn face_mesh(cache: &mut EdgeCache, id: RecordId, reversed: bool) -> Result<FaceMesh, String> {
     let model = cache.model;
+    let options = cache.options;
     let face = model
         .get::<Face>(id)
         .ok_or_else(|| format!("#{} is not a face", id.index() + 1))?;
@@ -107,20 +150,27 @@ fn face_mesh(cache: &mut EdgeCache, id: RecordId, reversed: bool) -> Result<Face
     }
     if bounds.is_empty() {
         // A face with no edges (only vertex loops, or none) on a closed surface is all of it.
-        return whole(&surface, cache.options, flip)
+        return cdt::whole(&surface, options, flip)
             .ok_or_else(|| "it has no edges and its surface is not closed".to_string());
     }
 
-    let mut loops: Vec<Vec<UvPoint>> = Vec::new();
+    let mut loops: Vec<UvLoop> = Vec::new();
     let mut outer = 0;
     for b in &bounds {
         if b.outer {
             outer = loops.len();
         }
-        loops.push(to_uv(&surface, b)?);
+        loops.push(uv::to_uv(&surface, b)?);
     }
-    align_loops(&surface, &mut loops, outer);
-    triangulate(&surface, cache.options, &loops, flip)
+    let outer_loop = drop_empty(&surface, options, &mut loops, outer);
+    if loops.is_empty() {
+        // Nothing but bounds that enclose nothing: the face has no area to draw.
+        return Ok(FaceMesh::default());
+    }
+    let (polygons, outer) = close(&surface, options, face.same_sense, loops, outer_loop)?;
+    let mut polygons = polygons;
+    align_loops(&surface, &mut polygons, outer);
+    cdt::triangulate(&surface, options, &polygons, flip)
 }
 
 /// A bound's runs in loop order, or `None` for a bound with no edges (a vertex loop).
@@ -168,558 +218,530 @@ fn bound(cache: &mut EdgeCache, id: RecordId) -> Result<Option<Bound3>, String> 
     }))
 }
 
-/// The value of `x + 2πk` nearest `near`.
-fn wrap_near(x: f64, near: f64) -> f64 {
-    x + ((near - x) / TAU).round() * TAU
-}
+/// How small an area, relative to the square of its perimeter, a bound may enclose and still
+/// count as enclosing nothing.
+const NO_AREA: f64 = 1e-9;
 
-/// One run's points in parameter space, unwrapped along the run. `None` for a point at a
-/// singularity, whose `u` is set later.
-struct UvRun {
-    u: Vec<Option<f64>>,
-    v: Vec<f64>,
-    pos: Vec<V3>,
-    edge: RecordId,
-}
-
-impl UvRun {
-    fn first_u(&self) -> Option<f64> {
-        self.u.iter().flatten().next().copied()
+/// Drops the bounds that enclose no area (a loop that runs out and back along itself) or have
+/// no points; returns where the outer bound now is (`None` if it was dropped).
+fn drop_empty(
+    surface: &Surface,
+    options: &MeshOptions,
+    loops: &mut Vec<UvLoop>,
+    outer: usize,
+) -> Option<usize> {
+    let pts = || loops.iter().flat_map(|l| &l.points);
+    let (mut b, mut any) = (
+        UvBox {
+            u: (f64::INFINITY, f64::NEG_INFINITY),
+            v: (f64::INFINITY, f64::NEG_INFINITY),
+        },
+        false,
+    );
+    for p in pts() {
+        any = true;
+        b.u = (b.u.0.min(p.u), b.u.1.max(p.u));
+        b.v = (b.v.0.min(p.v), b.v.1.max(p.v));
     }
-    fn last_u(&self) -> Option<f64> {
-        self.u.iter().rev().flatten().next().copied()
-    }
-}
-
-/// Maps a bound into parameter space as one closed polygon (the last point not repeated).
-fn to_uv(surface: &Surface, bound: &Bound3) -> Result<Vec<UvPoint>, String> {
-    let (pu, pv) = surface.periodic();
-    let mut runs: Vec<UvRun> = bound
-        .runs
-        .iter()
-        .map(|run| {
-            let mut u = Vec::with_capacity(run.points.len());
-            let mut v = Vec::with_capacity(run.points.len());
-            let mut last_u: Option<f64> = None;
-            let mut last_v: Option<f64> = None;
-            for &p in &run.points {
-                let (mut pu_, mut pv_) = surface.project(p);
-                if pv {
-                    if let Some(l) = last_v {
-                        pv_ = wrap_near(pv_, l);
-                    }
-                    last_v = Some(pv_);
+    let (su, sv) = if any {
+        surface.scale(options, b)
+    } else {
+        (1.0, 1.0)
+    };
+    let mut keep = Vec::with_capacity(loops.len());
+    let mut outer_at = None;
+    for (i, l) in std::mem::take(loops).into_iter().enumerate() {
+        let empty = l.points.len() < 2
+            || (l.winding == [0, 0] && {
+                let n = l.points.len();
+                let (mut area, mut perimeter) = (0.0, 0.0);
+                for j in 0..n {
+                    let (a, c) = (l.points[j], l.points[(j + 1) % n]);
+                    area += (a.u * su) * (c.v * sv) - (c.u * su) * (a.v * sv);
+                    perimeter += ((c.u - a.u) * su).hypot((c.v - a.v) * sv);
                 }
-                if surface.is_singular(p) {
-                    u.push(None);
-                } else {
-                    if let (true, Some(l)) = (pu, last_u) {
-                        pu_ = wrap_near(pu_, l);
-                    }
-                    last_u = Some(pu_);
-                    u.push(Some(pu_));
-                }
-                v.push(pv_);
-            }
-            UvRun {
-                u,
-                v,
-                pos: run.points.clone(),
-                edge: run.edge,
-            }
-        })
-        .collect();
-
-    let n = runs.len();
-    // Shift whole runs by multiples of 2π so that each starts where the one before ends.
-    if pv {
-        for i in 1..n {
-            let end = *runs[i - 1].v.last().expect("runs have points");
-            let start = runs[i].v[0];
-            let shift = wrap_near(start, end) - start;
-            runs[i].v.iter_mut().for_each(|v| *v += shift);
-        }
-    }
-    if pu {
-        let mut shift: Vec<Option<f64>> = vec![None; n];
-        let seed = (0..n).find(|&i| runs[i].first_u().is_some());
-        let Some(seed) = seed else {
-            return Err("a bound that lies wholly on a pole".into());
-        };
-        shift[seed] = Some(0.0);
-        // A join can be made where the runs meet at a point with a meaningful u.
-        let joinable = |a: &UvRun, b: &UvRun| -> Option<(f64, f64)> {
-            match (
-                a.u.last().copied().flatten(),
-                b.u.first().copied().flatten(),
-            ) {
-                (Some(end), Some(start)) => Some((end, start)),
-                _ => None,
-            }
-        };
-        loop {
-            let mut changed = false;
-            for k in 0..n {
-                let (i, j) = (k, (k + 1) % n);
-                if let Some((end, start)) = joinable(&runs[i], &runs[j]) {
-                    match (shift[i], shift[j]) {
-                        (Some(si), None) => {
-                            shift[j] = Some(wrap_near(start, end + si) - start);
-                            changed = true;
-                        }
-                        (None, Some(sj)) => {
-                            shift[i] = Some(wrap_near(end, start + sj) - end);
-                            changed = true;
-                        }
-                        _ => {}
-                    }
-                }
-            }
-            if !changed {
-                break;
-            }
-        }
-        // Runs joined to the rest only through poles: a seam's second use goes 2π from its
-        // first; anything else stays where it is nearest the rest of the bound.
-        for j in 0..n {
-            if shift[j].is_some() || runs[j].first_u().is_none() {
-                continue;
-            }
-            let u0 = runs[j].first_u().expect("checked");
-            let partner =
-                (0..n).find(|&k| k != j && shift[k].is_some() && runs[k].edge == runs[j].edge);
-            let resolved: Vec<f64> = (0..n)
-                .filter_map(|k| Some(runs[k].first_u()? + shift[k]?))
-                .collect();
-            let mean = resolved.iter().sum::<f64>() / resolved.len() as f64;
-            shift[j] = Some(match partner {
-                Some(k) => {
-                    let at = runs[k].last_u().expect("resolved runs have u")
-                        + shift[k].expect("resolved");
-                    let same = wrap_near(u0, at) - u0;
-                    let others: Vec<f64> = (0..n)
-                        .filter(|&m| m != k && m != j)
-                        .filter_map(|m| Some(runs[m].first_u()? + shift[m]?))
-                        .collect();
-                    // Towards the rest of the bound; for a bound of nothing but the seam,
-                    // either side is the same surface.
-                    let rest = others.iter().sum::<f64>() / others.len() as f64;
-                    let toward = if others.is_empty() || rest >= at {
-                        1.0
-                    } else {
-                        -1.0
-                    };
-                    same + toward * TAU
-                }
-                None => wrap_near(u0, mean) - u0,
+                (0.5 * area).abs() <= NO_AREA * perimeter * perimeter
             });
+        if empty {
+            continue;
         }
-        // A bound that runs once around the axis does not close in u: that is a band face
-        // without a seam edge, which is not meshed here.
-        for k in 0..n {
-            let (i, j) = (k, (k + 1) % n);
-            if let (Some((end, start)), Some(si), Some(sj)) =
-                (joinable(&runs[i], &runs[j]), shift[i], shift[j])
-                && ((end + si) - (start + sj)).abs() > 1e-6
-            {
-                return Err("a bound runs around the surface's axis without a seam".into());
-            }
+        if i == outer {
+            outer_at = Some(keep.len());
         }
-        for (r, s) in runs.iter_mut().zip(&shift) {
-            if let Some(s) = s {
-                r.u.iter_mut().flatten().for_each(|u| *u += s);
-            }
-        }
+        keep.push(l);
     }
-    if pv {
-        let first = runs[0].v[0];
-        let last = *runs[n - 1].v.last().expect("runs have points");
-        if (first - last).abs() > 1e-6 {
-            return Err("a bound runs around the surface's tube without a seam".into());
-        }
-    }
+    *loops = keep;
+    outer_at
+}
 
-    // One closed polygon: each run's first point is the one before's last.
-    let mut pts: Vec<(Option<f64>, f64, V3)> = Vec::new();
-    for (i, r) in runs.iter().enumerate() {
-        let skip = usize::from(i > 0);
-        for k in skip..r.pos.len() {
-            pts.push((r.u[k], r.v[k], r.pos[k]));
+/// One side of a band: a bound running around the surface, or the end of the surface's range.
+#[derive(Clone, Copy)]
+enum Side {
+    /// A winding bound, and the shift (whole periods) that puts it beside the other side.
+    Bound(usize, f64),
+    End(End),
+}
+
+/// The face's bounds as closed polygons, and which is the outer one. Bounds that close are
+/// kept as they are; bounds that run around the surface are paired into bands, or closed at
+/// the end of the surface's range, each band cut open along a seam into one polygon.
+fn close(
+    surface: &Surface,
+    options: &MeshOptions,
+    same_sense: bool,
+    loops: Vec<UvLoop>,
+    outer: Option<usize>,
+) -> Result<(Vec<Vec<UvPoint>>, usize), String> {
+    let winding: Vec<usize> = (0..loops.len())
+        .filter(|&i| loops[i].winding != [0, 0])
+        .collect();
+    if winding.is_empty() {
+        let outer = outer.unwrap_or(0);
+        return Ok((loops.into_iter().map(|l| l.points).collect(), outer));
+    }
+    // The direction the bounds run around (k), and the one across it (a).
+    let k = if loops[winding[0]].winding[0] != 0 {
+        0
+    } else {
+        1
+    };
+    let a = 1 - k;
+    for &i in &winding {
+        let w = loops[i].winding;
+        if w[a] != 0 || w[k].abs() != 1 {
+            return Err("a bound runs around the surface more than once".into());
         }
     }
-    pts.pop();
-    if pts.len() < 2 {
-        return Ok(Vec::new());
-    }
-    if !pu {
-        return Ok(pts
-            .into_iter()
-            .map(|(u, v, pos)| UvPoint {
-                u: u.expect("no singular points off surfaces of revolution"),
-                v,
-                pos,
+    let periods = surface.periods();
+    let per = if k == 0 { periods.0 } else { periods.1 }.expect("winding needs a period");
+    let across_period = if a == 0 { periods.0 } else { periods.1 };
+    let (low, high) = surface.ends(k);
+
+    // Which side of each winding bound the face lies on, across it: a bound has the face on
+    // its left seen from the face's normal side, and (u, v) is right-handed about the
+    // surface's normal.
+    let sense = if same_sense { 1 } else { -1 };
+    let turn = if k == 0 { 1 } else { -1 };
+    let mean = |i: usize| {
+        let p = &loops[i].points;
+        p.iter().map(|q| q.c(a)).sum::<f64>() / p.len() as f64
+    };
+    let mut order: Vec<(f64, usize, bool)> = winding
+        .iter()
+        .map(|&i| (mean(i), i, loops[i].winding[k] * sense * turn > 0))
+        .collect();
+    order.sort_by(|x, y| x.0.total_cmp(&y.0));
+
+    // Where the surface has no end to close a band at, it is closed by a seam along the
+    // parameter line through the farthest point of its bounds, left open.
+    let across = || {
+        winding
+            .iter()
+            .flat_map(|&i| loops[i].points.iter().map(|p| p.c(a)))
+    };
+    let seam_low = End {
+        at: across().fold(f64::INFINITY, f64::min),
+        pole: false,
+    };
+    let seam_high = End {
+        at: across().fold(f64::NEG_INFINITY, f64::max),
+        pole: false,
+    };
+    let (seam_low, seam_high) = (low.or(Some(seam_low)), high.or(Some(seam_high)));
+    // A band must have room between its sides: an end beyond its bound, an upper bound above
+    // its lower one.
+    let extent = |i: usize| {
+        loops[i]
+            .points
+            .iter()
+            .map(|p| p.c(a))
+            .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), x| {
+                (lo.min(x), hi.max(x))
             })
-            .collect());
+    };
+    let fits = |bands: &Vec<(Side, Side)>| {
+        bands.iter().all(|&(lower, upper)| match (lower, upper) {
+            (Side::Bound(i, _), Side::End(e)) => e.at > extent(i).0,
+            (Side::End(e), Side::Bound(j, _)) => e.at < extent(j).1,
+            (Side::Bound(i, _), Side::Bound(j, shift)) => mean(j) + shift > mean(i),
+            (Side::End(_), Side::End(_)) => false,
+        })
+    };
+    let bands = [
+        pair_by_side(&order, across_period, low, high),
+        pair_in_order(&order, low, high),
+        pair_by_side(&order, across_period, seam_low, seam_high),
+        pair_in_order(&order, seam_low, seam_high),
+    ]
+    .into_iter()
+    .flatten()
+    .find(fits)
+    .ok_or("a bound runs around the surface without a seam, and nothing closes it")?;
+
+    let plain: Vec<usize> = (0..loops.len())
+        .filter(|&i| loops[i].winding == [0, 0])
+        .collect();
+    let others: Vec<&[UvPoint]> = plain.iter().map(|&i| &loops[i].points[..]).collect();
+    let mut polygons = Vec::with_capacity(bands.len() + plain.len());
+    for (lower, upper) in bands {
+        polygons.push(band(
+            surface, options, &loops, k, per, lower, upper, &others,
+        )?);
     }
-    // A pole becomes one point on each side: at the u of the point before and of the point
-    // after.
-    let m = pts.len();
-    let mut out = Vec::with_capacity(m + 4);
-    for i in 0..m {
-        let (u, v, pos) = pts[i];
-        match u {
-            Some(u) => out.push(UvPoint { u, v, pos }),
-            None => {
-                let before = (1..m).find_map(|d| pts[(i + m - d) % m].0);
-                let after = (1..m).find_map(|d| pts[(i + d) % m].0);
-                let (Some(before), Some(after)) = (before, after) else {
-                    return Err("a bound that lies wholly on a pole".into());
+    for i in plain {
+        polygons.push(loops[i].points.clone());
+    }
+    Ok((polygons, 0))
+}
+
+/// Pairs winding bounds into bands by the side the face lies on: a bound with the face above
+/// it opens a band, the next one above with the face below closes it (across a period when
+/// the direction across wraps), and a band left open runs to the end of the range.
+fn pair_by_side(
+    order: &[(f64, usize, bool)],
+    across_period: Option<f64>,
+    low: Option<End>,
+    high: Option<End>,
+) -> Option<Vec<(Side, Side)>> {
+    let n = order.len();
+    let mut used = vec![false; n];
+    let mut bands = Vec::new();
+    for i in 0..n {
+        if used[i] || !order[i].2 {
+            continue;
+        }
+        used[i] = true;
+        let above = (i + 1..n).find(|&j| !used[j] && !order[j].2);
+        let upper = match (above, across_period) {
+            (Some(j), _) => {
+                used[j] = true;
+                Side::Bound(order[j].1, 0.0)
+            }
+            (None, Some(p)) => {
+                let j = (0..i).find(|&j| !used[j] && !order[j].2)?;
+                used[j] = true;
+                Side::Bound(order[j].1, p)
+            }
+            (None, None) => Side::End(high?),
+        };
+        bands.push((Side::Bound(order[i].1, 0.0), upper));
+    }
+    for j in 0..n {
+        if !used[j] {
+            used[j] = true;
+            bands.push((Side::End(low?), Side::Bound(order[j].1, 0.0)));
+        }
+    }
+    Some(bands)
+}
+
+/// Pairs winding bounds into bands in order across the surface, whatever their sides say
+/// (a file whose orientations disagree), the odd one closed at whichever end there is.
+fn pair_in_order(
+    order: &[(f64, usize, bool)],
+    low: Option<End>,
+    high: Option<End>,
+) -> Option<Vec<(Side, Side)>> {
+    let mut bands = Vec::new();
+    let mut rest = order;
+    if order.len() % 2 == 1 {
+        match (low, high) {
+            (Some(e), _) => {
+                bands.push((Side::End(e), Side::Bound(order[0].1, 0.0)));
+                rest = &order[1..];
+            }
+            (None, Some(e)) => {
+                let last = order.len() - 1;
+                bands.push((Side::Bound(order[last].1, 0.0), Side::End(e)));
+                rest = &order[..last];
+            }
+            (None, None) => return None,
+        }
+    }
+    for pair in rest.chunks(2) {
+        bands.push((Side::Bound(pair[0].1, 0.0), Side::Bound(pair[1].1, 0.0)));
+    }
+    Some(bands)
+}
+
+/// One band as a polygon: the lower side from a cut at `c` along `k` to `c + per`, a seam
+/// across to the upper side, the upper side back, and the seam's other copy down to the
+/// start. The two copies of the seam share their points' positions, so the band closes on
+/// itself. The cut is put where the seam crosses no bound (`others` are the face's bounds
+/// that do not run around), and then where it is farthest from the others.
+#[allow(clippy::too_many_arguments)]
+fn band(
+    surface: &Surface,
+    options: &MeshOptions,
+    loops: &[UvLoop],
+    k: usize,
+    per: f64,
+    lower: Side,
+    upper: Side,
+    others: &[&[UvPoint]],
+) -> Result<Vec<UvPoint>, String> {
+    let a = 1 - k;
+    // The bound the cut is chosen on, and the point of it to cut at.
+    let (cut_side, other_side) = match lower {
+        Side::Bound(..) => (lower, upper),
+        Side::End(_) => (upper, lower),
+    };
+    let Side::Bound(ci, _) = cut_side else {
+        return Err("a band with no bound on either side".into());
+    };
+    // Each side as a path along +k from its cut to one period on.
+    let side_path = |side: Side, near: f64, cut_at: usize| -> Vec<UvPoint> {
+        match side {
+            Side::Bound(i, shift) => {
+                let l = &loops[i];
+                let at = if i == ci {
+                    cut_at
+                } else {
+                    nearest(&l.points, k, near, per)
                 };
-                out.push(UvPoint { u: before, v, pos });
-                if (after - before).abs() > 1e-12 {
-                    out.push(UvPoint { u: after, v, pos });
+                let mut p = around(l, at, k, per);
+                for q in &mut p {
+                    *q.c_mut(a) += shift;
+                }
+                // Start at the period nearest the cut.
+                let s = wrap_near(p[0].c(k), near, per) - p[0].c(k);
+                for q in &mut p {
+                    *q.c_mut(k) += s;
+                }
+                p
+            }
+            Side::End(e) => end_path(surface, options, k, per, e, near),
+        }
+    };
+    let paths = |cut_at: usize| {
+        let c = loops[ci].points[cut_at].c(k);
+        let cut_path = side_path(cut_side, c, cut_at);
+        let other_path = side_path(other_side, c, cut_at);
+        match lower {
+            Side::Bound(..) => (cut_path, other_path),
+            Side::End(_) => (other_path, cut_path),
+        }
+    };
+    // How bad a cut is: how many bound segments its seam crosses, then how near it comes to
+    // the other bounds.
+    let score = |cut_at: usize| {
+        let (lp, up) = paths(cut_at);
+        let (from, to) = (lp[0], up[0]);
+        let mid = 0.5 * (from.c(k) + to.c(k));
+        let mut crossings = 0;
+        let mut clearance = f64::INFINITY;
+        for path in [&lp[..], &up[..]].into_iter().chain(others.iter().copied()) {
+            for w in path.windows(2) {
+                if seam_hits(from, to, w[0], w[1], k, mid, per) {
+                    crossings += 1;
                 }
             }
         }
+        for o in others {
+            for q in o.iter() {
+                clearance = clearance.min((wrap_near(q.c(k), mid, per) - mid).abs());
+            }
+        }
+        (crossings, -clearance)
+    };
+    let n = loops[ci].points.len();
+    let cut_at = (0..n)
+        .step_by((n / 64).max(1))
+        .map(|i| (score(i), i))
+        .min_by(|x, y| x.0.0.cmp(&y.0.0).then(x.0.1.total_cmp(&y.0.1)))
+        .map(|(_, i)| i)
+        .expect("a bound has points");
+    let (lower_path, upper_path) = paths(cut_at);
+
+    let (l0, u0) = (lower_path[0], upper_path[0]);
+    let seam = seam(surface, options, l0, u0);
+    let mut out: Vec<UvPoint> = Vec::new();
+    // Lower side along +k, without its last point (the seam's copy starts there).
+    out.extend(&lower_path[..lower_path.len() - 1]);
+    let lower_end = *lower_path.last().expect("paths have points");
+    out.push(lower_end);
+    // The seam a period on, up to the upper side.
+    for s in &seam {
+        let mut q = *s;
+        *q.c_mut(k) += per;
+        out.push(q);
     }
+    // The upper side back along -k.
+    out.extend(upper_path.iter().rev());
+    // The seam down to the start (the start itself is the polygon's first point).
+    out.extend(seam.iter().rev());
     Ok(out)
 }
 
-/// Moves inner bounds by whole turns so they sit inside the outer bound's parameter range.
+/// Whether the seam from `a` to `b` meets the segment `p`–`q` (moved by whole periods along `k`
+/// to lie by `mid`) anywhere but at the seam's own ends: crossing it, or running along it.
+fn seam_hits(a: UvPoint, b: UvPoint, p: UvPoint, q: UvPoint, k: usize, mid: f64, per: f64) -> bool {
+    let shift = wrap_near(p.c(k), mid, per) - p.c(k);
+    let at = |x: UvPoint| {
+        let (mut u, mut v) = (x.u, x.v);
+        if k == 0 {
+            u += shift;
+        } else {
+            v += shift;
+        }
+        (u, v)
+    };
+    let (p, q) = (at(p), at(q));
+    let (a, b) = ((a.u, a.v), (b.u, b.v));
+    let size = (b.0 - a.0).abs() + (b.1 - a.1).abs() + (q.0 - p.0).abs() + (q.1 - p.1).abs();
+    let eps = 1e-9 * size.max(1e-300);
+    let same = |x: (f64, f64), y: (f64, f64)| (x.0 - y.0).abs() + (x.1 - y.1).abs() <= eps;
+    let orient = |o: (f64, f64), x: (f64, f64), y: (f64, f64)| {
+        (x.0 - o.0) * (y.1 - o.1) - (x.1 - o.1) * (y.0 - o.0)
+    };
+    // Whether x lies on the segment o–y, short of its ends.
+    let inside = |o: (f64, f64), y: (f64, f64), x: (f64, f64)| {
+        let len2 = (y.0 - o.0).powi(2) + (y.1 - o.1).powi(2);
+        let t = ((x.0 - o.0) * (y.0 - o.0) + (x.1 - o.1) * (y.1 - o.1)) / len2.max(1e-300);
+        orient(o, y, x).abs() <= eps * len2.sqrt() && t > 1e-9 && t < 1.0 - 1e-9
+    };
+    if same(a, b) {
+        return false;
+    }
+    let touches = same(p, a) || same(p, b) || same(q, a) || same(q, b);
+    if touches {
+        // Sharing an end, they meet elsewhere only by running along each other.
+        return inside(a, b, p) || inside(a, b, q) || inside(p, q, a) || inside(p, q, b);
+    }
+    let (d1, d2) = (orient(a, b, p), orient(a, b, q));
+    let (d3, d4) = (orient(p, q, a), orient(p, q, b));
+    if d1 * d2 < 0.0 && d3 * d4 < 0.0 {
+        return true;
+    }
+    inside(a, b, p) || inside(a, b, q) || inside(p, q, a) || inside(p, q, b)
+}
+
+/// The index of the point of `points` nearest `x` along `k`, a period either way.
+fn nearest(points: &[UvPoint], k: usize, x: f64, per: f64) -> usize {
+    (0..points.len())
+        .min_by(|&i, &j| {
+            let d = |p: &UvPoint| (wrap_near(p.c(k), x, per) - x).abs();
+            d(&points[i]).total_cmp(&d(&points[j]))
+        })
+        .expect("a bound has points")
+}
+
+/// A winding bound as a path from point `at` once around along +k, ending on `at` again a
+/// period on (the same 3D point).
+fn around(l: &UvLoop, at: usize, k: usize, per: f64) -> Vec<UvPoint> {
+    let m = l.points.len();
+    let w = l.winding[k] as f64;
+    // In the bound's own order the points after the last continue a period (w) on.
+    let mut path: Vec<UvPoint> = (0..=m)
+        .map(|d| {
+            let i = at + d;
+            let mut p = l.points[i % m];
+            if i >= m {
+                *p.c_mut(k) += w * per;
+            }
+            p
+        })
+        .collect();
+    if w < 0.0 {
+        path.reverse();
+    }
+    path
+}
+
+/// The end of the surface's range across `k` as a path along +k from `near` a period on:
+/// two points at a pole (one point in space), or the open edge sampled along it.
+fn end_path(
+    surface: &Surface,
+    options: &MeshOptions,
+    k: usize,
+    per: f64,
+    e: End,
+    near: f64,
+) -> Vec<UvPoint> {
+    let at = |x: f64| if k == 0 { (x, e.at) } else { (e.at, x) };
+    let (u, v) = at(near);
+    let first = surface.eval(u, v);
+    let n = if e.pole {
+        1
+    } else {
+        let b = UvBox {
+            u: if k == 0 {
+                (near, near + per)
+            } else {
+                (e.at, e.at)
+            },
+            v: if k == 0 {
+                (e.at, e.at)
+            } else {
+                (near, near + per)
+            },
+        };
+        let (du, dv) = surface.steps(options, b);
+        let step = if k == 0 { du } else { dv };
+        step.map_or(8, |s| (per / s).ceil().clamp(8.0, 1e5) as usize)
+    };
+    (0..=n)
+        .map(|i| {
+            let x = near + per * i as f64 / n as f64;
+            let (u, v) = at(x);
+            let pos = if e.pole || i == 0 || i == n {
+                first
+            } else {
+                surface.eval(u, v)
+            };
+            UvPoint { u, v, pos }
+        })
+        .collect()
+}
+
+/// The points strictly between `from` and `to` along a straight line in parameter space,
+/// spaced within the surface's steps.
+fn seam(surface: &Surface, options: &MeshOptions, from: UvPoint, to: UvPoint) -> Vec<UvPoint> {
+    let b = UvBox {
+        u: (from.u.min(to.u), from.u.max(to.u)),
+        v: (from.v.min(to.v), from.v.max(to.v)),
+    };
+    let (du, dv) = surface.steps(options, b);
+    let count = |d: f64, step: Option<f64>| step.map_or(1.0, |s| (d.abs() / s).ceil());
+    let n = count(to.u - from.u, du)
+        .max(count(to.v - from.v, dv))
+        .clamp(1.0, 1e5) as usize;
+    (1..n)
+        .map(|i| {
+            let t = i as f64 / n as f64;
+            let (u, v) = (from.u + (to.u - from.u) * t, from.v + (to.v - from.v) * t);
+            UvPoint {
+                u,
+                v,
+                pos: surface.eval(u, v),
+            }
+        })
+        .collect()
+}
+
+/// Moves inner bounds by whole periods so they sit inside the outer bound's parameter range.
 fn align_loops(surface: &Surface, loops: &mut [Vec<UvPoint>], outer: usize) {
-    let (pu, pv) = surface.periodic();
-    let centre = |l: &[UvPoint], f: fn(&UvPoint) -> f64| {
+    let periods = surface.periods();
+    let centre = |l: &[UvPoint], k: usize| {
         let (lo, hi) = l
             .iter()
-            .map(f)
+            .map(|p| p.c(k))
             .fold((f64::INFINITY, f64::NEG_INFINITY), |(a, b), x| {
                 (a.min(x), b.max(x))
             });
         0.5 * (lo + hi)
     };
     let Some(o) = loops.get(outer) else { return };
-    let (cu, cv) = (centre(o, |p| p.u), centre(o, |p| p.v));
+    let c = [centre(o, 0), centre(o, 1)];
     for (i, l) in loops.iter_mut().enumerate() {
         if i == outer || l.is_empty() {
             continue;
         }
-        if pu {
-            let c = centre(l, |p| p.u);
-            let s = wrap_near(c, cu) - c;
-            l.iter_mut().for_each(|p| p.u += s);
-        }
-        if pv {
-            let c = centre(l, |p| p.v);
-            let s = wrap_near(c, cv) - c;
-            l.iter_mut().for_each(|p| p.v += s);
+        for (k, per) in [periods.0, periods.1].into_iter().enumerate() {
+            let Some(per) = per else { continue };
+            let m = centre(l, k);
+            let s = wrap_near(m, c[k], per) - m;
+            l.iter_mut().for_each(|p| *p.c_mut(k) += s);
         }
     }
-}
-
-/// At most this many grid points go inside one face.
-const MAX_GRID: f64 = 40_000.0;
-/// Along a straight direction of a curved surface, grid cells are this many times longer
-/// than across it.
-const STRAIGHT_ASPECT: f64 = 8.0;
-
-fn triangulate(
-    surface: &Surface,
-    options: &MeshOptions,
-    loops: &[Vec<UvPoint>],
-    flip: bool,
-) -> Result<FaceMesh, String> {
-    let all = || loops.iter().flatten();
-    let (umin, umax, vmin, vmax) = all().fold(
-        (
-            f64::INFINITY,
-            f64::NEG_INFINITY,
-            f64::INFINITY,
-            f64::NEG_INFINITY,
-        ),
-        |(a, b, c, d), p| (a.min(p.u), b.max(p.u), c.min(p.v), d.max(p.v)),
-    );
-    if !(umin.is_finite() && vmin.is_finite()) {
-        return Err("a face with no boundary points".into());
-    }
-    let (su, sv) = surface.scale((vmin, vmax));
-    let to2 = |u: f64, v: f64| spade::mitigate_underflow(Point2::new(u * su, v * sv));
-
-    let mut cdt: ConstrainedDelaunayTriangulation<Point2<f64>> =
-        ConstrainedDelaunayTriangulation::new();
-    // Vertex handle index -> (u, v, position, on the boundary).
-    let mut verts: Vec<Option<(f64, f64, V3)>> = Vec::new();
-    let put = |cdt: &mut ConstrainedDelaunayTriangulation<Point2<f64>>,
-               verts: &mut Vec<Option<(f64, f64, V3)>>,
-               u: f64,
-               v: f64,
-               pos: V3| {
-        let h = cdt
-            .insert(to2(u, v))
-            .map_err(|e| format!("a point the triangulation refused: {e:?}"))?;
-        let i = h.index();
-        if verts.len() <= i {
-            verts.resize(i + 1, None);
-        }
-        if verts[i].is_none() {
-            verts[i] = Some((u, v, pos));
-        }
-        Ok::<_, String>(h)
-    };
-    let mut segments: Vec<Segment> = Vec::new();
-    let mut conflicts = 0;
-    for l in loops {
-        let handles: Vec<_> = l
-            .iter()
-            .map(|p| put(&mut cdt, &mut verts, p.u, p.v, p.pos))
-            .collect::<Result<_, _>>()?;
-        for i in 0..handles.len() {
-            let (a, b) = (handles[i], handles[(i + 1) % handles.len()]);
-            if a == b || cdt.exists_constraint(a, b) {
-                continue;
-            }
-            if cdt.try_add_constraint(a, b).is_empty() {
-                conflicts += 1;
-            }
-            segments.push((cdt.vertex(a).position(), cdt.vertex(b).position()));
-        }
-    }
-    if conflicts > 0 {
-        return Err(format!("its bounds cross themselves ({conflicts} times)"));
-    }
-
-    // Grid points inside, for curved surfaces.
-    let (du, dv) = surface.steps(options, (vmin, vmax));
-    if du.is_some() || dv.is_some() {
-        let (w, h) = ((umax - umin) * su, (vmax - vmin) * sv);
-        let mut cu = du.map_or(f64::INFINITY, |d| d * su);
-        let mut cv = dv.map_or(f64::INFINITY, |d| d * sv);
-        if cu.is_infinite() {
-            cu = cv * STRAIGHT_ASPECT;
-        }
-        if cv.is_infinite() {
-            cv = cu * STRAIGHT_ASPECT;
-        }
-        let mut nu = (w / cu).ceil().max(1.0);
-        let mut nv = (h / cv).ceil().max(1.0);
-        if nu * nv > MAX_GRID {
-            let k = (nu * nv / MAX_GRID).sqrt();
-            nu = (nu / k).ceil();
-            nv = (nv / k).ceil();
-        }
-        let (cu, cv) = (w / nu, h / nv);
-        if nu * nv > 1.0 && cu > 0.0 && cv > 0.0 {
-            let clear = 0.3 * cu.min(cv);
-            let near = SegmentGrid::new(&segments, cu, cv, umin * su, vmin * sv);
-            for i in 0..nu as usize {
-                for j in 0..nv as usize {
-                    let x = umin * su + (i as f64 + 0.5) * cu;
-                    let y = vmin * sv + (j as f64 + 0.5) * cv;
-                    if near.within(x, y, clear) {
-                        continue;
-                    }
-                    let (u, v) = (x / su, y / sv);
-                    put(&mut cdt, &mut verts, u, v, surface.eval(u, v))?;
-                }
-            }
-        }
-    }
-
-    // Parity of each face: how many bounds lie between it and the outside.
-    let mut inside = vec![None::<bool>; cdt.num_all_faces()];
-    let outer = cdt.outer_face().fix();
-    inside[outer.index()] = Some(false);
-    let mut stack: Vec<FixedFaceHandle<PossiblyOuterTag>> = vec![outer];
-    while let Some(f) = stack.pop() {
-        let parity = inside[f.index()].expect("set before pushing");
-        let face = cdt.face(f);
-        let mut edges = Vec::new();
-        if let Some(inner) = face.as_inner() {
-            edges.extend(inner.adjacent_edges());
-        } else if let Some(first) = face.adjacent_edge() {
-            let mut e = first;
-            loop {
-                edges.push(e);
-                e = e.next();
-                if e == first || edges.len() > cdt.num_directed_edges() {
-                    break;
-                }
-            }
-        }
-        for e in edges {
-            let other = e.rev().face().fix();
-            if inside[other.index()].is_none() {
-                inside[other.index()] = Some(parity ^ e.is_constraint_edge());
-                stack.push(other);
-            }
-        }
-    }
-
-    let mut mesh = FaceMesh::default();
-    let mut index: HashMap<usize, u32> = HashMap::new();
-    for f in cdt.inner_faces() {
-        if inside[f.fix().index()] != Some(true) {
-            continue;
-        }
-        let vs = f.vertices();
-        let corners = vs.map(|vh| {
-            let h = vh.fix().index();
-            (h, verts[h].expect("every vertex was put"))
-        });
-        let mut tri = [0u32; 3];
-        let mut pos = [V3::default(); 3];
-        for (k, &(h, (u, v, p))) in corners.iter().enumerate() {
-            pos[k] = p;
-            if surface.is_singular(p) {
-                // A cone's apex has no normal of its own: each triangle there takes the one
-                // along its own direction around the axis.
-                let others = corners.iter().filter(|c| c.0 != h).map(|c| c.1.0);
-                let u_mid = others.sum::<f64>() / 2.0;
-                let n = surface.normal(u_mid, v);
-                mesh.positions.push(p);
-                mesh.normals.push(if flip { -n } else { n });
-                tri[k] = (mesh.positions.len() - 1) as u32;
-                continue;
-            }
-            tri[k] = *index.entry(h).or_insert_with(|| {
-                mesh.positions.push(p);
-                let n = surface.normal(u, v);
-                mesh.normals.push(if flip { -n } else { n });
-                (mesh.positions.len() - 1) as u32
-            });
-        }
-        if pos[0] == pos[1] || pos[1] == pos[2] || pos[2] == pos[0] {
-            continue; // a sliver at a pole
-        }
-        if flip {
-            tri.swap(1, 2);
-        }
-        mesh.triangles.push(tri);
-    }
-    Ok(mesh)
-}
-
-type Segment = (Point2<f64>, Point2<f64>);
-
-/// Boundary segments bucketed by grid cell, to keep grid points clear of the bounds.
-struct SegmentGrid {
-    cells: HashMap<(i64, i64), Vec<Segment>>,
-    cu: f64,
-    cv: f64,
-    x0: f64,
-    y0: f64,
-}
-
-impl SegmentGrid {
-    fn new(segments: &[Segment], cu: f64, cv: f64, x0: f64, y0: f64) -> Self {
-        let mut g = SegmentGrid {
-            cells: HashMap::new(),
-            cu,
-            cv,
-            x0,
-            y0,
-        };
-        for &(a, b) in segments {
-            let (i0, j0) = g.cell(a.x.min(b.x), a.y.min(b.y));
-            let (i1, j1) = g.cell(a.x.max(b.x), a.y.max(b.y));
-            if (i1 - i0 + 1) * (j1 - j0 + 1) > 4096 {
-                // A long segment: walk it instead of its box.
-                let steps =
-                    (((b.x - a.x) / cu).abs() + ((b.y - a.y) / cv).abs()).ceil() as usize + 1;
-                for s in 0..=steps {
-                    let t = s as f64 / steps as f64;
-                    let c = g.cell(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t);
-                    g.cells.entry(c).or_default().push((a, b));
-                }
-                continue;
-            }
-            for i in i0..=i1 {
-                for j in j0..=j1 {
-                    g.cells.entry((i, j)).or_default().push((a, b));
-                }
-            }
-        }
-        g
-    }
-
-    fn cell(&self, x: f64, y: f64) -> (i64, i64) {
-        (
-            ((x - self.x0) / self.cu).floor() as i64,
-            ((y - self.y0) / self.cv).floor() as i64,
-        )
-    }
-
-    /// Whether a segment passes within `d` of `(x, y)` (`d` below a cell's size).
-    fn within(&self, x: f64, y: f64, d: f64) -> bool {
-        let (ci, cj) = self.cell(x, y);
-        for i in ci - 1..=ci + 1 {
-            for j in cj - 1..=cj + 1 {
-                if let Some(segs) = self.cells.get(&(i, j))
-                    && segs.iter().any(|&(a, b)| distance(x, y, a, b) < d)
-                {
-                    return true;
-                }
-            }
-        }
-        false
-    }
-}
-
-fn distance(x: f64, y: f64, a: Point2<f64>, b: Point2<f64>) -> f64 {
-    let (dx, dy) = (b.x - a.x, b.y - a.y);
-    let l2 = dx * dx + dy * dy;
-    let t = if l2 > 0.0 {
-        (((x - a.x) * dx + (y - a.y) * dy) / l2).clamp(0.0, 1.0)
-    } else {
-        0.0
-    };
-    (x - a.x - t * dx).hypot(y - a.y - t * dy)
-}
-
-/// All of a sphere or a torus, as a grid that wraps around and closes at the poles.
-fn whole(surface: &Surface, options: &MeshOptions, flip: bool) -> Option<FaceMesh> {
-    let ((u0, u1), (v0, v1)) = surface.whole()?;
-    let (du, dv) = surface.steps(options, (v0, v1));
-    let nu = ((u1 - u0) / du?).ceil().max(3.0) as usize;
-    let nv = ((v1 - v0) / dv?).ceil().max(2.0) as usize;
-    let sphere = matches!(surface, Surface::Sphere { .. });
-    let mut mesh = FaceMesh::default();
-    let push = |mesh: &mut FaceMesh, u: f64, v: f64| {
-        mesh.positions.push(surface.eval(u, v));
-        let n = surface.normal(u, v);
-        mesh.normals.push(if flip { -n } else { n });
-        (mesh.positions.len() - 1) as u32
-    };
-    // Rows of v; each row's vertices around u. A sphere's first and last rows are its poles.
-    let mut rows: Vec<Vec<u32>> = Vec::new();
-    let row_count = if sphere { nv + 1 } else { nv };
-    for j in 0..row_count {
-        let v = v0 + (v1 - v0) * j as f64 / nv as f64;
-        if sphere && (j == 0 || j == nv) {
-            rows.push(vec![push(&mut mesh, 0.0, v)]);
-        } else {
-            rows.push(
-                (0..nu)
-                    .map(|i| push(&mut mesh, u0 + (u1 - u0) * i as f64 / nu as f64, v))
-                    .collect(),
-            );
-        }
-    }
-    let at = |row: &Vec<u32>, i: usize| if row.len() == 1 { row[0] } else { row[i % nu] };
-    for j in 0..nv {
-        let (a, b) = (&rows[j], &rows[(j + 1) % rows.len()]);
-        for i in 0..nu {
-            // The quad (i, j) (i + 1, j) (i + 1, j + 1) (i, j + 1), counter-clockwise in (u, v).
-            let (p00, p10, p11, p01) = (at(a, i), at(a, i + 1), at(b, i + 1), at(b, i));
-            for mut t in [[p00, p10, p11], [p00, p11, p01]] {
-                if t[0] == t[1] || t[1] == t[2] || t[2] == t[0] {
-                    continue;
-                }
-                if flip {
-                    t.swap(1, 2);
-                }
-                mesh.triangles.push(t);
-            }
-        }
-    }
-    Some(mesh)
 }
