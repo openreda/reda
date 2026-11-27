@@ -48394,7 +48394,7 @@
     },
     {
       "category": "pcb",
-      "description": "Adds a linear Dimension from `a` to `b` on a copper, silkscreen, mechanical or documentation Layer, measuring along `rotation` (the line from `a` to `b` by default). Each end is a free `point` or a `ref` to a Hotspot it follows: the value is derived and updates when the referenced object moves.",
+      "description": "Adds a linear Dimension from `a` to `b` on a copper, silkscreen or Mechanical Layer, by default the first Dimensions Layer, measuring along `rotation` (the line from `a` to `b` by default). Each end is a free `point` or a `ref` to a Hotspot it follows: the value is derived and updates when the referenced object moves.",
       "icon": "measure",
       "id": "pcb.dimension.add",
       "kind": "edit",
@@ -48830,8 +48830,11 @@
             "description": "How far each extension line stops short of its point and runs past the dimension\nline; 0.5 mm by default."
           },
           "layer": {
-            "description": "The Layer: copper, silkscreen, mechanical or documentation.",
-            "type": "string"
+            "description": "The Layer: copper, silkscreen or Mechanical. By default the first Mechanical\nLayer with the Purpose Dimensions.",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "offset": {
             "anyOf": [
@@ -48942,7 +48945,6 @@
           }
         },
         "required": [
-          "layer",
           "a",
           "b"
         ],
@@ -49520,7 +49522,7 @@
             "type": "boolean"
           },
           "layer": {
-            "description": "A new Layer: copper, silkscreen, mechanical or documentation.",
+            "description": "A new Layer: copper, silkscreen or Mechanical.",
             "type": [
               "string",
               "null"
@@ -53133,7 +53135,7 @@
     },
     {
       "category": "pcb",
-      "description": "Draws a circular arc from `from` to `to` sweeping `sweep` (counter-clockwise when positive) with a round pen on a copper, silkscreen, mechanical or documentation Layer.",
+      "description": "Draws a circular arc from `from` to `to` sweeping `sweep` (counter-clockwise when positive) with a round pen on a copper, silkscreen or Mechanical Layer.",
       "icon": "arc",
       "id": "pcb.graphic.add_arc",
       "kind": "edit",
@@ -53192,7 +53194,7 @@
             "$ref": "#/$defs/PointParam"
           },
           "layer": {
-            "description": "The Layer: copper, silkscreen, mechanical or documentation.",
+            "description": "The Layer: copper, silkscreen or Mechanical.",
             "type": "string"
           },
           "sweep": {
@@ -53245,7 +53247,7 @@
     },
     {
       "category": "pcb",
-      "description": "Draws a straight line from `from` to `to` with a round pen on a copper, silkscreen, mechanical or documentation Layer.",
+      "description": "Draws a straight line from `from` to `to` with a round pen on a copper, silkscreen or Mechanical Layer.",
       "icon": "line",
       "id": "pcb.graphic.add_line",
       "kind": "edit",
@@ -53290,7 +53292,7 @@
             "$ref": "#/$defs/PointParam"
           },
           "layer": {
-            "description": "The Layer: copper, silkscreen, mechanical or documentation.",
+            "description": "The Layer: copper, silkscreen or Mechanical.",
             "type": "string"
           },
           "to": {
@@ -53338,7 +53340,7 @@
     },
     {
       "category": "pcb",
-      "description": "Draws an axis-aligned rectangle with opposite corners `from` and `to` on a copper, silkscreen, mechanical or documentation Layer, outlined with a round pen and optionally filled.",
+      "description": "Draws an axis-aligned rectangle with opposite corners `from` and `to` on a copper, silkscreen or Mechanical Layer, outlined with a round pen and optionally filled.",
       "icon": "rectangle",
       "id": "pcb.graphic.add_rect",
       "kind": "edit",
@@ -53389,7 +53391,7 @@
             "description": "One corner."
           },
           "layer": {
-            "description": "The Layer: copper, silkscreen, mechanical or documentation.",
+            "description": "The Layer: copper, silkscreen or Mechanical.",
             "type": "string"
           },
           "to": {
@@ -54004,20 +54006,115 @@
     },
     {
       "category": "pcb",
-      "description": "Adds an inner copper Layer by splitting a dielectric sheet.",
+      "description": "Adds an inner copper Layer by splitting a dielectric sheet, or with `kind: mechanical` a Mechanical Layer with a name, Purpose and side.",
       "icon": "layers",
       "id": "pcb.layer.add",
       "kind": "edit",
       "params": {
+        "$defs": {
+          "AddKind": {
+            "description": "The kind of Layer `pcb.layer.add` adds.",
+            "oneOf": [
+              {
+                "const": "copper",
+                "description": "An inner copper Layer, splitting a dielectric sheet.",
+                "type": "string"
+              },
+              {
+                "const": "mechanical",
+                "description": "A Mechanical Layer, after the other Mechanical Layers or before `before`.",
+                "type": "string"
+              }
+            ]
+          },
+          "Purpose": {
+            "description": "What a Mechanical Layer is for. It drives defaults and matching only, never a check,\nan output or the 3D view. Free text belongs in the Layer's name.",
+            "oneOf": [
+              {
+                "const": "general",
+                "description": "Anything; the default for a new Layer.",
+                "type": "string"
+              },
+              {
+                "const": "dimensions",
+                "description": "Dimensions and their notes.",
+                "type": "string"
+              },
+              {
+                "const": "fabrication_notes",
+                "description": "Notes and drawings for the board maker.",
+                "type": "string"
+              },
+              {
+                "const": "assembly_notes",
+                "description": "Notes and drawings for the assembler.",
+                "type": "string"
+              },
+              {
+                "const": "reference",
+                "description": "Things that are not this board: a host or mating board, an enclosure, a bracket.",
+                "type": "string"
+              }
+            ]
+          },
+          "Side": {
+            "description": "Which face of the board a sided Layer is on.",
+            "enum": [
+              "top",
+              "bottom"
+            ],
+            "type": "string"
+          }
+        },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "before": {
+            "description": "Mechanical only: the Mechanical Layer to go before; after the last when omitted.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "document": {
             "format": "uuid",
             "type": "string"
           },
+          "kind": {
+            "$ref": "#/$defs/AddKind",
+            "description": "`copper` (the default) or `mechanical`."
+          },
+          "name": {
+            "description": "Mechanical only: the Layer's name, unique among the Mechanical Layers. By default\nthe Purpose's name, numbered on a clash (\"Dimensions 2\").",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "purpose": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Purpose"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Mechanical only: what the Layer is for; `general` by default."
+          },
+          "side": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Side"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Mechanical only: `top` or `bottom`; unsided when omitted."
+          },
           "split": {
-            "description": "Split this dielectric, or the middle dielectric sheet when omitted.",
+            "description": "Copper only: split this dielectric, or the middle dielectric sheet when omitted.",
             "format": "uuid",
             "type": [
               "string",
@@ -54025,7 +54122,7 @@
             ]
           },
           "uuid": {
-            "description": "The new copper Layer's UUID.",
+            "description": "The new Layer's UUID.",
             "format": "uuid",
             "type": [
               "string",
@@ -54044,9 +54141,12 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "dielectric": {
-            "description": "New sheet below the inserted Layer. The upper sheet keeps its UUID.",
+            "description": "Copper only: the new sheet below the inserted Layer. The upper sheet keeps its UUID.",
             "format": "uuid",
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "uuid": {
             "format": "uuid",
@@ -54054,17 +54154,16 @@
           }
         },
         "required": [
-          "uuid",
-          "dielectric"
+          "uuid"
         ],
         "title": "AddedLayer",
         "type": "object"
       },
-      "title": "Add Copper Layer"
+      "title": "Add Layer"
     },
     {
       "category": "pcb",
-      "description": "Swaps an inner copper Layer with its inner neighbour. Objects and span ends keep their Layer identities.",
+      "description": "Swaps an inner copper Layer with its inner neighbour, or a Mechanical Layer with the Mechanical Layer above or below it. Objects and span ends keep their Layer identities.",
       "icon": "layers",
       "id": "pcb.layer.move",
       "kind": "edit",
@@ -54102,11 +54201,11 @@
         "title": "null",
         "type": "null"
       },
-      "title": "Move Copper Layer"
+      "title": "Move Layer"
     },
     {
       "category": "pcb",
-      "description": "Removes an inner copper Layer, its objects and empty spans, shortening surviving spans and updating rules.",
+      "description": "Removes an inner copper Layer, its objects and empty spans, shortening surviving spans and updating rules; or a Mechanical Layer with its objects.",
       "icon": "layers",
       "id": "pcb.layer.remove",
       "kind": "edit",
@@ -54131,11 +54230,11 @@
         "title": "null",
         "type": "null"
       },
-      "title": "Remove Copper Layer"
+      "title": "Remove Layer"
     },
     {
       "category": "pcb",
-      "description": "Sets a copper Layer's role or an inner Layer's name. Null clears the name.",
+      "description": "Sets a copper Layer's role or an inner Layer's name (null clears it), or a Mechanical Layer's name, Purpose or side.",
       "icon": "layers",
       "id": "pcb.layer.set",
       "kind": "edit",
@@ -54149,6 +54248,44 @@
               "mixed"
             ],
             "type": "string"
+          },
+          "Purpose": {
+            "description": "What a Mechanical Layer is for. It drives defaults and matching only, never a check,\nan output or the 3D view. Free text belongs in the Layer's name.",
+            "oneOf": [
+              {
+                "const": "general",
+                "description": "Anything; the default for a new Layer.",
+                "type": "string"
+              },
+              {
+                "const": "dimensions",
+                "description": "Dimensions and their notes.",
+                "type": "string"
+              },
+              {
+                "const": "fabrication_notes",
+                "description": "Notes and drawings for the board maker.",
+                "type": "string"
+              },
+              {
+                "const": "assembly_notes",
+                "description": "Notes and drawings for the assembler.",
+                "type": "string"
+              },
+              {
+                "const": "reference",
+                "description": "Things that are not this board: a host or mating board, an enclosure, a bracket.",
+                "type": "string"
+              }
+            ]
+          },
+          "Side": {
+            "description": "Which face of the board a sided Layer is on.",
+            "enum": [
+              "top",
+              "bottom"
+            ],
+            "type": "string"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -54160,11 +54297,22 @@
           },
           "name": {
             "default": null,
-            "description": "An inner copper Layer's name. Null or blank clears it.",
+            "description": "An inner copper Layer's name, where null or blank clears it; or a Mechanical\nLayer's name, which can't be cleared and is unique among the Mechanical Layers.",
             "type": [
               "string",
               "null"
             ]
+          },
+          "purpose": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Purpose"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A Mechanical Layer's Purpose. Its objects stay as they are."
           },
           "role": {
             "anyOf": [
@@ -54176,6 +54324,18 @@
               }
             ],
             "description": "The copper Layer's role in the Stackup."
+          },
+          "side": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Side"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "A Mechanical Layer's side, `top` or `bottom`; null makes it unsided. Text on it\nis mirrored on the bottom and unmirrored elsewhere."
           }
         },
         "required": [
@@ -54190,7 +54350,7 @@
         "title": "null",
         "type": "null"
       },
-      "title": "Set Copper Layer"
+      "title": "Set Layer"
     },
     {
       "category": "pcb",
@@ -65362,15 +65522,70 @@
       "kind": "query",
       "params": {
         "$defs": {
+          "AddKind": {
+            "description": "The kind of Layer `pcb.layer.add` adds.",
+            "oneOf": [
+              {
+                "const": "copper",
+                "description": "An inner copper Layer, splitting a dielectric sheet.",
+                "type": "string"
+              },
+              {
+                "const": "mechanical",
+                "description": "A Mechanical Layer, after the other Mechanical Layers or before `before`.",
+                "type": "string"
+              }
+            ]
+          },
           "AddParams": {
             "additionalProperties": false,
             "properties": {
+              "before": {
+                "description": "Mechanical only: the Mechanical Layer to go before; after the last when omitted.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
               "document": {
                 "format": "uuid",
                 "type": "string"
               },
+              "kind": {
+                "$ref": "#/$defs/AddKind",
+                "description": "`copper` (the default) or `mechanical`."
+              },
+              "name": {
+                "description": "Mechanical only: the Layer's name, unique among the Mechanical Layers. By default\nthe Purpose's name, numbered on a clash (\"Dimensions 2\").",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "purpose": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Purpose"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Mechanical only: what the Layer is for; `general` by default."
+              },
+              "side": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Side"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Mechanical only: `top` or `bottom`; unsided when omitted."
+              },
               "split": {
-                "description": "Split this dielectric, or the middle dielectric sheet when omitted.",
+                "description": "Copper only: split this dielectric, or the middle dielectric sheet when omitted.",
                 "format": "uuid",
                 "type": [
                   "string",
@@ -65378,7 +65593,7 @@
                 ]
               },
               "uuid": {
-                "description": "The new copper Layer's UUID.",
+                "description": "The new Layer's UUID.",
                 "format": "uuid",
                 "type": [
                   "string",
@@ -65612,6 +65827,36 @@
             ],
             "type": "object"
           },
+          "Purpose": {
+            "description": "What a Mechanical Layer is for. It drives defaults and matching only, never a check,\nan output or the 3D view. Free text belongs in the Layer's name.",
+            "oneOf": [
+              {
+                "const": "general",
+                "description": "Anything; the default for a new Layer.",
+                "type": "string"
+              },
+              {
+                "const": "dimensions",
+                "description": "Dimensions and their notes.",
+                "type": "string"
+              },
+              {
+                "const": "fabrication_notes",
+                "description": "Notes and drawings for the board maker.",
+                "type": "string"
+              },
+              {
+                "const": "assembly_notes",
+                "description": "Notes and drawings for the assembler.",
+                "type": "string"
+              },
+              {
+                "const": "reference",
+                "description": "Things that are not this board: a host or mating board, an enclosure, a bracket.",
+                "type": "string"
+              }
+            ]
+          },
           "RemoveParams": {
             "additionalProperties": false,
             "properties": {
@@ -65711,6 +65956,14 @@
               "via_type"
             ],
             "type": "object"
+          },
+          "Side": {
+            "description": "Which face of the board a sided Layer is on.",
+            "enum": [
+              "top",
+              "bottom"
+            ],
+            "type": "string"
           },
           "UnusedLayers": {
             "enum": [
@@ -66865,7 +67118,7 @@
     },
     {
       "category": "pcb",
-      "description": "Adds free text on a copper, silkscreen, mechanical or documentation Layer, anchored at (`x`, `y`), left/bottom by default. It uses the Hershey stroke font unless `font` names another family. Text on a bottom Layer is mirrored unless `mirrored` is false.",
+      "description": "Adds free text on a copper, silkscreen or Mechanical Layer, anchored at (`x`, `y`), left/bottom by default. It uses the Hershey stroke font unless `font` names another family. Text on a bottom Layer is mirrored unless `mirrored` is false.",
       "icon": "text",
       "id": "pcb.text.add",
       "kind": "edit",
@@ -67016,7 +67269,7 @@
             ]
           },
           "layer": {
-            "description": "The Layer: copper, silkscreen, mechanical or documentation.",
+            "description": "The Layer: copper, silkscreen or Mechanical.",
             "type": "string"
           },
           "mirrored": {
@@ -67468,7 +67721,7 @@
             ]
           },
           "layer": {
-            "description": "A new Layer: copper, silkscreen, mechanical or documentation.",
+            "description": "A new Layer: copper, silkscreen or Mechanical.",
             "type": [
               "string",
               "null"

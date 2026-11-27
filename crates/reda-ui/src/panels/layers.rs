@@ -21,6 +21,8 @@ use crate::{theme, tr};
 /// The side of the pin mark on a pinned Layer's eye.
 const PIN_MARK: f32 = 4.0;
 
+mod mechanical;
+
 /// A Command for the window to run.
 pub type Invocation = (String, Value);
 
@@ -34,6 +36,7 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
     };
     let picker_id = Id::NULL.with(("layers-plane-picker", pcb.uuid));
     let mut picker = ui.data(|d| d.get_temp(picker_id)).unwrap_or_default();
+    let mut dialog = mechanical::Dialog::load(ui, pcb);
     let view = shell.board_view();
     let layers = &view.layers;
     let active = shell.engine().project().and_then(|p| view.active_layer(p));
@@ -153,6 +156,8 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
                     .panel_focused(focused);
                 let row = if let Some(role) = role_name(layer) {
                     row.trailing(role)
+                } else if layer.kind == LayerKind::Mechanical {
+                    row.trailing(mechanical::trailing(layer))
                 } else {
                     row
                 };
@@ -162,6 +167,9 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
                     && let Some(p) = crate::pcb::plane::Picker::menu(&row, layer.uuid)
                 {
                     picker = Some(p);
+                }
+                if layer.kind == LayerKind::Mechanical {
+                    mechanical::menu(&row, pcb, layer, &mut dialog, &mut out);
                 }
                 // Mod+click on a Layer's name highlights its content, as on a chip.
                 if row.clicked() && ui.input(|i| i.modifiers.command) {
@@ -186,6 +194,12 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
             .filter(|l| l.kind != LayerKind::Copper)
         {
             layer_row(ui, layer);
+        }
+        if ui
+            .add(widgets::button(tr!("layers-mechanical-add-button")))
+            .clicked()
+        {
+            dialog = mechanical::Dialog::add();
         }
         ui.separator();
 
@@ -295,6 +309,8 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
         out.push(("pcb.zone.add_from_board_outline".into(), params));
     }
     ui.data_mut(|d| d.insert_temp(picker_id, picker));
+    out.extend(mechanical::show(ui, pcb, &mut dialog));
+    dialog.store(ui, pcb);
     out
 }
 

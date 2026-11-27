@@ -4,8 +4,8 @@
 //! its opacity ([`Composite`]). Layers go bottom to top in physical order, with the active
 //! Layer last. Viewing from the bottom mirrors the board, reverses the copper stack and
 //! swaps the other sided Layers with their twins. Board Outline and the Mechanical Layers
-//! follow, then the
-//! drilled holes, then the Ratsnest while it is visible.
+//! follow, except that a sided Mechanical Layer goes under the stack while its side faces
+//! away; then the drilled holes, then the Ratsnest while it is visible.
 
 use reda_model::{Layer, LayerKind, Uuid};
 use schemars::JsonSchema;
@@ -69,7 +69,16 @@ impl Composite {
 /// bottom first.
 pub fn board_composites(layers: &[Layer], view: &LayerView) -> Vec<Composite> {
     let shown = |l: &&Layer| view.visible.as_ref().is_none_or(|v| v.contains(&l.uuid));
-    let physical = |l: &&Layer| l.side.is_some() || l.kind == LayerKind::Copper;
+    let mechanical = |l: &Layer| l.kind == LayerKind::Mechanical;
+    let physical = |l: &&Layer| (l.side.is_some() && !mechanical(l)) || l.kind == LayerKind::Copper;
+    // A sided Mechanical Layer has no twin: it goes under the stack while its side faces
+    // away, and with the unsided Layers over it otherwise.
+    let away = if view.from_bottom {
+        reda_model::Side::Top
+    } else {
+        reda_model::Side::Bottom
+    };
+    let facing_away = |l: &&Layer| mechanical(l) && l.side == Some(away);
     // Top to bottom; drawing goes the other way.
     let mut physical: Vec<&Layer> = layers.iter().filter(physical).collect();
     physical.reverse();
@@ -96,10 +105,13 @@ pub fn board_composites(layers: &[Layer], view: &LayerView) -> Vec<Composite> {
             };
         }
     }
-    let others = layers.iter().filter(|l| !physical.contains(l));
-    let mut order: Vec<&Layer> = physical
+    let others = layers
         .iter()
-        .copied()
+        .filter(|l| !physical.contains(l) && !facing_away(l));
+    let mut order: Vec<&Layer> = layers
+        .iter()
+        .filter(facing_away)
+        .chain(physical.iter().copied())
         .chain(others)
         .filter(shown)
         .collect();
@@ -248,6 +260,33 @@ mod tests {
         };
         assert_eq!(order(false), [3, 4, 2, 6, 1]);
         assert_eq!(order(true), [2, 1, 3, 6, 4]);
+    }
+
+    #[test]
+    fn a_sided_mechanical_layer_draws_with_its_side_and_has_no_twin() {
+        // Two Mechanical Layers on opposite sides are not a pair: each goes below the
+        // stack when its side faces away, and over it with the unsided Layers otherwise.
+        let mut layers = board();
+        layers.extend([
+            layer(6, LayerKind::Mechanical, None),
+            layer(7, LayerKind::Mechanical, Some(Side::Bottom)),
+            layer(8, LayerKind::Mechanical, Some(Side::Top)),
+        ]);
+        let order = |from_bottom| -> Vec<u128> {
+            let view = LayerView {
+                from_bottom,
+                ..LayerView::default()
+            };
+            board_composites(&layers, &view)
+                .into_iter()
+                .filter_map(|c| match c.layer {
+                    SceneLayer::Board(u) => Some(u.as_u128()),
+                    _ => None,
+                })
+                .collect()
+        };
+        assert_eq!(order(false), [7, 4, 3, 2, 1, 5, 6, 8]);
+        assert_eq!(order(true), [8, 1, 2, 3, 4, 5, 6, 7]);
     }
 
     #[test]

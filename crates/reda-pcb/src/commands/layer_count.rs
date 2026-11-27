@@ -17,6 +17,8 @@ pub(crate) struct Plan {
     pub counts: Counts,
     deleted: Vec<Uuid>,
     changed: Vec<Object>,
+    /// False for a plan that leaves the Stackup as it is, such as a Mechanical Layer's.
+    stack_changed: bool,
 }
 
 impl Plan {
@@ -28,6 +30,7 @@ impl Plan {
             deleted: Vec::new(),
             changed: Vec::new(),
             counts: Counts::default(),
+            stack_changed: true,
         }
     }
 
@@ -36,7 +39,9 @@ impl Plan {
             self.document,
             self.layers,
         )))?;
-        tx.replace(Object::Stackup(InDocument::new(self.document, self.stack)))?;
+        if self.stack_changed {
+            tx.replace(Object::Stackup(InDocument::new(self.document, self.stack)))?;
+        }
         for uuid in self.deleted {
             tx.remove(uuid)?;
         }
@@ -47,29 +52,54 @@ impl Plan {
     }
 }
 
+/// The kind of Layer `pcb.layer.add` adds.
+#[derive(Clone, Copy, Default, PartialEq, Eq, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum AddKind {
+    /// An inner copper Layer, splitting a dielectric sheet.
+    #[default]
+    Copper,
+    /// A Mechanical Layer, after the other Mechanical Layers or before `before`.
+    Mechanical,
+}
+
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AddParams {
     pub document: Uuid,
-    /// Split this dielectric, or the middle dielectric sheet when omitted.
+    /// `copper` (the default) or `mechanical`.
+    #[serde(default)]
+    pub kind: AddKind,
+    /// Copper only: split this dielectric, or the middle dielectric sheet when omitted.
     pub split: Option<Uuid>,
-    /// The new copper Layer's UUID.
+    /// The new Layer's UUID.
     pub uuid: Option<Uuid>,
+    /// Mechanical only: the Layer's name, unique among the Mechanical Layers. By default
+    /// the Purpose's name, numbered on a clash ("Dimensions 2").
+    pub name: Option<String>,
+    /// Mechanical only: what the Layer is for; `general` by default.
+    pub purpose: Option<reda_model::Purpose>,
+    /// Mechanical only: `top` or `bottom`; unsided when omitted.
+    pub side: Option<reda_model::Side>,
+    /// Mechanical only: the Mechanical Layer to go before; after the last when omitted.
+    pub before: Option<super::layer::LayerRef>,
 }
 
 #[derive(Serialize, JsonSchema)]
 pub struct AddedLayer {
     pub uuid: Uuid,
-    /// New sheet below the inserted Layer. The upper sheet keeps its UUID.
-    pub dielectric: Uuid,
+    /// Copper only: the new sheet below the inserted Layer. The upper sheet keeps its UUID.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dielectric: Option<Uuid>,
 }
 
 pub(super) struct Add;
 impl Command for Add {
     const META: Meta = Meta {
         id: "pcb.layer.add",
-        title: "Add Copper Layer",
-        description: "Adds an inner copper Layer by splitting a dielectric sheet.",
+        title: "Add Layer",
+        description: "Adds an inner copper Layer by splitting a dielectric sheet, or with \
+                      `kind: mechanical` a Mechanical Layer with a name, Purpose and side.",
         category: "pcb",
         icon: "layers",
         kind: Kind::Edit,
@@ -106,6 +136,22 @@ pub(crate) fn add_plan(
         Some(id) => id,
         None => ids.next().expect("unbounded ID source"),
     };
+    if p.kind == AddKind::Mechanical {
+        return mechanical::add_plan(pcb, p, uuid);
+    }
+    for (given, pointer) in [
+        (p.name.is_some(), "/name"),
+        (p.purpose.is_some(), "/purpose"),
+        (p.side.is_some(), "/side"),
+        (p.before.is_some(), "/before"),
+    ] {
+        if given {
+            return Err(CommandError::invalid_params(
+                pointer,
+                "only a Mechanical Layer takes this; give kind: mechanical",
+            ));
+        }
+    }
     let lower = ids.find(|id| *id != uuid).expect("unbounded ID source");
     let mut plan = Plan::new(pcb);
     let stack = &mut plan.stack;
@@ -184,7 +230,7 @@ pub(crate) fn add_plan(
         plan,
         AddedLayer {
             uuid,
-            dielectric: lower,
+            dielectric: Some(lower),
         },
     ))
 }
@@ -263,6 +309,7 @@ fn resolve_blanks(stack: &mut Stackup) {
     }
 }
 
+pub(super) mod mechanical;
 mod removal;
 pub(crate) use removal::remove_plan;
 
@@ -273,7 +320,7 @@ fn inner(pcb: &PcbDocument, layer: Uuid) -> Result<usize, CommandError> {
         .ok_or_else(|| CommandError::not_found("no such Layer"))?;
     if row.kind != LayerKind::Copper || row.side.is_some() {
         return Err(CommandError::rejected(
-            "only inner copper Layers can be removed or moved",
+            "only inner copper Layers and Mechanical Layers can be removed or moved",
         ));
     }
     Ok(pcb.copper_number(layer).unwrap() - 1)
@@ -289,8 +336,8 @@ pub(super) struct Remove;
 impl Command for Remove {
     const META: Meta = Meta {
         id: "pcb.layer.remove",
-        title: "Remove Copper Layer",
-        description: "Removes an inner copper Layer, its objects and empty spans, shortening surviving spans and updating rules.",
+        title: "Remove Layer",
+        description: "Removes an inner copper Layer, its objects and empty spans, shortening surviving spans and updating rules; or a Mechanical Layer with its objects.",
         category: "pcb",
         icon: "layers",
         kind: Kind::Edit,
@@ -321,7 +368,11 @@ pub struct MoveParams {
 }
 
 pub(super) fn move_plan(pcb: &PcbDocument, p: MoveParams) -> Result<Plan, CommandError> {
-    let layer = p.layer.resolve(pcb, "/layer")?.uuid;
+    let row = p.layer.resolve(pcb, "/layer")?;
+    let layer = row.uuid;
+    if row.kind == LayerKind::Mechanical {
+        return mechanical::move_plan(pcb, layer, p.direction);
+    }
     let at = inner(pcb, layer)?;
     let next = match p.direction {
         Direction::Up => at - 1,
@@ -361,8 +412,8 @@ pub(super) struct Move;
 impl Command for Move {
     const META: Meta = Meta {
         id: "pcb.layer.move",
-        title: "Move Copper Layer",
-        description: "Swaps an inner copper Layer with its inner neighbour. Objects and span ends keep their Layer identities.",
+        title: "Move Layer",
+        description: "Swaps an inner copper Layer with its inner neighbour, or a Mechanical Layer with the Mechanical Layer above or below it. Objects and span ends keep their Layer identities.",
         category: "pcb",
         icon: "layers",
         kind: Kind::Edit,

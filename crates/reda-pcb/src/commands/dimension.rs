@@ -319,8 +319,9 @@ pub struct DimensionAdd;
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DimensionAddParams {
-    /// The Layer: copper, silkscreen, mechanical or documentation.
-    pub layer: LayerRef,
+    /// The Layer: copper, silkscreen or Mechanical. By default the first Mechanical
+    /// Layer with the Purpose Dimensions.
+    pub layer: Option<LayerRef>,
     pub a: EndParam,
     pub b: EndParam,
     #[serde(flatten)]
@@ -331,9 +332,9 @@ impl Command for DimensionAdd {
     const META: Meta = Meta {
         id: "pcb.dimension.add",
         title: "Add Dimension",
-        description: "Adds a linear Dimension from `a` to `b` on a copper, silkscreen, \
-                      mechanical or documentation Layer, measuring along `rotation` (the \
-                      line from `a` to `b` by default). Each end is a free `point` or a \
+        description: "Adds a linear Dimension from `a` to `b` on a copper, silkscreen or \
+                      Mechanical Layer, by default the first Dimensions Layer, measuring \
+                      along `rotation` (the line from `a` to `b` by default). Each end is a free `point` or a \
                       `ref` to a Hotspot it follows: the value is derived and updates when \
                       the referenced object moves.",
         category: "pcb",
@@ -349,7 +350,20 @@ impl Command for DimensionAdd {
 
     fn run(&self, cx: &mut Context<'_>, p: DimensionAddParams) -> Result<Created, CommandError> {
         let pcb = pcb(cx)?;
-        let layer = drawing_layer(pcb, p.layer, "/layer")?.uuid;
+        let layer = match p.layer {
+            Some(layer) => drawing_layer(pcb, layer, "/layer")?.uuid,
+            None => {
+                pcb.layers()
+                    .first_with_purpose(reda_model::Purpose::Dimensions)
+                    .ok_or_else(|| {
+                        CommandError::invalid_params(
+                            "/layer",
+                            "the board has no Dimensions Layer; name the Layer",
+                        )
+                    })?
+                    .uuid
+            }
+        };
         let a = p.a.resolve(pcb, "/a")?;
         let b = p.b.resolve(pcb, "/b")?;
         let document = pcb.uuid;
@@ -376,7 +390,7 @@ pub struct DimensionSet;
 pub struct DimensionSetParams {
     /// The Dimension's UUID.
     pub uuid: Uuid,
-    /// A new Layer: copper, silkscreen, mechanical or documentation.
+    /// A new Layer: copper, silkscreen or Mechanical.
     #[serde(default)]
     pub layer: Option<LayerRef>,
     /// A new first end: a free `point` or a `ref` to follow.

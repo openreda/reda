@@ -4,6 +4,13 @@ use reda_model::{LayerSpan, RuleLayers};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub(crate) fn remove_plan(pcb: &PcbDocument, layer: Uuid) -> Result<Plan, CommandError> {
+    if pcb
+        .layers()
+        .layer(layer)
+        .is_some_and(|l| l.kind == LayerKind::Mechanical)
+    {
+        return Ok(super::mechanical::remove_plan(pcb, layer));
+    }
     let mut plan = Plan::new(pcb);
     inner(pcb, layer)?;
     let removed = BTreeSet::from([layer]);

@@ -229,6 +229,14 @@ impl LayerSet {
             .iter()
             .find(|l| l.kind == kind && l.side == side)
     }
+
+    /// The first Mechanical Layer with `purpose` in Layer order: the one a default that
+    /// needs a single Layer of that Purpose takes.
+    pub fn first_with_purpose(&self, purpose: Purpose) -> Option<&Layer> {
+        self.layers
+            .iter()
+            .find(|l| l.kind == LayerKind::Mechanical && l.purpose == purpose)
+    }
 }
 
 crate::check::severities! {
