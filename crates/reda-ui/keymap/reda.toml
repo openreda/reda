@@ -765,6 +765,153 @@ key = "Shift+Mod+Down"
 command = "schematic.nudge"
 params = { objects = "$selection", direction = "down", steps = 10 }
 
+# Mod+arrows nudge the selection one grid step on the board and in the Footprint and Symbol
+# editors too, Shift+Mod+arrows ten, as one edit each.
+
+[[bind]]
+context = "pcb"
+key = "Mod+Left"
+command = "pcb.nudge"
+params = { dx = -1, dy = 0 }
+
+[[bind]]
+context = "pcb"
+key = "Shift+Mod+Left"
+command = "pcb.nudge"
+params = { dx = -10, dy = 0 }
+
+[[bind]]
+context = "pcb"
+key = "Mod+Right"
+command = "pcb.nudge"
+params = { dx = 1, dy = 0 }
+
+[[bind]]
+context = "pcb"
+key = "Shift+Mod+Right"
+command = "pcb.nudge"
+params = { dx = 10, dy = 0 }
+
+[[bind]]
+context = "pcb"
+key = "Mod+Up"
+command = "pcb.nudge"
+params = { dx = 0, dy = 1 }
+
+[[bind]]
+context = "pcb"
+key = "Shift+Mod+Up"
+command = "pcb.nudge"
+params = { dx = 0, dy = 10 }
+
+[[bind]]
+context = "pcb"
+key = "Mod+Down"
+command = "pcb.nudge"
+params = { dx = 0, dy = -1 }
+
+[[bind]]
+context = "pcb"
+key = "Shift+Mod+Down"
+command = "pcb.nudge"
+params = { dx = 0, dy = -10 }
+
+[[bind]]
+context = "footprint"
+key = "Mod+Left"
+command = "library.footprint.nudge"
+params = { dx = -1, dy = 0 }
+
+[[bind]]
+context = "footprint"
+key = "Shift+Mod+Left"
+command = "library.footprint.nudge"
+params = { dx = -10, dy = 0 }
+
+[[bind]]
+context = "footprint"
+key = "Mod+Right"
+command = "library.footprint.nudge"
+params = { dx = 1, dy = 0 }
+
+[[bind]]
+context = "footprint"
+key = "Shift+Mod+Right"
+command = "library.footprint.nudge"
+params = { dx = 10, dy = 0 }
+
+[[bind]]
+context = "footprint"
+key = "Mod+Up"
+command = "library.footprint.nudge"
+params = { dx = 0, dy = 1 }
+
+[[bind]]
+context = "footprint"
+key = "Shift+Mod+Up"
+command = "library.footprint.nudge"
+params = { dx = 0, dy = 10 }
+
+[[bind]]
+context = "footprint"
+key = "Mod+Down"
+command = "library.footprint.nudge"
+params = { dx = 0, dy = -1 }
+
+[[bind]]
+context = "footprint"
+key = "Shift+Mod+Down"
+command = "library.footprint.nudge"
+params = { dx = 0, dy = -10 }
+
+[[bind]]
+context = "symbol"
+key = "Mod+Left"
+command = "library.symbol.nudge"
+params = { dx = -1, dy = 0 }
+
+[[bind]]
+context = "symbol"
+key = "Shift+Mod+Left"
+command = "library.symbol.nudge"
+params = { dx = -10, dy = 0 }
+
+[[bind]]
+context = "symbol"
+key = "Mod+Right"
+command = "library.symbol.nudge"
+params = { dx = 1, dy = 0 }
+
+[[bind]]
+context = "symbol"
+key = "Shift+Mod+Right"
+command = "library.symbol.nudge"
+params = { dx = 10, dy = 0 }
+
+[[bind]]
+context = "symbol"
+key = "Mod+Up"
+command = "library.symbol.nudge"
+params = { dx = 0, dy = 1 }
+
+[[bind]]
+context = "symbol"
+key = "Shift+Mod+Up"
+command = "library.symbol.nudge"
+params = { dx = 0, dy = 10 }
+
+[[bind]]
+context = "symbol"
+key = "Mod+Down"
+command = "library.symbol.nudge"
+params = { dx = 0, dy = -1 }
+
+[[bind]]
+context = "symbol"
+key = "Shift+Mod+Down"
+command = "library.symbol.nudge"
+params = { dx = 0, dy = -10 }
+
 # F2 edits the selected name, Designator, value, field or text in place. Tab while
 # placing a Net Label, Port or Power Port pauses the Tool to edit the next name.
 

@@ -11,7 +11,8 @@
 //!   ([`flip_corners`], bound to `tool.cycle_corner`).
 //! - **`Mod`+arrows** nudge the selection one snap grid (ten with Shift), rubber-banding
 //!   like a drag, one `schematic.drag` and one undo step per press ([`nudge`], the view
-//!   Command `schematic.nudge`).
+//!   Command `schematic.nudge`). The step is measured at the first selected object, as on
+//!   the other canvases ([`crate::nudge`]): from off the grid it lands on the next line.
 
 use reda_engine::command::{Command, CommandError, Context, Kind, Meta};
 use reda_engine::model::geom::{Nm, Point};
@@ -142,26 +143,29 @@ pub enum NudgeDirection {
     Down,
 }
 
-/// `Mod`+arrows: drags `objects` on `document` by `steps` snap grids, as one
-/// `schematic.drag`.
-pub fn nudge(
-    shell: &mut Shell,
-    document: Uuid,
-    objects: Vec<Uuid>,
-    direction: NudgeDirection,
-    steps: i64,
-) {
-    let grid = shell.grid(document).0 * steps;
-    let (x, y) = match direction {
-        NudgeDirection::Left => (-grid, 0),
-        NudgeDirection::Right => (grid, 0),
-        NudgeDirection::Up => (0, grid),
-        NudgeDirection::Down => (0, -grid),
-    };
+/// `Mod`+arrows: drags `objects` by `by`, as one `schematic.drag`.
+pub fn nudge(shell: &mut Shell, objects: Vec<Uuid>, by: Point) {
+    if by == Point::default() {
+        return;
+    }
     let _ = shell.run_reporting(
         "schematic.drag",
-        json!({"objects": objects, "by": {"x": x, "y": y}}),
+        json!({"objects": objects, "by": {"x": by.x, "y": by.y}}),
     );
+}
+
+/// The point of `object` on `sheet` that a nudge puts on the grid: a Unit's origin, a
+/// Wire's first vertex, a text's or label's anchor, a graphic's first end.
+fn nudge_anchor(sheet: &SchematicSheet, object: Uuid) -> Option<Point> {
+    (sheet.unit(object).map(|u| u.at))
+        .or_else(|| sheet.wire(object).and_then(|w| w.vertices.first().copied()))
+        .or_else(|| sheet.texts().find(|t| t.uuid == object).map(|t| t.at))
+        .or_else(|| {
+            (sheet.graphics())
+                .find(|g| g.uuid == object)
+                .map(|g| g.shape.ends().0)
+        })
+        .or_else(|| anchor(sheet, object))
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -185,6 +189,9 @@ pub struct Nudged {
     pub objects: Vec<Uuid>,
     pub direction: NudgeDirection,
     pub steps: i64,
+    /// How far the drag moves them (nm): `steps` snap grids, measured at the first
+    /// object.
+    pub by: Point,
 }
 
 pub(super) struct Nudge;
@@ -203,7 +210,7 @@ impl Command for Nudge {
     type Params = NudgeParams;
     type Output = Nudged;
 
-    fn run(&self, _cx: &mut Context<'_>, p: NudgeParams) -> Result<Nudged, CommandError> {
+    fn run(&self, cx: &mut Context<'_>, p: NudgeParams) -> Result<Nudged, CommandError> {
         if p.objects.is_empty() {
             return Err(CommandError::rejected("nothing is selected"));
         }
@@ -213,10 +220,28 @@ impl Command for Nudge {
                 "a nudge is 1 to 100 snap grids",
             ));
         }
+        let document = crate::navigation::canvas_of(cx, None)?;
+        let sheet = cx
+            .project()?
+            .schematic_sheet(document)
+            .ok_or_else(|| CommandError::unavailable("the active canvas is not a sheet"))?;
+        // With no object to measure at, the step is from the grid's origin: whole grids.
+        let at = (p.objects.iter())
+            .find_map(|o| nudge_anchor(sheet, *o))
+            .unwrap_or_default();
+        let (dx, dy) = match p.direction {
+            NudgeDirection::Left => (-p.steps, 0),
+            NudgeDirection::Right => (p.steps, 0),
+            NudgeDirection::Up => (0, p.steps),
+            NudgeDirection::Down => (0, -p.steps),
+        };
+        let (grid, _, _) = crate::edit_cursor::step_grid(cx, document)?;
+        let by = grid.step(at, dx, dy, false) - at;
         Ok(Nudged {
             objects: p.objects,
             direction: p.direction,
             steps: p.steps,
+            by,
         })
     }
 }
