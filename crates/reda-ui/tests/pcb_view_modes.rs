@@ -771,3 +771,53 @@ fn blind_vias_have_two_layer_coloured_half_holes_and_a_switchable_span_label() {
             .any(|i| matches!(i.primitive, Primitive::Glyphs(_)))
     );
 }
+
+fn mechanical(b: &Board, name: &str) -> Uuid {
+    let project = b.shell.engine().project().unwrap();
+    let layers = project.pcb().unwrap().layers();
+    (layers.layers.iter())
+        .find(|l| l.kind == LayerKind::Mechanical && l.name.as_deref() == Some(name))
+        .unwrap_or_else(|| panic!("no Mechanical Layer {name}"))
+        .uuid
+}
+
+/// docs/spec/v0.2/layer-editing.md#layer-sets: a saved set shows the Layers that were
+/// shown, and hides the rest, Mechanical Layers each on their own.
+#[test]
+fn a_saved_layer_set_tells_mechanical_layers_apart() {
+    let mut b = board();
+    let dimensions = mechanical(&b, "Dimensions");
+    let reference = mechanical(&b, "Reference");
+    run(
+        &mut b.shell,
+        "pcb.view.layer_set.apply",
+        json!({"set": "all"}),
+    );
+    run(
+        &mut b.shell,
+        "pcb.layer.show",
+        json!({"layer": reference, "visible": false}),
+    );
+    run(
+        &mut b.shell,
+        "pcb.view.layer_set.save",
+        json!({"name": "Dimensions only"}),
+    );
+
+    run(
+        &mut b.shell,
+        "pcb.view.layer_set.apply",
+        json!({"set": "all"}),
+    );
+    assert!(drawn(&b).contains(&reference));
+    let out = run(
+        &mut b.shell,
+        "pcb.view.layer_set.apply",
+        json!({"set": "Dimensions only"}),
+    );
+    let shown: Vec<Uuid> = out["layers"].as_array().unwrap().iter().map(uuid).collect();
+    assert!(shown.contains(&dimensions), "{out}");
+    assert!(!shown.contains(&reference), "the set hid Reference: {out}");
+    assert!(drawn(&b).contains(&dimensions));
+    assert!(!drawn(&b).contains(&reference));
+}

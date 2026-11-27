@@ -861,6 +861,27 @@ layer-courtyard = Courtyard
 layer-assembly = Assembly
 layer-board-outline = Board Outline
 layer-mechanical = Mechanical
+layers-purpose-general = General
+layers-purpose-dimensions = Dimensions
+layers-purpose-fabrication-notes = Fabrication Notes
+layers-purpose-assembly-notes = Assembly Notes
+layers-purpose-reference = Reference
+layers-side-none = No side
+layers-side-top = Top
+layers-side-bottom = Bottom
+layers-mechanical-add-button = Add Mechanical Layer…
+layers-mechanical-add-title = Add Mechanical Layer
+layers-mechanical-add = Add Layer
+layers-mechanical-edit = Edit Mechanical Layer…
+layers-mechanical-edit-title = Edit Mechanical Layer
+layers-mechanical-move-up = Move Up
+layers-mechanical-move-down = Move Down
+layers-mechanical-remove = Remove Layer…
+layers-mechanical-remove-title = Remove Mechanical Layer
+layers-mechanical-remove-confirm = Remove Layer
+layers-mechanical-name = Name
+layers-mechanical-purpose = Purpose
+layers-mechanical-side = Side
 
 ## PCB canvas
 

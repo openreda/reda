@@ -61,7 +61,7 @@ pub struct TextAdd;
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TextAddParams {
-    /// The Layer: copper, silkscreen, mechanical or documentation.
+    /// The Layer: copper, silkscreen or Mechanical.
     pub layer: LayerRef,
     /// The text; `\n` starts a new line.
     pub text: String,
@@ -97,7 +97,7 @@ impl Command for TextAdd {
     const META: Meta = Meta {
         id: "pcb.text.add",
         title: "Add Text",
-        description: "Adds free text on a copper, silkscreen, mechanical or documentation \
+        description: "Adds free text on a copper, silkscreen or Mechanical \
                       Layer, anchored at (`x`, `y`), left/bottom by default. It uses \
                       the Hershey stroke font unless `font` names another family. Text on a \
                       bottom Layer is mirrored unless `mirrored` is false.",
@@ -159,7 +159,7 @@ pub struct TextSet;
 pub struct TextSetParams {
     /// The text object's UUID.
     pub uuid: Uuid,
-    /// A new Layer: copper, silkscreen, mechanical or documentation.
+    /// A new Layer: copper, silkscreen or Mechanical.
     #[serde(default)]
     pub layer: Option<LayerRef>,
     /// New text; `\n` starts a new line.

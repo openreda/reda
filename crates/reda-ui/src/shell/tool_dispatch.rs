@@ -149,11 +149,32 @@ impl Shell {
         if tool == Tool::Swap {
             self.swap_selected_pair();
         }
+        if tool == Tool::Dimension && self.board_is_active() {
+            self.activate_dimensions_layer();
+        }
         if run == Some(RunChange::Resumed)
             && let Some(sheet) = self.active_sheet()
         {
             schematic_editor::resume(self, sheet);
         }
+    }
+
+    /// The Dimension Tool starts on the first Dimensions Layer in Layer order, when the
+    /// board has one; the user can then switch Layers as with any Tool.
+    fn activate_dimensions_layer(&mut self) {
+        let Some(layer) = self
+            .engine()
+            .project()
+            .and_then(|p| p.pcb())
+            .and_then(|pcb| {
+                pcb.layers()
+                    .first_with_purpose(reda_engine::model::Purpose::Dimensions)
+            })
+            .map(|l| l.uuid)
+        else {
+            return;
+        };
+        let _ = self.run_reporting("pcb.layer.activate", json!({ "layer": layer }));
     }
 
     fn turn_tool(&mut self, how: Turn) {

@@ -55,7 +55,7 @@ pub struct LineAdd;
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct LineAddParams {
-    /// The Layer: copper, silkscreen, mechanical or documentation.
+    /// The Layer: copper, silkscreen or Mechanical.
     pub layer: LayerRef,
     pub from: PointParam,
     pub to: PointParam,
@@ -69,7 +69,7 @@ impl Command for LineAdd {
         id: "pcb.graphic.add_line",
         title: "Add Line",
         description: "Draws a straight line from `from` to `to` with a round pen on a \
-                      copper, silkscreen, mechanical or documentation Layer.",
+                      copper, silkscreen or Mechanical Layer.",
         category: "pcb",
         icon: "line",
         kind: Kind::Edit,
@@ -99,7 +99,7 @@ pub struct ArcAdd;
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ArcAddParams {
-    /// The Layer: copper, silkscreen, mechanical or documentation.
+    /// The Layer: copper, silkscreen or Mechanical.
     pub layer: LayerRef,
     pub from: PointParam,
     pub to: PointParam,
@@ -117,7 +117,7 @@ impl Command for ArcAdd {
         title: "Add Arc",
         description: "Draws a circular arc from `from` to `to` sweeping `sweep` \
                       (counter-clockwise when positive) with a round pen on a copper, \
-                      silkscreen, mechanical or documentation Layer.",
+                      silkscreen or Mechanical Layer.",
         category: "pcb",
         icon: "arc",
         kind: Kind::Edit,
@@ -154,7 +154,7 @@ pub struct RectAdd;
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct RectAddParams {
-    /// The Layer: copper, silkscreen, mechanical or documentation.
+    /// The Layer: copper, silkscreen or Mechanical.
     pub layer: LayerRef,
     /// One corner.
     pub from: PointParam,
@@ -173,7 +173,7 @@ impl Command for RectAdd {
         id: "pcb.graphic.add_rect",
         title: "Add Rectangle",
         description: "Draws an axis-aligned rectangle with opposite corners `from` and `to` \
-                      on a copper, silkscreen, mechanical or documentation Layer, outlined \
+                      on a copper, silkscreen or Mechanical Layer, outlined \
                       with a round pen and optionally filled.",
         category: "pcb",
         icon: "rectangle",
