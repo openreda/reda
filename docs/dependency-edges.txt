@@ -116,6 +116,7 @@ reda-ui -> egui_extras
 reda-ui -> egui_kittest [dev]
 reda-ui -> fluent-bundle
 reda-ui -> objc2-app-kit [cfg(target_os = "macos")]
+reda-ui -> proptest [dev]
 reda-ui -> reda-control
 reda-ui -> reda-engine
 reda-ui -> reda-testkit [dev]
