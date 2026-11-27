@@ -494,6 +494,17 @@ pub fn format_length(length: Nm, units: Units) -> String {
     format!("{text} {unit}")
 }
 
+/// A grid step in `units`: one length for a square grid, else `X × Y`, such as
+/// `0.5 × 1.27 mm`.
+pub fn format_step(step: crate::grid::Step, units: Units) -> String {
+    let x = format_length(step.x, units);
+    if step.is_square() {
+        return x;
+    }
+    let number = x.rsplit_once(' ').map_or(x.as_str(), |(n, _)| n);
+    format!("{number} × {}", format_length(step.y, units))
+}
+
 /// The `display.layer_colors.<theme>.<key>` key of a Layer's colour: its kind and side,
 /// such as `copper_top` or `board_outline`. Every Mechanical Layer shares `mechanical`.
 pub fn color_key(kind: LayerKind, side: Option<Side>) -> String {

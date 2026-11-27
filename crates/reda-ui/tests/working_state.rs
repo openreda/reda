@@ -245,8 +245,8 @@ fn the_working_state_is_kept_in_view_json_and_not_in_the_documents() {
     assert_eq!(board_view["selection_filter_off"], json!(["zone"]));
 
     let mut again = open(home.path(), &project);
-    assert_eq!(again.grid(sheet), Nm(25 * 25_400));
-    assert_eq!(again.grid(board), Nm(10 * 25_400));
+    assert_eq!(again.grid(sheet).x, Nm(25 * 25_400));
+    assert_eq!(again.grid(board).x, Nm(10 * 25_400));
     assert_eq!(again.board_view().units, Units::Mil);
     let out = again
         .run("view.snap.set", json!({"document": board}))
@@ -258,6 +258,47 @@ fn the_working_state_is_kept_in_view_json_and_not_in_the_documents() {
     assert!(!again.selection_filter(board).allows(FilterKind::Zone));
     assert!(again.selection_filter(board).allows(FilterKind::Track));
     assert!(!again.selection_filter(sheet).allows(FilterKind::Wire));
+}
+
+#[test]
+fn a_grid_with_a_step_y_is_kept_in_view_json_with_both_steps() {
+    let home = TempDir::new("ws-grid-xy-home");
+    let work = TempDir::new("ws-grid-xy-work");
+    let project = make_project(home.path(), work.path(), "Board");
+    let mut shell = open(home.path(), &project);
+    shell
+        .run(
+            "app.preferences.set",
+            json!({"key": "editing.grid.pcb.metric", "value": [
+                {"snap": "0.5mm", "visible": "0.5mm"},
+                {"snap": "0.5mm", "snap_y": "1.27mm", "visible": "0.5mm"},
+            ]}),
+        )
+        .unwrap();
+    let board = shell.engine().project().unwrap().pcb().unwrap().uuid;
+    shell
+        .run(
+            "view.grid.set",
+            json!({"document": board, "grid": "0.5mm", "grid_y": "1.27mm"}),
+        )
+        .unwrap();
+    shell.save_view();
+    let folder = project.parent().unwrap();
+    let saved: Value =
+        serde_json::from_slice(&std::fs::read(folder.join(".reda/view.json")).unwrap()).unwrap();
+    let board_view = &saved["documents"][board.to_string()];
+    assert_eq!(board_view["grid"], json!(500_000));
+    assert_eq!(board_view["grid_y"], json!(1_270_000));
+
+    let again = open(home.path(), &project);
+    assert_eq!(
+        again.grid(board),
+        reda_ui::grid::Step {
+            x: Nm(500_000),
+            y: Nm(1_270_000)
+        },
+        "reopened on the same row, not the square one"
+    );
 }
 
 #[test]

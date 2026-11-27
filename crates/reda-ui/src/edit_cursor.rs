@@ -78,16 +78,16 @@ pub struct StepGrid {
 }
 
 impl StepGrid {
-    /// A square grid of `pitch` through `origin`.
-    pub fn square(pitch: Nm, origin: Point) -> StepGrid {
+    /// A grid of `step` (Step X across, Step Y down) through `origin`.
+    pub fn of(step: crate::grid::Step, origin: Point) -> StepGrid {
         StepGrid {
             x: GridAxis {
                 origin: origin.x.0,
-                pitch: pitch.0,
+                pitch: step.x.0,
             },
             y: GridAxis {
                 origin: origin.y.0,
-                pitch: pitch.0,
+                pitch: step.y.0,
             },
         }
     }
@@ -291,7 +291,7 @@ pub(crate) fn step_grid(
     let pitch = grids.of(cx.project().ok(), document);
     let pin = ty == DocumentType::Symbol && cx.view::<ActiveTool>().is_ok_and(|t| t.0 == Tool::Pin);
     let pitch = if pin {
-        crate::symbol_editor::PIN_GRID
+        crate::grid::Step::square(crate::symbol_editor::PIN_GRID)
     } else {
         pitch
     };
@@ -302,7 +302,7 @@ pub(crate) fn step_grid(
         && cx
             .view::<crate::pcb::BoardView>()
             .is_ok_and(|v| v.layers.from_bottom);
-    Ok((StepGrid::square(pitch, origin), !gridless, mirrored))
+    Ok((StepGrid::of(pitch, origin), !gridless, mirrored))
 }
 
 /// Whether the desktop lets REDA move the system pointer, as kept on `ctx` by

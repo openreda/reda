@@ -372,7 +372,7 @@ fn keys_delete_copy_paste_duplicate_and_select_all() {
 fn the_grid_starts_at_50_mil_and_g_cycles_within_its_unit() {
     let dir = TempDir::new("editor-grid");
     let mut shell = shell(&dir);
-    let grid = |shell: &Shell| shell.document_tab(sheet()).unwrap().grid.0;
+    let grid = |shell: &Shell| shell.document_tab(sheet()).unwrap().grid.x.0;
     assert_eq!(grid(&shell), 1_270_000);
     press_keys(&mut shell, "G");
     assert_eq!(grid(&shell), 2_540_000);

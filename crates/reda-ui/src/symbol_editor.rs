@@ -261,9 +261,9 @@ fn event_at(event: Pointer) -> Option<P> {
 }
 
 /// The grid `tool` snaps to: Pins to 50 mil, everything else to the tab's grid.
-pub(crate) fn snap_grid(shell: &Shell, symbol: Uuid, tool: Tool) -> Nm {
+pub(crate) fn snap_grid(shell: &Shell, symbol: Uuid, tool: Tool) -> crate::grid::Step {
     match tool {
-        Tool::Pin => PIN_GRID,
+        Tool::Pin => crate::grid::Step::square(PIN_GRID),
         _ => shell.grid(symbol),
     }
 }

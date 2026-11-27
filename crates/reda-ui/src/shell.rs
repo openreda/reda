@@ -108,7 +108,7 @@ pub struct DocumentTab {
     /// How many of the Document's Violations have no marker drawn because of that cap.
     pub markers_not_shown: usize,
     /// The snap grid the canvas draws and Tools snap to.
-    pub grid: Nm,
+    pub grid: grid::Step,
     /// The visible grid the canvas draws.
     pub grid_visible: grid::Visible,
     /// The Document point the visible grid runs through.
@@ -182,7 +182,7 @@ impl DocumentTab {
             selection: SelectionHandle::default(),
             markers: Arc::from([]),
             markers_not_shown: 0,
-            grid: grid::SCHEMATIC_DEFAULT,
+            grid: grid::Step::square(grid::SCHEMATIC_DEFAULT),
             grid_visible: grid::Visible::default(),
             grid_origin: Point::default(),
             interaction: Interaction::Idle,

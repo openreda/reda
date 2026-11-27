@@ -15,7 +15,7 @@ pub mod interact;
 pub mod markers;
 mod widget;
 
-pub use camera::{Camera, CanvasInput, grid_pitch};
+pub use camera::{Camera, CanvasInput, grid_pitch, grid_pitch_xy};
 pub use gpu::{
     CanvasFrame, CanvasGpu, CanvasResources, LiveHandle, PaletteHandle, SceneHandle,
     SelectionHandle, paint,

@@ -233,11 +233,10 @@ fn grid_readout(ui: &Ui, shell: &Shell, shown: &CanvasInputs) {
     let t = ui.tokens();
     let painter = ui.painter_at(shown.rect);
     let units = shell.board_view().units;
-    let grid = shell
-        .engine()
-        .project()
-        .and_then(|p| p.pcb())
-        .map_or(crate::grid::pcb_default(units), |pcb| shell.grid(pcb.uuid));
+    let grid = shell.engine().project().and_then(|p| p.pcb()).map_or(
+        crate::grid::Step::square(crate::grid::pcb_default(units)),
+        |pcb| shell.grid(pcb.uuid),
+    );
     let snapped = super::marks::snapped(shell).filter(|_| super::marks::snap_shown(shell, shown));
     let text = match snapped {
         Some(snapped) => {
@@ -246,10 +245,10 @@ fn grid_readout(ui: &Ui, shell: &Shell, shown: &CanvasInputs) {
                 "pcb-cursor",
                 x = format_length(at.x, units),
                 y = format_length(at.y, units),
-                grid = format_length(grid, units)
+                grid = super::view::format_step(grid, units)
             )
         }
-        None => tr!("pcb-grid", grid = format_length(grid, units)),
+        None => tr!("pcb-grid", grid = super::view::format_step(grid, units)),
     };
     let strip = super::layer_control::strip_inset(ui, shell);
     let at = crate::bars::draw::grid_readout_anchor(shown.rect, strip);

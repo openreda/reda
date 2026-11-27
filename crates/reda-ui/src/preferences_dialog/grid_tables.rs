@@ -1,7 +1,9 @@
 //! The Grid page's preset tables (docs/spec/v0.1/editing.md#grid): per Document type an
-//! imperial and a metric table, each row with Snap, Electrical Range (sheets and Symbols),
-//! Visible and In cycle, then Add row, under **Restore shipped presets**. Each table is one
-//! Preference (`editing.grid.<type>.<imperial|metric>`), written whole on every edit.
+//! imperial and a metric table, each row with Snap, Step Y (boards and Footprints, empty
+//! is the same as Snap: docs/spec/v0.3/grids-guides.md#grid-x--y), Electrical Range
+//! (sheets and Symbols), Visible and In cycle, then Add row, under **Restore shipped
+//! presets**. Each table is one Preference (`editing.grid.<type>.<imperial|metric>`),
+//! written whole on every edit.
 
 use egui::{Role, Ui, WidgetInfo};
 use reda_engine::command::Length;
@@ -37,6 +39,7 @@ enum Column {
     Snap,
     Range,
     Visible,
+    StepY,
 }
 
 /// Draws Restore shipped presets, then every table.
@@ -103,6 +106,8 @@ fn table(
     let mut columns = vec![(Column::Snap, tr!("pref-grid-snap"))];
     if range {
         columns.push((Column::Range, tr!("pref-grid-range")));
+    } else {
+        columns.push((Column::StepY, tr!("pref-grid-step-y")));
     }
     columns.push((Column::Visible, tr!("pref-grid-visible")));
     let mut edited: Option<Vec<GridRow>> = None;
@@ -123,6 +128,7 @@ fn table(
                             Column::Snap => Some(row.snap.0),
                             Column::Range => row.range.map(|r| r.0),
                             Column::Visible => Some(row.visible.0),
+                            Column::StepY => row.snap_y.map(|y| y.0),
                         };
                         let cell = format!("{key}[{i}].{}", *column as u8);
                         let mut text = dialog
@@ -144,7 +150,18 @@ fn table(
                         if response.changed() {
                             dialog.texts.insert(cell.clone(), text.clone());
                         }
-                        if response.lost_focus() {
+                        // An emptied Step Y is the same as Snap again.
+                        if response.lost_focus()
+                            && *column == Column::StepY
+                            && text.trim().is_empty()
+                        {
+                            dialog.texts.remove(&cell);
+                            if row.snap_y.is_some() {
+                                let mut new = rows.clone();
+                                new[i].snap_y = None;
+                                edited = Some(new);
+                            }
+                        } else if response.lost_focus() {
                             let parsed = Nm::parse(text.trim()).ok().filter(|n| n.0 > 0);
                             if let Some(nm) = parsed {
                                 dialog.texts.remove(&cell);
@@ -160,6 +177,10 @@ fn table(
                                     }
                                     Column::Range => r.range = Some(Length(nm)),
                                     Column::Visible => r.visible = Length(nm),
+                                    // Step Y equal to Snap is the square row.
+                                    Column::StepY => {
+                                        r.snap_y = (nm != r.snap.0).then_some(Length(nm))
+                                    }
                                 }
                                 edited = Some(new);
                             }

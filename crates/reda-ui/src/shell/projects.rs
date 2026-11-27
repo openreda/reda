@@ -146,7 +146,8 @@ impl Shell {
                 None if unchanged => continue,
                 None => documents.entry(entry.uuid).or_default(),
             };
-            view.grid = grid;
+            view.grid = grid.map(|g| g.x);
+            view.grid_y = grid.and_then(|g| g.y_if_not_square());
             view.snap_mode = snap.as_ref().map(|s| s.mode);
             view.gridless = snap.as_ref().is_some_and(|s| s.gridless);
             view.hotspots_off = snap.as_ref().map(|s| {
@@ -292,10 +293,9 @@ impl Shell {
             let Some(kind) = kinds.get(document).copied() else {
                 continue;
             };
-            if let Some(g) = (view.grid).filter(|g| {
-                grid::tables_in(&prefs.editing.grid, kind.into())
-                    .row(*g)
-                    .is_some()
+            let step = view.grid.map(|x| grid::Step::new(x, view.grid_y));
+            if let Some(g) = step.filter(|g| {
+                grid::row_of(grid::tables_in(&prefs.editing.grid, kind.into()), *g).is_some()
             }) {
                 picked.insert(*document, g);
             }

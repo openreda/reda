@@ -10,8 +10,14 @@
 //! `schematic.default_grid` and `pcb.default_grid` Preferences pick another starting row.
 //! Cycling steps through the In cycle rows of the current one's table. On a board the
 //! grid's table is also the unit lengths show in (`view.units.toggle` switches both).
+//!
+//! A board or Footprint grid may have a Step Y other than its Step X ([`Step`],
+//! docs/spec/v0.3/grids-guides.md#grid-x--y): a preset row's optional `snap_y`, or the
+//! custom value `0.5, 1.27`. Snapping, the arrow steps and the visible grid each follow
+//! their own axis, and the status bar shows `X × Y`. Sheets and Symbols keep one step.
 
 mod commands;
+pub mod custom_dialog;
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -57,11 +63,84 @@ pub fn is_imperial(pitch: Nm) -> bool {
 
 /// `pitch` as the status bar shows it: `50 mil` or `0.25 mm`.
 pub fn label(pitch: Nm) -> String {
+    format!("{} {}", number(pitch), unit(pitch))
+}
+
+/// `pitch` in its unit, without the unit: `50` or `0.25`.
+fn number(pitch: Nm) -> String {
     if is_imperial(pitch) {
-        format!("{} mil", pitch.0 / MIL)
+        format!("{}", pitch.0 / MIL)
     } else {
-        let mm = pitch.0 as f64 / MM as f64;
-        format!("{mm} mm")
+        format!("{}", pitch.0 as f64 / MM as f64)
+    }
+}
+
+fn unit(pitch: Nm) -> &'static str {
+    if is_imperial(pitch) { "mil" } else { "mm" }
+}
+
+/// A grid's step along X and along Y. They differ only on a board or Footprint grid with
+/// a Step Y (docs/spec/v0.3/grids-guides.md#grid-x--y); sheets and Symbols keep one.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Step {
+    pub x: Nm,
+    pub y: Nm,
+}
+
+impl Step {
+    /// The same step on both axes.
+    pub const fn square(pitch: Nm) -> Step {
+        Step { x: pitch, y: pitch }
+    }
+
+    /// A preset row's Step X and Step Y.
+    pub fn of_row(row: &GridRow) -> Step {
+        Step {
+            x: row.step_x(),
+            y: row.step_y(),
+        }
+    }
+
+    pub fn is_square(self) -> bool {
+        self.x == self.y
+    }
+
+    /// Step Y when it differs from Step X, as Commands and `view.json` write it.
+    pub fn y_if_not_square(self) -> Option<Nm> {
+        (!self.is_square()).then_some(self.y)
+    }
+
+    /// The step from Step X and an optional Step Y (unset is Step X).
+    pub fn new(x: Nm, y: Option<Nm>) -> Step {
+        Step {
+            x,
+            y: y.unwrap_or(x),
+        }
+    }
+}
+
+/// The params of `view.grid.set` that put `document` on `step`'s row: `grid_y` only when
+/// it differs from Step X.
+pub fn set_params(document: Uuid, step: Step) -> serde_json::Value {
+    let mut params = serde_json::json!({"document": document, "grid": step.x});
+    if let Some(y) = step.y_if_not_square() {
+        params["grid_y"] = serde_json::json!(y);
+    }
+    params
+}
+
+/// `step` as the status bar shows it: one value for a square grid (`0.5 mm`), else
+/// `X × Y` in Step X's unit (`0.5 × 1.27 mm`, though 1.27 mm is 50 mil), or with a unit
+/// each when Step Y is not a whole number of mil on a mil grid (`10 mil × 0.5 mm`).
+pub fn step_label(step: Step) -> String {
+    if step.is_square() {
+        return label(step.x);
+    }
+    let y_in_mm = |y: Nm| format!("{}", y.0 as f64 / MM as f64);
+    match (is_imperial(step.x), is_imperial(step.y)) {
+        (true, true) => format!("{} × {} mil", number(step.x), number(step.y)),
+        (true, false) => format!("{} × {}", label(step.x), label(step.y)),
+        (false, _) => format!("{} × {} mm", number(step.x), y_in_mm(step.y)),
     }
 }
 
@@ -85,8 +164,8 @@ pub fn has_range(ty: DocumentType) -> bool {
 /// What the canvas draws of a Document's grid.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Visible {
-    /// The fine dots' or lines' spacing.
-    pub pitch: Nm,
+    /// The fine dots' or lines' spacing along X and Y.
+    pub pitch: Step,
     /// Off by `view.grid.show`.
     pub shown: bool,
     pub style: GridStyle,
@@ -97,7 +176,7 @@ pub struct Visible {
 impl Default for Visible {
     fn default() -> Visible {
         Visible {
-            pitch: SCHEMATIC_DEFAULT,
+            pitch: Step::square(SCHEMATIC_DEFAULT),
             shown: true,
             style: GridStyle::Dots,
             coarse: 5,
@@ -109,14 +188,14 @@ impl Default for Visible {
 /// and a board start on; and the preset tables (both from the Preferences).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Grids {
-    pub picked: BTreeMap<Uuid, Nm>,
+    pub picked: BTreeMap<Uuid, Step>,
     /// Documents on a custom grid (`view.grid.custom`), with its Electrical Range on a
     /// sheet or Symbol. Picking or cycling a row discards it.
     pub custom: BTreeMap<Uuid, Option<Nm>>,
     /// Documents whose visible grid is turned off.
     pub hidden: BTreeSet<Uuid>,
-    pub schematic: Nm,
-    pub pcb: Nm,
+    pub schematic: Step,
+    pub pcb: Step,
     /// The `editing.grid` Preferences.
     pub tables: GridPreferences,
 }
@@ -127,8 +206,8 @@ impl Default for Grids {
             picked: BTreeMap::new(),
             custom: BTreeMap::new(),
             hidden: BTreeSet::new(),
-            schematic: SCHEMATIC_DEFAULT,
-            pcb: pcb_default(Units::Mm),
+            schematic: Step::square(SCHEMATIC_DEFAULT),
+            pcb: Step::square(pcb_default(Units::Mm)),
             tables: GridPreferences::default(),
         }
     }
@@ -144,9 +223,15 @@ pub fn tables_in(prefs: &GridPreferences, ty: DocumentType) -> &GridTables {
     }
 }
 
+/// The row of `tables` whose Step X and Step Y are `step`.
+pub fn row_of(tables: &GridTables, step: Step) -> Option<&GridRow> {
+    tables.rows().find(|r| Step::of_row(r) == step)
+}
+
 /// The grid a Document type starts on under `preferences`: its `default_grid` when that
-/// is one of the type's rows, else the type's default (a board's in its default units).
-pub fn preferred(kind: DocumentKind, preferences: &Preferences) -> Nm {
+/// is one of the type's rows (the square one, when a row with a Step Y shares its Step X),
+/// else the type's default (a board's in its default units).
+pub fn preferred(kind: DocumentKind, preferences: &Preferences) -> Step {
     let (default_grid, units) = match kind {
         DocumentKind::Schematic => (
             preferences.schematic.default_grid,
@@ -155,13 +240,20 @@ pub fn preferred(kind: DocumentKind, preferences: &Preferences) -> Nm {
         DocumentKind::Pcb => (preferences.pcb.default_grid, preferences.pcb.default_units),
     };
     let tables = tables_in(&preferences.editing.grid, kind.into());
-    match default_grid {
-        Some(grid) if tables.row(grid.nm()).is_some() => grid.nm(),
-        _ => match kind {
-            DocumentKind::Schematic => SCHEMATIC_DEFAULT,
+    let picked = default_grid.and_then(|grid| {
+        let square = Step::square(grid.nm());
+        row_of(tables, square)
+            .or_else(|| tables.row(grid.nm()))
+            .map(Step::of_row)
+    });
+    match picked {
+        Some(step) => step,
+        None => match kind {
+            DocumentKind::Schematic => Step::square(SCHEMATIC_DEFAULT),
             DocumentKind::Pcb => {
                 let table = tables.table(units == Units::Mil);
-                (table.get(2).or(table.last())).map_or(pcb_default(units), |r| r.snap.0)
+                (table.get(2).or(table.last()))
+                    .map_or(Step::square(pcb_default(units)), Step::of_row)
             }
         },
     }
@@ -176,7 +268,7 @@ impl Grids {
     }
 
     /// The grid a Document of `kind` starts on.
-    pub fn start(&self, kind: DocumentKind) -> Nm {
+    pub fn start(&self, kind: DocumentKind) -> Step {
         match kind {
             DocumentKind::Schematic => self.schematic,
             DocumentKind::Pcb => self.pcb,
@@ -184,12 +276,12 @@ impl Grids {
     }
 
     /// The grid a Document of `ty` starts on.
-    pub fn start_of(&self, ty: DocumentType) -> Nm {
+    pub fn start_of(&self, ty: DocumentType) -> Step {
         match ty {
             DocumentType::Schematic => self.schematic,
             DocumentType::Pcb => self.pcb,
-            DocumentType::Symbol => SCHEMATIC_DEFAULT,
-            DocumentType::Footprint => pcb_default(Units::Mm),
+            DocumentType::Symbol => Step::square(SCHEMATIC_DEFAULT),
+            DocumentType::Footprint => Step::square(pcb_default(Units::Mm)),
         }
     }
 
@@ -200,13 +292,13 @@ impl Grids {
 
     /// `document`'s grid: the one picked, else its type's default. `document` may also be
     /// an open Library element, whose editor's grids follow its kind.
-    pub fn of(&self, project: Option<&Project>, document: Uuid) -> Nm {
+    pub fn of(&self, project: Option<&Project>, document: Uuid) -> Step {
         if let Some(grid) = self.picked.get(&document) {
             return *grid;
         }
         project
             .and_then(|p| document_type(p, document))
-            .map_or(SCHEMATIC_DEFAULT, |ty| self.start_of(ty))
+            .map_or(Step::square(SCHEMATIC_DEFAULT), |ty| self.start_of(ty))
     }
 
     /// The row `document`'s grid is on, unless it is custom or has none.
@@ -215,7 +307,7 @@ impl Grids {
         if self.custom.contains_key(&document) {
             return None;
         }
-        self.tables(ty).row(self.of(project, document)).copied()
+        row_of(self.tables(ty), self.of(project, document)).copied()
     }
 
     /// Whether `document` is on a custom grid.
@@ -226,7 +318,7 @@ impl Grids {
     /// The Electrical Range on `document` (a sheet or Symbol): its row's, a custom
     /// grid's, else 0.8 of the step.
     pub fn range(&self, project: Option<&Project>, document: Uuid) -> Nm {
-        let pitch = self.of(project, document);
+        let pitch = self.of(project, document).x;
         if let Some(range) = self.custom.get(&document) {
             return range.unwrap_or(default_range(pitch));
         }
@@ -235,11 +327,16 @@ impl Grids {
             .map_or(default_range(pitch), |r| r.0)
     }
 
-    /// What the canvas draws of `document`'s grid.
+    /// What the canvas draws of `document`'s grid: its row's Visible, which follows the
+    /// row's Step X and Step Y; a custom grid draws its own step.
     pub fn visible(&self, project: Option<&Project>, document: Uuid) -> Visible {
-        let pitch = self.of(project, document);
+        let step = self.of(project, document);
+        let pitch = self.row(project, document).map_or(step, |r| {
+            let (x, y) = r.visible_xy();
+            Step { x, y }
+        });
         Visible {
-            pitch: self.row(project, document).map_or(pitch, |r| r.visible.0),
+            pitch,
             shown: !self.hidden.contains(&document),
             style: self.tables.style,
             coarse: self.tables.coarse_multiplier,
@@ -255,13 +352,13 @@ impl Grids {
     }
 
     /// The board grid matching `grid` in `units`: the row at the same place in that table.
-    pub fn pcb_in_units(&self, grid: Nm, units: Units) -> Nm {
+    pub fn pcb_in_units(&self, grid: Step, units: Units) -> Step {
         let tables = self.tables(DocumentType::Pcb);
         let index = [&tables.metric, &tables.imperial]
             .iter()
-            .find_map(|t| t.iter().position(|r| r.snap.0 == grid))
+            .find_map(|t| t.iter().position(|r| Step::of_row(r) == grid))
             .unwrap_or(2);
         let table = tables.table(units == Units::Mil);
-        (table.get(index).or(table.last())).map_or(pcb_default(units), |r| r.snap.0)
+        (table.get(index).or(table.last())).map_or(Step::square(pcb_default(units)), Step::of_row)
     }
 }

@@ -355,8 +355,8 @@ fn documents_start_on_the_preferred_snap_grid() {
         .find(|d| d.kind == DocumentKind::Schematic)
         .unwrap()
         .uuid;
-    assert_eq!(shell.grid(pcb), Nm::from_mm(1));
-    assert_eq!(shell.grid(sheet), Nm(100 * 25_400));
+    assert_eq!(shell.grid(pcb).x, Nm::from_mm(1));
+    assert_eq!(shell.grid(sheet).x, Nm(100 * 25_400));
 
     // A length that is not one of the type's presets is not used.
     run(
@@ -366,14 +366,14 @@ fn documents_start_on_the_preferred_snap_grid() {
     );
     let mut again = Shell::new(engine_in(home.path()));
     again.open_project(&work.path().join("Board")).unwrap();
-    assert_eq!(again.grid(pcb), Nm::from_um(500));
+    assert_eq!(again.grid(pcb).x, Nm::from_um(500));
 }
 
 #[test]
 fn ctrl_q_toggles_units_and_g_cycles_the_grid_presets() {
     let mut b = board();
     let pcb = b.pcb;
-    let view = |b: &Board| (b.shell.board_view().units, b.shell.grid(b.pcb));
+    let view = |b: &Board| (b.shell.board_view().units, b.shell.grid(b.pcb).x);
     assert_eq!(view(&b), (Units::Mm, Nm::from_um(500)));
 
     // G: the board's grid is per Document, like a sheet's, and cycles within its unit.
@@ -431,7 +431,7 @@ fn ctrl_q_toggles_units_and_g_cycles_the_grid_presets() {
         .find(|d| d.uuid != pcb)
         .unwrap()
         .uuid;
-    assert_eq!(b.shell.grid(sheet), Nm(50 * 25_400));
+    assert_eq!(b.shell.grid(sheet).x, Nm(50 * 25_400));
     assert!(
         b.shell
             .run(

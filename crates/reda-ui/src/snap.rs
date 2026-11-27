@@ -136,21 +136,31 @@ pub enum Guide {
     Y(Nm),
 }
 
-/// The snap grid: its pitch and the point it runs through.
+/// The snap grid: its pitch along X and Y and the point it runs through.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Grid {
-    pub pitch: Nm,
+    pub pitch: crate::grid::Step,
     pub origin: Point,
 }
 
 impl Grid {
-    /// The grid point nearest `at`.
+    /// A grid of `pitch` on both axes through `origin`.
+    pub fn square(pitch: Nm, origin: Point) -> Grid {
+        Grid {
+            pitch: crate::grid::Step::square(pitch),
+            origin,
+        }
+    }
+
+    /// The grid point nearest `at`: each axis on its own step.
     pub fn nearest(self, at: (f64, f64)) -> Point {
-        let g = self.pitch.0.max(1) as f64;
-        let (ox, oy) = (self.origin.x.0 as f64, self.origin.y.0 as f64);
+        let axis = |at: f64, origin: Nm, pitch: Nm| {
+            let (g, o) = (pitch.0.max(1) as f64, origin.0 as f64);
+            Nm((((at - o) / g).round() * g + o) as i64)
+        };
         Point::new(
-            Nm((((at.0 - ox) / g).round() * g + ox) as i64),
-            Nm((((at.1 - oy) / g).round() * g + oy) as i64),
+            axis(at.0, self.origin.x, self.pitch.x),
+            axis(at.1, self.origin.y, self.pitch.y),
         )
     }
 }

@@ -59,7 +59,7 @@ impl Cx<'_> {
     }
 
     fn length(&self) -> Option<Nm> {
-        let grid = self.shell.grid(self.document);
+        let grid = self.shell.grid(self.document).x;
         self.shell.preferences().schematic.break_wire.length(grid)
     }
 }
@@ -67,7 +67,7 @@ impl Cx<'_> {
 /// What the canvas draws for `b`: the cut it would make, as the Display Preferences say.
 pub(super) fn overlay(shell: &Shell, document: Uuid, b: &Breaking) -> Overlay {
     let prefs = &shell.preferences().schematic.break_wire;
-    let grid = shell.grid(document);
+    let grid = shell.grid(document).x;
     let length = prefs.length(grid);
     let wire = (shell.engine().project())
         .and_then(|p| p.schematic_sheet(document))

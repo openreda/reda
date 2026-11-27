@@ -378,7 +378,7 @@ impl Cx<'_> {
             .get::<crate::tools::WireTool>()
             .copied()
             .unwrap_or_default();
-        let grid = self.shell.grid(self.document);
+        let grid = self.shell.grid(self.document).x;
         let params = json!({
             "document": self.document,
             "from": {"x": from.x.0, "y": from.y.0},

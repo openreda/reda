@@ -147,7 +147,7 @@ fn figures(ui: &Ui, shell: &Shell) -> Option<Arc<BoardFigures>> {
 fn units(shell: &Shell, board: bool, document: Uuid) -> Units {
     if board {
         shell.board_view().units
-    } else if crate::grid::is_imperial(shell.grid(document)) {
+    } else if crate::grid::is_imperial(shell.grid(document).x) {
         Units::Mil
     } else {
         Units::Mm
@@ -264,16 +264,16 @@ fn board_figures(ui: &mut Ui, figures: &BoardFigures, units: Units) {
 fn grid(ui: &mut Ui, shell: &Shell, board: bool, document: Uuid, out: &mut Vec<Out>) {
     let current = shell.grid(document);
     let rows = shell.grids().rows(shell.engine().elements(), document);
-    let presets: Vec<_> = (rows.iter().map(|r| r.snap.0))
+    let presets: Vec<_> = (rows.iter().map(crate::grid::Step::of_row))
         .filter(|g| {
-            !board || crate::grid::is_imperial(*g) == (shell.board_view().units == Units::Mil)
+            !board || crate::grid::is_imperial(g.x) == (shell.board_view().units == Units::Mil)
         })
         .collect();
     let mut picked = current;
-    let response = widgets::dropdown("properties-grid", crate::grid::label(current))
+    let response = widgets::dropdown("properties-grid", crate::grid::step_label(current))
         .show(ui, |ui| {
             for g in &presets {
-                widgets::choice_value(ui, &mut picked, *g, crate::grid::label(*g));
+                widgets::choice_value(ui, &mut picked, *g, crate::grid::step_label(*g));
             }
         })
         .response;
@@ -282,7 +282,7 @@ fn grid(ui: &mut Ui, shell: &Shell, board: bool, document: Uuid, out: &mut Vec<O
     if picked != current {
         out.push(Out::Run(
             "view.grid.set",
-            json!({"document": document, "grid": picked}),
+            crate::grid::set_params(document, picked),
         ));
     }
     // The visible grid: on or off for this Document, and its style (a Preference).

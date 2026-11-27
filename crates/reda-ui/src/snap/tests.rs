@@ -22,10 +22,7 @@ fn id(n: u128) -> Uuid {
 }
 
 fn grid(pitch: i64) -> Option<Grid> {
-    Some(Grid {
-        pitch: Nm(pitch),
-        origin: Point::default(),
-    })
+    Some(Grid::square(Nm(pitch), Point::default()))
 }
 
 fn rules(capture: i64) -> Rules {
@@ -129,11 +126,21 @@ fn points_beat_segments_and_a_straight_segment_lands_on_the_grid() {
 
 #[test]
 fn the_grid_runs_from_its_origin() {
-    let r = Rules::grid_only(Some(Grid {
-        pitch: Nm(1_000),
-        origin: p(250, -300),
-    }));
+    let r = Rules::grid_only(Some(Grid::square(Nm(1_000), p(250, -300))));
     assert_eq!(snap(at(1_100, 1_100), &[], &[], &r).at, p(1_250, 700));
+}
+
+#[test]
+fn a_grid_with_a_step_y_snaps_each_axis_to_its_own_step() {
+    let r = Rules::grid_only(Some(Grid {
+        pitch: crate::grid::Step {
+            x: Nm(500),
+            y: Nm(1_270),
+        },
+        origin: p(0, 100),
+    }));
+    assert_eq!(snap(at(740, 700), &[], &[], &r).at, p(500, 100));
+    assert_eq!(snap(at(760, 800), &[], &[], &r).at, p(1_000, 1_370));
 }
 
 #[test]

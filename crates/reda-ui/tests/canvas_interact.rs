@@ -214,10 +214,7 @@ fn the_cursor_snaps_to_the_grid_unless_an_electrical_target_is_near() {
     ];
     let rules = Rules {
         capture: mm(0.5),
-        grid: Some(Grid {
-            pitch: grid,
-            origin: Point::default(),
-        }),
+        grid: Some(Grid::square(grid, Point::default())),
         objects: Objects::All,
         off: Default::default(),
         guides: true,

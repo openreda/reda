@@ -62,7 +62,8 @@ pub const SEGMENTS: &str = "$segments";
 /// using it is greyed while the clipboard is empty.
 pub const CLIPBOARD: &str = "$clipboard";
 
-/// The raw-params placeholder for the active Document's snap grid, in nm.
+/// The raw-params placeholder for the active Document's snap grid (Step X, the only step
+/// on a sheet), in nm.
 pub const GRID: &str = "$grid";
 
 /// The raw-params placeholder for everything selectable on the active Document, as an
@@ -312,7 +313,7 @@ pub fn resolve_in(
     });
     let undo = undo.map(Value::from);
     let active = active.map(Value::from);
-    let grid = document.map(|d| json!(shell.grid(d).0));
+    let grid = document.map(|d| json!(shell.grid(d).x.0));
     // Every item of every bar is resolved each frame: the lists below, which walk the
     // whole Document, are only made for params that use them (#280).
     let selectable = document

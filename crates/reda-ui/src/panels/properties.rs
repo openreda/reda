@@ -255,7 +255,7 @@ fn content(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
                     |ui| {
                         let grid = shell
                             .active_document()
-                            .map_or(crate::grid::SCHEMATIC_DEFAULT, |t| shell.grid(t.document));
+                            .map_or(crate::grid::SCHEMATIC_DEFAULT, |t| shell.grid(t.document).x);
                         vertex_section(ui, list, units(shell), grid, &mut edits);
                     },
                 );
@@ -536,7 +536,7 @@ fn units(shell: &Shell) -> Units {
     };
     if shell.is_pcb(tab.document) {
         shell.board_view().units
-    } else if crate::grid::is_imperial(shell.grid(tab.document)) {
+    } else if crate::grid::is_imperial(shell.grid(tab.document).x) {
         Units::Mil
     } else {
         Units::Mm

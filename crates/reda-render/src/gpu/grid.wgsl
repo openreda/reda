@@ -7,19 +7,18 @@ struct Grid {
     half_size: vec2<f32>,
     // Where a grid point sits relative to the target centre, reduced modulo the pitch.
     phase: vec2<f32>,
-    // The dot spacing and radius in pixels.
-    pitch: f32,
+    // The dot spacing along X and Y, and the dot radius, in pixels.
+    pitch: vec2<f32>,
     radius: f32,
     // 1 when the target stores sRGB, so the shader must output linear colour.
     srgb: u32,
-    _pad: u32,
     // Straight-alpha sRGB colour.
     color: vec4<f32>,
     // The paper in target pixels: min x, min y, max x, max y. The grid stops at its edge.
     clip: vec4<f32>,
     // The coarse grid's phase and pitch in pixels; a zero pitch draws none.
     coarse_phase: vec2<f32>,
-    coarse_pitch: f32,
+    coarse_pitch: vec2<f32>,
     // 1 draws lines, 0 dots.
     lines: u32,
 }
@@ -47,7 +46,7 @@ fn fs_main(@builtin(position) frag: vec4<f32>) -> @location(0) vec4<f32> {
     let local = frag.xy - grid.half_size - grid.phase;
     let d = abs(local - round(local / grid.pitch) * grid.pitch);
     var coarse = vec2(1e9, 1e9);
-    if grid.coarse_pitch > 0.0 {
+    if grid.coarse_pitch.x > 0.0 {
         let c = frag.xy - grid.half_size - grid.coarse_phase;
         coarse = abs(c - round(c / grid.coarse_pitch) * grid.coarse_pitch);
     }

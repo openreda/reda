@@ -129,11 +129,11 @@ fn a_new_footprint_opens_in_a_document_tab_with_no_project_open() {
     assert_eq!(shell.active_document().map(|t| t.document), Some(fp));
     assert_eq!(bars::active_type(&shell), Some(DocumentType::Footprint));
     // Board grids: the editor starts at 0.5 mm, and G cycles it.
-    assert_eq!(shell.grid(fp).0, 500_000);
+    assert_eq!(shell.grid(fp).x.0, 500_000);
     shell
         .run("view.grid.cycle", json!({ "document": fp }))
         .unwrap();
-    assert_eq!(shell.grid(fp).0, 1_000_000);
+    assert_eq!(shell.grid(fp).x.0, 1_000_000);
 
     shell
         .run("library.element.close", json!({ "element": fp }))

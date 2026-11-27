@@ -78,7 +78,7 @@ fn hotspot(clipboard: &Value) -> Point {
 pub fn start_paste(shell: &mut Shell, document: Uuid, clipboard: Value, repeat: bool) {
     // An origin on the grid (a reference point clicked, or a corner that happens to be)
     // is held itself; else a hotspot of the objects is.
-    let grid = shell.grid(document).0.max(1);
+    let grid = shell.grid(document).x.0.max(1);
     let origin = (
         clipboard["origin"]["x"].as_i64(),
         clipboard["origin"]["y"].as_i64(),

@@ -12,7 +12,7 @@ use serde_json::{Value, json};
 
 use crate::layout::PanelId;
 use crate::pcb::layer_control::{chip_name, ordered, role_name, set_buttons};
-use crate::pcb::view::{VIEW_TYPES, format_length, layer_key, to_hex};
+use crate::pcb::view::{VIEW_TYPES, format_step, layer_key, to_hex};
 use crate::shell::Shell;
 use crate::theme::TokensExt as _;
 use crate::widgets::{self, Tooltip as _};
@@ -280,17 +280,17 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
             let current = shell.grid(pcb.uuid);
             let mut grid = current;
             let label = tr!("layers-grid");
-            let dropdown = widgets::dropdown("layers-grid", format_length(current, view.units));
+            let dropdown = widgets::dropdown("layers-grid", format_step(current, view.units));
             let shown = dropdown.show(ui, |ui| {
                 let rows = shell.grids().rows(shell.engine().elements(), pcb.uuid);
                 let tables = shell.grids().tables(crate::bars::DocumentType::Pcb).clone();
                 let imperial = view.units == reda_engine::preferences::Units::Mil;
                 for g in rows
                     .iter()
-                    .map(|r| r.snap.0)
-                    .filter(|g| tables.is_imperial(*g) == imperial)
+                    .map(crate::grid::Step::of_row)
+                    .filter(|g| tables.is_imperial(g.x) == imperial)
                 {
-                    widgets::choice_value(ui, &mut grid, g, format_length(g, view.units));
+                    widgets::choice_value(ui, &mut grid, g, format_step(g, view.units));
                 }
             });
             shown
@@ -300,7 +300,7 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
             if grid != current {
                 out.push((
                     "view.grid.set".into(),
-                    json!({ "document": pcb.uuid, "grid": grid }),
+                    crate::grid::set_params(pcb.uuid, grid),
                 ));
             }
         });

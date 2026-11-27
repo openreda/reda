@@ -681,6 +681,56 @@ fn grid_tables_ship_per_document_type_and_take_edited_rows() {
 }
 
 #[test]
+fn board_and_footprint_grid_rows_take_an_optional_step_y_and_sheet_rows_do_not() {
+    let home = TempDir::new("prefs-grid-step-y");
+    let mut engine = test_engine_in(home.path());
+    let mil = 25_400;
+    engine.run_ok(
+        "app.preferences.set",
+        json!({"key": "editing.grid.pcb.metric", "value": [
+            {"snap": "0.5mm", "snap_y": "1.27mm", "visible": "0.5mm"},
+            {"snap": "0.5mm", "visible": "0.5mm"},
+        ]}),
+    );
+    assert_eq!(
+        get(home.path(), "editing.grid.pcb.metric")["value"],
+        json!([
+            {"snap": 500_000, "snap_y": 1_270_000, "visible": 500_000, "in_cycle": true},
+            {"snap": 500_000, "visible": 500_000, "in_cycle": true},
+        ]),
+        "an empty Step Y is left out: the same as Step X"
+    );
+    engine.run_ok(
+        "app.preferences.set",
+        json!({"key": "editing.grid.footprint.imperial", "value": [
+            {"snap": "10mil", "snap_y": "25mil", "visible": "50mil"},
+        ]}),
+    );
+    assert_eq!(
+        get(home.path(), "editing.grid.footprint.imperial")["value"][0]["snap_y"],
+        25 * mil
+    );
+    // Sheets and Symbols keep a single step; Step Y must be positive.
+    for (key, value) in [
+        (
+            "editing.grid.schematic.imperial",
+            json!([{"snap": "50mil", "snap_y": "100mil", "range": "40mil", "visible": "50mil"}]),
+        ),
+        (
+            "editing.grid.symbol.metric",
+            json!([{"snap": "1mm", "snap_y": "2mm", "range": "0.8mm", "visible": "1mm"}]),
+        ),
+        (
+            "editing.grid.pcb.metric",
+            json!([{"snap": "0.5mm", "snap_y": 0, "visible": "0.5mm"}]),
+        ),
+    ] {
+        let err = engine.run_err("app.preferences.set", json!({"key": key, "value": value}));
+        assert_eq!(err.code, ErrorCode::InvalidParams, "{key} = {value}");
+    }
+}
+
+#[test]
 fn the_old_hud_delta_key_reads_as_the_status_bars_delta() {
     let loaded = reda_engine::preferences::parse("[editing.hud]\ndelta = false\n");
     assert!(!loaded.values.editing.delta, "{:?}", loaded.warnings);

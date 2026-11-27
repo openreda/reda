@@ -7,8 +7,9 @@ use reda_ui::bars;
 use reda_ui::engine::Engine;
 use reda_ui::engine::command::UserDirs;
 use reda_ui::engine::model::Uuid;
-use reda_ui::engine::model::geom::Nm;
+use reda_ui::engine::model::geom::{Nm, Point};
 use reda_ui::engine::preferences::GridStyle;
+use reda_ui::grid::Step;
 use reda_ui::keymap::{self, Chord};
 use reda_ui::shell::Shell;
 use serde_json::{Value, json};
@@ -51,15 +52,15 @@ fn g_and_shift_g_step_through_the_in_cycle_rows_both_ways() {
     let mut s = shell(&home);
     s.new_project(work.path(), "Grid").unwrap();
     let sheet = sheet_of(&s);
-    assert_eq!(s.grid(sheet), Nm(50 * MIL));
+    assert_eq!(s.grid(sheet).x, Nm(50 * MIL));
     press(&mut s, sheet, "G");
-    assert_eq!(s.grid(sheet), Nm(100 * MIL));
+    assert_eq!(s.grid(sheet).x, Nm(100 * MIL));
     press(&mut s, sheet, "G");
-    assert_eq!(s.grid(sheet), Nm(10 * MIL), "wraps to the finest");
+    assert_eq!(s.grid(sheet).x, Nm(10 * MIL), "wraps to the finest");
     press(&mut s, sheet, "Shift+G");
-    assert_eq!(s.grid(sheet), Nm(100 * MIL), "Shift+G goes back");
+    assert_eq!(s.grid(sheet).x, Nm(100 * MIL), "Shift+G goes back");
     press(&mut s, sheet, "Shift+G");
-    assert_eq!(s.grid(sheet), Nm(50 * MIL));
+    assert_eq!(s.grid(sheet).x, Nm(50 * MIL));
 
     // Take 25 mil out of the cycle: G and Shift+G skip it, but it can still be picked.
     let mut rows = s
@@ -74,12 +75,12 @@ fn g_and_shift_g_step_through_the_in_cycle_rows_both_ways() {
         serde_json::to_value(&rows).unwrap(),
     );
     press(&mut s, sheet, "Shift+G");
-    assert_eq!(s.grid(sheet), Nm(10 * MIL));
+    assert_eq!(s.grid(sheet).x, Nm(10 * MIL));
     press(&mut s, sheet, "G");
-    assert_eq!(s.grid(sheet), Nm(50 * MIL));
+    assert_eq!(s.grid(sheet).x, Nm(50 * MIL));
     s.run("view.grid.set", json!({"document": sheet, "grid": "25mil"}))
         .unwrap();
-    assert_eq!(s.grid(sheet), Nm(25 * MIL));
+    assert_eq!(s.grid(sheet).x, Nm(25 * MIL));
 }
 
 #[test]
@@ -91,7 +92,7 @@ fn a_rows_electrical_range_and_visible_grid_come_from_its_table() {
     let sheet = sheet_of(&s);
     assert_eq!(s.electrical_range(sheet), Nm(40 * MIL));
     assert_eq!(
-        s.document_tab(sheet).unwrap().grid_visible.pitch,
+        s.document_tab(sheet).unwrap().grid_visible.pitch.x,
         Nm(50 * MIL),
         "Visible starts equal to Snap"
     );
@@ -103,10 +104,10 @@ fn a_rows_electrical_range_and_visible_grid_come_from_its_table() {
     );
     s.run("view.grid.set", json!({"document": sheet, "grid": "20mil"}))
         .unwrap();
-    assert_eq!(s.grid(sheet), Nm(20 * MIL));
+    assert_eq!(s.grid(sheet).x, Nm(20 * MIL));
     assert_eq!(s.electrical_range(sheet), Nm(15 * MIL));
     assert_eq!(
-        s.document_tab(sheet).unwrap().grid_visible.pitch,
+        s.document_tab(sheet).unwrap().grid_visible.pitch.x,
         Nm(100 * MIL)
     );
     // The board's rows have no range; their Visible column draws too.
@@ -120,7 +121,7 @@ fn a_rows_electrical_range_and_visible_grid_come_from_its_table() {
     s.run("view.grid.set", json!({"document": pcb, "grid": "0.5mm"}))
         .unwrap();
     assert_eq!(
-        s.document_tab(pcb).unwrap().grid_visible.pitch,
+        s.document_tab(pcb).unwrap().grid_visible.pitch.x,
         Nm(1_000_000)
     );
     let err = s
@@ -154,7 +155,7 @@ fn a_custom_grid_takes_any_value_with_a_range_from_0_8_and_cycling_discards_it()
     assert_eq!(out["grid"], 30 * MIL);
     assert_eq!(out["range"], 24 * MIL, "0.8 of the step");
     assert!(out.get("warning").is_none());
-    assert_eq!(s.grid(sheet), Nm(30 * MIL));
+    assert_eq!(s.grid(sheet).x, Nm(30 * MIL));
     assert_eq!(s.electrical_range(sheet), Nm(24 * MIL));
 
     // A range at or above the step warns and is kept as given.
@@ -174,7 +175,7 @@ fn a_custom_grid_takes_any_value_with_a_range_from_0_8_and_cycling_discards_it()
 
     // G discards it for the next row up; the range is the row's again.
     press(&mut s, sheet, "G");
-    assert_eq!(s.grid(sheet), Nm(50 * MIL));
+    assert_eq!(s.grid(sheet).x, Nm(50 * MIL));
     assert_eq!(s.electrical_range(sheet), Nm(40 * MIL));
     s.run(
         "view.grid.custom",
@@ -182,7 +183,7 @@ fn a_custom_grid_takes_any_value_with_a_range_from_0_8_and_cycling_discards_it()
     )
     .unwrap();
     press(&mut s, sheet, "Shift+G");
-    assert_eq!(s.grid(sheet), Nm(25 * MIL), "Shift+G: the next row down");
+    assert_eq!(s.grid(sheet).x, Nm(25 * MIL), "Shift+G: the next row down");
 
     // A board takes a custom step but has no range.
     let pcb = s.engine().project().unwrap().pcb().unwrap().uuid;
@@ -191,7 +192,7 @@ fn a_custom_grid_takes_any_value_with_a_range_from_0_8_and_cycling_discards_it()
         json!({"document": pcb, "grid": "0.2mm"}),
     )
     .unwrap();
-    assert_eq!(s.grid(pcb), Nm(200_000));
+    assert_eq!(s.grid(pcb).x, Nm(200_000));
     let err = s
         .run(
             "view.grid.custom",
@@ -227,4 +228,83 @@ fn the_visible_grid_toggles_and_draws_dots_or_lines_with_a_coarse_multiplier() {
     set_pref(&mut s, "editing.grid.coarse_multiplier", json!(10));
     assert_eq!(visible(&s).style, GridStyle::Lines);
     assert_eq!(visible(&s).coarse, 10);
+}
+
+#[test]
+fn a_board_row_with_a_step_y_snaps_and_draws_each_axis_on_its_own_step() {
+    let home = TempDir::new("grid-xy-home");
+    let work = TempDir::new("grid-xy-work");
+    let mut s = shell(&home);
+    s.new_project(work.path(), "Grid").unwrap();
+    let pcb = s.engine().project().unwrap().pcb().unwrap().uuid;
+    s.run("document.open", json!({"document": pcb})).unwrap();
+    set_pref(
+        &mut s,
+        "editing.grid.pcb.metric",
+        json!([
+            {"snap": "0.5mm", "visible": "1mm"},
+            {"snap": "0.5mm", "snap_y": "1.27mm", "visible": "1mm"},
+        ]),
+    );
+    let out = s
+        .run(
+            "view.grid.set",
+            json!({"document": pcb, "grid": "0.5mm", "grid_y": "1.27mm"}),
+        )
+        .unwrap();
+    assert_eq!(out["grid"], 500_000);
+    assert_eq!(out["grid_y"], 1_270_000);
+    assert_eq!(
+        s.grid(pcb),
+        Step {
+            x: Nm(500_000),
+            y: Nm(1_270_000)
+        }
+    );
+    // Visible follows the pair: twice Step X across, twice Step Y down.
+    assert_eq!(
+        s.document_tab(pcb).unwrap().grid_visible.pitch,
+        Step {
+            x: Nm(1_000_000),
+            y: Nm(2_540_000)
+        }
+    );
+    // Snapping lands on the nearest point of each axis's own step.
+    assert_eq!(
+        s.snap_to_grid(pcb, (740_000.0, 700_000.0)),
+        Point::new(Nm(500_000), Nm(1_270_000))
+    );
+
+    // The square row of the same Step X is its own row; its result has no Step Y.
+    let out = s
+        .run("view.grid.set", json!({"document": pcb, "grid": "0.5mm"}))
+        .unwrap();
+    assert!(out.get("grid_y").is_none(), "{out}");
+    assert_eq!(s.grid(pcb), Step::square(Nm(500_000)));
+    // G cycles through both, the square one first.
+    press(&mut s, pcb, "G");
+    assert_eq!(s.grid(pcb).y, Nm(1_270_000));
+    press(&mut s, pcb, "G");
+    assert_eq!(s.grid(pcb), Step::square(Nm(500_000)), "wraps round");
+
+    // A Step Y no row has is not a preset.
+    let err = s
+        .run(
+            "view.grid.set",
+            json!({"document": pcb, "grid": "0.5mm", "grid_y": "1mm"}),
+        )
+        .unwrap_err();
+    assert!(err.message.contains("0.5 × 1.27 mm"), "{}", err.message);
+    // Sheets keep a single step.
+    let sheet = (s.engine().project().unwrap().documents())
+        .find(|d| d.uuid != pcb)
+        .unwrap()
+        .uuid;
+    let err = s
+        .run(
+            "view.grid.set",
+            json!({"document": sheet, "grid": "50mil", "grid_y": "100mil"}),
+        )
+        .unwrap_err();
+    assert_eq!(err.details.unwrap()["pointer"], "/grid_y");
 }

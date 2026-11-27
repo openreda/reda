@@ -39,7 +39,7 @@ impl ConvertCrossDialog {
     /// The dialog on the active sheet; `None` when no sheet is active.
     pub fn new(shell: &Shell) -> Option<ConvertCrossDialog> {
         let sheet = shell.active_sheet()?;
-        let grid = shell.grid(sheet);
+        let grid = shell.grid(sheet).x;
         let units = if crate::grid::is_imperial(grid) {
             Units::Mil
         } else {

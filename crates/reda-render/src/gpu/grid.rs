@@ -6,15 +6,15 @@ use crate::view::View;
 
 use super::{Renderer, SAMPLE_COUNT};
 
-const UNIFORM_SIZE: u64 = 80;
+const UNIFORM_SIZE: u64 = 96;
 
 /// What grid to draw.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct GridSpec {
     /// A Document point (nm) that lies on the grid.
     pub origin: (f64, f64),
-    /// The fine dot or line spacing in nm.
-    pub pitch: f64,
+    /// The fine dot or line spacing in nm, along X and along Y.
+    pub pitch: (f64, f64),
     /// Every how many fine dots or lines a coarse one is drawn (bigger dots, stronger
     /// lines); 0 or 1 draws none.
     pub coarse: u32,
@@ -118,21 +118,22 @@ impl Grid {
     pub fn set(&mut self, queue: &wgpu::Queue, view: &View, spec: Option<&GridSpec>) {
         self.visible = spec.is_some();
         let Some(spec) = spec else { return };
-        let pitch_px = spec.pitch / view.nm_per_px;
+        let pitch_x = spec.pitch.0 / view.nm_per_px;
+        let pitch_y = spec.pitch.1 / view.nm_per_px;
         let mirror = if view.mirrored { -1.0 } else { 1.0 };
         let dx = (spec.origin.0 - view.center.0) / view.nm_per_px * mirror;
         let dy = -(spec.origin.1 - view.center.1) / view.nm_per_px;
         let floats = [
             view.width as f32 / 2.0,
             view.height as f32 / 2.0,
-            dx.rem_euclid(pitch_px) as f32,
-            dy.rem_euclid(pitch_px) as f32,
-            pitch_px as f32,
+            dx.rem_euclid(pitch_x) as f32,
+            dy.rem_euclid(pitch_y) as f32,
+            pitch_x as f32,
+            pitch_y as f32,
             spec.radius_px,
         ];
         let mut bytes: Vec<u8> = floats.iter().flat_map(|f| f.to_le_bytes()).collect();
         bytes.extend_from_slice(&u32::from(self.srgb).to_le_bytes());
-        bytes.extend_from_slice(&0u32.to_le_bytes());
         for v in spec.color.0 {
             bytes.extend_from_slice(&(f32::from(v) / 255.0).to_le_bytes());
         }
@@ -154,22 +155,32 @@ impl Grid {
             bytes.extend_from_slice(&v.to_le_bytes());
         }
         // The coarse grid: its phase and pitch, or a zero pitch for none.
-        let coarse_px = if spec.coarse > 1 {
-            pitch_px * f64::from(spec.coarse)
-        } else {
-            0.0
+        let coarse = |pitch_px: f64| {
+            if spec.coarse > 1 {
+                pitch_px * f64::from(spec.coarse)
+            } else {
+                0.0
+            }
         };
-        let coarse_phase = |d: f64| {
+        let (coarse_x, coarse_y) = (coarse(pitch_x), coarse(pitch_y));
+        let coarse_phase = |d: f64, coarse_px: f64| {
             if coarse_px > 0.0 {
                 d.rem_euclid(coarse_px) as f32
             } else {
                 0.0
             }
         };
-        for v in [coarse_phase(dx), coarse_phase(dy), coarse_px as f32] {
+        for v in [
+            coarse_phase(dx, coarse_x),
+            coarse_phase(dy, coarse_y),
+            coarse_x as f32,
+            coarse_y as f32,
+        ] {
             bytes.extend_from_slice(&v.to_le_bytes());
         }
         bytes.extend_from_slice(&u32::from(spec.lines).to_le_bytes());
+        // Pads the uniform block to its 16-byte size.
+        bytes.resize(UNIFORM_SIZE as usize, 0);
         queue.write_buffer(&self.uniforms, 0, &bytes);
     }
 

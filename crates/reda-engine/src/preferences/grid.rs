@@ -14,14 +14,19 @@ const MM: i64 = 1_000_000;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct GridRow {
-    /// The snap step.
+    /// The snap step: Step X, and Step Y too unless `snap_y` is set.
     pub snap: Length,
+    /// Step Y on board and Footprint rows, when it differs from Step X; unset is the
+    /// same as `snap`. Sheets and Symbols keep a single step.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub snap_y: Option<Length>,
     /// The Electrical Range (sheets and Symbols): how near, on both axes, a Hotspot
     /// catches the cursor. Unset on board and Footprint rows. At or above the step it
     /// is allowed, with a warning.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub range: Option<Length>,
-    /// The spacing of the visible grid's fine dots or lines.
+    /// The spacing of the visible grid's fine dots or lines along X. Along Y it follows
+    /// the pair: the same multiple of Step Y.
     pub visible: Length,
     /// G and Shift+G step through this row.
     #[serde(default = "yes")]
@@ -41,9 +46,32 @@ impl GridRow {
                 Some(r) => Some(Length(r)),
                 None => None,
             },
+            snap_y: None,
             visible: Length(snap),
             in_cycle: true,
         }
+    }
+
+    /// Step X.
+    pub fn step_x(&self) -> Nm {
+        self.snap.0
+    }
+
+    /// Step Y: `snap_y`, else Step X.
+    pub fn step_y(&self) -> Nm {
+        self.snap_y.map_or(self.snap.0, |y| y.0)
+    }
+
+    /// The visible grid's spacing along X and Y: `visible`, and along Y the same multiple
+    /// of Step Y as `visible` is of Step X.
+    pub fn visible_xy(&self) -> (Nm, Nm) {
+        let x = self.visible.0;
+        let (sx, sy) = (self.step_x(), self.step_y());
+        if sx == sy || sx.0 <= 0 {
+            return (x, x);
+        }
+        let y = i128::from(x.0) * i128::from(sy.0) / i128::from(sx.0);
+        (x, Nm(i64::try_from(y).unwrap_or(i64::MAX)))
     }
 
     /// Whether the row's range is at or above its step (allowed, but warned about).
@@ -56,10 +84,12 @@ impl GridRow {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct GridTables {
-    /// The imperial rows: each a `snap` step, a Hotspot capture `range` (sheets and Symbols),
+    /// The imperial rows: each a `snap` step (and `snap_y` on boards and Footprints), a
+    /// Hotspot capture `range` (sheets and Symbols),
     /// the `visible` grid's spacing and whether G cycles through it (`in_cycle`).
     pub imperial: Vec<GridRow>,
-    /// The metric rows: each a `snap` step, a Hotspot capture `range` (sheets and Symbols),
+    /// The metric rows: each a `snap` step (and `snap_y` on boards and Footprints), a
+    /// Hotspot capture `range` (sheets and Symbols),
     /// the `visible` grid's spacing and whether G cycles through it (`in_cycle`).
     pub metric: Vec<GridRow>,
 }
@@ -144,9 +174,9 @@ pub struct GridPreferences {
     pub schematic: GridTables,
     /// Symbol editor presets: Snap, Electrical Range, Visible and In cycle.
     pub symbol: GridTables,
-    /// PCB Document presets: Snap, Visible and In cycle.
+    /// PCB Document presets: Snap (Step X), an optional Step Y, Visible and In cycle.
     pub pcb: GridTables,
-    /// Footprint editor presets: Snap, Visible and In cycle.
+    /// Footprint editor presets: Snap (Step X), an optional Step Y, Visible and In cycle.
     pub footprint: GridTables,
     /// The visible grid: `dots` or `lines`.
     pub style: GridStyle,
@@ -225,8 +255,16 @@ pub(super) fn check(
             if rows.is_empty() {
                 return Err((key, "a grid table needs at least one row".to_owned()));
             }
+            let single = key.starts_with("editing.grid.schematic.")
+                || key.starts_with("editing.grid.symbol.");
             for row in rows.iter() {
-                let lengths = [Some(row.snap), Some(row.visible), row.range];
+                if single && row.snap_y.is_some() {
+                    return Err((
+                        key,
+                        "sheets and Symbols keep a single grid step: leave out snap_y".to_owned(),
+                    ));
+                }
+                let lengths = [Some(row.snap), row.snap_y, Some(row.visible), row.range];
                 if lengths.into_iter().flatten().any(|l| l.0 <= Nm(0)) {
                     return Err((key, "grid steps and ranges must be positive".to_owned()));
                 }

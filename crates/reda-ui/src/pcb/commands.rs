@@ -642,7 +642,11 @@ impl Command for RatsnestShow {
 #[derive(Serialize, JsonSchema)]
 pub struct UnitsNow {
     pub units: Units,
+    /// The grid's Step X (its step, when square).
     pub grid: reda_engine::model::geom::Nm,
+    /// The grid's Step Y, when it differs from Step X.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub grid_y: Option<reda_engine::model::geom::Nm>,
 }
 
 struct UnitsToggle;
@@ -681,6 +685,10 @@ impl Command for UnitsToggle {
         let grid = grids.pcb_in_units(current.unwrap_or(grids.pcb), units);
         grids.custom.remove(&pcb);
         grids.picked.insert(pcb, grid);
-        Ok(UnitsNow { units, grid })
+        Ok(UnitsNow {
+            units,
+            grid: grid.x,
+            grid_y: grid.y_if_not_square(),
+        })
     }
 }

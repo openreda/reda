@@ -172,6 +172,33 @@ fn a_step_moves_by_whole_grid_steps_and_from_off_the_grid_lands_on_the_next_line
 }
 
 #[test]
+fn on_a_grid_with_a_step_y_each_arrow_steps_by_its_own_axis() {
+    let home = TempDir::new("edit-cursor-xy-home");
+    let work = TempDir::new("edit-cursor-xy-work");
+    let (mut shell, pcb) = board(home.path(), work.path());
+    let step = |shell: &mut Shell, dx: i64, dy: i64| {
+        at(&shell
+            .run("view.cursor.step", json!({"dx": dx, "dy": dy}))
+            .unwrap())
+    };
+    assert_eq!(step(&mut shell, 1, 1), mm(1.0, 1.0));
+    // A 0.5 × 1.27 mm grid: (1, 1) is on an X line but off the Y lines, so Up lands on
+    // the next one, 1.27 mm, and later presses step 1.27 mm.
+    shell
+        .run(
+            "view.grid.custom",
+            json!({"document": pcb, "grid": "0.5mm", "grid_y": "1.27mm"}),
+        )
+        .unwrap();
+    assert_eq!(step(&mut shell, 0, 1), mm(1.0, 1.27));
+    assert_eq!(step(&mut shell, 0, 1), mm(1.0, 2.54));
+    assert_eq!(step(&mut shell, 3, 0), mm(2.5, 2.54));
+    assert_eq!(step(&mut shell, -1, -2), mm(2.0, 0.0));
+    // Ten steps (Shift+arrow) are ten of that axis's step.
+    assert_eq!(step(&mut shell, 10, 10), mm(7.0, 12.7));
+}
+
+#[test]
 fn arrows_step_the_edit_cursor_and_mod_arrows_nudge_the_selection() {
     let mut w = window();
     let footprint = {

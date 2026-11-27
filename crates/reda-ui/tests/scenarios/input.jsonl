@@ -34,3 +34,10 @@
 {"id":"selection.set","source":"cli","params":{"objects":["00000000-0000-4000-8000-00000000003c","00000000-0000-4000-8000-00000000003d"]},"result":{"count":2}}
 {"id":"library.symbol.nudge","source":"cli","params":{"dx":-1,"dy":1},"result":{"by":{"x":-1270000,"y":2540000},"document":"00000000-0000-4000-8000-00000000003a","edit":"library.symbol.move","objects":["00000000-0000-4000-8000-00000000003c","00000000-0000-4000-8000-00000000003d"]}}
 {"id":"library.element.save","source":"cli","params":{"element":"00000000-0000-4000-8000-00000000003a"},"result":{"written":["/nonexistent/Input/lib/symbols/Nudged.redasym"]}}
+{"id":"layout.tab.activate","source":"cli","params":{"tab":"00000000-0000-4000-8000-000000000003"},"result":{"group":1}}
+{"id":"tool.activate","source":"cli","params":{"tool":"via"},"result":{"tool":"via"}}
+{"id":"view.grid.custom","source":"cli","params":{"document":"00000000-0000-4000-8000-000000000003","grid":"0.5mm","grid_y":"1.27mm"},"result":{"grid":500000,"grid_y":1270000}}
+{"id":"view.cursor.step","source":"cli","params":{"dx":1,"dy":1},"result":{"at":{"x":6000000,"y":1270000},"document":"00000000-0000-4000-8000-000000000003"}}
+{"id":"view.cursor.step","source":"cli","params":{"dx":1,"dy":1},"result":{"at":{"x":6500000,"y":2540000},"document":"00000000-0000-4000-8000-000000000003"}}
+{"id":"view.cursor.click","source":"cli","params":{},"result":{"at":{"x":6500000,"y":2540000},"document":"00000000-0000-4000-8000-000000000003"}}
+{"id":"tool.activate","source":"cli","params":{"tool":"select"},"result":{"tool":"select"}}
