@@ -435,6 +435,49 @@ fn assembly_placements_are_read() {
 }
 
 #[test]
+fn parabolas_and_hyperbolas_are_typed() {
+    // The cone cut parallel to a generator and parallel to its axis (README).
+    let m = fixture("parabola_cut.step").model;
+    let [(_, p)] = m.iter::<Parabola>().collect::<Vec<_>>()[..] else {
+        panic!("one parabola")
+    };
+    assert_eq!(p.focal_dist, 0.4472135955);
+    let vertex = m.get::<Axis2Placement3d>(p.position).unwrap().location;
+    assert_eq!(point(&m, vertex), [-1.0, 0.0, 4.0]);
+    assert!(!m.records().iter().any(|r| matches!(r, Record::Raw(_))));
+
+    let m = fixture("hyperbola_cut.step").model;
+    let hyperbolas: Vec<_> = m.iter::<Hyperbola>().map(|(_, h)| h.clone()).collect();
+    assert_eq!(hyperbolas.len(), 2);
+    for h in hyperbolas {
+        assert_eq!((h.semi_axis, h.semi_imag_axis), (2.0, 1.0));
+    }
+    assert!(!m.records().iter().any(|r| matches!(r, Record::Raw(_))));
+}
+
+#[test]
+fn mapped_items_are_typed() {
+    let m = fixture("mapped_items.step").model;
+    let maps: Vec<_> = m.iter::<RepresentationMap>().collect();
+    let [(map_id, map)] = maps[..] else {
+        panic!("one representation map")
+    };
+    let tile = m.get::<Representation>(map.mapped_representation).unwrap();
+    assert_eq!(tile.name, "tile");
+    assert!(tile.items.contains(&map.mapping_origin));
+    let names: Vec<_> = m
+        .iter::<MappedItem>()
+        .map(|(_, i)| {
+            assert_eq!(i.mapping_source, map_id);
+            assert!(m.get::<Axis2Placement3d>(i.mapping_target).is_some());
+            i.name.as_str()
+        })
+        .collect();
+    assert_eq!(names, ["tile:1", "tile:2"]);
+    assert!(!m.records().iter().any(|r| matches!(r, Record::Raw(_))));
+}
+
+#[test]
 fn assembly_parts_carry_per_solid_colours() {
     let m = fixture("nested_assembly.step").model;
     let mut colours: Vec<(String, Colour)> = m

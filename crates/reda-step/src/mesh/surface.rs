@@ -301,10 +301,17 @@ const SINGULAR: f64 = 1e-7;
 /// The largest angle an arc of radius `r` may be cut into so that each chord stays within
 /// the chord and angle tolerances.
 pub(crate) fn arc_step(r: f64, options: &MeshOptions) -> f64 {
+    curve_step(r, 1.0, options)
+}
+
+/// The largest parameter step along a curve whose chords stray from it at most as a
+/// circle's of radius `r` do, and whose tangent turns at most `turn` radians per unit of
+/// parameter, within the chord and angle tolerances.
+pub(crate) fn curve_step(r: f64, turn: f64, options: &MeshOptions) -> f64 {
     let by_chord = if options.chord > 0.0 && options.chord < r {
         2.0 * (1.0 - options.chord / r).acos()
     } else {
         PI
     };
-    by_chord.min(options.angle).max(1e-3)
+    by_chord.min(options.angle / turn.max(1e-9)).max(1e-3)
 }

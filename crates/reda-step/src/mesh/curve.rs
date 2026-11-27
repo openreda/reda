@@ -6,10 +6,11 @@ use std::f64::consts::TAU;
 
 use super::MeshOptions;
 use super::geometry::{Frame, V3, point};
-use super::surface::arc_step;
+use super::surface::{arc_step, curve_step};
 use crate::StepModel;
 use crate::records::{
-    Circle, EdgeCurve, Ellipse, Line, RecordId, SurfaceCurve, TrimmedCurve, VertexPoint,
+    Circle, EdgeCurve, Ellipse, Hyperbola, Line, Parabola, RecordId, SurfaceCurve, TrimmedCurve,
+    VertexPoint,
 };
 
 /// The curves edges are sampled along.
@@ -19,6 +20,10 @@ enum Curve {
     Circle(Frame, f64),
     /// `C(t) = o + a·cos t·x + b·sin t·y`.
     Ellipse(Frame, f64, f64),
+    /// `C(t) = o + a·(t²·x + 2t·y)`.
+    Parabola(Frame, f64),
+    /// `C(t) = o + a·cosh t·x + b·sinh t·y`.
+    Hyperbola(Frame, f64, f64),
 }
 
 fn curve(model: &StepModel, id: RecordId, depth: u32) -> Result<Curve, String> {
@@ -44,6 +49,22 @@ fn curve(model: &StepModel, id: RecordId, depth: u32) -> Result<Curve, String> {
             frame(e.position)?,
             e.semi_axis_1,
             e.semi_axis_2,
+        ));
+    }
+    if let Some(p) = model.get::<Parabola>(id) {
+        if !(p.focal_dist > 0.0 && p.focal_dist.is_finite()) {
+            return Err(bad("a parabola whose focal distance is not positive"));
+        }
+        return Ok(Curve::Parabola(frame(p.position)?, p.focal_dist));
+    }
+    if let Some(h) = model.get::<Hyperbola>(id) {
+        if !(h.semi_axis > 0.0 && h.semi_imag_axis > 0.0) {
+            return Err(bad("a hyperbola whose semi-axes are not positive"));
+        }
+        return Ok(Curve::Hyperbola(
+            frame(h.position)?,
+            h.semi_axis,
+            h.semi_imag_axis,
         ));
     }
     if let Some(t) = model.get::<TrimmedCurve>(id) {
@@ -101,15 +122,47 @@ pub(crate) fn sample_edge(
                 let l = f.to_local(p);
                 (l.1 / b).atan2(l.0 / a)
             };
-            // The sharpest bend of an ellipse has radius b²/a; its largest is a²/b.
-            let step = arc_step(b * b / a, options).min(arc_step(a.max(b), options));
+            // A step dt strays about |C' × C''| / |C'| · dt²/8 = ab / |C'| · dt²/8 from its
+            // chord, most where |C'| is least, at the ends of the major axis: there the bend
+            // radius is min²/max but the point moves only min·dt, so the step strays
+            // max·dt²/8, as on a circle of the longer semi-axis. The tangent turns
+            // ab / |C'|² per unit of t, at most max/min. Either semi-axis may be the longer.
+            let (lo, hi) = (a.min(b), a.max(b));
+            let step = curve_step(hi, hi / lo, options);
             arc(angle(start), angle(end), closed, forward, step, at)
+        }
+        Curve::Parabola(f, a) => {
+            let at = |t: f64| f.to_world(V3(a * t * t, 2.0 * a * t, 0.0));
+            let param = |p: V3| f.to_local(p).1 / (2.0 * a);
+            // |C' × C''| / |C'| = 2a / √(1 + t²) and the tangent turns 1 / (1 + t²) per unit
+            // of t: both most at the vertex, as on a circle of radius 2a.
+            span(
+                param(start),
+                param(end),
+                curve_step(2.0 * a, 1.0, options),
+                at,
+            )
+        }
+        Curve::Hyperbola(f, a, b) => {
+            let at = |t: f64| f.to_world(V3(a * t.cosh(), b * t.sinh(), 0.0));
+            let param = |p: V3| (f.to_local(p).1 / b).asinh();
+            // |C' × C''| = ab and |C'| is least, b, at the vertex: the step strays as on a
+            // circle of radius a, and the tangent turns at most a/b per unit of t.
+            span(param(start), param(end), curve_step(a, a / b, options), at)
         }
     };
     let last = points.len() - 1;
     points[0] = start;
     points[last] = end;
     Ok(points)
+}
+
+/// Samples `at(t)` from `t0` to `t1` on an open curve, in steps of at most `step`.
+fn span(t0: f64, t1: f64, step: f64, at: impl Fn(f64) -> V3) -> Vec<V3> {
+    let n = ((t1 - t0).abs() / step).ceil().clamp(1.0, 1e6) as usize;
+    (0..=n)
+        .map(|i| at(t0 + (t1 - t0) * i as f64 / n as f64))
+        .collect()
 }
 
 /// Samples `at(t)` from `t0` to `t1`, counter-clockwise when `forward`, a whole turn when the

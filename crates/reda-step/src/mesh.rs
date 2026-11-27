@@ -394,6 +394,18 @@ impl Mesher<'_> {
                 void: false,
             }];
             out.extend(self.solid(item, "", uses));
+        } else if m.get::<MappedItem>(item).is_none()
+            && m.get::<Axis2Placement3d>(item).is_none()
+            && m.get::<Axis2Placement2d>(item).is_none()
+            && m.get::<Axis1Placement>(item).is_none()
+        {
+            // Mapped items are placed by the assembly tree, and placements draw nothing; any
+            // other item is geometry the mesher does not draw, so it is said, not dropped.
+            self.warn(format!(
+                "item #{} is a {}, which is not drawn",
+                item.0 + 1,
+                m.record(item).entity_name()
+            ));
         }
         out
     }

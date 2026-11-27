@@ -111,6 +111,35 @@ fn a_filleted_pin_meshes_its_part_of_a_torus() {
 }
 
 #[test]
+fn a_cone_cut_along_its_axis_meshes_closed_along_its_hyperbola() {
+    // A cone r = 3, h = 6 cut by the plane x = 1: two hyperbola edges, the apex kept.
+    assert_solid("hyperbola_cut.step", 44.529942);
+}
+
+#[test]
+fn a_cone_cut_along_a_generator_meshes_closed_along_its_parabola() {
+    // The same cone cut by a plane parallel to a generator: one parabola edge, the apex cut
+    // away.
+    assert_solid("parabola_cut.step", 29.991623);
+}
+
+#[test]
+fn a_model_in_metres_is_meshed_in_millimetres() {
+    // The parabola cut with its length unit made the metre: every length, the parabola's
+    // focal distance among them, grows 1000 times.
+    let text = fixture_text("parabola_cut.step");
+    let metres = text.replace("SI_UNIT(.MILLI.,.METRE.)", "SI_UNIT($,.METRE.)");
+    assert_ne!(metres, text);
+    let loaded = load(metres.as_bytes(), &MeshOptions::default()).unwrap();
+    assert!(loaded.warnings.is_empty(), "{:?}", loaded.warnings);
+    let mesh = &loaded.meshed.parts[0].solids[0].mesh;
+    assert!(mesh.is_closed());
+    assert_close("parabola cut in metres", mesh.volume(), 29.991623e9, 0.001);
+    let b = loaded.meshed.bounding_box().unwrap();
+    assert!((b.max[2] - 4000.0).abs() < 1.0, "{b:?}");
+}
+
+#[test]
 fn a_degenerate_torus_meets_its_axis_at_a_pole() {
     // The upper half of a spindle torus R = 1, r = 2 on a disk: an apple with a dimple at its
     // stem, its meridian seam running into the pole on the axis.
@@ -124,6 +153,43 @@ fn a_void_is_meshed_facing_into_its_solid() {
     assert_solid("hollow_block.step", 59.81121);
     let solid = &fixture("hollow_block.step").meshed.parts[0].solids[0];
     assert_eq!(solid.mesh.faces.len(), 7);
+}
+
+fn fixture_text(name: &str) -> String {
+    let path = format!("{}/tests/fixtures/{name}", env!("CARGO_MANIFEST_DIR"));
+    std::fs::read_to_string(path).unwrap()
+}
+
+#[test]
+fn an_ellipse_is_cut_the_same_whichever_semi_axis_comes_first() {
+    // The same ellipse written with its semi-axes the other way round: semi_axis_2 the longer,
+    // the reference direction turned a quarter turn about the axis to match.
+    let text = fixture_text("ellipse_cut.step");
+    let swapped = text
+        .replace(
+            "#24 = ELLIPSE('',#25,2.309401076759,2.);",
+            "#24 = ELLIPSE('',#25,2.,2.309401076759);",
+        )
+        .replace(
+            "#28 = DIRECTION('',(0.,0.866025403784,0.5));",
+            "#28 = DIRECTION('',(-1.,0.,0.));",
+        );
+    assert_eq!(swapped.matches("2.,2.309401076759").count(), 1);
+    assert!(swapped.contains("(-1.,0.,0.)"));
+    // A loose angle, so the chord tolerance alone sets the ellipse's steps.
+    let options = MeshOptions {
+        chord: 0.01,
+        angle: 1.0,
+    };
+    let triangles = |text: &str| {
+        let loaded = load(text.as_bytes(), &options).unwrap();
+        assert!(loaded.warnings.is_empty(), "{:?}", loaded.warnings);
+        let mesh = &loaded.meshed.parts[0].solids[0].mesh;
+        assert!(mesh.is_closed());
+        assert_close("ellipse cut", mesh.volume(), 62.831853, 0.01);
+        mesh.triangles.len()
+    };
+    assert_eq!(triangles(&swapped), triangles(&text));
 }
 
 #[test]
@@ -210,6 +276,8 @@ fn the_bounding_box_is_the_models() {
     assert_box("led_dome.step", [-2.5, -2.5, 0.0], [2.5, 2.5, 7.5]);
     assert_box("rounded_pin.step", [-1.0, -1.0, 0.0], [1.0, 1.0, 3.0]);
     assert_box("half_apple.step", [-3.0, -3.0, 0.0], [3.0, 3.0, 2.0]);
+    assert_box("hyperbola_cut.step", [-3.0, -3.0, 0.0], [1.0, 3.0, 6.0]);
+    assert_box("parabola_cut.step", [-3.0, -3.0, 0.0], [1.0, 3.0, 4.0]);
 }
 
 #[test]
@@ -360,4 +428,75 @@ fn a_stpz_file_meshes_as_its_step_twin() {
     let step = fixture("nested_assembly.step").meshed;
     let stpz = fixture("nested_assembly.stpz").meshed;
     assert_eq!(step, stpz);
+}
+
+#[test]
+fn mapped_items_place_one_shape_twice() {
+    // A 2 x 1 x 0.5 in tile, in a shape no product names, placed by two MAPPED_ITEMs: at the
+    // origin, and 5 in along x turned 90° about z. As FreeCAD reads it: 2 in³ and a box to
+    // (5, 2, 0.5) in.
+    let loaded = fixture("mapped_items.step");
+    let m = &loaded.meshed;
+    let [root] = &m.roots[..] else {
+        panic!(
+            "one root: {:?}",
+            m.roots.iter().map(|r| &r.name).collect::<Vec<_>>()
+        )
+    };
+    assert_eq!(root.name, "tile array");
+    assert_eq!(root.part, None, "the array has no solids of its own");
+    let uses: Vec<_> = root
+        .children
+        .iter()
+        .map(|c| (c.name.as_str(), c.occurrence.as_deref()))
+        .collect();
+    assert_eq!(uses, [("tile", Some("tile:1")), ("tile", Some("tile:2"))]);
+    let quarter = [[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]];
+    assert_transform(&root.children[0].transform, UNTURNED, [0.0; 3]);
+    assert_transform(&root.children[1].transform, quarter, [127.0, 0.0, 0.0]);
+    let tile = root.children[0].part.expect("the tile is drawn");
+    assert_eq!(root.children[1].part, Some(tile));
+    assert_eq!(m.parts.len(), 1);
+    let green = Some(Colour::rgb(0.1, 0.6, 0.2));
+    assert_eq!(m.parts[tile].solids[0].colour, green);
+
+    assert_close("tiles", m.volume(), 32774.128, 1e-6);
+    let b = m.bounding_box().unwrap();
+    let want = ([0.0; 3], [127.0, 50.8, 12.7]);
+    for i in 0..3 {
+        let ok = (b.min[i] - want.0[i]).abs() < 1e-9 && (b.max[i] - want.1[i]).abs() < 1e-9;
+        assert!(ok, "{b:?}");
+    }
+}
+
+#[test]
+fn an_item_the_mesher_does_not_draw_is_reported() {
+    // A loose point among a shape's items is neither a solid nor a placement.
+    let text = fixture_text("ap214_face_colours.step");
+    let (at, _) = text
+        .match_indices("ADVANCED_BREP_SHAPE_REPRESENTATION(")
+        .next()
+        .unwrap();
+    let line_end = at + text[at..].find(";\n").unwrap();
+    let line = &text[at..line_end];
+    let items_end = line.find("),").unwrap();
+    let with_point = format!("{},#9999{}", &line[..items_end], &line[items_end..]);
+    let broken = text.replacen(line, &with_point, 1).replacen(
+        "ENDSEC;\nEND-ISO",
+        "#9999=CARTESIAN_POINT('loose',(1.,2.,3.));\nENDSEC;\nEND-ISO",
+        1,
+    );
+    let loaded = load(broken.as_bytes(), &MeshOptions::default()).unwrap();
+    assert_eq!(
+        loaded.meshed.parts[0].solids.len(),
+        1,
+        "the solid is still drawn"
+    );
+    let [w] = &loaded.meshed.warnings[..] else {
+        panic!("one warning: {:?}", loaded.meshed.warnings)
+    };
+    assert!(
+        w.contains("CARTESIAN_POINT") && w.contains("not drawn"),
+        "{w}"
+    );
 }

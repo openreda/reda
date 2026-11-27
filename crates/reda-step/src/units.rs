@@ -199,7 +199,12 @@ impl StepModel {
                 None => {}
             }
             out.insert(id, f);
-            self.record(id).refs(&mut |r| stack.push((r, f)));
+            match self.record(id) {
+                // The mapped representation keeps the units of its own context; only the
+                // target placement is in this one.
+                Record::MappedItem(m) => stack.push((m.mapping_target, f)),
+                r => r.refs(&mut |r| stack.push((r, f))),
+            }
         }
         out
     }
@@ -252,6 +257,12 @@ impl StepModel {
                 Record::Ellipse(e) => {
                     e.semi_axis_1 *= l;
                     e.semi_axis_2 *= l;
+                }
+                // Their parameters are plain numbers, so trims on them stay as they are.
+                Record::Parabola(p) => p.focal_dist *= l,
+                Record::Hyperbola(h) => {
+                    h.semi_axis *= l;
+                    h.semi_imag_axis *= l;
                 }
                 Record::CylindricalSurface(s) => s.radius *= l,
                 Record::ConicalSurface(s) => {
@@ -431,6 +442,8 @@ fn is_geometry(r: &Record) -> bool {
             | Record::Line(_)
             | Record::Circle(_)
             | Record::Ellipse(_)
+            | Record::Parabola(_)
+            | Record::Hyperbola(_)
             | Record::Polyline(_)
             | Record::CompositeCurve(_)
             | Record::CompositeCurveSegment(_)
@@ -461,5 +474,6 @@ fn is_geometry(r: &Record) -> bool {
             | Record::SolidBrep(_)
             | Record::BrepWithVoids(_)
             | Record::ShellBasedSurfaceModel(_)
+            | Record::MappedItem(_)
     ) || matches!(r, Record::Raw(raw) if !raw.parts.iter().any(|p| p.name.ends_with("REPRESENTATION_ITEM")))
 }

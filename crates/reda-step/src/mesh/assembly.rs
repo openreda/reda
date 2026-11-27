@@ -8,22 +8,88 @@
 //!   `CONTEXT_DEPENDENT_SHAPE_REPRESENTATION` places it through an
 //!   `ITEM_DEFINED_TRANSFORMATION` from a placement in the child's shape to one in the
 //!   parent's.
+//! - A `MAPPED_ITEM` among a shape's items places a whole other representation, the one its
+//!   `REPRESENTATION_MAP` offers, by moving the map's origin onto the item's target. The
+//!   mapped representation becomes a part of its own, and each mapped item a node under the
+//!   shape's.
 //! - Roots are the products no other product uses. Shapes no product reaches become roots of
 //!   their own, so a model with broken product structure is still drawn.
 
 use std::collections::{HashMap, HashSet};
 
 use super::geometry::{Frame, Transform};
-use super::{Mesher, Node, Part};
+use super::{Mesher, Node, Part, Solid};
 use crate::records::*;
 
 /// How deep an assembly may nest before the rest is cut off (it guards against cycles).
 const MAX_DEPTH: usize = 64;
 
+/// One use of a child in its parent: a product definition in an assembly, or a mapped
+/// representation in a shape.
 struct Use {
     child: RecordId,
     name: String,
     transform: Transform,
+}
+
+/// What the tree is built from: who uses whom, and the part each child draws.
+struct Tree<'a> {
+    m: &'a crate::StepModel,
+    /// The products each product definition uses.
+    uses: HashMap<RecordId, Vec<Use>>,
+    /// Each product definition's shape representations.
+    shapes: HashMap<RecordId, Vec<RecordId>>,
+    /// The representations each representation places through mapped items.
+    mapped: HashMap<RecordId, Vec<Use>>,
+    /// The part each product definition or mapped representation draws.
+    part_of: HashMap<RecordId, usize>,
+}
+
+impl Tree<'_> {
+    fn node(
+        &self,
+        id: RecordId,
+        occurrence: Option<String>,
+        transform: Transform,
+        stack: &mut Vec<RecordId>,
+    ) -> Node {
+        stack.push(id);
+        let mut children = Vec::new();
+        let product = self.m.get::<ProductDefinition>(id).is_some();
+        if stack.len() < MAX_DEPTH {
+            let shapes = if product {
+                self.shapes.get(&id).map_or(&[][..], |v| v)
+            } else {
+                std::slice::from_ref(&id)
+            };
+            let products = self.uses.get(&id).map_or(&[][..], |v| v).iter();
+            let maps = shapes
+                .iter()
+                .flat_map(|s| self.mapped.get(s).map_or(&[][..], |v| v));
+            for u in products.chain(maps) {
+                if !stack.contains(&u.child) {
+                    let n = self.node(u.child, Some(u.name.clone()), u.transform, stack);
+                    children.push(n);
+                }
+            }
+        }
+        stack.pop();
+        let name = if product {
+            product_name(self.m, id)
+        } else {
+            self.m
+                .get::<Representation>(id)
+                .map(|r| r.name.clone())
+                .unwrap_or_default()
+        };
+        Node {
+            name,
+            occurrence,
+            transform,
+            part: self.part_of.get(&id).copied(),
+            children,
+        }
+    }
 }
 
 pub(crate) fn build(mesher: &mut Mesher) -> (Vec<Part>, Vec<Node>) {
@@ -124,6 +190,45 @@ pub(crate) fn build(mesher: &mut Mesher) -> (Vec<Part>, Vec<Node>) {
             });
     }
 
+    // The representations mapped items place, and where.
+    let mut mapped: HashMap<RecordId, Vec<Use>> = HashMap::new();
+    let mut mapped_reps: Vec<RecordId> = Vec::new();
+    for (id, rep) in m.iter::<Representation>() {
+        for &item in &rep.items {
+            let Some(mi) = m.get::<MappedItem>(item) else {
+                continue;
+            };
+            let Some(map) = m.get::<RepresentationMap>(mi.mapping_source) else {
+                mesher.warn(format!(
+                    "mapped item #{} '{}' maps no representation; it is not drawn",
+                    item.0 + 1,
+                    mi.name
+                ));
+                continue;
+            };
+            let transform = match mapping(m, map.mapping_origin, mi.mapping_target) {
+                Some(t) => t,
+                None => {
+                    mesher.warn(format!(
+                        "mapped item #{} '{}': its placement cannot be read; it is placed at its \
+                         shape's origin",
+                        item.0 + 1,
+                        mi.name
+                    ));
+                    Transform::IDENTITY
+                }
+            };
+            if !mapped_reps.contains(&map.mapped_representation) {
+                mapped_reps.push(map.mapped_representation);
+            }
+            mapped.entry(id).or_default().push(Use {
+                child: map.mapped_representation,
+                name: mi.name.clone(),
+                transform,
+            });
+        }
+    }
+
     // Each product's own solids, meshed once.
     let mut parts: Vec<Part> = Vec::new();
     let mut part_of: HashMap<RecordId, usize> = HashMap::new();
@@ -149,57 +254,44 @@ pub(crate) fn build(mesher: &mut Mesher) -> (Vec<Part>, Vec<Node>) {
             });
         }
     }
-
-    fn node(
-        m: &crate::StepModel,
-        pd: RecordId,
-        occurrence: Option<String>,
-        transform: Transform,
-        uses: &HashMap<RecordId, Vec<Use>>,
-        part_of: &HashMap<RecordId, usize>,
-        stack: &mut Vec<RecordId>,
-    ) -> Node {
-        stack.push(pd);
-        let mut children = Vec::new();
-        if stack.len() < MAX_DEPTH {
-            for u in uses.get(&pd).map_or(&[][..], |v| v) {
-                if !stack.contains(&u.child) {
-                    children.push(node(
-                        m,
-                        u.child,
-                        Some(u.name.clone()),
-                        u.transform,
-                        uses,
-                        part_of,
-                        stack,
-                    ));
-                }
+    // Each mapped representation's solids, meshed once; one a product also draws shares that
+    // product's part.
+    for &rep in &mapped_reps {
+        if drawn_reps.contains(&rep) {
+            let owner = definitions.iter().find(|pd| shapes[pd].contains(&rep));
+            if let Some(&part) = owner.and_then(|pd| part_of.get(pd)) {
+                part_of.insert(rep, part);
             }
+            continue;
         }
-        stack.pop();
-        Node {
-            name: product_name(m, pd),
-            occurrence,
-            transform,
-            part: part_of.get(&pd).copied(),
-            children,
+        drawn_reps.insert(rep);
+        let Some(r) = m.get::<Representation>(rep) else {
+            continue;
+        };
+        let solids: Vec<Solid> = r.items.iter().flat_map(|&i| mesher.solids(i)).collect();
+        if !solids.is_empty() {
+            part_of.insert(rep, parts.len());
+            parts.push(Part {
+                name: r.name.clone(),
+                solids,
+            });
         }
     }
+
+    let mut tree = Tree {
+        m,
+        uses,
+        shapes,
+        mapped,
+        part_of,
+    };
 
     let mut roots = Vec::new();
     for &pd in &definitions {
         if is_child.contains(&pd) {
             continue;
         }
-        let n = node(
-            m,
-            pd,
-            None,
-            Transform::IDENTITY,
-            &uses,
-            &part_of,
-            &mut Vec::new(),
-        );
+        let n = tree.node(pd, None, Transform::IDENTITY, &mut Vec::new());
         if n.part.is_some() || !n.children.is_empty() {
             roots.push(n);
         }
@@ -209,34 +301,39 @@ pub(crate) fn build(mesher: &mut Mesher) -> (Vec<Part>, Vec<Node>) {
     let in_assembly: HashSet<RecordId> = m
         .iter::<ShapeRepresentationTransformation>()
         .flat_map(|(_, s)| [s.rep_1, s.rep_2])
+        .chain(mapped_reps.iter().copied())
         .collect();
     for (id, rep) in m.iter::<Representation>() {
         if drawn_reps.contains(&id) || rep.kind == RepresentationKind::Definitional {
             continue;
         }
-        if in_assembly.contains(&id) || !rep.items.iter().any(|&i| mesher.is_solid_item(i)) {
+        let maps = tree.mapped.contains_key(&id);
+        if in_assembly.contains(&id)
+            || !(maps || rep.items.iter().any(|&i| mesher.is_solid_item(i)))
+        {
             continue;
         }
-        let mut solids = Vec::new();
-        for &item in &rep.items {
-            solids.extend(mesher.solids(item));
+        let solids: Vec<Solid> = rep.items.iter().flat_map(|&i| mesher.solids(i)).collect();
+        if !solids.is_empty() {
+            tree.part_of.insert(id, parts.len());
+            parts.push(Part {
+                name: rep.name.clone(),
+                solids,
+            });
         }
-        if solids.is_empty() {
-            continue;
+        let n = tree.node(id, None, Transform::IDENTITY, &mut Vec::new());
+        if n.part.is_some() || !n.children.is_empty() {
+            roots.push(n);
         }
-        roots.push(Node {
-            name: rep.name.clone(),
-            occurrence: None,
-            transform: Transform::IDENTITY,
-            part: Some(parts.len()),
-            children: Vec::new(),
-        });
-        parts.push(Part {
-            name: rep.name.clone(),
-            solids,
-        });
     }
     (parts, roots)
+}
+
+/// The transform a mapped item applies: the map's origin placement onto the item's target.
+fn mapping(m: &crate::StepModel, origin: RecordId, target: RecordId) -> Option<Transform> {
+    let from = Transform::of_frame(&Frame::of(m, origin)?);
+    let to = Transform::of_frame(&Frame::of(m, target)?);
+    Some(to.compose(&from.inverse()))
 }
 
 /// The child-to-parent transform of an `ITEM_DEFINED_TRANSFORMATION`: it takes placement
