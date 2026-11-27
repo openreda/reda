@@ -13,14 +13,22 @@
 //!   `dx` is screen-right, so on a board seen from below it goes towards smaller x.
 //! - **As in a drag:** on a board a lone Via or Free Pad is dragged with its Tracks
 //!   (`pcb.copper.drag`) and a lone Track segment slides (`pcb.track.drag`), under the
-//!   drag Preferences; anything else moves as a mouse move does (`pcb.move`), its
-//!   Tracks staying put. A Footprint's or Symbol's parts move with `library.*.move`.
+//!   drag Preferences. Anything else moves with the Command that moves its kind:
+//!   Footprints, Free Pads, Dimensions, the Output Origin, the Board Outline and Board
+//!   Cutouts with `pcb.move` (their Tracks staying put, as in a mouse move), free text
+//!   with `pcb.text.set`, Zones, Zone Cutouts and polygon Keepouts with
+//!   `pcb.polygon.set_vertices` and line Keepouts with `pcb.keepout.set`, in one `batch`
+//!   when it takes more than one. Board graphics stay, as no Command moves them; nor does
+//!   a Zone that follows the Board Outline. A Footprint's or Symbol's parts move with
+//!   `library.*.move`.
 //! - **Locked objects stay put** (docs/spec/v0.1/pcb.md#locks): they are left behind
 //!   whatever Protect Locked Objects says, since a key press asks nothing.
 
 use reda_engine::command::{Command, CommandError, Context, Kind, Meta, Registry};
-use reda_engine::model::geom::{Point, Vertex};
-use reda_engine::model::{Footprint, LibraryElement, PcbDocument, Shape, Symbol, Uuid};
+use reda_engine::model::geom::{Millideg, Point, Vertex};
+use reda_engine::model::{
+    Footprint, KeepoutShape, LibraryElement, PcbDocument, Shape, Symbol, Uuid,
+};
 use reda_engine::pcb::lock::is_locked;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -58,8 +66,10 @@ pub struct Nudged {
     pub objects: Vec<Uuid>,
     /// How far they move (nm).
     pub by: Point,
-    /// The edit Command that moves them: `pcb.move`, `pcb.copper.drag`,
-    /// `pcb.track.drag`, `library.footprint.move` or `library.symbol.move`.
+    /// The edit Command that moves them: `pcb.move`, `pcb.text.set`,
+    /// `pcb.polygon.set_vertices`, `pcb.keepout.set` or a `batch` of them on a board,
+    /// `pcb.copper.drag`, `pcb.track.drag`, `library.footprint.move` or
+    /// `library.symbol.move`.
     pub edit: String,
 }
 
@@ -70,8 +80,7 @@ enum BoardMove {
     Copper(Uuid),
     /// A lone Track segment, slid across itself.
     Slide(Uuid),
-    /// Footprints, Free Pads, Dimensions, the Output Origin, the Board Outline and Board
-    /// Cutouts, as a mouse move moves them.
+    /// Everything else a Command can move: see [`board_steps`].
     Place(Vec<Uuid>),
 }
 
@@ -87,7 +96,12 @@ impl BoardMove {
             _ => BoardMove::Place(
                 unlocked
                     .into_iter()
-                    .filter(|o| board_anchor(pcb, *o).is_some() && placeable(pcb, *o))
+                    .filter(|o| {
+                        board_anchor(pcb, *o).is_some()
+                            && (placeable(pcb, *o)
+                                || pcb.text(*o).is_some()
+                                || outline_of(pcb, *o).is_some())
+                    })
                     .collect(),
             ),
         }
@@ -100,13 +114,77 @@ impl BoardMove {
         }
     }
 
-    fn edit(&self) -> &'static str {
+    fn edit(&self, pcb: &PcbDocument) -> &'static str {
         match self {
             BoardMove::Copper(_) => "pcb.copper.drag",
             BoardMove::Slide(_) => "pcb.track.drag",
-            BoardMove::Place(_) => "pcb.move",
+            BoardMove::Place(objects) => match &board_steps(pcb, objects, Point::default())[..] {
+                [(id, _)] => id,
+                _ => "batch",
+            },
         }
     }
+}
+
+/// The vertices a nudge moves of a Zone (unless it follows the Board Outline), Zone
+/// Cutout or Keepout, and whether that is a line Keepout's.
+fn outline_of(pcb: &PcbDocument, object: Uuid) -> Option<(&[Vertex], bool)> {
+    if let Some(z) = pcb.zone(object) {
+        return (!z.follows_outline).then_some((&z.vertices[..], false));
+    }
+    if let Some(c) = pcb.zone_cutout(object) {
+        return Some((&c.vertices, false));
+    }
+    let keepout = pcb.keepout(object)?;
+    let line = matches!(keepout.shape, KeepoutShape::Line { .. });
+    Some((keepout.vertices(), line))
+}
+
+/// `vertices` moved `by`, as Commands take them.
+fn moved_vertices(vertices: &[Vertex], by: Point) -> Vec<Value> {
+    (vertices.iter())
+        .map(|v| {
+            let mut p = json!({"x": (v.x + by.x).0, "y": (v.y + by.y).0});
+            if v.sweep != Millideg::ZERO {
+                p["sweep"] = json!(v.sweep.0);
+            }
+            p
+        })
+        .collect()
+}
+
+/// The edit Commands that move `objects` (none of them a lone Via, Free Pad or Track)
+/// `by` on `pcb`: one `pcb.move` for the kinds it takes, then one for each text, Zone,
+/// Zone Cutout and Keepout.
+fn board_steps(pcb: &PcbDocument, objects: &[Uuid], by: Point) -> Vec<(&'static str, Value)> {
+    let by_param = json!({"x": by.x.0, "y": by.y.0});
+    let placed: Vec<Uuid> = (objects.iter().copied())
+        .filter(|o| placeable(pcb, *o))
+        .collect();
+    let mut steps = Vec::new();
+    if !placed.is_empty() {
+        steps.push(("pcb.move", json!({"objects": placed, "by": by_param})));
+    }
+    for &o in objects {
+        if let Some(t) = pcb.text(o) {
+            let at = t.position + by;
+            steps.push(("pcb.text.set", json!({"uuid": o, "x": at.x.0, "y": at.y.0})));
+        } else if let Some((vertices, line)) = outline_of(pcb, o) {
+            let vertices = moved_vertices(vertices, by);
+            steps.push(if line {
+                (
+                    "pcb.keepout.set",
+                    json!({"keepout": o, "vertices": vertices}),
+                )
+            } else {
+                (
+                    "pcb.polygon.set_vertices",
+                    json!({"object": o, "vertices": vertices}),
+                )
+            });
+        }
+    }
+    steps
 }
 
 /// Whether `pcb.move` moves `object`.
@@ -130,6 +208,8 @@ fn board_anchor(pcb: &PcbDocument, object: Uuid) -> Option<Point> {
         .or_else(|| pcb.via(object).map(|v| v.at))
         .or_else(|| pcb.track(object).map(|t| t.geometry.ends().0))
         .or_else(|| pcb.dimension(object).map(|d| d.a.point))
+        .or_else(|| pcb.text(object).map(|t| t.position))
+        .or_else(|| outline_of(pcb, object).and_then(|(v, _)| first_vertex(v)))
         .or_else(|| pcb.cutout(object).and_then(|c| first_vertex(&c.vertices)))
         .or_else(|| {
             (pcb.outline())
@@ -203,7 +283,7 @@ fn plan(
             let moved = BoardMove::of(pcb, selected);
             let objects = moved.objects();
             let anchor = objects.first().and_then(|o| board_anchor(pcb, *o));
-            (objects, moved.edit(), anchor)
+            (objects, moved.edit(pcb), anchor)
         }
         DocumentType::Footprint => {
             let Some(LibraryElement::Footprint(f)) = project.element(document) else {
@@ -278,7 +358,9 @@ impl Command for PcbNudge {
         description: concat!(
             described!("Moves the board's selection"),
             " A lone Via or Free Pad keeps its Tracks attached and a lone Track segment \
-             slides; everything else moves as a mouse move moves it."
+             slides. Otherwise Footprints, Free Pads, Dimensions, the Output Origin, the \
+             Board Outline and Board Cutouts move as a mouse move moves them, and free \
+             text, Zones, Zone Cutouts and Keepouts move with them; board graphics stay."
         ),
         category: "pcb",
         icon: "drag",
@@ -349,7 +431,21 @@ fn edit_of(shell: &Shell, n: &Nudged) -> (String, Value) {
             json!({"footprint": n.document, "objects": n.objects, "by": by})
         }
         "library.symbol.move" => json!({"symbol": n.document, "objects": n.objects, "by": by}),
-        _ => json!({"objects": n.objects, "by": by}),
+        _ => {
+            let project = shell.engine().project();
+            let steps = (project.and_then(|p| p.pcb_document(n.document)))
+                .map(|pcb| board_steps(pcb, &n.objects, n.by))
+                .unwrap_or_default();
+            return match &steps[..] {
+                [(id, params)] => ((*id).to_owned(), params.clone()),
+                _ => {
+                    let commands: Vec<Value> = (steps.iter())
+                        .map(|(id, params)| json!({"id": id, "params": params}))
+                        .collect();
+                    ("batch".to_owned(), json!({"commands": commands}))
+                }
+            };
+        }
     };
     (n.edit.clone(), params)
 }

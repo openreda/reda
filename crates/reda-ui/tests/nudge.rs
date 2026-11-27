@@ -428,3 +428,126 @@ fn a_nudge_with_nothing_movable_selected_is_refused() {
         .unwrap_err();
     assert!(err.message.contains("not the board"), "{err:?}");
 }
+
+/// A free text at (2.3, 0.4) mm, a Zone, a Zone Cutout, a polygon Keepout and a line
+/// Keepout, each with its first vertex at a whole millimetre.
+fn annotations(b: &mut Board) -> [Uuid; 5] {
+    let square = |x: i64, y: i64| {
+        json!([{"x": format!("{x}mm"), "y": format!("{y}mm")},
+               {"x": format!("{}mm", x + 2), "y": format!("{y}mm")},
+               {"x": format!("{}mm", x + 2), "y": format!("{}mm", y + 2)},
+               {"x": format!("{x}mm"), "y": format!("{}mm", y + 2)}])
+    };
+    for (id, params) in [
+        (
+            "pcb.text.add",
+            json!({"layer": "silkscreen_top", "text": "R", "x": "2.3mm", "y": "0.4mm"}),
+        ),
+        (
+            "pcb.zone.add",
+            json!({"layer": "copper_top", "vertices": square(10, 0)}),
+        ),
+        (
+            "pcb.zone_cutout.add",
+            json!({"layer": "copper_top", "vertices": square(11, 0)}),
+        ),
+        ("pcb.keepout.add", json!({"vertices": square(20, 0)})),
+        (
+            "pcb.keepout.add",
+            json!({"shape": "line", "width": "0.5mm",
+                   "vertices": [{"x": "30mm", "y": 0}, {"x": "34mm", "y": 0}]}),
+        ),
+    ] {
+        b.shell.run(id, params).unwrap();
+    }
+    let project = b.shell.engine().project().unwrap();
+    let pcb = project.pcb().unwrap();
+    let keepout = |x: f64| {
+        (pcb.keepouts())
+            .find(|k| k.vertices()[0].point() == mm(x, 0.0))
+            .unwrap()
+            .uuid
+    };
+    [
+        pcb.texts().next().unwrap().uuid,
+        pcb.zones().next().unwrap().uuid,
+        pcb.zone_cutouts().next().unwrap().uuid,
+        keepout(20.0),
+        keepout(30.0),
+    ]
+}
+
+/// Where `annotations` put each object: the text's anchor and the others' first vertex.
+fn anchors(b: &Board, objects: &[Uuid]) -> Vec<Point> {
+    let project = b.shell.engine().project().unwrap();
+    let pcb = project.pcb().unwrap();
+    (objects.iter())
+        .map(|&o| {
+            (pcb.text(o).map(|t| t.position))
+                .or_else(|| pcb.zone(o).map(|z| z.vertices[0].point()))
+                .or_else(|| pcb.zone_cutout(o).map(|c| c.vertices[0].point()))
+                .or_else(|| pcb.keepout(o).map(|k| k.vertices()[0].point()))
+                .unwrap()
+        })
+        .collect()
+}
+
+#[test]
+fn text_zones_and_keepouts_move_with_the_selection_in_one_undo_step() {
+    let mut b = board();
+    let objects = annotations(&mut b);
+    let f = footprint(&mut b, 5.0, 5.0);
+    let mut selected = objects.to_vec();
+    selected.push(f);
+    select(&mut b.shell, &selected);
+    let before = b.shell.engine().journal().len();
+    assert_eq!(press(&mut b.shell, b.pcb, "Mod+Right"), "pcb.nudge");
+    // The text, first, is off the grid: it lands on x = 3 mm and the rest keep their
+    // distance, all in one edit.
+    assert_eq!(
+        anchors(&b, &objects),
+        [
+            mm(3.0, 0.4),
+            mm(10.7, 0.0),
+            mm(11.7, 0.0),
+            mm(20.7, 0.0),
+            mm(30.7, 0.0)
+        ]
+    );
+    assert_eq!(footprint_at(&b, f), mm(5.7, 5.0));
+    assert_eq!(edits_since(&b.shell, before), ["batch"]);
+    // A Zone keeps its whole outline, not only the first vertex.
+    let project = b.shell.engine().project().unwrap();
+    let zone = project.pcb().unwrap().zone(objects[1]).unwrap();
+    assert_eq!(zone.vertices[2].point(), mm(12.7, 2.0));
+    let pcb = b.pcb;
+    b.shell.run("edit.undo", json!({"document": pcb})).unwrap();
+    assert_eq!(
+        anchors(&b, &objects),
+        [
+            mm(2.3, 0.4),
+            mm(10.0, 0.0),
+            mm(11.0, 0.0),
+            mm(20.0, 0.0),
+            mm(30.0, 0.0)
+        ]
+    );
+    assert_eq!(footprint_at(&b, f), mm(5.0, 5.0));
+}
+
+#[test]
+fn a_lone_text_is_nudged_by_its_own_set_command_and_a_locked_one_stays_put() {
+    let mut b = board();
+    let [text, zone, ..] = annotations(&mut b);
+    select(&mut b.shell, &[text]);
+    let before = b.shell.engine().journal().len();
+    press(&mut b.shell, b.pcb, "Mod+Up");
+    assert_eq!(anchors(&b, &[text]), [mm(2.3, 1.0)]);
+    assert_eq!(edits_since(&b.shell, before), ["pcb.text.set"]);
+    b.shell
+        .run("pcb.lock", json!({"objects": [text], "locked": true}))
+        .unwrap();
+    select(&mut b.shell, &[text, zone]);
+    press(&mut b.shell, b.pcb, "Mod+Up");
+    assert_eq!(anchors(&b, &[text, zone]), [mm(2.3, 1.0), mm(10.0, 1.0)]);
+}
