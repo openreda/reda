@@ -211,6 +211,49 @@ fn a_shortcut_is_recorded_from_the_keyboard_shortcuts_page() {
 }
 
 #[test]
+fn a_digit_key_is_recorded_and_shown_by_its_place_on_the_keyboard_shortcuts_page() {
+    let home = TempDir::new("pref-dialog-digit");
+    let mut h = harness(home.path());
+    open_preferences(&mut h);
+    page(&mut h, "Keyboard Shortcuts");
+    type_into(&mut h, Role::SearchInput, "Search shortcuts", "Save All");
+    h.get_by_role_and_label(Role::Button, "Add a key for Save All")
+        .click();
+    h.run();
+    // Shift and the top-row 1 key on a German layout, which types `!`.
+    h.input_mut().events.extend([
+        egui::Event::ModifiersChanged(Modifiers::SHIFT),
+        egui::Event::Key {
+            key: Key::Exclamationmark,
+            physical_key: Some(Key::Num1),
+            pressed: true,
+            repeat: false,
+            modifiers: Modifiers::SHIFT,
+        },
+        egui::Event::Text("!".into()),
+        egui::Event::ModifiersChanged(Modifiers::NONE),
+    ]);
+    h.run();
+    assert!(
+        h.query_by_label("Shift+1 for Save All").is_some(),
+        "the recording names the digit"
+    );
+    h.get_by_label("Assign").click();
+    h.run();
+    let file =
+        std::fs::read_to_string(UserDirs::under(home.path()).config.join("keymap.toml")).unwrap();
+    assert_eq!(
+        file,
+        "[[bind]]\nkey = \"Shift+1\"\ncommand = \"project.save\"\n"
+    );
+    assert!(
+        h.query_by_role_and_label(Role::Button, "Remove Shift+1 from Save All")
+            .is_some(),
+        "the row shows the key as Shift+1"
+    );
+}
+
+#[test]
 fn the_agents_page_lists_and_forgets_allowed_agents() {
     let home = TempDir::new("pref-dialog-agents");
     let dirs = UserDirs::under(home.path());

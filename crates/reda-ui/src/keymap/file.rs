@@ -2,7 +2,7 @@
 //!
 //! ```toml
 //! [[bind]]
-//! key = "Mod+S"               # portable, by logical key
+//! key = "Mod+S"               # portable, by logical key (digits by physical key)
 //! command = "project.save"    # a Command, or a Preset such as "panel.show:layers"
 //!
 //! [[bind]]

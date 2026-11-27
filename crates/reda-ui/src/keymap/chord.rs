@@ -1,6 +1,7 @@
 //! A key and its modifiers, written portably (`"Mod+Shift+Z"`), matched against egui key
-//! events by logical key (the character the key produces), and shown the way the platform
-//! writes it.
+//! events, and shown the way the platform writes it. Digits are matched by physical key
+//! (the top-row key in the US digit's position, on every layout); every other key by
+//! logical key (the character the key produces).
 
 use std::fmt;
 
@@ -125,28 +126,49 @@ impl Chord {
         }
     }
 
-    /// The chords a pressed key event may stand for, most exact first: the key with the
-    /// modifiers held, then, for a punctuation key typed with Shift (`+` and `*` need it on
-    /// many layouts), the key without Shift. Released keys give none.
+    /// The chords a pressed key event may stand for, most exact first. A top-row digit key
+    /// is first the digit in its US position with the modifiers held, whatever the layout
+    /// makes it type (docs/spec/v0.3/3d-view.md#keys). Then the key it produces with the
+    /// modifiers held, and, for a punctuation key typed with Shift (`+` and `*` need it on
+    /// many layouts), that key without Shift. A digit is never matched by what a key
+    /// types, only by where the key is, unless the event does not say where (as with
+    /// synthesized input). Released keys give none.
     pub fn from_event(event: &Event) -> Vec<Chord> {
         Chord::from_event_for(event, MAC)
     }
 
     /// [`Chord::from_event`] as on macOS (`mac`) or elsewhere.
     pub fn from_event_for(event: &Event, mac: bool) -> Vec<Chord> {
+        let chord = |key, modifiers: Modifiers| Chord {
+            key,
+            command: if mac {
+                modifiers.mac_cmd || modifiers.command
+            } else {
+                modifiers.command || modifiers.ctrl
+            },
+            ctrl: mac && modifiers.ctrl,
+            alt: modifiers.alt,
+            shift: modifiers.shift,
+        };
         let (key, modifiers) = match event {
             // A native '*' has its own markers. F23 is a dedicated multiply,
-            // F22 a key needing Shift to produce the character.
+            // F22 a key needing Shift to produce the character. The physical key is F24,
+            // or the digit when the key is on the top row.
             Event::Key {
                 key: key @ (Key::F22 | Key::F23),
-                physical_key: Some(Key::F24),
+                physical_key: Some(physical),
                 pressed: true,
                 modifiers,
                 ..
-            } => {
-                let mut modifiers = *modifiers;
-                modifiers.shift &= *key == Key::F23;
-                (KeyName::Char('*'), modifiers)
+            } if *physical == Key::F24 || top_row_digit(*physical) => {
+                let mut star = *modifiers;
+                star.shift &= *key == Key::F23;
+                let star = chord(KeyName::Char('*'), star);
+                return if top_row_digit(*physical) {
+                    vec![chord(KeyName::Key(*physical), *modifiers), star]
+                } else {
+                    vec![star]
+                };
             }
             Event::Key {
                 key,
@@ -155,14 +177,25 @@ impl Chord {
                 physical_key,
                 ..
             } => {
-                // The native adapter preserves the digit's logical key and text.
-                let digit = (physical_key == &Some(Key::F24))
+                // The native adapter preserves the numpad digit's logical key and text.
+                let keypad = (physical_key == &Some(Key::F24))
                     .then(|| key.name().parse::<u8>().ok())
                     .flatten();
-                (
-                    digit.map_or(KeyName::Key(*key), KeyName::Keypad),
-                    *modifiers,
-                )
+                if let Some(d) = keypad {
+                    return vec![chord(KeyName::Keypad(d), *modifiers)];
+                }
+                match physical_key {
+                    Some(physical) if top_row_digit(*physical) => {
+                        let mut out = vec![chord(KeyName::Key(*physical), *modifiers)];
+                        if !top_row_digit(*key) {
+                            out.extend(Chord::typed(chord(KeyName::Key(*key), *modifiers)));
+                        }
+                        return out;
+                    }
+                    // A digit typed by a key elsewhere is not the digit's binding.
+                    Some(_) if top_row_digit(*key) => return Vec::new(),
+                    _ => (KeyName::Key(*key), *modifiers),
+                }
             }
             // Characters egui has no key for come only as text.
             Event::Text(text) => {
@@ -180,19 +213,14 @@ impl Chord {
             Event::Paste(_) => (KeyName::Key(Key::V), Modifiers::COMMAND),
             _ => return Vec::new(),
         };
-        let chord = Chord {
-            key,
-            command: if mac {
-                modifiers.mac_cmd || modifiers.command
-            } else {
-                modifiers.command || modifiers.ctrl
-            },
-            ctrl: mac && modifiers.ctrl,
-            alt: modifiers.alt,
-            shift: modifiers.shift,
-        };
+        Chord::typed(chord(key, modifiers))
+    }
+
+    /// The chords a key that typed `chord` stands for: `chord`, then, for punctuation
+    /// typed with Shift, the same key without Shift.
+    fn typed(chord: Chord) -> Vec<Chord> {
         let mut out = vec![chord];
-        if chord.shift && key.is_punctuation() {
+        if chord.shift && chord.key.is_punctuation() {
             out.push(Chord {
                 shift: false,
                 ..chord
@@ -200,6 +228,30 @@ impl Chord {
         }
         out
     }
+
+    /// Whether `event` is a key on the top digit row, which the Keymap matches by its
+    /// place, so the character it types (the [`Event::Text`] after it) belongs to it too.
+    pub(crate) fn on_top_row(event: &Event) -> bool {
+        matches!(event, Event::Key { physical_key: Some(key), pressed: true, .. } if top_row_digit(*key))
+    }
+}
+
+/// Whether `key` is a digit, which as a physical key is the top-row key in that digit's US
+/// position (the native adapter marks numpad digits apart).
+fn top_row_digit(key: Key) -> bool {
+    matches!(
+        key,
+        Key::Num0
+            | Key::Num1
+            | Key::Num2
+            | Key::Num3
+            | Key::Num4
+            | Key::Num5
+            | Key::Num6
+            | Key::Num7
+            | Key::Num8
+            | Key::Num9
+    )
 }
 
 impl KeyName {
