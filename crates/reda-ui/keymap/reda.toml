@@ -5,6 +5,10 @@
 # symbol, footprint, part or tool:<name>. The most specific context wins: the active Tool, then
 # the active Document's type, then global. A key binds once per context.
 #
+# A digit ("1", "Shift+1") is bound by physical key instead: the top-row key in the US
+# digit's position, whatever the layout makes it type. "Keypad1" to "Keypad9" are the
+# numpad digits.
+#
 # `command` names a Command or a Preset ("panel.show:projects"); `params` makes it a raw
 # {command, params} binding. "$active_document" stands for the active Document's UUID and
 # "$undo_stack" for the stack focus picks (a focused Document's, else the Project's).
