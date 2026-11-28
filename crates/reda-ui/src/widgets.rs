@@ -50,6 +50,7 @@ mod menu;
 mod paint;
 mod palette;
 mod range;
+mod reorder;
 mod row;
 mod section;
 mod segmented;
@@ -97,6 +98,7 @@ pub use menu::{
 pub use paint::{State, drew_focus};
 pub use palette::{PaletteRow, palette_frame, palette_frame_inset, palette_row};
 pub use range::{PROGRESS_RAIL, Progress, SLIDER_KNOB, SLIDER_RAIL, Slider, progress, slider};
+pub use reorder::{reorder_rows, reordered};
 pub use row::{Row, RowResponse, Selection, TREE_INDENT, list_row, rows, tree_row};
 pub use section::{Section, SectionHeader, SectionResponse, section, section_header};
 pub use segmented::{Segmented, segmented};

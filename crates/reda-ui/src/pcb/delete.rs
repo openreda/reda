@@ -1,7 +1,7 @@
 //! Deleting on the board from the window (docs/spec/v0.1/pcb.md#dimensions). `Del` runs
 //! `pcb.copper.delete` on the selection; here the Shell splits a selection that holds
-//! Dimensions, free graphics, text, Guides or Free Pads into each kind's delete, in one
-//! `batch`. Deleting an object a Dimension follows asks first whether to delete the
+//! Dimensions, free graphics, text, Guides, Local Grids or Free Pads into each kind's
+//! delete, in one `batch`. Deleting an object a Dimension follows asks first whether to delete the
 //! Dimension too (`pcb.delete.confirm`); a Command run by an agent or script keeps it,
 //! without its `ref`.
 
@@ -166,7 +166,7 @@ fn run_all(shell: &mut Shell, mut commands: Vec<(String, Value)>) -> Result<Valu
 }
 
 /// Each kind's delete for `objects`, and the objects they take. Anything that is not a
-/// Dimension, graphic, text, Guide or Free Pad stays with the copper delete, which says
+/// Dimension, graphic, text, Guide, Local Grid or Free Pad stays with the copper delete, which says
 /// so.
 fn split(pcb: &PcbDocument, objects: &[Uuid], params: &Value) -> (Vec<(String, Value)>, Vec<Uuid>) {
     let mut copper = Vec::new();
@@ -188,6 +188,8 @@ fn split(pcb: &PcbDocument, objects: &[Uuid], params: &Value) -> (Vec<(String, V
             "pcb.text.delete"
         } else if pcb.guide(*uuid).is_some() {
             "pcb.guide.delete"
+        } else if pcb.local_grid(*uuid).is_some() {
+            "pcb.local_grid.delete"
         } else if pcb.free_pad(*uuid).is_some() {
             pads.push(*uuid);
             continue;

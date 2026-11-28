@@ -26,7 +26,7 @@ mod grids;
 mod length;
 mod model;
 
-pub use grids::{BoardGridRow, GridsPage};
+pub use grids::{BoardGridRow, GridsPage, LocalGridRow};
 
 pub use model::{
     ANGLES, BoardSetupDraft, ClassKey, ClassRow, FabPreview, GRID_FIELDS, GRID_KINDS,

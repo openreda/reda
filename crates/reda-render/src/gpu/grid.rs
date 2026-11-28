@@ -1,15 +1,27 @@
 //! The canvas grid, drawn by a shader: dots or lines computed per pixel, no geometry, with
-//! every `coarse`-th one drawn stronger.
+//! every `coarse`-th one drawn stronger. A canvas may draw several grids: the everyday
+//! one with holes where Local Grids win, and each Local Grid turned and inside its area.
 
 use crate::color::Rgba;
 use crate::view::View;
 
 use super::{Renderer, SAMPLE_COUNT};
 
-const UNIFORM_SIZE: u64 = 96;
+const UNIFORM_SIZE: u64 = 656;
+
+/// How many quads a grid can be left out of; past that the rest are drawn over.
+pub const MAX_HOLES: usize = 16;
+
+/// A parallelogram on the Document (nm): a corner and the two edges from it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GridQuad {
+    pub corner: (f64, f64),
+    pub a: (f64, f64),
+    pub b: (f64, f64),
+}
 
 /// What grid to draw.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct GridSpec {
     /// A Document point (nm) that lies on the grid.
     pub origin: (f64, f64),
@@ -26,16 +38,48 @@ pub struct GridSpec {
     /// The sheet's paper, as two opposite Document corners (nm): the grid stops at its
     /// edge. `None` (a board or a Library element) draws it over the whole canvas.
     pub paper: Option<((f64, f64), (f64, f64))>,
+    /// The grid's own X axis, counter-clockwise from the Document's, in radians; `pitch`
+    /// is along its own axes.
+    pub angle: f64,
+    /// The area it is drawn inside; `None` is everywhere.
+    pub inside: Option<GridQuad>,
+    /// Areas it is left out of (at most [`MAX_HOLES`]).
+    pub outside: Vec<GridQuad>,
+}
+
+impl GridSpec {
+    /// An unturned grid over the whole canvas.
+    pub fn new(origin: (f64, f64), pitch: (f64, f64), color: Rgba) -> GridSpec {
+        GridSpec {
+            origin,
+            pitch,
+            coarse: 1,
+            lines: false,
+            radius_px: 1.5,
+            color,
+            paper: None,
+            angle: 0.0,
+            inside: None,
+            outside: Vec::new(),
+        }
+    }
+}
+
+/// One grid's uniforms.
+struct Layer {
+    uniforms: wgpu::Buffer,
+    bind_group: wgpu::BindGroup,
 }
 
 /// The grid pipeline and its uniforms, for one canvas. Draw it into the canvas pass after
 /// the Scene ([`Target::record_with`](super::Target::record_with)).
 pub struct Grid {
     pipeline: wgpu::RenderPipeline,
-    uniforms: wgpu::Buffer,
-    bind_group: wgpu::BindGroup,
+    layout: wgpu::BindGroupLayout,
+    layers: Vec<Layer>,
     srgb: bool,
-    visible: bool,
+    /// How many of `layers` are drawn.
+    visible: usize,
 }
 
 impl Grid {
@@ -91,6 +135,17 @@ impl Grid {
             multiview_mask: None,
             cache: None,
         });
+        let first = Grid::layer(device, &layout);
+        Grid {
+            pipeline,
+            layout,
+            layers: vec![first],
+            srgb: renderer.format().is_srgb(),
+            visible: 0,
+        }
+    }
+
+    fn layer(device: &wgpu::Device, layout: &wgpu::BindGroupLayout) -> Layer {
         let uniforms = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("reda grid uniforms"),
             size: UNIFORM_SIZE,
@@ -99,30 +154,61 @@ impl Grid {
         });
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("reda grid uniforms"),
-            layout: &layout,
+            layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
                 resource: uniforms.as_entire_binding(),
             }],
         });
-        Grid {
-            pipeline,
+        Layer {
             uniforms,
             bind_group,
-            srgb: renderer.format().is_srgb(),
-            visible: false,
         }
     }
 
     /// Writes the grid for `view`; `None` hides it.
     pub fn set(&mut self, queue: &wgpu::Queue, view: &View, spec: Option<&GridSpec>) {
-        self.visible = spec.is_some();
-        let Some(spec) = spec else { return };
+        self.visible = usize::from(spec.is_some());
+        if let Some(spec) = spec {
+            self.write(queue, 0, view, spec);
+        }
+    }
+
+    /// Writes every grid of `specs` for `view`, drawn in order; none hides them all.
+    pub fn set_all(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        view: &View,
+        specs: &[GridSpec],
+    ) {
+        while self.layers.len() < specs.len() {
+            let layer = Grid::layer(device, &self.layout);
+            self.layers.push(layer);
+        }
+        self.visible = specs.len();
+        for (i, spec) in specs.iter().enumerate() {
+            self.write(queue, i, view, spec);
+        }
+    }
+
+    fn write(&self, queue: &wgpu::Queue, layer: usize, view: &View, spec: &GridSpec) {
         let pitch_x = spec.pitch.0 / view.nm_per_px;
         let pitch_y = spec.pitch.1 / view.nm_per_px;
         let mirror = if view.mirrored { -1.0 } else { 1.0 };
-        let dx = (spec.origin.0 - view.center.0) / view.nm_per_px * mirror;
-        let dy = -(spec.origin.1 - view.center.1) / view.nm_per_px;
+        // A Document point and vector as pixels off the target centre (y down).
+        let px = |(x, y): (f64, f64)| {
+            (
+                (x - view.center.0) / view.nm_per_px * mirror,
+                -(y - view.center.1) / view.nm_per_px,
+            )
+        };
+        let vector = |(x, y): (f64, f64)| (x / view.nm_per_px * mirror, -y / view.nm_per_px);
+        // From pixels off the centre to the grid's own frame, turned back by its angle.
+        let (s, c) = spec.angle.sin_cos();
+        let frame = [c * mirror, -s, -s * mirror, -c];
+        let own = |(x, y): (f64, f64)| (frame[0] * x + frame[1] * y, frame[2] * x + frame[3] * y);
+        let (dx, dy) = own(px(spec.origin));
         let floats = [
             view.width as f32 / 2.0,
             view.height as f32 / 2.0,
@@ -140,13 +226,13 @@ impl Grid {
         // The paper in target pixels (y down), as min x, min y, max x, max y.
         let clip = match spec.paper {
             Some((a, b)) => {
-                let px = |(x, y): (f64, f64)| {
+                let target = |(x, y): (f64, f64)| {
                     (
                         (x - view.center.0) / view.nm_per_px * mirror + view.width as f64 / 2.0,
                         view.height as f64 / 2.0 - (y - view.center.1) / view.nm_per_px,
                     )
                 };
-                let (a, b) = (px(a), px(b));
+                let (a, b) = (target(a), target(b));
                 [a.0.min(b.0), a.1.min(b.1), a.0.max(b.0), a.1.max(b.1)].map(|v| v as f32)
             }
             None => [f32::MIN, f32::MIN, f32::MAX, f32::MAX],
@@ -179,18 +265,39 @@ impl Grid {
             bytes.extend_from_slice(&v.to_le_bytes());
         }
         bytes.extend_from_slice(&u32::from(spec.lines).to_le_bytes());
-        // Pads the uniform block to its 16-byte size.
+        // `frame` starts on the next 16 bytes.
+        bytes.resize(96, 0);
+        let mut push = |values: &[f64]| {
+            for v in values {
+                bytes.extend_from_slice(&(*v as f32).to_le_bytes());
+            }
+        };
+        push(&frame);
+        let quad = |q: &GridQuad| {
+            let (corner, a, b) = (px(q.corner), vector(q.a), vector(q.b));
+            [corner.0, corner.1, a.0, a.1, b.0, b.1]
+        };
+        let holes = spec.outside.len().min(MAX_HOLES);
+        let [cx, cy, ax, ay, bx, by] = spec.inside.as_ref().map(quad).unwrap_or_default();
+        let has = if spec.inside.is_some() { 1.0 } else { 0.0 };
+        push(&[cx, cy, ax, ay, bx, by, has, holes as f64]);
+        for hole in spec.outside.iter().take(MAX_HOLES) {
+            let [cx, cy, ax, ay, bx, by] = quad(hole);
+            push(&[cx, cy, ax, ay, bx, by, 0.0, 0.0]);
+        }
         bytes.resize(UNIFORM_SIZE as usize, 0);
-        queue.write_buffer(&self.uniforms, 0, &bytes);
+        queue.write_buffer(&self.layers[layer].uniforms, 0, &bytes);
     }
 
-    /// Records the grid into `pass` (nothing when hidden).
+    /// Records the grids into `pass` (nothing when hidden).
     pub fn draw(&self, pass: &mut wgpu::RenderPass<'_>) {
-        if !self.visible {
+        if self.visible == 0 {
             return;
         }
         pass.set_pipeline(&self.pipeline);
-        pass.set_bind_group(0, &self.bind_group, &[]);
-        pass.draw(0..3, 0..1);
+        for layer in &self.layers[..self.visible] {
+            pass.set_bind_group(0, &layer.bind_group, &[]);
+            pass.draw(0..3, 0..1);
+        }
     }
 }

@@ -124,6 +124,8 @@ fn rank_with_locks(shell: &Shell, document: Uuid, item: &Item, protect: bool) ->
         FilterKind::BoardOutline | FilterKind::BoardCutout => 4,
         // Under the pointer a Guide is picked last: it never takes a click from copper.
         FilterKind::Guide => 5,
+        // A Local Grid's boundary after that, so its area never takes a click at all.
+        FilterKind::LocalGrid => 6,
         _ if item.layer
             == shell
                 .board_view()
@@ -589,6 +591,11 @@ fn document_scene(shell: &Shell, document: Uuid) -> Scene {
                     .filter(|g| g.shown)
                     .map(|g| guide_item(g, layer)),
             );
+            scene.items.extend(
+                (pcb.local_grids())
+                    .filter(|g| g.shown)
+                    .flat_map(|g| local_grid_items(g, layer)),
+            );
         }
     }
     scene
@@ -623,6 +630,27 @@ fn guide_item(guide: &reda_engine::model::Guide, layer: SceneLayer) -> Item {
         primitive: Primitive::Capsule { a, b, width: Nm(0) },
         look: Default::default(),
     }
+}
+
+/// A shown Local Grid as something to pick: the four edges of its boundary.
+fn local_grid_items(grid: &reda_engine::model::LocalGrid, layer: SceneLayer) -> Vec<Item> {
+    use reda_engine::model::geom::Nm;
+    use reda_engine::render::{BoardColor, ColorKey, Primitive};
+    let corners = grid.outline();
+    (0..corners.len())
+        .map(|i| Item {
+            object: grid.uuid,
+            child: None,
+            layer,
+            color: ColorKey::Board(BoardColor::Guide),
+            primitive: Primitive::Capsule {
+                a: corners[i],
+                b: corners[(i + 1) % corners.len()],
+                width: Nm(0),
+            },
+            look: Default::default(),
+        })
+        .collect()
 }
 
 /// Everything eligible on this canvas, with children collapsed into a picked parent.

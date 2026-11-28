@@ -2,8 +2,10 @@
 //!
 //! A snap is a pure function of the cursor, the [`Target`]s the editor gathered from its
 //! Document ([`hotspots`]), any alignment [`Guide`]s, and the [`Rules`] in force (which
-//! carry the Document's placed Guides, [`PlacedGuide`]). The levels rank **Hotspot, then
-//! Guide, then alignment guide, then grid** (docs/spec/v0.3/grids-guides.md#snapping). Capture is a length checked
+//! carry the Document's placed Guides, [`PlacedGuide`], and its Local Grids). The levels
+//! rank **Hotspot, then Guide, then alignment guide, then Local Grid, then grid**
+//! (docs/spec/v0.3/grids-guides.md#snapping). Inside a Local Grid its grid replaces the
+//! everyday grid wherever a level puts an axis on the grid. Capture is a length checked
 //! on both axes: the cursor must be within it in X and in Y. Boards and Footprints use one
 //! Snap Distance (a Preference); sheets and Symbols use the grid preset's Electrical
 //! Range ([`crate::shell::Shell::electrical_range`]).
@@ -20,8 +22,8 @@ mod suspend;
 
 use std::collections::BTreeSet;
 
-use reda_engine::model::Uuid;
 use reda_engine::model::geom::{Nm, Point};
+use reda_engine::model::{LocalGrid, Uuid};
 
 pub use palette::{
     PaletteRequests, controls as palette_controls, mode_label, palette_button,
@@ -194,6 +196,12 @@ pub struct Rules {
     /// The Guide level: the Document's enabled Guides, or none when the Guides switch is
     /// off or `Mod` suspends them.
     pub placed: Vec<PlacedGuide>,
+    /// The Local Grid level, in priority order: the board's enabled Local Grids, or none
+    /// when the Local Grids switch is off, Gridless, or `Mod`+Shift suspends the grids.
+    pub local: Vec<LocalGrid>,
+    /// What is in flight is a Component: Local Grids that apply to Components only snap
+    /// it, and those for All but Components are skipped.
+    pub component: bool,
 }
 
 impl Rules {
@@ -206,11 +214,23 @@ impl Rules {
             off: BTreeSet::new(),
             alignment: false,
             placed: Vec::new(),
+            local: Vec::new(),
+            component: false,
         }
     }
 
-    /// `at` on the grid level alone: the nearest grid point, or `at` rounded with none.
+    /// The Local Grid in force at `at`: the first, in priority order, that applies to what
+    /// is in flight and that it is inside.
+    pub fn local_at(&self, at: (f64, f64)) -> Option<&LocalGrid> {
+        (self.local.iter()).find(|g| g.applies_to.applies(self.component) && g.contains(at))
+    }
+
+    /// `at` on the grid levels alone: the nearest point of the Local Grid it is inside,
+    /// else of the everyday grid, or `at` rounded with neither.
     pub fn to_grid(&self, at: (f64, f64)) -> Point {
+        if let Some(local) = self.local_at(at) {
+            return local.nearest(at);
+        }
         match self.grid {
             Some(grid) => grid.nearest(at),
             None => round(at),
@@ -244,6 +264,8 @@ pub enum Hit {
     Guide { object: Uuid },
     /// An alignment guide, on one axis or both.
     Alignment,
+    /// A Local Grid's grid.
+    LocalGrid { object: Uuid },
     /// The grid.
     Grid,
     /// Nothing: Gridless (or the grid suspended) and no Hotspot near.
@@ -265,6 +287,7 @@ impl Hit {
             Hit::Hotspot { kind, .. } => hotspot_label(kind),
             Hit::Guide { .. } => crate::tr!("snap-hit-guide"),
             Hit::Alignment => crate::tr!("snap-hit-alignment"),
+            Hit::LocalGrid { .. } => crate::tr!("snap-hit-local-grid"),
             Hit::Grid => crate::tr!("snap-hit-grid"),
             Hit::Free => crate::tr!("snap-hit-free"),
         }
@@ -277,7 +300,7 @@ impl Hit {
 pub fn marker(painter: &egui::Painter, c: egui::Pos2, hit: Hit, color: egui::Color32) {
     use egui::{Stroke, vec2};
     match hit {
-        Hit::Grid => {
+        Hit::Grid | Hit::LocalGrid { .. } => {
             let r = 4.0;
             painter.line_segment(
                 [c - vec2(r, 0.0), c + vec2(r, 0.0)],
@@ -332,7 +355,8 @@ pub struct Snapped {
 /// `at` (nm) snapped by `rules`: onto the nearest captured point Hotspot, else the
 /// nearest captured segment, else a point Guide or Guide crossing, else the nearest line
 /// Guide (along it on the grid), else the alignment guides on each axis they catch (the
-/// other axis on the grid), else the grid, else left where it is.
+/// other axis on the grid), else the Local Grid it is inside, else the grid, else left
+/// where it is.
 pub fn snap(at: (f64, f64), targets: &[Target], guides: &[Guide], rules: &Rules) -> Snapped {
     let dist = |p: (f64, f64)| (p.0 - at.0).hypot(p.1 - at.1);
     let usable = || targets.iter().filter(|t| rules.takes(t));
@@ -415,6 +439,12 @@ pub fn snap(at: (f64, f64), targets: &[Target], guides: &[Guide], rules: &Rules)
         return Snapped {
             at: Point::new(gx.unwrap_or(grid.x), gy.unwrap_or(grid.y)),
             hit: Hit::Alignment,
+        };
+    }
+    if let Some(local) = rules.local_at(at) {
+        return Snapped {
+            at: grid,
+            hit: Hit::LocalGrid { object: local.uuid },
         };
     }
     Snapped {

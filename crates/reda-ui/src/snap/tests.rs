@@ -33,6 +33,8 @@ fn rules(capture: i64) -> Rules {
         off: BTreeSet::new(),
         alignment: true,
         placed: Vec::new(),
+        local: Vec::new(),
+        component: false,
     }
 }
 
@@ -445,4 +447,108 @@ mod order {
             }
         }
     }
+}
+
+/// A Local Grid of `step` (nm) on both axes from (`x`, `y`), `w` × `h` nm, turned `deg`.
+fn local_grid(n: u128, (x, y): (i64, i64), step: i64, (w, h): (i64, i64), deg: i64) -> LocalGrid {
+    use reda_engine::model::geom::Millideg;
+    use reda_engine::model::{CartesianGrid, LengthUnit, LocalGridShape, TypedLength};
+    let step = TypedLength::new(Nm(step), LengthUnit::Um);
+    LocalGrid::new(
+        id(n),
+        format!("Grid {n}"),
+        LocalGridShape::Cartesian(CartesianGrid {
+            origin: p(x, y),
+            rotation: Millideg(deg * 1000),
+            step_x: step,
+            step_y: step,
+            width: Nm(w),
+            height: Nm(h),
+        }),
+    )
+}
+
+#[test]
+fn inside_a_local_grid_its_grid_replaces_the_everyday_grid() {
+    let mut r = rules(10);
+    // 300 nm steps from (100, 100), 3000 × 2000 nm; the everyday grid is 1000 nm.
+    r.local = vec![local_grid(7, (100, 100), 300, (3000, 2000), 0)];
+    let inside = snap(at(560, 1180), &[], &[], &r);
+    assert_eq!(
+        inside,
+        Snapped {
+            at: p(700, 1300),
+            hit: Hit::LocalGrid { object: id(7) }
+        }
+    );
+    let outside = snap(at(3300, 1180), &[], &[], &r);
+    assert_eq!(
+        outside,
+        Snapped {
+            at: p(3000, 1000),
+            hit: Hit::Grid
+        }
+    );
+    assert_eq!(r.to_grid(at(560, 1180)), p(700, 1300));
+}
+
+#[test]
+fn a_turned_local_grid_snaps_along_its_own_axes() {
+    let mut r = rules(10);
+    r.local = vec![local_grid(7, (0, 0), 1000, (5000, 5000), 90)];
+    // Turned a quarter: its X runs up the board and its Y to the left.
+    let s = snap(at(-2400, 3100), &[], &[], &r);
+    assert_eq!(s.at, p(-2000, 3000));
+    assert_eq!(s.hit, Hit::LocalGrid { object: id(7) });
+}
+
+#[test]
+fn where_local_grids_overlap_the_first_in_the_list_wins() {
+    let mut r = rules(10);
+    let a = local_grid(1, (0, 0), 300, (3000, 3000), 0);
+    let b = local_grid(2, (0, 0), 400, (3000, 3000), 0);
+    r.local = vec![a.clone(), b.clone()];
+    let s = snap(at(950, 50), &[], &[], &r);
+    assert_eq!((s.at, s.hit), (p(900, 0), Hit::LocalGrid { object: id(1) }));
+    r.local = vec![b, a];
+    let s = snap(at(950, 50), &[], &[], &r);
+    assert_eq!((s.at, s.hit), (p(800, 0), Hit::LocalGrid { object: id(2) }));
+}
+
+#[test]
+fn a_local_grid_applies_only_to_what_it_is_for() {
+    let mut r = rules(10);
+    let mut components = local_grid(1, (0, 0), 300, (3000, 3000), 0);
+    components.applies_to = reda_engine::model::AppliesTo::Components;
+    let mut rest = local_grid(2, (0, 0), 400, (3000, 3000), 0);
+    rest.applies_to = reda_engine::model::AppliesTo::NotComponents;
+    r.local = vec![components, rest];
+    // A Track end, say, skips the Components-only grid.
+    assert_eq!(
+        snap(at(1150, 50), &[], &[], &r).hit,
+        Hit::LocalGrid { object: id(2) }
+    );
+    r.component = true;
+    assert_eq!(
+        snap(at(1150, 50), &[], &[], &r).hit,
+        Hit::LocalGrid { object: id(1) }
+    );
+}
+
+#[test]
+fn hotspot_guide_and_alignment_guide_beat_a_local_grid() {
+    let mut r = with_guides(100, vec![line_guide(3, 0, 2000, 0)]);
+    r.local = vec![local_grid(7, (0, 0), 300, (5000, 5000), 0)];
+    let s = snap(at(40, 40), &[pad(10, 10, 1)], &[], &r);
+    assert!(s.hit.hotspot().is_some(), "{s:?}");
+    let s = snap(at(1150, 1960), &[], &[], &r);
+    assert_eq!(s.hit, Hit::Guide { object: id(3) });
+    let s = snap(at(1150, 1040), &[], &[Guide::X(Nm(1170))], &r);
+    // The alignment guide holds X; Y is on the Local Grid.
+    assert_eq!((s.at, s.hit), (p(1170, 900), Hit::Alignment));
+    let s = snap(at(1150, 1040), &[], &[], &r);
+    assert_eq!(
+        (s.at, s.hit),
+        (p(1200, 900), Hit::LocalGrid { object: id(7) })
+    );
 }

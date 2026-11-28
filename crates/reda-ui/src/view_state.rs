@@ -150,6 +150,9 @@ pub struct DocumentView {
     /// The Guide level of snapping; unset follows the Preference.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub snap_guides: Option<bool>,
+    /// The Local Grid level of snapping; unset follows the Preference.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub snap_local_grids: Option<bool>,
     /// The kinds the Selection Filter turns off.
     #[serde(skip_serializing_if = "BTreeSet::is_empty")]
     pub selection_filter_off: BTreeSet<String>,

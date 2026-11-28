@@ -20,8 +20,8 @@ use std::collections::BTreeMap;
 
 use egui::{Modifiers, Pos2, Ui};
 use reda_engine::command::{Command, CommandError, Context, Kind, Meta, Registry};
-use reda_engine::model::Uuid;
-use reda_engine::model::geom::{Nm, Point};
+use reda_engine::model::geom::{Millideg, Nm, Point};
+use reda_engine::model::{CartesianGrid, LocalGridShape, Uuid};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -75,9 +75,37 @@ pub fn step_axis(at: i64, axis: GridAxis, steps: i64) -> i64 {
 pub struct StepGrid {
     pub x: GridAxis,
     pub y: GridAxis,
+    /// A turned grid (a Local Grid's): `x` and `y` are along its own axes from this
+    /// point, `x` along the axis at this angle (the one nearest the board's +x) and `y`
+    /// a quarter turn on from it.
+    pub turned: Option<(Point, Millideg)>,
 }
 
 impl StepGrid {
+    /// The Cartesian Local Grid's own grid: the right arrow steps along whichever of its
+    /// axes points most nearly along the board's +x, and up a quarter turn from that.
+    pub fn local(grid: &CartesianGrid) -> StepGrid {
+        let rotation = grid.rotation.normalized().0;
+        // The quarter turns back to the axis nearest +x.
+        let quarters = ((rotation + 45_000) / 90_000) % 4;
+        let turn = Millideg(rotation - quarters * 90_000);
+        let (along, across) = match quarters % 2 {
+            0 => (grid.step_x.nm().0, grid.step_y.nm().0),
+            _ => (grid.step_y.nm().0, grid.step_x.nm().0),
+        };
+        StepGrid {
+            x: GridAxis {
+                origin: 0,
+                pitch: along,
+            },
+            y: GridAxis {
+                origin: 0,
+                pitch: across,
+            },
+            turned: Some((grid.origin, turn)),
+        }
+    }
+
     /// A grid of `step` (Step X across, Step Y down) through `origin`.
     pub fn of(step: crate::grid::Step, origin: Point) -> StepGrid {
         StepGrid {
@@ -89,6 +117,7 @@ impl StepGrid {
                 origin: origin.y.0,
                 pitch: step.y.0,
             },
+            turned: None,
         }
     }
 
@@ -99,7 +128,27 @@ impl StepGrid {
             0 if snapping => axis.nearest(at),
             steps => step_axis(at, axis, steps),
         };
-        Point::new(Nm(axis(at.x.0, self.x, dx)), Nm(axis(at.y.0, self.y, dy)))
+        let Some((origin, turn)) = self.turned else {
+            return Point::new(Nm(axis(at.x.0, self.x, dx)), Nm(axis(at.y.0, self.y, dy)));
+        };
+        // In the grid's own frame, a point within rounding of a line is on it.
+        let (sin, cos) = (turn.0 as f64 / 1000.0).to_radians().sin_cos();
+        let d = ((at.x.0 - origin.x.0) as f64, (at.y.0 - origin.y.0) as f64);
+        let on = |v: f64, axis: GridAxis| {
+            let line = axis.nearest(v.round() as i64);
+            if (v - line as f64).abs() <= 2.0 {
+                line
+            } else {
+                v.round() as i64
+            }
+        };
+        let s = on(d.0 * cos + d.1 * sin, self.x);
+        let t = on(-d.0 * sin + d.1 * cos, self.y);
+        let (s, t) = (axis(s, self.x, dx) as f64, axis(t, self.y, dy) as f64);
+        Point::new(
+            Nm(origin.x.0 + (s * cos - t * sin).round() as i64),
+            Nm(origin.y.0 + (s * sin + t * cos).round() as i64),
+        )
     }
 }
 
@@ -211,8 +260,9 @@ impl Command for Step {
         description: "Moves the Edit Cursor of a canvas, the active one by default, by whole \
                       grid steps: `dx` to the right as the canvas shows it and `dy` up. From \
                       a point off the grid the first step lands on the next grid line. \
-                      Hotspots and Guides are left out, and the Tool's object in flight \
-                      moves with it.",
+                      Inside a board's Local Grid it steps on that grid, along whichever \
+                      of its axes is nearest right and up. Hotspots and Guides are left \
+                      out, and the Tool's object in flight moves with it.",
         category: "view",
         icon: "move",
         kind: Kind::View,
@@ -222,23 +272,23 @@ impl Command for Step {
 
     fn run(&self, cx: &mut Context<'_>, p: StepParams) -> Result<CursorAt, CommandError> {
         let document = crate::navigation::canvas_of(cx, p.document)?;
-        let (grid, snapping, mirrored) = step_grid(cx, document)?;
-        let cursors = cx.view::<EditCursors>()?;
-        let cursor = cursors.0.entry(document).or_default();
-        let start = match (cursor.keyed, cursor.at()) {
-            (Some(keyed), _) => keyed,
-            (None, Some((x, y))) => {
-                let p = Point::new(Nm(x.round() as i64), Nm(y.round() as i64));
-                // The Edit Cursor follows the pointer on the grid level.
-                match snapping {
-                    true => grid.step(p, 0, 0, true),
-                    false => p,
-                }
-            }
-            (None, None) => Point::new(Nm(grid.x.origin), Nm(grid.y.origin)),
+        let cursor = cx.view::<EditCursors>()?.0.entry(document).or_default();
+        let (keyed, pointer) = (cursor.keyed, cursor.at());
+        let pointer = pointer.map(|(x, y)| Point::new(Nm(x.round() as i64), Nm(y.round() as i64)));
+        // Before the canvas is shown the keys start at the grid's origin.
+        let origin = crate::grid::origin(cx.project().ok(), document);
+        // The grid of where the Edit Cursor is: inside a Local Grid, its own.
+        let from = keyed.or(pointer).unwrap_or(origin);
+        let (grid, snapping, mirrored) = step_grid(cx, document, Some(from), false)?;
+        let start = match keyed {
+            Some(keyed) => keyed,
+            // The Edit Cursor follows the pointer on the grid level.
+            None if snapping => grid.step(from, 0, 0, true),
+            None => from,
         };
         let dx = if mirrored { -p.dx } else { p.dx };
         let at = grid.step(start, dx, p.dy, snapping);
+        let cursor = cx.view::<EditCursors>()?.0.entry(document).or_default();
         cursor.keyed = Some(at);
         cursor.steps += 1;
         Ok(CursorAt { document, at })
@@ -263,7 +313,7 @@ impl Command for Click {
 
     fn run(&self, cx: &mut Context<'_>, p: ClickParams) -> Result<CursorAt, CommandError> {
         let document = crate::navigation::canvas_of(cx, p.document)?;
-        step_grid(cx, document)?;
+        step_grid(cx, document, None, false)?;
         let cursors = cx.view::<EditCursors>()?;
         let cursor = cursors.0.entry(document).or_default();
         let Some((x, y)) = cursor.at() else {
@@ -277,11 +327,15 @@ impl Command for Click {
     }
 }
 
-/// The grid `document`'s arrows step on, whether its grid level is in force, and whether
-/// it is a board seen from below (screen right is Document left).
+/// The grid `document`'s arrows step on from `at`, whether its grid level is in force, and
+/// whether it is a board seen from below (screen right is Document left). From inside a
+/// board's Local Grid that applies (to a Component when `component`), they step on its
+/// grid.
 pub(crate) fn step_grid(
     cx: &mut Context<'_>,
     document: Uuid,
+    at: Option<Point>,
+    component: bool,
 ) -> Result<(StepGrid, bool, bool), CommandError> {
     let project = cx.project()?;
     let ty = crate::grid::document_type(project, document)
@@ -295,14 +349,28 @@ pub(crate) fn step_grid(
     } else {
         pitch
     };
-    let gridless = cx
-        .view::<crate::working_state::WorkingState>()
-        .is_ok_and(|w| w.snap(document, ty).gridless);
+    let options = (cx.view::<crate::working_state::WorkingState>())
+        .map(|w| w.snap(document, ty))
+        .ok();
+    let gridless = options.as_ref().is_some_and(|o| o.gridless);
+    let local = options.as_ref().is_some_and(|o| o.local_grids && !gridless);
     let mirrored = ty == DocumentType::Pcb
         && cx
             .view::<crate::pcb::BoardView>()
             .is_ok_and(|v| v.layers.from_bottom);
-    Ok((StepGrid::of(pitch, origin), !gridless, mirrored))
+    let inside = (cx.project().ok())
+        .and_then(|p| p.pcb_document(document))
+        .zip(at.filter(|_| local))
+        .and_then(|(pcb, at)| {
+            let at = (at.x.0 as f64, at.y.0 as f64);
+            pcb.local_grids()
+                .find(|g| g.enabled && g.applies_to.applies(component) && g.contains(at))
+                .map(|g| match &g.shape {
+                    LocalGridShape::Cartesian(c) => StepGrid::local(c),
+                })
+        });
+    let grid = inside.unwrap_or_else(|| StepGrid::of(pitch, origin));
+    Ok((grid, !gridless, mirrored))
 }
 
 /// Whether the desktop lets REDA move the system pointer, as kept on `ctx` by

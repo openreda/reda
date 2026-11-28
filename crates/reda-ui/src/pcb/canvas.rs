@@ -139,6 +139,7 @@ pub fn decorate(ui: &Ui, shell: &mut Shell, input: &CanvasInputs) -> Vec<(String
     super::marks::drawing(ui, shell, input);
     super::polygon_edit::draw(ui, shell, input);
     super::dimension_edit::draw(ui, shell, input);
+    super::local_grid_edit::draw(ui, shell, input);
     super::copper_drag::draw(ui, shell, input);
     super::marks::snap_marker(ui, shell, input);
     grid_readout(ui, shell, input);

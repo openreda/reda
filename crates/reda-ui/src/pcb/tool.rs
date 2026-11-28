@@ -42,6 +42,7 @@ use serde_json::{Value, json};
 
 use super::copper_drag::{self, CopperDrag, DragMode};
 use super::dimension_edit::{self, DimensionEdit};
+use super::local_grid_edit::{self, LocalGridEdit};
 use super::polygon_edit::{self, Grab, PolygonEdit};
 use crate::shell::Shell;
 use crate::snap::{self, Guide, Hit, Snapped, Target};
@@ -94,6 +95,12 @@ enum State {
         at: Point,
         dragged: bool,
     },
+    /// A press on the selected Local Grid's handles (see [`super::local_grid_edit`]).
+    LocalGrid {
+        edit: Box<LocalGridEdit>,
+        at: Point,
+        dragged: bool,
+    },
     /// The press can do nothing more until release (a refused move, a cancel).
     Spent,
     /// A press while Track Properties waits for a Net pick: release picks there.
@@ -132,6 +139,9 @@ struct Move {
     overlaps: Vec<Overlap>,
     /// The outlines of the Footprints in `overlaps`, where they now stand.
     overlap_outlines: Vec<Vec<Point>>,
+    /// The object held is a Component: Local Grids for Components snap it, those for All
+    /// but Components don't.
+    component: bool,
 }
 
 impl Move {
@@ -170,6 +180,7 @@ fn movable(kind: ObjectType) -> bool {
             | ObjectType::FreePad
             | ObjectType::OutputOrigin
             | ObjectType::Guide
+            | ObjectType::LocalGrid
     )
 }
 
@@ -221,6 +232,12 @@ impl SelectTool {
     /// Whether a move is in flight.
     pub fn moving(&self) -> bool {
         matches!(self.state, State::Moving(_))
+    }
+
+    /// Whether the move in flight holds a Component, which Local Grids for Components
+    /// snap.
+    pub fn carrying_component(&self) -> bool {
+        matches!(&self.state, State::Moving(m) if m.component)
     }
 
     /// The objects the move in flight carries; `None` with no move in flight.
@@ -357,6 +374,7 @@ impl SelectTool {
             guides: Vec::new(),
             overlaps: Vec::new(),
             overlap_outlines: Vec::new(),
+            component: true,
         };
         m.guides = guides(shell, &m, None);
         let to = self.cursor.unwrap_or(at);
@@ -406,6 +424,7 @@ impl SelectTool {
             guides: Vec::new(),
             overlaps: Vec::new(),
             overlap_outlines: Vec::new(),
+            component: false,
         });
         let State::Moving(m) = &mut self.state else {
             unreachable!("just set");
@@ -452,6 +471,16 @@ impl SelectTool {
             && let Some(edit) = dimension_edit::grab_at(shell, at, tolerance)
         {
             self.state = State::Dimension {
+                edit: Box::new(edit),
+                at,
+                dragged: false,
+            };
+            return;
+        }
+        if shell.tool() == Tool::Select
+            && let Some(edit) = local_grid_edit::grab_at(shell, at, tolerance)
+        {
+            self.state = State::LocalGrid {
                 edit: Box::new(edit),
                 at,
                 dragged: false,
@@ -537,6 +566,14 @@ impl SelectTool {
                     dragged: true,
                 };
             }
+            State::LocalGrid { mut edit, at, .. } => {
+                self.snap = Some(edit.follow(shell, to));
+                self.state = State::LocalGrid {
+                    edit,
+                    at,
+                    dragged: true,
+                };
+            }
             State::Band { from, .. } => self.state = State::Band { from, to },
             State::Moving(mut m) => {
                 self.track(shell, &mut m, to, false);
@@ -582,6 +619,18 @@ impl SelectTool {
             }
             State::Polygon(p) => self.release_polygon(shell, p),
             State::Dimension { edit, at, dragged } => {
+                if !dragged {
+                    self.click(shell, edit.document, at);
+                } else {
+                    let ran = edit
+                        .command()
+                        .is_some_and(|(id, params)| shell.run_reporting(id, params).is_ok());
+                    if !ran {
+                        shell.redraw(edit.document);
+                    }
+                }
+            }
+            State::LocalGrid { edit, at, dragged } => {
                 if !dragged {
                     self.click(shell, edit.document, at);
                 } else {
@@ -728,6 +777,18 @@ impl SelectTool {
         }
     }
 
+    /// The Local Grid handle drag in flight, once the press has dragged.
+    pub fn local_grid_edit(&self) -> Option<&LocalGridEdit> {
+        match &self.state {
+            State::LocalGrid {
+                edit,
+                dragged: true,
+                ..
+            } => Some(edit.as_ref()),
+            _ => None,
+        }
+    }
+
     /// The Dimension handle drag in flight, once the press has dragged.
     pub fn dimension_edit(&self) -> Option<&DimensionEdit> {
         match &self.state {
@@ -783,6 +844,9 @@ impl SelectTool {
             shell.redraw(p.edit.document);
         }
         if let State::Dimension { edit, .. } = &self.state {
+            shell.redraw(edit.document);
+        }
+        if let State::LocalGrid { edit, .. } = &self.state {
             shell.redraw(edit.document);
         }
         if let State::CopperDrag(d) = &self.state {
@@ -886,6 +950,8 @@ impl SelectTool {
                 Some(Object::OutputOrigin(o)) => Some(o.object.at),
                 // A line Guide is held where the press is on it, so it doesn't jump.
                 Some(Object::Guide(g)) => Some(snap::PlacedGuide::of(&g.object).nearest(at)),
+                // A Local Grid is held by its origin, which lands on a grid point.
+                Some(Object::LocalGrid(g)) => g.object.outline().first().copied(),
                 _ => None,
             })
             .unwrap_or(at);
@@ -923,6 +989,7 @@ impl SelectTool {
             guides: Vec::new(),
             overlaps: Vec::new(),
             overlap_outlines: Vec::new(),
+            component: kind == Some(ObjectType::FootprintInstance),
         };
         m.guides = guides(shell, &m, None);
         self.track(shell, &mut m, to, true);
@@ -966,8 +1033,15 @@ impl SelectTool {
         };
         let mut rules = snap::rules(shell, m.document);
         rules.alignment &= shell.preferences().pcb.place.alignment_guides;
-        // A Guide in flight is not something to snap to.
+        // A Guide or Local Grid in flight is not something to snap to, and Move Board
+        // Shape carries every Local Grid.
         rules.placed.retain(|g| !m.objects.contains(&g.object));
+        let shape = (project.pcb()).and_then(|p| p.outline()).map(|o| o.uuid);
+        if shape.is_some_and(|o| m.objects.contains(&o)) {
+            rules.local.clear();
+        }
+        rules.local.retain(|g| !m.objects.contains(&g.uuid));
+        rules.component = m.component;
         let snapped = snap::snap(xy(to - m.offset), &m.targets, &m.guides, &rules);
         let mut current = snapped.at;
         let avoid = shell.preferences().pcb.place.obstacle_mode == ObstacleMode::Avoid;

@@ -283,32 +283,42 @@ pub fn canvas_paint(ui: &mut Ui, input: &CanvasInputs, tab: &DocumentTab, theme:
     let palette = tab.palette.palette(theme);
     let visible = tab.grid_visible;
     let base = (visible.pitch.x.0 as f64, visible.pitch.y.0 as f64);
+    let everyday = GridSpec {
+        origin: (tab.grid_origin.x.0 as f64, tab.grid_origin.y.0 as f64),
+        pitch: base,
+        coarse: visible.coarse,
+        lines: visible.style == reda_engine::preferences::GridStyle::Lines,
+        radius_px: GRID_DOT_RADIUS * ppp,
+        color: palette.grid(),
+        // Only a sheet has paper; a board's Scene is not searched for one every frame.
+        paper: matches!(tab.scene.scene.source, SceneSource::Schematic(_))
+            .then(|| tab.scene.scene.paper())
+            .flatten()
+            .map(|(lo, hi)| {
+                (
+                    (lo.x.0 as f64, lo.y.0 as f64),
+                    (hi.x.0 as f64, hi.y.0 as f64),
+                )
+            }),
+        angle: 0.0,
+        inside: None,
+        // A board's Local Grids replace it inside them.
+        outside: super::local_grids::holes(tab),
+    };
+    let local_grids = match visible.shown {
+        true => super::local_grids::specs(tab, &everyday, view.nm_per_px),
+        false => Vec::new(),
+    };
     let grid = grid_pitch_xy(base, view.nm_per_px)
         .filter(|_| visible.shown)
-        .map(|pitch| GridSpec {
-            origin: (tab.grid_origin.x.0 as f64, tab.grid_origin.y.0 as f64),
-            pitch,
-            coarse: visible.coarse,
-            lines: visible.style == reda_engine::preferences::GridStyle::Lines,
-            radius_px: GRID_DOT_RADIUS * ppp,
-            color: palette.grid(),
-            // Only a sheet has paper; a board's Scene is not searched for one every frame.
-            paper: matches!(tab.scene.scene.source, SceneSource::Schematic(_))
-                .then(|| tab.scene.scene.paper())
-                .flatten()
-                .map(|(lo, hi)| {
-                    (
-                        (lo.x.0 as f64, lo.y.0 as f64),
-                        (hi.x.0 as f64, hi.y.0 as f64),
-                    )
-                }),
-        });
+        .map(|pitch| GridSpec { pitch, ..everyday });
     let frame = CanvasFrame {
         canvas: canvas_id(tab),
         scene: tab.scene.clone(),
         theme,
         view,
         grid,
+        local_grids,
         selection: tab.selection.clone(),
         palette: tab.palette.clone(),
         live: tab.live.clone(),
@@ -316,6 +326,7 @@ pub fn canvas_paint(ui: &mut Ui, input: &CanvasInputs, tab: &DocumentTab, theme:
     };
     paint(ui.painter(), rect, frame);
     overlay(ui, input, &tab.overlay, &palette);
+    super::local_grids::draw(ui, input, tab, &palette);
     super::guides::draw(ui, input, tab, &palette);
     super::markers::draw(ui, input, tab, &palette);
 }

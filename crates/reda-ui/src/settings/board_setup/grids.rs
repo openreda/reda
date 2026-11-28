@@ -4,10 +4,13 @@
 //! `pcb.board_grid.delete`, then `set` (a row losing the Default mark first) and `add`.
 //! A bare number is in mm; a value keeps the unit it is typed in.
 //!
-//! Local Grids (#488) join this page, so every stored grid of the board is in one table.
+//! The board's Local Grids follow, in priority order (the first that contains the cursor
+//! wins): each row's grip drags it up or down, and its name and Applies to can be edited.
+//! Apply runs `pcb.local_grid.set` for those, then `pcb.local_grid.reorder` when the order
+//! changed. Their areas and steps are edited on the canvas and in Properties.
 
 use egui::{Role, Ui, WidgetInfo};
-use reda_engine::model::{BoardGrid, Project, TypedLength, Uuid};
+use reda_engine::model::{AppliesTo, BoardGrid, LocalGrid, Project, TypedLength, Uuid};
 use reda_engine::preferences::Units;
 use serde_json::{Value, json};
 
@@ -48,6 +51,33 @@ impl BoardGridRow {
             visible: grid.visible.map(text).unwrap_or_default(),
             in_cycle: grid.in_cycle,
             default: grid.default,
+        }
+    }
+}
+
+/// One Local Grid as the page edits it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LocalGridRow {
+    pub uuid: Uuid,
+    pub name: String,
+    pub applies_to: AppliesTo,
+    /// Its step, `0.5mm` or `0.5mm × 1mm`, shown for telling rows apart.
+    pub step: String,
+}
+
+impl LocalGridRow {
+    fn of(grid: &LocalGrid) -> LocalGridRow {
+        let reda_engine::model::LocalGridShape::Cartesian(c) = &grid.shape;
+        let step = if c.step_x == c.step_y {
+            c.step_x.to_string()
+        } else {
+            format!("{} × {}", c.step_x, c.step_y)
+        };
+        LocalGridRow {
+            uuid: grid.uuid,
+            name: grid.name.clone(),
+            applies_to: grid.applies_to,
+            step,
         }
     }
 }
@@ -101,11 +131,67 @@ impl BoardGridRow {
 #[derive(Clone, Debug, Default)]
 pub struct GridsPage {
     rows: Draft<Vec<BoardGridRow>>,
+    /// The Local Grids, highest priority first.
+    local: Draft<Vec<LocalGridRow>>,
 }
 
 impl GridsPage {
     pub fn rows(&self) -> &[BoardGridRow] {
         self.rows.value()
+    }
+
+    /// The Local Grids as the page shows them, highest priority first.
+    pub fn local_grids(&self) -> &[LocalGridRow] {
+        self.local.value()
+    }
+
+    /// Puts Local Grid row `from` at position `to`, as a drag of its grip does.
+    pub fn move_local_grid(&mut self, from: usize, to: usize) {
+        let rows = self.local.value_mut();
+        if from < rows.len() && to < rows.len() {
+            let row = rows.remove(from);
+            rows.insert(to, row);
+        }
+    }
+
+    pub fn set_local_grid_name(&mut self, index: usize, name: &str) {
+        if let Some(row) = self.local.value_mut().get_mut(index) {
+            row.name = name.to_owned();
+        }
+    }
+
+    pub fn set_local_grid_applies_to(&mut self, index: usize, applies_to: AppliesTo) {
+        if let Some(row) = self.local.value_mut().get_mut(index) {
+            row.applies_to = applies_to;
+        }
+    }
+
+    /// The `pcb.local_grid.*` steps the Local Grid rows ask for.
+    fn local_steps(&self) -> Vec<Step> {
+        let (rows, base) = (self.local.value(), self.local.base());
+        let mut steps = Vec::new();
+        for row in rows {
+            let Some(was) = base.iter().find(|r| r.uuid == row.uuid) else {
+                continue;
+            };
+            let mut params = json!({ "uuid": row.uuid });
+            if row.name.trim() != was.name {
+                params["name"] = json!(row.name.trim());
+            }
+            if row.applies_to != was.applies_to {
+                params["applies_to"] = json!(row.applies_to);
+            }
+            if params.as_object().is_some_and(|o| o.len() > 1) {
+                steps.push(Step::new("pcb.local_grid.set", params));
+            }
+        }
+        let now: Vec<Uuid> = base.iter().map(|r| r.uuid).collect();
+        let new: Vec<Uuid> = rows.iter().map(|r| r.uuid).collect();
+        let reorders = crate::panels::properties::local_grids::reorder_steps(&now, &new);
+        steps.extend(
+            (reorders.into_iter()).map(|params| Step::new("pcb.local_grid.reorder", params)),
+        );
+        steps
     }
 
     /// Adds an empty, In-cycle row to type a step into.
@@ -191,6 +277,11 @@ impl Page for GridsPage {
         grids.sort_by_key(|g| (g.x(), g.y(), g.uuid));
         let fresh: Vec<BoardGridRow> = grids.into_iter().map(BoardGridRow::of).collect();
         self.rows.load(fresh, reset);
+        let local: Vec<LocalGridRow> = project
+            .pcb()
+            .map(|pcb| pcb.local_grids().map(LocalGridRow::of).collect())
+            .unwrap_or_default();
+        self.local.load(local, reset);
     }
 
     fn steps(&self) -> Vec<Step> {
@@ -237,7 +328,9 @@ impl Page for GridsPage {
                 sets.push(step);
             }
         }
-        deletes.chain(clears).chain(sets).chain(adds).collect()
+        let mut steps: Vec<Step> = deletes.chain(clears).chain(sets).chain(adds).collect();
+        steps.extend(self.local_steps());
+        steps
     }
 
     fn problems(&self) -> Vec<Problem> {
@@ -294,6 +387,44 @@ impl Page for GridsPage {
             .clicked()
         {
             self.add();
+        }
+        self.show_local(ui);
+    }
+}
+
+impl GridsPage {
+    /// The Local Grid rows.
+    fn show_local(&mut self, ui: &mut Ui) {
+        let t = ui.tokens();
+        ui.add_space(t.space.section);
+        layout::muted(ui, tr!("board-setup-local-grids-note"));
+        ui.add_space(t.space.stack);
+        let count = self.local.value().len();
+        if count == 0 {
+            layout::muted(ui, tr!("board-setup-local-grids-none"));
+        }
+        let names: Vec<String> = self.local.value().iter().map(|r| r.name.clone()).collect();
+        let grip = |i: usize| tr!("local-grid-drag", name = names[i].as_str());
+        let mut picked = None;
+        let rows = self.local.value_mut();
+        let order = widgets::reorder_rows(ui, "board-setup-local-grids", count, grip, |ui, i| {
+            let row = &mut rows[i];
+            let label = tr!("board-setup-local-grids-name", number = i + 1);
+            field(ui, &label, &mut row.name, STEP_WIDTH, None);
+            let label = tr!("board-setup-local-grids-applies-to", number = i + 1);
+            let menu = crate::panels::properties::local_grids::applies_to_menu;
+            if let Some(a) = menu(ui, ("board-setup", row.uuid), &label, row.applies_to, true) {
+                picked = Some((i, a));
+            }
+            ui.label(&row.step);
+        });
+        if let Some((i, a)) = picked {
+            self.set_local_grid_applies_to(i, a);
+        }
+        if let Some(order) = order {
+            let rows = self.local.value().clone();
+            self.local
+                .set(order.into_iter().map(|i| rows[i].clone()).collect());
         }
     }
 }
