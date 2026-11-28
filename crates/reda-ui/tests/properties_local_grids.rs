@@ -89,12 +89,9 @@ fn the_grids_and_guides_region_lists_switches_removes_and_drags_local_grids() {
         TempDir::new("local-grids-panel-work"),
     );
     let mut h = harness(&home, &work);
-    h.run();
-    h.get_by_label("No Local Grids on this board.");
     let a = local_grid(&mut h, "A", "0mm");
     let b = local_grid(&mut h, "B", "10mm");
     h.run();
-    h.get_by_label("Local Grids");
     assert!(
         h.get_by_label("A: 0.3mm, All").rect().top() < h.get_by_label("B: 0.3mm, All").rect().top(),
         "the rows follow the priority order"

@@ -269,18 +269,13 @@ fn longest_increasing(values: &[usize]) -> Vec<bool> {
 }
 
 /// The Local Grid rows of the board's Grids & Guides region, in priority order, each
-/// with its grip, name (a click selects it), shown and enabled switches and Remove, then
-/// Add Local Grid.
+/// with its grip, name (a click selects it), shown and enabled switches and Remove; the
+/// region's Add row has Add Local Grid.
 pub(super) fn rows(ui: &mut Ui, shell: &Shell, project: &Project, out: &mut Vec<Out>) {
     let grids: Vec<&LocalGrid> = project
         .pcb()
         .map(|pcb| pcb.local_grids().collect())
         .unwrap_or_default();
-    ui.add_space(4.0);
-    ui.strong(tr!("properties-local-grids"));
-    if grids.is_empty() {
-        ui.weak(tr!("properties-local-grids-none"));
-    }
     let grip = |i: usize| tr!("local-grid-drag", name = grids[i].name.as_str());
     let order = widgets::reorder_rows(ui, "properties-local-grids", grids.len(), grip, |ui, i| {
         let grid = grids[i];
@@ -328,12 +323,6 @@ pub(super) fn rows(ui: &mut Ui, shell: &Shell, project: &Project, out: &mut Vec<
             params["before"] = json!(grids[before].uuid);
         }
         out.push(Out::Run("pcb.local_grid.reorder", params));
-    }
-    if ui
-        .add(widgets::button(tr!("properties-local-grids-add")))
-        .clicked()
-    {
-        out.push(Out::Run("tool.activate", json!({ "tool": "local_grid" })));
     }
 }
 

@@ -117,17 +117,18 @@ pub(super) fn region(ui: &mut Ui, shell: &Shell, project: &Project, out: &mut Ve
             row(ui, shell, guide, units, out);
         });
     }
-    ui.horizontal(|ui| {
+    super::local_grids::rows(ui, shell, project, out);
+    ui.horizontal_wrapped(|ui| {
         for (tool, label) in [
             ("guide", tr!("properties-guides-add-line")),
             ("point_guide", tr!("properties-guides-add-point")),
+            ("local_grid", tr!("properties-local-grids-add")),
         ] {
             if ui.add(widgets::button(label)).clicked() {
                 out.push(Out::Run("tool.activate", json!({ "tool": tool })));
             }
         }
     });
-    super::local_grids::rows(ui, shell, project, out);
 }
 
 /// One Guide's row: its name (a click selects it), shown, enabled and Remove.

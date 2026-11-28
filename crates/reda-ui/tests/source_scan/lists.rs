@@ -14,6 +14,7 @@ pub const EXEMPT: &[&str] = &[
     "canvas/",
     "pcb/copper_drag.rs",
     "pcb/dimension_edit.rs",
+    "pcb/local_grid_edit.rs",
     "pcb/live_hover.rs",
     "pcb/marks.rs",
     "pcb/polygon_edit.rs",

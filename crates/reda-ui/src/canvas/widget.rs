@@ -303,10 +303,15 @@ pub fn canvas_paint(ui: &mut Ui, input: &CanvasInputs, tab: &DocumentTab, theme:
         angle: 0.0,
         inside: None,
         // A board's Local Grids replace it inside them.
-        outside: super::local_grids::holes(tab),
+        outside: super::local_grids::holes(&tab.scene.local_grids, tab.aids_shown),
     };
     let local_grids = match visible.shown {
-        true => super::local_grids::specs(tab, &everyday, view.nm_per_px),
+        true => super::local_grids::specs(
+            &tab.scene.local_grids,
+            tab.aids_shown,
+            &everyday,
+            view.nm_per_px,
+        ),
         false => Vec::new(),
     };
     let grid = grid_pitch_xy(base, view.nm_per_px)
