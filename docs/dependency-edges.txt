@@ -28,6 +28,7 @@ reda-control -> trash
 reda-engine -> directories [cfg(not(target_arch = "wasm32"))]
 reda-engine -> proptest [dev]
 reda-engine -> reda-command
+reda-engine -> reda-import-dxf
 reda-engine -> reda-import-kicad
 reda-engine -> reda-library
 reda-engine -> reda-model
@@ -45,6 +46,13 @@ reda-engine -> zip [dev]
 reda-geom -> schemars
 reda-geom -> serde
 reda-geom -> serde_json [dev]
+reda-import-dxf -> reda-command
+reda-import-dxf -> reda-model
+reda-import-dxf -> reda-pcb
+reda-import-dxf -> reda-testkit [dev]
+reda-import-dxf -> schemars
+reda-import-dxf -> serde
+reda-import-dxf -> serde_json
 reda-import-kicad -> reda-library
 reda-import-kicad -> reda-model
 reda-import-kicad -> schemars
