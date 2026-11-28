@@ -1,7 +1,9 @@
 //! Guides on a board (docs/spec/v0.3/grids-guides.md#guides): `pcb.guide.add / set /
 //! delete` with undo, the ordinary move, lock and delete Commands, the Output Origin
-//! leaving them where they are and Move Board Shape carrying them.
+//! leaving them where they are and Move Board Shape carrying them, and undo restoring the
+//! saved bytes after any sequence of Guide edits.
 
+use proptest::prelude::*;
 use reda_command::ErrorCode;
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{Guide, GuideKind, PcbDocument, Uuid};
@@ -347,4 +349,175 @@ fn moving_a_guide_alone_leaves_the_board_shape_where_it_is() {
     );
     assert_eq!(pcb(&e).outline().unwrap(), &before);
     assert_eq!(guide(&e, b).at, mm(1, 1));
+}
+
+fn saved(e: &mut TestEngine, dir: &TempDir) -> Vec<u8> {
+    e.run_ok("project.save", json!({}));
+    std::fs::read(dir.path().join("Demo/Demo.redapcb")).unwrap()
+}
+
+/// One random Guide edit. Each arm, as run, changes the board, so each is one undo step.
+#[derive(Clone, Debug)]
+enum Edit {
+    /// A line through a point at an angle (any, folded into half a turn), maybe locked.
+    AddLine(Point, i64, bool),
+    AddPoint(Point, bool),
+    /// Which Guide, a new place, a line's new angle, a name (`Some(None)` clears it).
+    Set(usize, Option<Point>, Option<i64>, Option<Option<String>>),
+    Delete(usize),
+    Lock(usize),
+    /// The unlocked Guides, by a non-zero step.
+    Move(Point),
+    /// The unlocked Guides, about a far centre.
+    Rotate(i64),
+    Flip,
+    /// Move Board Shape, carrying every Guide.
+    MoveBoardShape(Point),
+}
+
+fn position() -> impl Strategy<Value = Point> {
+    (-50 * MM..50 * MM, -50 * MM..50 * MM).prop_map(|(x, y)| Point::new(Nm(x), Nm(y)))
+}
+
+fn step() -> impl Strategy<Value = Point> {
+    position().prop_filter("a move moves", |p| p.x.0 != 0 || p.y.0 != 0)
+}
+
+fn edit() -> impl Strategy<Value = Edit> {
+    prop_oneof![
+        (position(), -360_000i64..360_000, any::<bool>())
+            .prop_map(|(p, a, locked)| Edit::AddLine(p, a, locked)),
+        (position(), any::<bool>()).prop_map(|(p, locked)| Edit::AddPoint(p, locked)),
+        (
+            any::<usize>(),
+            prop::option::of(position()),
+            prop::option::of(-360_000i64..360_000),
+            prop::option::of(prop::option::of("[A-Za-z][A-Za-z0-9 ]{0,8}")),
+        )
+            .prop_map(|(i, at, angle, name)| Edit::Set(i, at, angle, name)),
+        any::<usize>().prop_map(Edit::Delete),
+        any::<usize>().prop_map(Edit::Lock),
+        step().prop_map(Edit::Move),
+        (1i64..8).prop_map(|k| Edit::Rotate(k * 45_000)),
+        Just(Edit::Flip),
+        step().prop_map(Edit::MoveBoardShape),
+    ]
+}
+
+fn at(p: Point) -> Value {
+    json!({"x": p.x.0, "y": p.y.0})
+}
+
+/// A centre far from every Guide, so a turn or a flip about it moves each one.
+const FAR: i64 = 1_000 * MM;
+
+/// Runs `edit` on the board, falling back to adding a point Guide when there is nothing
+/// for it to act on, so every edit is one undo step.
+fn run_edit(e: &mut TestEngine, outline: Uuid, edit: Edit) {
+    let guides: Vec<Guide> = pcb(e).guides().cloned().collect();
+    let unlocked: Vec<Uuid> = guides
+        .iter()
+        .filter(|g| !g.locked)
+        .map(|g| g.uuid)
+        .collect();
+    let pick = |i: usize| guides[i % guides.len()].clone();
+    let far = json!({"x": FAR, "y": FAR});
+    match edit {
+        Edit::AddLine(p, angle, locked) => {
+            e.run_ok(
+                "pcb.guide.add",
+                json!({"kind": "line", "at": at(p), "angle": angle, "locked": locked}),
+            );
+        }
+        Edit::Set(i, place, angle, name) if !guides.is_empty() => {
+            let g = pick(i);
+            // Always turn the shown switch over, so the edit changes the Guide.
+            let mut params = json!({"uuid": g.uuid, "shown": !g.shown,
+                                    "enabled": i % 2 == 0, "include_locked": true});
+            if let Some(p) = place {
+                params["at"] = at(p);
+            }
+            if let (Some(a), GuideKind::Line) = (angle, g.kind) {
+                params["angle"] = json!(a);
+            }
+            if let Some(n) = name {
+                params["name"] = json!(n);
+            }
+            e.run_ok("pcb.guide.set", params);
+        }
+        Edit::Delete(i) if !guides.is_empty() => {
+            let uuid = pick(i).uuid;
+            e.run_ok(
+                "pcb.guide.delete",
+                json!({"uuid": uuid, "include_locked": true}),
+            );
+        }
+        Edit::Lock(i) if !guides.is_empty() => {
+            let g = pick(i);
+            e.run_ok(
+                "pcb.lock",
+                json!({"objects": [g.uuid], "locked": !g.locked}),
+            );
+        }
+        Edit::Move(by) if !unlocked.is_empty() => {
+            e.run_ok("pcb.move", json!({"objects": unlocked, "by": at(by)}));
+        }
+        Edit::Rotate(angle) if !unlocked.is_empty() => {
+            e.run_ok(
+                "pcb.rotate",
+                json!({"objects": unlocked, "angle": angle, "center": far}),
+            );
+        }
+        Edit::Flip if !unlocked.is_empty() => {
+            e.run_ok("pcb.flip", json!({"objects": unlocked, "center": far}));
+        }
+        Edit::MoveBoardShape(by) => {
+            e.run_ok("pcb.move", json!({"objects": [outline], "by": at(by)}));
+        }
+        Edit::AddPoint(p, locked) => {
+            e.run_ok(
+                "pcb.guide.add",
+                json!({"kind": "point", "at": at(p), "locked": locked}),
+            );
+        }
+        _ => {
+            e.run_ok(
+                "pcb.guide.add",
+                json!({"kind": "point", "at": {"x": 0, "y": 0}}),
+            );
+        }
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig { cases: 24, ..Default::default() })]
+
+    /// docs/spec/v0.3/testing.md#property-tests: undoing any sequence of Guide edits
+    /// restores the saved bytes.
+    #[test]
+    fn undoing_any_sequence_of_guide_edits_restores_the_saved_bytes(
+        edits in prop::collection::vec(edit(), 1..16)
+    ) {
+        let dir = TempDir::new("guide-undo-bytes");
+        let mut e = engine(&dir);
+        let doc = document(&e);
+        let vertices: Vec<Value> = [(0, 0), (20, 0), (20, 10), (0, 10)]
+            .iter()
+            .map(|&(x, y)| json!({"x": x * MM, "y": y * MM}))
+            .collect();
+        e.run_ok("pcb.board_outline.add", json!({"vertices": vertices}));
+        let outline = pcb(&e).outline().unwrap().uuid;
+        line(&mut e, 5, 5, 30_000);
+        let locked = point(&mut e, 7, 2);
+        e.run_ok("pcb.lock", json!({"objects": [locked], "locked": true}));
+        let original = saved(&mut e, &dir);
+        let count = edits.len();
+        for edit in edits {
+            run_edit(&mut e, outline, edit);
+        }
+        for _ in 0..count {
+            e.run_ok("edit.undo", json!({"document": doc}));
+        }
+        prop_assert_eq!(saved(&mut e, &dir), original);
+    }
 }
