@@ -453,3 +453,77 @@ fn a_drawing_reaching_past_a_metre_previews_with_a_warning_and_is_not_imported()
     );
     assert!(graphics(&e).is_empty());
 }
+
+#[test]
+fn an_arc_bulging_past_a_metre_is_refused_like_the_preview_warns() {
+    let dir = TempDir::new("dxf-far-arc");
+    let mut e = board(&dir);
+    let params = json!({"path": fixture("far_arc.dxf")});
+    let report = preview(&mut e, params.clone());
+    let warnings = report["warnings"].as_array().unwrap();
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.as_str().unwrap().contains("check the unit and scale")),
+        "{warnings:?}"
+    );
+    let err = e.run_err("pcb.import_dxf", params);
+    assert!(
+        err.to_string().contains("check the unit and scale"),
+        "{err}"
+    );
+    assert!(graphics(&e).is_empty());
+}
+
+#[test]
+fn rows_mapped_to_courtyard_and_assembly_land_there_and_survive_a_save() {
+    let dir = TempDir::new("dxf-courtyard-assembly");
+    let mut e = board(&dir);
+    let mapping = json!({
+        "Top Silkscreen": "courtyard_top",
+        "dimensions": "assembly_bottom",
+        "EDGE_CUTS": "skip",
+        "PCB-PROFILE": "skip",
+        "Dim-Annotations": "skip",
+        "Notes": "skip",
+    });
+    let out = import(
+        &mut e,
+        json!({"path": fixture("layers.dxf"), "mapping": mapping}),
+    );
+    let courtyard = layer_named(&e, "Top Courtyard");
+    let assembly = layer_named(&e, "Bottom Assembly");
+    let landed = |e: &TestEngine| {
+        let mut lines: Vec<(Uuid, GraphicShape)> = graphics(e)
+            .into_iter()
+            .map(|g| (g.layer, g.shape))
+            .collect();
+        lines.sort_by_key(|(layer, _)| *layer == assembly);
+        lines
+    };
+    let expected = vec![
+        (
+            courtyard,
+            GraphicShape::Line {
+                from: mm(10.0, 10.0),
+                to: mm(20.0, 10.0),
+            },
+        ),
+        (
+            assembly,
+            GraphicShape::Line {
+                from: mm(0.0, 75.0),
+                to: mm(100.0, 75.0),
+            },
+        ),
+    ];
+    assert_eq!(landed(&e), expected, "{out}");
+
+    e.run_ok("project.save", json!({}));
+    let mut reopened = probe_engine();
+    reopened.run_ok(
+        "project.open",
+        json!({"path": dir.path().join("Demo").join("Demo.reda")}),
+    );
+    assert_eq!(landed(&reopened), expected);
+}

@@ -319,11 +319,15 @@ fn planned(
             .flat_map(|(x, y)| [x.abs(), y.abs()])
             .fold(0.0, f64::max);
         if far > REACH.0 as f64 {
-            warnings.push(format!(
+            let reach = format!(
                 "the drawing reaches {:.1} mm from design zero, more than 1 m, and can't be \
                  imported so; check the unit and scale",
                 far / 1e6
-            ));
+            );
+            if build {
+                return Err(CommandError::rejected(reach));
+            }
+            warnings.push(reach);
         }
     }
 
@@ -335,7 +339,7 @@ fn planned(
             Landing::BoardOutline => outline_layer.expect("added above"),
             Landing::Skip => continue,
         };
-        let Some(shape) = graphic(*piece, &place)? else {
+        let Some(shape) = graphic(*piece, &place) else {
             dropped += 1;
             continue;
         };
@@ -430,32 +434,21 @@ fn extent<'p>(pieces: impl Iterator<Item = &'p Piece>) -> Option<(Xy, Xy)> {
 }
 
 /// A piece as a board graphic, through `place` (drawing units to board nanometres); `None`
-/// when it rounds to nothing.
-fn graphic(
-    piece: Piece,
-    place: &dyn Fn(Xy) -> (f64, f64),
-) -> Result<Option<GraphicShape>, CommandError> {
-    let point = |p: Xy| -> Result<Point, CommandError> {
+/// when it rounds to nothing. The drawing's bounds are within [`REACH`] by now.
+fn graphic(piece: Piece, place: &dyn Fn(Xy) -> (f64, f64)) -> Option<GraphicShape> {
+    let point = |p: Xy| {
         let (x, y) = place(p);
-        if x.abs() > REACH.0 as f64 || y.abs() > REACH.0 as f64 {
-            return Err(CommandError::rejected(format!(
-                "the drawing reaches ({:.1} mm, {:.1} mm), more than 1 m from design zero; \
-                 check the unit and scale",
-                x / 1e6,
-                y / 1e6
-            )));
-        }
-        Ok(Point::new(Nm(x.round() as i64), Nm(y.round() as i64)))
+        Point::new(Nm(x.round() as i64), Nm(y.round() as i64))
     };
     let shape = match piece {
         Piece::Line { from, to } => GraphicShape::Line {
-            from: point(from)?,
-            to: point(to)?,
+            from: point(from),
+            to: point(to),
         },
         Piece::Arc {
             from, to, sweep, ..
         } => {
-            let (from, to) = (point(from)?, point(to)?);
+            let (from, to) = (point(from), point(to));
             let sweep = Millideg((sweep * 1000.0).round() as i64);
             if sweep == Millideg::ZERO {
                 GraphicShape::Line { from, to }
@@ -467,5 +460,5 @@ fn graphic(
     let (GraphicShape::Line { from, to } | GraphicShape::Arc { from, to, .. }) = shape else {
         unreachable!("only lines and arcs are made")
     };
-    Ok((from != to).then_some(shape))
+    (from != to).then_some(shape)
 }
