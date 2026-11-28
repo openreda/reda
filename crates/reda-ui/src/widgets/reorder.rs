@@ -17,15 +17,15 @@ struct RowDrag {
 }
 
 /// Draws `count` rows, each a grip labelled `grip_label(i)` and then `row(ui, i)`. When a
-/// grip is dropped on a row, returns the order the drop asks for: the row indices, first
-/// to last; `None` when nothing was dropped or the order is unchanged.
+/// grip is dropped on a row, returns the row dragged and the order the drop asks for: the
+/// row indices, first to last; `None` when nothing was dropped or the order is unchanged.
 pub fn reorder_rows(
     ui: &mut Ui,
     list: &str,
     count: usize,
     grip_label: impl Fn(usize) -> String,
     mut row: impl FnMut(&mut Ui, usize),
-) -> Option<Vec<usize>> {
+) -> Option<(usize, Vec<usize>)> {
     let list = Id::NULL.with(list);
     let mut dropped = None;
     for i in 0..count {
@@ -72,7 +72,7 @@ pub fn reorder_rows(
     let (moved, target, after) = dropped?;
     let order: Vec<usize> = (0..count).collect();
     let new = reordered(&order, moved, target, after);
-    (new != order).then_some(new)
+    (new != order).then_some((moved, new))
 }
 
 /// `order` with `moved` put just before `target`, or just after it with `after`.

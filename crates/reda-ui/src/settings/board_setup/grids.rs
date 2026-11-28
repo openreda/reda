@@ -421,7 +421,7 @@ impl GridsPage {
         if let Some((i, a)) = picked {
             self.set_local_grid_applies_to(i, a);
         }
-        if let Some(order) = order {
+        if let Some((_, order)) = order {
             let rows = self.local.value().clone();
             self.local
                 .set(order.into_iter().map(|i| rows[i].clone()).collect());

@@ -5,7 +5,7 @@
 use reda_testkit::TempDir;
 use reda_ui::engine::Engine;
 use reda_ui::engine::command::UserDirs;
-use reda_ui::engine::model::{BoardGrid, PcbDocument, Uuid};
+use reda_ui::engine::model::{AppliesTo, BoardGrid, PcbDocument, Uuid};
 use reda_ui::settings::board_setup::{self, BoardGridRow, GridsPage};
 use reda_ui::settings::{SettingsDialog, Step};
 use reda_ui::shell::Shell;
@@ -196,4 +196,78 @@ fn a_bad_step_is_flagged_on_the_page_and_blocks_apply() {
     assert_eq!(d.problems()[0].1.field, "grid/0/visible");
     page(&mut d).set_visible(0, "5mm");
     assert!(d.can_apply());
+}
+
+fn local_grid(shell: &mut Shell, name: &str) -> Uuid {
+    let out = shell
+        .run(
+            "pcb.local_grid.add",
+            json!({"name": name, "shape": {"kind": "cartesian", "origin": {"x": 0, "y": 0},
+                   "step_x": "0.3mm", "width": "4mm", "height": "4mm"}}),
+        )
+        .unwrap();
+    out["result"]["uuid"].as_str().unwrap().parse().unwrap()
+}
+
+fn local_names(shell: &Shell) -> Vec<String> {
+    pcb(shell).local_grids().map(|g| g.name.clone()).collect()
+}
+
+#[test]
+fn the_grids_page_lists_local_grids_in_priority_order_and_applies_a_reorder() {
+    let mut s = setup("bsg-local");
+    let a = local_grid(&mut s.shell, "A");
+    let b = local_grid(&mut s.shell, "B");
+    let c = local_grid(&mut s.shell, "C");
+    let mut d = dialog(&s.shell);
+    let rows = page(&mut d).local_grids().to_vec();
+    assert_eq!(
+        rows.iter()
+            .map(|r| (r.uuid, r.name.as_str(), r.step.as_str()))
+            .collect::<Vec<_>>(),
+        [(a, "A", "0.3mm"), (b, "B", "0.3mm"), (c, "C", "0.3mm")]
+    );
+    assert!(rows.iter().all(|r| r.applies_to == AppliesTo::All));
+    // C dragged to the top, B renamed and for Components only.
+    let p = page(&mut d);
+    p.move_local_grid(2, 0);
+    p.set_local_grid_name(2, "Fine");
+    p.set_local_grid_applies_to(2, AppliesTo::Components);
+    assert_eq!(
+        d.steps(),
+        [
+            Step::new(
+                "pcb.local_grid.set",
+                json!({"uuid": b, "name": "Fine", "applies_to": "components"})
+            ),
+            Step::new(
+                "pcb.local_grid.reorder",
+                json!({"local_grid": c, "before": a})
+            ),
+        ]
+    );
+    d.apply(&mut s.shell).unwrap();
+    assert_eq!(local_names(&s.shell), ["C", "A", "Fine"]);
+    assert_eq!(
+        pcb(&s.shell).local_grid(b).unwrap().applies_to,
+        AppliesTo::Components
+    );
+    assert!(d.steps().is_empty(), "nothing pending once applied");
+    // One undo step on the board.
+    let board = pcb(&s.shell).uuid;
+    s.shell
+        .run("edit.undo", json!({"document": board}))
+        .unwrap();
+    assert_eq!(local_names(&s.shell), ["A", "B", "C"]);
+}
+
+#[test]
+fn a_duplicate_local_grid_name_is_refused_on_apply() {
+    let mut s = setup("bsg-local-dup");
+    local_grid(&mut s.shell, "A");
+    local_grid(&mut s.shell, "B");
+    let mut d = dialog(&s.shell);
+    page(&mut d).set_local_grid_name(1, "A");
+    assert!(d.apply(&mut s.shell).is_err());
+    assert_eq!(local_names(&s.shell), ["A", "B"]);
 }

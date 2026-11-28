@@ -146,8 +146,8 @@ fn shape_fields(
     let length = |text: &str| parse_length(text, units).map_or_else(|| json!(text), |v| json!(v.0));
     // A step keeps the unit it is typed in; a bare number is in the board's units.
     let step = |text: &str| match parse_length(text, units) {
-        Some(Nm(v)) => json!(v),
-        None => json!(text.trim()),
+        Some(Nm(v)) if text.trim().parse::<f64>().is_ok() => json!(v),
+        _ => json!(text.trim()),
     };
     let lengths: [(&str, String, String); 4] = [
         (
@@ -224,21 +224,48 @@ pub fn row_text(grid: &LocalGrid) -> String {
 }
 
 /// The `pcb.local_grid.reorder` steps that turn `now` into `new` (both every Local Grid,
-/// highest priority first): each grid from the last up put before the one after it.
+/// highest priority first): the longest run of grids already in order stays, and from
+/// the last up each other one is put before the grid after it.
 pub fn reorder_steps(
     now: &[reda_engine::model::Uuid],
     new: &[reda_engine::model::Uuid],
 ) -> Vec<Value> {
-    if now == new {
+    let positions: Vec<usize> = (new.iter())
+        .filter_map(|u| now.iter().position(|n| n == u))
+        .collect();
+    if positions.len() != new.len() {
         return Vec::new();
     }
+    let stays = longest_increasing(&positions);
     (0..new.len())
         .rev()
+        .filter(|i| !stays[*i])
         .map(|i| match new.get(i + 1) {
             Some(before) => json!({"local_grid": new[i], "before": before}),
             None => json!({"local_grid": new[i]}),
         })
         .collect()
+}
+
+/// Which of `values` make up a longest increasing run of them.
+fn longest_increasing(values: &[usize]) -> Vec<bool> {
+    let n = values.len();
+    let (mut length, mut previous) = (vec![1usize; n], vec![None; n]);
+    for i in 0..n {
+        for j in 0..i {
+            if values[j] < values[i] && length[j] + 1 > length[i] {
+                length[i] = length[j] + 1;
+                previous[i] = Some(j);
+            }
+        }
+    }
+    let mut stays = vec![false; n];
+    let mut at = (0..n).max_by_key(|i| (length[*i], std::cmp::Reverse(*i)));
+    while let Some(i) = at {
+        stays[i] = true;
+        at = previous[i];
+    }
+    stays
 }
 
 /// The Local Grid rows of the board's Grids & Guides region, in priority order, each
@@ -290,18 +317,17 @@ pub(super) fn rows(ui: &mut Ui, shell: &Shell, project: &Project, out: &mut Vec<
             ));
         }
     });
-    if let Some(order) = order {
+    if let Some((moved, order)) = order {
         // One drop moves one grid: put it before the grid now after it.
-        let now: Vec<_> = grids.iter().map(|g| g.uuid).collect();
-        let new: Vec<_> = order.iter().map(|&i| now[i]).collect();
-        if let Some(moved) = moved_one(&now, &new) {
-            let at = new.iter().position(|u| *u == moved).expect("in the order");
-            let mut params = json!({ "local_grid": moved });
-            if let Some(before) = new.get(at + 1) {
-                params["before"] = json!(before);
-            }
-            out.push(Out::Run("pcb.local_grid.reorder", params));
+        let at = order
+            .iter()
+            .position(|i| *i == moved)
+            .expect("in the order");
+        let mut params = json!({ "local_grid": grids[moved].uuid });
+        if let Some(&before) = order.get(at + 1) {
+            params["before"] = json!(grids[before].uuid);
         }
+        out.push(Out::Run("pcb.local_grid.reorder", params));
     }
     if ui
         .add(widgets::button(tr!("properties-local-grids-add")))
@@ -311,26 +337,43 @@ pub(super) fn rows(ui: &mut Ui, shell: &Shell, project: &Project, out: &mut Vec<
     }
 }
 
-/// The one grid a drop moved from `now` to get `new`.
-fn moved_one<T: Copy + PartialEq>(now: &[T], new: &[T]) -> Option<T> {
-    if now == new {
-        return None;
-    }
-    // `x` is the moved one when taking it out of both leaves the same order.
-    let without = |v: &[T], x: T| v.iter().copied().filter(|y| *y != x).collect::<Vec<_>>();
-    now.iter()
-        .copied()
-        .find(|&x| without(now, x) == without(new, x))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use reda_engine::model::Uuid;
+
+    /// `order` after `steps`, as `pcb.local_grid.reorder` runs them.
+    fn after(order: &[Uuid], steps: &[Value]) -> Vec<Uuid> {
+        let mut order = order.to_vec();
+        for step in steps {
+            let grid: Uuid = serde_json::from_value(step["local_grid"].clone()).unwrap();
+            order.retain(|u| *u != grid);
+            let before =
+                (step.get("before")).map(|b| serde_json::from_value::<Uuid>(b.clone()).unwrap());
+            let at = before.and_then(|b| order.iter().position(|u| *u == b));
+            order.insert(at.unwrap_or(order.len()), grid);
+        }
+        order
+    }
 
     #[test]
-    fn the_moved_grid_is_the_one_whose_removal_leaves_the_same_order() {
-        assert_eq!(moved_one(&[1, 2, 3], &[3, 1, 2]), Some(3));
-        assert_eq!(moved_one(&[1, 2, 3], &[2, 1, 3]), Some(1));
-        assert_eq!(moved_one(&[1, 2, 3], &[1, 2, 3]), None);
+    fn reorder_steps_move_only_the_grids_out_of_place() {
+        let [a, b, c, d] = [1, 2, 3, 4].map(Uuid::from_u128);
+        let now = [a, b, c, d];
+        assert!(reorder_steps(&now, &now).is_empty());
+        assert_eq!(
+            reorder_steps(&now, &[d, a, b, c]),
+            [json!({"local_grid": d, "before": a})]
+        );
+        assert_eq!(
+            reorder_steps(&now, &[b, c, d, a]),
+            [json!({"local_grid": a})]
+        );
+        for new in [[d, c, b, a], [b, a, d, c], [c, a, d, b]] {
+            let steps = reorder_steps(&now, &new);
+            assert_eq!(after(&now, &steps), new, "{steps:?}");
+        }
+        assert_eq!(reorder_steps(&now, &[d, c, b, a]).len(), 3);
+        assert_eq!(reorder_steps(&now, &[b, a, d, c]).len(), 2);
     }
 }
