@@ -105,7 +105,7 @@ mod tests {
 
     /// A 4 mm square Local Grid from (`x`, 0) mm every 0.3 mm, turned 90°.
     fn grid(n: u128, x: i64) -> LocalGrid {
-        let step: TypedLength = "0.3mm".parse().unwrap();
+        let step = TypedLength::parse("0.3mm").unwrap();
         LocalGrid::new(
             Uuid::from_u128(n),
             format!("G{n}"),
