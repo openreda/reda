@@ -44178,7 +44178,7 @@
     },
     {
       "category": "pcb",
-      "description": "Aligns the selected Footprints' (and Free Pads') left, right, top or bottom edges, or their centres, moving each as a whole. Up is +y. Refused when any of them is locked (unless `include_locked`).",
+      "description": "Aligns the selected Footprints' (and Free Pads') left, right, top or bottom edges, or their centres, moving each as a whole. Up is +y. With a `key` they line up on it and it stays put; without one, on the selection's extremes. Refused when any that would move is locked (unless `include_locked`).",
       "icon": "align",
       "id": "pcb.align",
       "kind": "edit",
@@ -44189,32 +44189,32 @@
             "oneOf": [
               {
                 "const": "left",
-                "description": "Left edges on the leftmost.",
+                "description": "Left edges on the leftmost (or the key's).",
                 "type": "string"
               },
               {
                 "const": "right",
-                "description": "Right edges on the rightmost.",
+                "description": "Right edges on the rightmost (or the key's).",
                 "type": "string"
               },
               {
                 "const": "top",
-                "description": "Top edges on the topmost.",
+                "description": "Top edges on the topmost (or the key's).",
                 "type": "string"
               },
               {
                 "const": "bottom",
-                "description": "Bottom edges on the bottommost.",
+                "description": "Bottom edges on the bottommost (or the key's).",
                 "type": "string"
               },
               {
                 "const": "center_x",
-                "description": "Centres on one vertical line through the middle of the selection's extent.",
+                "description": "Centres on one vertical line through the middle of the selection's extent (or the\nkey's centre).",
                 "type": "string"
               },
               {
                 "const": "center_y",
-                "description": "Centres on one horizontal line through the middle of the selection's extent.",
+                "description": "Centres on one horizontal line through the middle of the selection's extent (or\nthe key's centre).",
                 "type": "string"
               }
             ]
@@ -44227,6 +44227,15 @@
             "default": false,
             "description": "Moves locked objects too; without it a locked one refuses the whole Command.",
             "type": "boolean"
+          },
+          "key": {
+            "default": null,
+            "description": "The key object, one of `objects`: the rest line up on it and it stays put, so it\nmay be locked. Without one they line up on the selection's extremes.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "objects": {
             "description": "The Footprints, Free Pads and Output Origin to align, by UUID. A Footprint's\nextent is its Pads and drawing.",
@@ -73271,7 +73280,7 @@
     },
     {
       "category": "schematic",
-      "description": "Aligns the selected objects' left, right, top or bottom edges, or their centres, moving each as a whole. Up is +y.",
+      "description": "Aligns the selected objects' left, right, top or bottom edges, or their centres, moving each as a whole. Up is +y. With a `key` they line up on it and it stays put; without one, on the selection's extremes.",
       "icon": "align",
       "id": "schematic.align",
       "kind": "edit",
@@ -73282,32 +73291,32 @@
             "oneOf": [
               {
                 "const": "left",
-                "description": "Left edges on the leftmost.",
+                "description": "Left edges on the leftmost (or the key's).",
                 "type": "string"
               },
               {
                 "const": "right",
-                "description": "Right edges on the rightmost.",
+                "description": "Right edges on the rightmost (or the key's).",
                 "type": "string"
               },
               {
                 "const": "top",
-                "description": "Top edges on the topmost.",
+                "description": "Top edges on the topmost (or the key's).",
                 "type": "string"
               },
               {
                 "const": "bottom",
-                "description": "Bottom edges on the bottommost.",
+                "description": "Bottom edges on the bottommost (or the key's).",
                 "type": "string"
               },
               {
                 "const": "center_x",
-                "description": "Centres on one vertical line through the middle of the selection's extent.",
+                "description": "Centres on one vertical line through the middle of the selection's extent (or the\nkey's centre).",
                 "type": "string"
               },
               {
                 "const": "center_y",
-                "description": "Centres on one horizontal line through the middle of the selection's extent.",
+                "description": "Centres on one horizontal line through the middle of the selection's extent (or\nthe key's centre).",
                 "type": "string"
               }
             ]
@@ -73366,6 +73375,15 @@
             "default": false,
             "description": "Keep connections as a drag does. Off by default (detached).",
             "type": "boolean"
+          },
+          "key": {
+            "default": null,
+            "description": "The key object, one of `objects`: the rest line up on it and it stays put. Without\none they line up on the selection's extremes.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "objects": {
             "description": "The objects to align, by UUID, all on one sheet. Each one's extent is its Pins\nand body drawing (Units), its vertices (Wires), its ends (graphics) or its point (labels,\nmarkers, Ports, Power Ports, text).",

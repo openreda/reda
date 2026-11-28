@@ -46,6 +46,9 @@ impl Flags {
     /// Greyed, and skipped by hit-testing: what a masking highlight leaves out. Separate
     /// from [`DIMMED`](Self::DIMMED), which shades but stays pickable.
     pub const MASKED: Flags = Flags(64);
+    /// With [`SELECTED`](Self::SELECTED): the key object Align lines up on, drawn with a
+    /// heavier halo. Alone it draws nothing.
+    pub const KEY: Flags = Flags(128);
 
     pub const fn contains(self, other: Flags) -> bool {
         self.0 & other.0 == other.0

@@ -66,12 +66,12 @@
       "id": "align",
       "title": "context-align",
       "items": [
-        { "id": "context.align.left", "command": "pcb.align", "params": { "objects": "$selection", "to": "left" } },
-        { "id": "context.align.right", "command": "pcb.align", "params": { "objects": "$selection", "to": "right" } },
-        { "id": "context.align.top", "command": "pcb.align", "params": { "objects": "$selection", "to": "top" } },
-        { "id": "context.align.bottom", "command": "pcb.align", "params": { "objects": "$selection", "to": "bottom" } },
-        { "id": "context.align.center_x", "command": "pcb.align", "params": { "objects": "$selection", "to": "center_x" } },
-        { "id": "context.align.center_y", "command": "pcb.align", "params": { "objects": "$selection", "to": "center_y" } }
+        { "id": "context.align.left", "command": "pcb.align", "params": { "objects": "$selection", "key": "$selection_key", "to": "left" } },
+        { "id": "context.align.right", "command": "pcb.align", "params": { "objects": "$selection", "key": "$selection_key", "to": "right" } },
+        { "id": "context.align.top", "command": "pcb.align", "params": { "objects": "$selection", "key": "$selection_key", "to": "top" } },
+        { "id": "context.align.bottom", "command": "pcb.align", "params": { "objects": "$selection", "key": "$selection_key", "to": "bottom" } },
+        { "id": "context.align.center_x", "command": "pcb.align", "params": { "objects": "$selection", "key": "$selection_key", "to": "center_x" } },
+        { "id": "context.align.center_y", "command": "pcb.align", "params": { "objects": "$selection", "key": "$selection_key", "to": "center_y" } }
       ]
     },
     {

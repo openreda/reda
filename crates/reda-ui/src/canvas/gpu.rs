@@ -33,6 +33,9 @@ pub struct SceneHandle {
 pub struct SelectionHandle {
     pub generation: u64,
     pub objects: Arc<[Uuid]>,
+    /// The key object Align lines up on, drawn with a heavier outline: only while
+    /// several objects are selected, so there is one to tell apart.
+    pub key: Option<Uuid>,
     /// Cross-probed or Net-highlighted objects: marked highlighted, and everything else
     /// on a canvas that shows any of them dims.
     pub highlighted: Arc<[Uuid]>,
@@ -47,6 +50,7 @@ impl Default for SelectionHandle {
         SelectionHandle {
             generation: 0,
             objects: Arc::from([]),
+            key: None,
             highlighted: Arc::from([]),
             mask: false,
             strengths: reda_engine::render::gpu::DEFAULT_STRENGTHS,
@@ -281,6 +285,7 @@ impl CanvasResources {
                     Flags::HIGHLIGHTED,
                 );
                 highlight.mark_all(frame.selection.objects.iter().copied(), Flags::SELECTED);
+                highlight.mark_all(frame.selection.key, Flags::KEY);
                 highlight.mark_all(live.hovered, Flags::HOVERED);
                 highlight.mark_all(live.moving.iter().copied(), Flags::MOVING);
                 highlight.mark_all(live.hidden.iter().copied(), Flags::HIDDEN);

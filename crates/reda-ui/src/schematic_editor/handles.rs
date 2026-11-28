@@ -210,7 +210,7 @@ impl Cx<'_> {
                 ..Selection::default()
             };
         } else if whole {
-            selection.objects.retain(|o| *o != wire.uuid);
+            selection.retain_objects(|o| *o != wire.uuid);
             selection.segments.push(segment);
         } else if selection.segments.contains(&segment) {
             selection.segments.retain(|s| *s != segment);

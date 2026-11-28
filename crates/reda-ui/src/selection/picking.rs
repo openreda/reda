@@ -180,11 +180,12 @@ pub fn click(
         return None;
     }
     let before = shell.selection().clone();
+    let previous = before.clone();
     let kept_segments = before.segments.clone();
     let current = before.canvas_ids();
     let targets: BTreeMap<_, _> = objects
         .iter()
-        .map(|id| (*id, selected(shell, document, &[*id])))
+        .map(|id| (*id, clicked(shell, document, *id)))
         .collect();
     let picker = shell.selection_picking_mut();
     let now = picker.now();
@@ -224,6 +225,7 @@ pub fn click(
     );
     let selected = click_selection(&current, &picked, how);
     let mut selection = self::selected(shell, document, &selected);
+    selection.key = key_after(&previous, &selection, how, true);
     // Shift keeps the Wire segments selected, but those of a Wire now selected whole.
     if how != Combine::Replace {
         selection.segments = (kept_segments.into_iter())
@@ -320,6 +322,13 @@ pub fn pick_scene(scene: &Scene) -> Scene {
     scene
 }
 
+/// What a plain click picking `id` selects: it alone, as the key when it is an object.
+fn clicked(shell: &Shell, document: Uuid, id: Uuid) -> Selection {
+    let mut selection = selected(shell, document, &[id]);
+    selection.key = selection.objects.first().copied();
+    selection
+}
+
 pub fn selected(shell: &Shell, document: Uuid, ids: &[Uuid]) -> Selection {
     use reda_engine::render::Child;
     let mut selected = Selection::default();
@@ -363,12 +372,35 @@ pub fn box_selection(
         |i| rank(shell, document, i).is_some(),
     );
     let picked = in_designator_order(shell, picked);
-    let ids = combine(
-        &shell.selection().canvas_ids(),
-        &picked,
-        Combine::of(modifiers),
-    );
-    Some(set_command(&selected(shell, document, &ids)))
+    let how = Combine::of(modifiers);
+    let before = shell.selection();
+    let ids = combine(&before.canvas_ids(), &picked, how);
+    let mut selection = selected(shell, document, &ids);
+    selection.key = key_after(before, &selection, how, false);
+    Some(set_command(&selection))
+}
+
+/// The key object of `after`, the selection a pick combined into `before` with `how`:
+/// `by_click` for a click, else a rectangle. A click that replaces the selection makes
+/// its object the key; a rectangle that does leaves none. Adding or toggling keeps the
+/// key while it stays selected; when it is dropped, the next object in pick order takes
+/// over. A click added to a selection without a key gives it one only when nothing was
+/// selected, so a rectangle selection stays without.
+pub fn key_after(
+    before: &Selection,
+    after: &Selection,
+    how: Combine,
+    by_click: bool,
+) -> Option<Uuid> {
+    let first = after.objects.first().copied();
+    match how {
+        Combine::Replace => first.filter(|_| by_click),
+        Combine::Add | Combine::Toggle => match before.key {
+            Some(key) if after.objects.contains(&key) => Some(key),
+            Some(_) => first,
+            None => first.filter(|_| by_click && before.objects.is_empty()),
+        },
+    }
 }
 
 /// A box has no pick order: Units and Footprints in it go in natural Designator order
@@ -432,10 +464,15 @@ pub fn drag_start(
     let ids = current.canvas_ids();
     let carried = if ids.contains(&hit) {
         current.clone()
-    } else if modifiers.shift {
-        selected(shell, document, &combine(&ids, &[hit], Combine::Add))
     } else {
-        selected(shell, document, &[hit])
+        let how = if modifiers.shift {
+            Combine::Add
+        } else {
+            Combine::Replace
+        };
+        let mut carried = selected(shell, document, &combine(&ids, &[hit], how));
+        carried.key = key_after(current, &carried, how, true);
+        carried
     };
     let objects = carried
         .objects
@@ -467,7 +504,7 @@ pub fn hover(shell: &mut Shell, document: Uuid, at: (f64, f64), tolerance: f64) 
     let objects = stack(shell, document, at, tolerance);
     let targets = objects
         .iter()
-        .map(|id| (*id, selected(shell, document, &[*id])))
+        .map(|id| (*id, clicked(shell, document, *id)))
         .collect();
     let current = shell.selection().canvas_ids();
     let picker = shell.selection_picking_mut();

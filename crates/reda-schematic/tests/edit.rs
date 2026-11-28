@@ -413,6 +413,73 @@ fn align_lines_up_edges_and_centres_of_the_selection() {
 }
 
 #[test]
+fn align_with_a_key_lines_up_on_the_key_which_stays_put() {
+    let dir = TempDir::new("align-key");
+    let mut engine = demo(&dir);
+    // As above: a resistor's extent is its Pins, 150 mil above and below its origin.
+    let r1 = place(&mut engine, R_10K, 0, 0);
+    let r2 = place(&mut engine, R_10K, 1000, 300);
+    let vcc = label(&mut engine, "VCC", 500, -200);
+    let all = json!([r1, r2, vcc]);
+    let align = |engine: &mut TestEngine, to: &str, key: &Value| {
+        engine.run_ok(
+            "schematic.align",
+            json!({"objects": all, "to": to, "key": key}),
+        );
+    };
+    // Left on R2, the rightmost: without a key they'd go to R1's x = 0.
+    align(&mut engine, "left", &r2);
+    assert_eq!(at_mil(&mut engine, &r1), (1000, 0));
+    assert_eq!(at_mil(&mut engine, &vcc), (1000, -200));
+    assert_eq!(at_mil(&mut engine, &r2), (1000, 300));
+    engine.run_ok("edit.undo", json!({"document": SHEET}));
+    // Bottom on the label's point, -200: R1 and R2's bottom Pins go there.
+    align(&mut engine, "bottom", &vcc);
+    assert_eq!(at_mil(&mut engine, &r1), (0, -200 + 150));
+    assert_eq!(at_mil(&mut engine, &r2), (1000, -200 + 150));
+    assert_eq!(at_mil(&mut engine, &vcc), (500, -200));
+    engine.run_ok("edit.undo", json!({"document": SHEET}));
+    // Centres on R1's, not the middle of the extent (125).
+    align(&mut engine, "center_y", &r1);
+    assert_eq!(at_mil(&mut engine, &r2), (1000, 0));
+    assert_eq!(at_mil(&mut engine, &vcc), (500, 0));
+    assert_eq!(at_mil(&mut engine, &r1), (0, 0));
+    engine.run_ok("edit.undo", json!({"document": SHEET}));
+    align(&mut engine, "center_x", &vcc);
+    assert_eq!(at_mil(&mut engine, &r1), (500, 0));
+    assert_eq!(at_mil(&mut engine, &r2), (500, 300));
+    engine.run_ok("edit.undo", json!({"document": SHEET}));
+    align(&mut engine, "top", &r1);
+    assert_eq!(at_mil(&mut engine, &r2), (1000, 0));
+    assert_eq!(at_mil(&mut engine, &vcc), (500, 150));
+    engine.run_ok("edit.undo", json!({"document": SHEET}));
+    align(&mut engine, "right", &r1);
+    assert_eq!(at_mil(&mut engine, &r2), (0, 300));
+    assert_eq!(at_mil(&mut engine, &vcc), (0, -200));
+}
+
+#[test]
+fn align_refuses_a_key_outside_the_objects_and_distribute_takes_none() {
+    let dir = TempDir::new("align-key-outside");
+    let mut engine = demo(&dir);
+    let r1 = place(&mut engine, R_10K, 0, 0);
+    let r2 = place(&mut engine, R_10K, 1000, 300);
+    let r3 = place(&mut engine, R_10K, 2000, 600);
+    let err = engine.run_err(
+        "schematic.align",
+        json!({"objects": [r1, r2], "to": "left", "key": r3}),
+    );
+    assert_eq!(err.code, ErrorCode::InvalidParams, "{}", err.message);
+    assert_eq!(err.details.unwrap()["pointer"], "/key");
+    let err = engine.run_err(
+        "schematic.distribute",
+        json!({"objects": [r1, r2, r3], "direction": "horizontal", "key": r1}),
+    );
+    assert_eq!(err.code, ErrorCode::InvalidParams, "{}", err.message);
+    assert_eq!(at_mil(&mut engine, &r2), (1000, 300));
+}
+
+#[test]
 fn distribute_spaces_centres_evenly_between_the_outermost() {
     let dir = TempDir::new("distribute");
     let mut engine = demo(&dir);

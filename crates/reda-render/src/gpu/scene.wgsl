@@ -40,6 +40,7 @@ const DIMMED: u32 = 8u;
 const MOVING: u32 = 16u;
 const HIDDEN: u32 = 32u;
 const MASKED: u32 = 64u;
+const KEY: u32 = 128u;
 
 // Look bits, above the kind in the instance's kind word.
 const KIND_MASK: u32 = 255u;
@@ -49,8 +50,12 @@ const OWN_COLOR: u32 = 0x80000000u;
 // The side of a checker cell, in pixels.
 const CHECKER_PX: f32 = 4.0;
 
-// The selection halo's width in pixels.
+// The selection halo's width in pixels, and its strength.
 const HALO_PX: f32 = 3.0;
+const HALO_ALPHA: f32 = 0.45;
+// The key object's heavier halo (Align lines up on it).
+const KEY_HALO_PX: f32 = 6.0;
+const KEY_HALO_ALPHA: f32 = 0.8;
 // View-only labels smaller than this many pixels are hidden.
 const MIN_LABEL_PX: f32 = 4.0;
 
@@ -97,7 +102,11 @@ fn corner(i: u32) -> vec2<f32> {
 fn vs_main(@builtin(vertex_index) vi: u32, inst: Instance) -> Varyings {
     let kind = inst.kind_color.x & KIND_MASK;
     // Room around the shape for the anti-aliased edge and the halo, in nm.
-    let pad = (1.5 + HALO_PX) / px_per_nm();
+    var halo_px = HALO_PX;
+    if (inst.flags & KEY) != 0u {
+        halo_px = KEY_HALO_PX;
+    }
+    let pad = (1.5 + halo_px) / px_per_nm();
     let c = corner(vi);
     var world: vec2<f32>;
     switch kind {
@@ -268,7 +277,13 @@ fn fs_main(in: Varyings) -> @location(0) vec4<f32> {
     var halo_rgb = vec3(0.0);
     var halo_a = 0.0;
     if (in.flags & SELECTED) != 0u && kind != TRIANGLE {
-        halo_a = clamp(0.5 - (d_px - HALO_PX), 0.0, 1.0) * 0.45 * (1.0 - a);
+        var width = HALO_PX;
+        var strength = HALO_ALPHA;
+        if (in.flags & KEY) != 0u {
+            width = KEY_HALO_PX;
+            strength = KEY_HALO_ALPHA;
+        }
+        halo_a = clamp(0.5 - (d_px - width), 0.0, 1.0) * strength * (1.0 - a);
         halo_rgb = mix(rgb, vec3(1.0), 0.5);
     }
     if a + halo_a <= 0.0 {

@@ -62,12 +62,12 @@
       "id": "align",
       "title": "context-align",
       "items": [
-        { "id": "context.align.left", "command": "schematic.align", "params": { "objects": "$selection", "to": "left" } },
-        { "id": "context.align.right", "command": "schematic.align", "params": { "objects": "$selection", "to": "right" } },
-        { "id": "context.align.top", "command": "schematic.align", "params": { "objects": "$selection", "to": "top" } },
-        { "id": "context.align.bottom", "command": "schematic.align", "params": { "objects": "$selection", "to": "bottom" } },
-        { "id": "context.align.center_x", "command": "schematic.align", "params": { "objects": "$selection", "to": "center_x" } },
-        { "id": "context.align.center_y", "command": "schematic.align", "params": { "objects": "$selection", "to": "center_y" } },
+        { "id": "context.align.left", "command": "schematic.align", "params": { "objects": "$selection", "key": "$selection_key", "to": "left" } },
+        { "id": "context.align.right", "command": "schematic.align", "params": { "objects": "$selection", "key": "$selection_key", "to": "right" } },
+        { "id": "context.align.top", "command": "schematic.align", "params": { "objects": "$selection", "key": "$selection_key", "to": "top" } },
+        { "id": "context.align.bottom", "command": "schematic.align", "params": { "objects": "$selection", "key": "$selection_key", "to": "bottom" } },
+        { "id": "context.align.center_x", "command": "schematic.align", "params": { "objects": "$selection", "key": "$selection_key", "to": "center_x" } },
+        { "id": "context.align.center_y", "command": "schematic.align", "params": { "objects": "$selection", "key": "$selection_key", "to": "center_y" } },
         "separator",
         { "id": "context.distribute.horizontal", "command": "schematic.distribute", "params": { "objects": "$selection", "direction": "horizontal" } },
         { "id": "context.distribute.vertical", "command": "schematic.distribute", "params": { "objects": "$selection", "direction": "vertical" } }

@@ -153,7 +153,7 @@ impl Shell {
         if !gone.is_empty()
             && let Some(selection) = self.engine.view_mut().get_mut::<Selection>()
         {
-            selection.objects.retain(|o| !gone.contains(o));
+            selection.retain_objects(|o| !gone.contains(o));
         }
         if segments != self.selection().segments
             && let Some(selection) = self.engine.view_mut().get_mut::<Selection>()
@@ -245,7 +245,10 @@ impl Shell {
             // Cross-selected objects draw selected too.
             let mut objects = key.0.canvas_ids();
             objects.extend(key.0.mirrored.iter().copied());
+            // The key shows only beside other selected objects.
+            let align_key = key.0.key.filter(|_| key.0.objects.len() > 1);
             if self.marked.objects[..] != objects[..]
+                || self.marked.key != align_key
                 || self.marked.highlighted[..] != highlighted[..]
                 || self.marked.mask != key.1.mask
             {
@@ -253,6 +256,7 @@ impl Shell {
                 self.marked = SelectionHandle {
                     generation: self.generation,
                     objects: Arc::from(objects),
+                    key: align_key,
                     highlighted: Arc::from(highlighted),
                     mask: key.1.mask,
                     strengths,
