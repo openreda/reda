@@ -1,5 +1,5 @@
-//! The grid's view Commands: `view.grid.set`, `view.grid.cycle`, `view.grid.custom` and
-//! `view.grid.show`. A board or Footprint grid may have a Step Y (`grid_y`) other than its
+//! The grid's view Commands: `view.grid.set`, `view.grid.cycle`, `view.grid.custom`,
+//! `view.grid.show` and `view.grids_guides.show`. A board or Footprint grid may have a Step Y (`grid_y`) other than its
 //! Step X (`grid`); sheets and Symbols keep a single step.
 
 use reda_engine::command::{Command, CommandError, Context, Kind, Length, Meta, Registry};
@@ -19,6 +19,7 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(GridCycle);
     registry.add(GridCustom);
     registry.add(GridShow);
+    registry.add(GridsGuidesShow);
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -87,6 +88,49 @@ pub struct GridResult {
 #[derive(Serialize, JsonSchema)]
 pub struct GridShown {
     visible: bool,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct GridsGuidesShowParams {
+    /// Show them or not; unset toggles.
+    #[serde(default)]
+    on: Option<bool>,
+}
+
+/// Whether Grids & Guides show now.
+#[derive(Serialize, JsonSchema)]
+pub struct GridsGuidesShown {
+    on: bool,
+}
+
+/// `view.grids_guides.show`: the one toggle that hides every Guide (docs/spec/v0.3/
+/// grids-guides.md#editing). Hidden ones are neither drawn nor picked, and still snap.
+struct GridsGuidesShow;
+
+impl Command for GridsGuidesShow {
+    const META: Meta = Meta {
+        id: "view.grids_guides.show",
+        title: "Show Grids & Guides",
+        description: "Shows or hides every Guide on the canvas; unset `on` toggles. Hidden \
+                      Guides are not drawn or picked, and the cursor still snaps to them.",
+        category: "view",
+        icon: "place_guides",
+        kind: Kind::View,
+    };
+    type Params = GridsGuidesShowParams;
+    type Output = GridsGuidesShown;
+
+    fn run(
+        &self,
+        cx: &mut Context<'_>,
+        p: GridsGuidesShowParams,
+    ) -> Result<GridsGuidesShown, CommandError> {
+        let grids = cx.view::<Grids>()?;
+        let on = p.on.unwrap_or(grids.aids_hidden);
+        grids.aids_hidden = !on;
+        Ok(GridsGuidesShown { on })
+    }
 }
 
 /// Makes `grid` `document`'s grid (custom with `range` when `custom`); on a board,

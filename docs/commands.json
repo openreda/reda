@@ -27793,6 +27793,21 @@
               }
             ]
           },
+          "GuideKind": {
+            "description": "Whether a Guide is an infinite line or a single point.",
+            "oneOf": [
+              {
+                "const": "line",
+                "description": "An infinite line through `at` at `angle`.",
+                "type": "string"
+              },
+              {
+                "const": "point",
+                "description": "The point `at`.",
+                "type": "string"
+              }
+            ]
+          },
           "Hole": {
             "additionalProperties": false,
             "description": "A drilled hole: round when `width == height`, otherwise a slot along the longer side.\nSizes are the finished diameter.",
@@ -29378,6 +29393,58 @@
             "required": [
               "uuid",
               "at"
+            ],
+            "type": "object"
+          },
+          "InDocument32": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "angle": {
+                "description": "A line's direction, counter-clockwise from +x, in `[0°, 180°)`; a point has none.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "at": {
+                "$ref": "#/$defs/Point",
+                "description": "The point a line runs through, or the point itself."
+              },
+              "enabled": {
+                "description": "The cursor snaps to it.",
+                "type": "boolean"
+              },
+              "kind": {
+                "$ref": "#/$defs/GuideKind"
+              },
+              "locked": {
+                "description": "Locked against moves and deletes, as any placed object.",
+                "type": "boolean"
+              },
+              "name": {
+                "description": "An optional name, shown in the Grids & Guides list.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "shown": {
+                "description": "Drawn on the canvas. A hidden Guide still snaps while it is enabled.",
+                "type": "boolean"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "kind",
+              "at",
+              "shown",
+              "enabled",
+              "locked"
             ],
             "type": "object"
           },
@@ -31043,6 +31110,19 @@
                 "properties": {
                   "type": {
                     "const": "output_origin",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument32",
+                "properties": {
+                  "type": {
+                    "const": "guide",
                     "type": "string"
                   }
                 },
@@ -34399,6 +34479,11 @@
                 "const": "output_origin",
                 "description": "Where the editor and relative manufacturing outputs measure coordinates from.",
                 "type": "string"
+              },
+              {
+                "const": "guide",
+                "description": "A placed line or point on the board the cursor snaps to.",
+                "type": "string"
               }
             ]
           }
@@ -36491,6 +36576,21 @@
               }
             ]
           },
+          "GuideKind": {
+            "description": "Whether a Guide is an infinite line or a single point.",
+            "oneOf": [
+              {
+                "const": "line",
+                "description": "An infinite line through `at` at `angle`.",
+                "type": "string"
+              },
+              {
+                "const": "point",
+                "description": "The point `at`.",
+                "type": "string"
+              }
+            ]
+          },
           "Hole": {
             "additionalProperties": false,
             "description": "A drilled hole: round when `width == height`, otherwise a slot along the longer side.\nSizes are the finished diameter.",
@@ -38076,6 +38176,58 @@
             "required": [
               "uuid",
               "at"
+            ],
+            "type": "object"
+          },
+          "InDocument32": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "angle": {
+                "description": "A line's direction, counter-clockwise from +x, in `[0°, 180°)`; a point has none.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "at": {
+                "$ref": "#/$defs/Point",
+                "description": "The point a line runs through, or the point itself."
+              },
+              "enabled": {
+                "description": "The cursor snaps to it.",
+                "type": "boolean"
+              },
+              "kind": {
+                "$ref": "#/$defs/GuideKind"
+              },
+              "locked": {
+                "description": "Locked against moves and deletes, as any placed object.",
+                "type": "boolean"
+              },
+              "name": {
+                "description": "An optional name, shown in the Grids & Guides list.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "shown": {
+                "description": "Drawn on the canvas. A hidden Guide still snaps while it is enabled.",
+                "type": "boolean"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "kind",
+              "at",
+              "shown",
+              "enabled",
+              "locked"
             ],
             "type": "object"
           },
@@ -39741,6 +39893,19 @@
                 "properties": {
                   "type": {
                     "const": "output_origin",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument32",
+                "properties": {
+                  "type": {
+                    "const": "guide",
                     "type": "string"
                   }
                 },
@@ -44533,7 +44698,7 @@
     },
     {
       "category": "pcb",
-      "description": "Moves the whole board by `dx`, `dy`: the Board Outline, its Board Cutouts, the Output Origin and every object with any part inside the outline. A Track crossing the edge moves whole; objects wholly outside, such as unplaced Footprints, stay. Locked objects move too and stay locked.",
+      "description": "Moves the whole board by `dx`, `dy`: the Board Outline, its Board Cutouts, the Output Origin, every Guide and every object with any part inside the outline. A Track crossing the edge moves whole; objects wholly outside, such as unplaced Footprints, stay. Locked objects move too and stay locked.",
       "icon": "move",
       "id": "pcb.board.move",
       "kind": "edit",
@@ -50306,7 +50471,7 @@
             "type": "boolean"
           },
           "objects": {
-            "description": "The Footprints, Free Pads, Dimensions, Output Origin, Board Outline and Board Cutouts\nto flip, by UUID.",
+            "description": "The Footprints, Free Pads, Dimensions, Guides, Output Origin, Board Outline and Board\nCutouts\nto flip, by UUID.",
             "items": {
               "format": "uuid",
               "type": "string"
@@ -53643,6 +53808,323 @@
     },
     {
       "category": "pcb",
+      "description": "Places a Guide on the board: a `line` through `at` at any `angle`, or a `point`. The cursor snaps onto Guides, their crossings and point Guides; no output, export or 3D view shows one.",
+      "icon": "place_guides",
+      "id": "pcb.guide.add",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Angle": {
+            "description": "An angle, counter-clockwise: integer millidegrees, or degrees such as \"45deg\".",
+            "oneOf": [
+              {
+                "description": "Millidegrees.",
+                "type": "integer"
+              },
+              {
+                "description": "A number of degrees followed by deg.",
+                "format": "angle",
+                "type": "string"
+              }
+            ]
+          },
+          "GuideKind": {
+            "description": "Whether a Guide is an infinite line or a single point.",
+            "oneOf": [
+              {
+                "const": "line",
+                "description": "An infinite line through `at` at `angle`.",
+                "type": "string"
+              },
+              {
+                "const": "point",
+                "description": "The point `at`.",
+                "type": "string"
+              }
+            ]
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "angle": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Angle"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "A line's direction, counter-clockwise from +x: required on a line, refused on a\npoint. Kept in `[0°, 180°)`, since a line at θ + 180° is the same line."
+          },
+          "at": {
+            "$ref": "#/$defs/PointParam",
+            "description": "The point a line runs through, or the point itself, from design zero as every\nCommand's coordinates (never snapped)."
+          },
+          "enabled": {
+            "default": null,
+            "description": "The cursor snaps to it; on when left out.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "kind": {
+            "$ref": "#/$defs/GuideKind",
+            "description": "`line`, an infinite line through `at` at `angle`, or `point`."
+          },
+          "locked": {
+            "default": false,
+            "description": "Locked against moves and deletes; off when left out.",
+            "type": "boolean"
+          },
+          "name": {
+            "default": null,
+            "description": "An optional name for the Grids & Guides list.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "shown": {
+            "default": null,
+            "description": "Drawn on the canvas; on when left out. A hidden Guide still snaps.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "at"
+        ],
+        "title": "GuideAddParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a Command that creates one object returns.",
+        "properties": {
+          "uuid": {
+            "description": "The new object's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid"
+        ],
+        "title": "Created",
+        "type": "object"
+      },
+      "title": "Add Guide"
+    },
+    {
+      "category": "pcb",
+      "description": "Deletes one Guide from the board.",
+      "icon": "delete",
+      "id": "pcb.guide.delete",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "include_locked": {
+            "default": false,
+            "description": "Deletes a locked Guide too; without it a locked one refuses the Command.",
+            "type": "boolean"
+          },
+          "uuid": {
+            "description": "The Guide's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid"
+        ],
+        "title": "GuideDeleteParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Delete Guide"
+    },
+    {
+      "category": "pcb",
+      "description": "Changes the given fields of one Guide and keeps the rest: its position, a line's angle, its name, and the shown, enabled and locked switches.",
+      "icon": "place_guides",
+      "id": "pcb.guide.set",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Angle": {
+            "description": "An angle, counter-clockwise: integer millidegrees, or degrees such as \"45deg\".",
+            "oneOf": [
+              {
+                "description": "Millidegrees.",
+                "type": "integer"
+              },
+              {
+                "description": "A number of degrees followed by deg.",
+                "format": "angle",
+                "type": "string"
+              }
+            ]
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "angle": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Angle"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "A new direction for a line, kept in `[0°, 180°)`; refused on a point."
+          },
+          "at": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PointParam"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A new position, from design zero."
+          },
+          "enabled": {
+            "default": null,
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "include_locked": {
+            "default": false,
+            "description": "Moves a locked Guide too; without it `at` or `angle` on a locked one is refused.",
+            "type": "boolean"
+          },
+          "locked": {
+            "default": null,
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "name": {
+            "default": null,
+            "description": "A new name; `null` clears it.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "shown": {
+            "default": null,
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "uuid": {
+            "description": "The Guide's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid"
+        ],
+        "title": "GuideSetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Edit Guide"
+    },
+    {
+      "category": "pcb",
       "description": "Imports a DXF drawing's lines, arcs, circles and polylines as board graphics, as one undo step. It lands at its file coordinates on the Output Origin (design zero without one), or with its lower-left corner at `at`. Each DXF layer goes to its `mapping` target or the pre-filled one: a board Layer of the same name, the Board Outline for an outline-like name, a Mechanical Layer whose Purpose the name suggests, or else the Reference Layer, added if the board has none. Bulges become exact arcs. Returns the preview's report and the new objects.",
       "icon": "library_import",
       "id": "pcb.import_dxf",
@@ -55199,7 +55681,7 @@
     },
     {
       "category": "pcb",
-      "description": "Locks placed objects (Footprints, Tracks, Vias, Zones, Free Pads, text, graphics, Dimensions, Keepouts, the Board Outline and Board Cutouts) against geometry changes, or unlocks them. A lock refuses moving, turning, flipping, deleting and reshaping unless a Command is given `include_locked`; other values stay editable, and Sync, Update from Library and `pcb.board.move` still apply.",
+      "description": "Locks placed objects (Footprints, Tracks, Vias, Zones, Free Pads, text, graphics, Dimensions, Keepouts, Guides, the Board Outline and Board Cutouts) against geometry changes, or unlocks them. A lock refuses moving, turning, flipping, deleting and reshaping unless a Command is given `include_locked`; other values stay editable, and Sync, Update from Library and `pcb.board.move` still apply.",
       "icon": "lock",
       "id": "pcb.lock",
       "kind": "edit",
@@ -55212,7 +55694,7 @@
             "type": "boolean"
           },
           "objects": {
-            "description": "The objects to lock or unlock, by UUID: Footprints, Tracks, Vias, Zones, Free Pads,\ntext, graphics, Dimensions, Keepouts, the Board Outline and Board Cutouts.",
+            "description": "The objects to lock or unlock, by UUID: Footprints, Tracks, Vias, Zones, Free Pads,\ntext, graphics, Dimensions, Keepouts, Guides, the Board Outline and Board Cutouts.",
             "items": {
               "format": "uuid",
               "type": "string"
@@ -55774,7 +56256,7 @@
     },
     {
       "category": "pcb",
-      "description": "Moves Footprints, Free Pads, Dimensions, the Output Origin, the Board Outline and Board Cutouts by an offset. Moving the Board Outline alone is Move Board Shape; `pcb.board.move` moves the whole board. Refused when any of them is locked (unless `include_locked`), or a Dimension without the objects it references.",
+      "description": "Moves Footprints, Free Pads, Dimensions, Guides, the Output Origin, the Board Outline and Board Cutouts by an offset. Moving the Board Outline without the rest is Move Board Shape, which carries every Guide too; `pcb.board.move` moves the whole board. Refused when any of them is locked (unless `include_locked`), or a Dimension without the objects it references.",
       "icon": "move",
       "id": "pcb.move",
       "kind": "edit",
@@ -55825,7 +56307,7 @@
             "type": "boolean"
           },
           "objects": {
-            "description": "The Footprints, Free Pads, Dimensions, Output Origin, Board Outline and Board Cutouts\nto move, by UUID.",
+            "description": "The Footprints, Free Pads, Dimensions, Guides, Output Origin, Board Outline and Board\nCutouts\nto move, by UUID.",
             "items": {
               "format": "uuid",
               "type": "string"
@@ -60509,7 +60991,7 @@
     },
     {
       "category": "pcb",
-      "description": "Turns Footprints, Free Pads, Dimensions, the Output Origin, the Board Outline and Board Cutouts counter-clockwise (90° by default) about a point: a lone object turns in place, a selection about the middle of its extent. Refused when any of them is locked (unless `include_locked`).",
+      "description": "Turns Footprints, Free Pads, Dimensions, Guides, the Output Origin, the Board Outline and Board Cutouts counter-clockwise (90° by default) about a point: a lone object turns in place, a selection about the middle of its extent. Refused when any of them is locked (unless `include_locked`).",
       "icon": "rotate",
       "id": "pcb.rotate",
       "kind": "edit",
@@ -60593,7 +61075,7 @@
             "type": "boolean"
           },
           "objects": {
-            "description": "The Footprints, Free Pads, Dimensions, Output Origin, Board Outline and Board Cutouts\nto turn, by UUID.",
+            "description": "The Footprints, Free Pads, Dimensions, Guides, Output Origin, Board Outline and Board\nCutouts\nto turn, by UUID.",
             "items": {
               "format": "uuid",
               "type": "string"

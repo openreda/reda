@@ -1,7 +1,7 @@
 //! Locks on placed objects (docs/spec/v0.1/pcb.md#locks).
 //!
 //! Footprints, Tracks, Vias, Zones, Free Pads, text, graphics, Dimensions, Keepouts, the
-//! Board Outline and Board Cutouts carry `locked`. A lock blocks geometry changes only:
+//! Board Outline, Board Cutouts and Guides carry `locked`. A lock blocks geometry changes only:
 //! every Command that moves, turns, flips, deletes or reshapes an object refuses a locked
 //! one through [`refuse`] unless given `include_locked`. Sync, Update from Library and
 //! `pcb.board.move` still apply, and keep the lock.
@@ -48,6 +48,9 @@ pub fn lock_of(pcb: &PcbDocument, object: Uuid) -> Option<bool> {
     if let Some(o) = pcb.outline().filter(|o| o.uuid == object) {
         return Some(o.locked);
     }
+    if let Some(g) = pcb.guide(object) {
+        return Some(g.locked);
+    }
     pcb.cutout(object).map(|c| c.locked)
 }
 
@@ -75,6 +78,8 @@ fn name(pcb: &PcbDocument, object: Uuid) -> String {
         "a Keepout"
     } else if pcb.cutout(object).is_some() {
         "a Board Cutout"
+    } else if pcb.guide(object).is_some() {
+        "a Guide"
     } else {
         "the Board Outline"
     };
@@ -136,5 +141,6 @@ pub(crate) fn with_lock(pcb: &PcbDocument, object: Uuid, locked: bool) -> Option
     set!(pcb.keepout(object), Keepout);
     set!(pcb.outline().filter(|o| o.uuid == object), BoardOutline);
     set!(pcb.cutout(object), BoardCutout);
+    set!(pcb.guide(object), Guide);
     None
 }

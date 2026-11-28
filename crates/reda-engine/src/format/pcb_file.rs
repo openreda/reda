@@ -85,6 +85,9 @@
 //!   ],
 //!   "waivers": [
 //!     {"uuid":"…","check":"clearance","objects":["…","…"],"author":"Ada","created":1767225600000,"reason":"…"}
+//!   ],
+//!   "guides": [
+//!     {"uuid":"…","kind":"line","at":{"x":0,"y":0},"angle":90000,"shown":true,"enabled":true,"locked":false}
 //!   ]
 //! }
 //! ```
@@ -99,8 +102,8 @@
 //! table, rows shaped like a sheet file's `footprints`) and `footprints` (the Footprint
 //! instances, each Pad's Net on its own line) are left out while the board has no
 //! Footprints. `dimensions`, `tracks`, `vias`, `free_pads`, `zones`, `keepouts`,
-//! `zone_cutouts` and `waivers` (of DRC Violations) are left out while the board has none,
-//! `output_origin` while it is not set. A Keepout leaves out `layer` when it applies to every
+//! `zone_cutouts`, `waivers` (of DRC Violations) and `guides` are left out while the board
+//! has none, `output_origin` while it is not set. A Keepout leaves out `layer` when it applies to every
 //! copper Layer; a `line` Keepout adds its `width`. Zone fills are never stored here: they
 //! live in the `.reda/` cache.
 
@@ -108,9 +111,9 @@ use std::path::Path;
 
 use reda_model::{
     BoardCutout, BoardOutline, BoardSetup, DesignRule, Dimension, DrcSeverities, EdgeConnector,
-    FootprintInstance, FreePad, InDocument, Keepout, LayerSet, Net, NetClass, Object, OutputOrigin,
-    PcbDocument, PcbGraphic, PcbText, Stackup, Track, Uuid, Via, Waiver, Zone, ZoneCutout,
-    ZoneNameScheme,
+    FootprintInstance, FreePad, Guide, InDocument, Keepout, LayerSet, Net, NetClass, Object,
+    OutputOrigin, PcbDocument, PcbGraphic, PcbText, Stackup, Track, Uuid, Via, Waiver, Zone,
+    ZoneCutout, ZoneNameScheme,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -188,6 +191,10 @@ pub(crate) struct PcbFile {
     /// The Waivers of DRC Violations, sorted by UUID; left out while the board has none.
     #[serde(default)]
     waivers: Vec<Waiver>,
+    /// The Guides the cursor snaps to, sorted by UUID; left out while the board has none.
+    /// Editor aids: no output reads them.
+    #[serde(default)]
+    guides: Vec<Guide>,
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
@@ -290,6 +297,9 @@ pub(crate) fn write_pcb_file(pcb: &PcbDocument) -> Result<Vec<u8>, CanonicalErro
     }
     if pcb.waivers().next().is_some() {
         w.table("waivers", pcb.waivers(), |r| r.uuid)?;
+    }
+    if pcb.guides().next().is_some() {
+        w.table("guides", pcb.guides(), |g| g.uuid)?;
     }
     Ok(w.finish())
 }
@@ -418,6 +428,11 @@ pub(crate) fn read_pcb_file(
         file.waivers
             .into_iter()
             .map(|w| Object::Waiver(InDocument::new(doc, w))),
+    );
+    objects.extend(
+        file.guides
+            .into_iter()
+            .map(|g| Object::Guide(InDocument::new(doc, g))),
     );
     for object in &mut objects {
         normalise_rotations(object);

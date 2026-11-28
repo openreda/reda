@@ -153,7 +153,7 @@ impl PolygonEdit {
             self.mode,
             Mode::Corner(CornerMode::Move) | Mode::Edge(EdgeMode::Split)
         ) {
-            rules.guides = false;
+            rules.alignment = false;
         }
         let snapped = snap::snap(
             (at.x.0 as f64, at.y.0 as f64),
@@ -166,7 +166,7 @@ impl PolygonEdit {
 
     fn follow_snapped(&mut self, shell: &mut Shell, at: Point, snapped: Option<Snapped>) {
         if let Some(s) = snapped {
-            self.shown_guides = if s.hit == Hit::Guide {
+            self.shown_guides = if s.hit == Hit::Alignment {
                 self.guides
                     .iter()
                     .copied()

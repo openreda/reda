@@ -11,6 +11,7 @@ mod find;
 mod free_pad;
 pub mod from_graphics;
 mod graphic;
+mod guide;
 pub(crate) mod layer;
 mod layer_count;
 mod measure;
@@ -82,6 +83,7 @@ pub fn register_all_with_user(
     registry.add(text_geometry::TextGeometry);
     graphic::register_all(registry);
     dimension::register_all(registry);
+    guide::register_all(registry);
     track::register_all(registry);
     track_edit::register_all(registry);
     via::register_all(registry);

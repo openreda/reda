@@ -13,7 +13,7 @@ use reda_geom::{Nm, Vertex};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::{FootprintCopy, Object, Severity, Uuid, Waiver};
+use crate::{FootprintCopy, Guide, Object, Severity, Uuid, Waiver};
 
 mod copper;
 mod dimension;
@@ -612,6 +612,7 @@ pub struct PcbDocument {
     pub(crate) free_pads: BTreeMap<Uuid, FreePad>,
     pub(crate) output_origins: BTreeMap<Uuid, OutputOrigin>,
     pub(crate) waivers: BTreeMap<Uuid, Waiver>,
+    pub(crate) guides: BTreeMap<Uuid, Guide>,
 }
 
 impl PcbDocument {
@@ -639,6 +640,7 @@ impl PcbDocument {
             free_pads: BTreeMap::new(),
             output_origins: BTreeMap::new(),
             waivers: BTreeMap::new(),
+            guides: BTreeMap::new(),
         }
     }
 
@@ -996,6 +998,15 @@ impl PcbDocument {
         self.waivers.get(&uuid)
     }
 
+    /// The Guides, sorted by UUID.
+    pub fn guides(&self) -> impl Iterator<Item = &Guide> {
+        self.guides.values()
+    }
+
+    pub fn guide(&self, uuid: Uuid) -> Option<&Guide> {
+        self.guides.get(&uuid)
+    }
+
     /// The object with this UUID, if this Document holds it.
     pub(crate) fn object(&self, uuid: Uuid) -> Option<Object> {
         let doc = self.uuid;
@@ -1028,7 +1039,8 @@ impl PcbDocument {
             zone_cutouts => ZoneCutout,
             free_pads => FreePad,
             output_origins => OutputOrigin,
-            waivers => Waiver
+            waivers => Waiver,
+            guides => Guide
         )
     }
 
@@ -1066,7 +1078,8 @@ impl PcbDocument {
             zone_cutouts => ZoneCutout,
             free_pads => FreePad,
             output_origins => OutputOrigin,
-            waivers => Waiver
+            waivers => Waiver,
+            guides => Guide
         );
         out
     }
@@ -1094,6 +1107,7 @@ impl PcbDocument {
         self.free_pads.remove(&uuid);
         self.output_origins.remove(&uuid);
         self.waivers.remove(&uuid);
+        self.guides.remove(&uuid);
     }
 
     pub(crate) fn is_empty(&self) -> bool {
@@ -1118,6 +1132,7 @@ impl PcbDocument {
             && self.free_pads.is_empty()
             && self.output_origins.is_empty()
             && self.waivers.is_empty()
+            && self.guides.is_empty()
     }
 
     /// Checks the invariants a committed transaction must leave behind.
@@ -1204,6 +1219,9 @@ impl PcbDocument {
                     "{uuid} is drawn on Layer {layer}, which does not exist"
                 ));
             }
+        }
+        if let Some(problem) = self.guides.values().find_map(Guide::problem) {
+            return Err(problem);
         }
         self.check_footprints()?;
         self.check_copper()?;

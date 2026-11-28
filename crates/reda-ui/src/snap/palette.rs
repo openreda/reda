@@ -12,6 +12,7 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::{hotspot_label, hotspot_name, offered};
+use crate::bars::DocumentType;
 use crate::shell::Shell;
 use crate::theme::TokensExt as _;
 use crate::widgets::{self, Glyph, Tooltip as _};
@@ -78,6 +79,16 @@ pub fn controls(ui: &mut egui::Ui, shell: &Shell, document: Uuid) -> Vec<(&'stat
             "view.snap.set",
             json!({"document": document, "gridless": !grid}),
         ));
+    }
+    if matches!(ty, DocumentType::Pcb | DocumentType::Footprint) {
+        let mut guides = options.guides;
+        let guides_box = widgets::checkbox(&mut guides, crate::tr!("snap-palette-guides"));
+        if ui.add(guides_box).changed() {
+            commands.push((
+                "view.snap.set",
+                json!({"document": document, "guides": guides}),
+            ));
+        }
     }
     ui.separator();
     ui.label(crate::tr!("snap-palette-mode"));

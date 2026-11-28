@@ -1,6 +1,6 @@
 //! Properties with nothing selected (docs/spec/v0.1/editing.md#properties-with-nothing-selected):
 //! Ready for fab? on a board, the Selection Filter, Snap Options, the Board or Sheet, the
-//! Grid, Other (units), Checks (the check summary, with **Fix** for health checks) and
+//! Grid, Grids & Guides on a board, Other (units), Checks (the check summary, with **Fix** for health checks) and
 //! links to Board Setup or Project Settings. Each region collapses.
 
 use std::sync::Arc;
@@ -99,6 +99,12 @@ pub(super) fn show(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
                 region(ui, shell, "grid", tr!("properties-grid"), |ui| {
                     grid(ui, shell, board, document, &mut out);
                 });
+                if board && let Some(project) = project {
+                    let title = tr!("properties-grids-guides");
+                    region(ui, shell, "grids_guides", title, |ui| {
+                        super::guides::region(ui, shell, project, &mut out);
+                    });
+                }
                 region(ui, shell, "other", tr!("properties-other"), |ui| {
                     other(ui, shell, board, document, &mut out);
                 });

@@ -12,13 +12,13 @@ use reda_engine::model::{
     BoardCutout, BoardOutline, BoardSetup, Column, ColumnSource, ComponentRef, ComponentType,
     CopperEntry, DielectricEntry, DocumentEntry, DocumentKind, DrcCheck, DrcSeverities, ErcCheck,
     ErcSettings, FabPreset, FileNaming, FootprintCopy, FootprintInstance, FrameSize, FreePad,
-    GerberSettings, GraphicShape, Hole, InDocument, Justify, Keepout, KeepoutShape, Layer,
-    LayerKind, LayerSet, LayerSpan, Net, NetClass, NetLabel, NoConnect, Object, Orientation,
-    OutputJob, OutputOrigin, Outputs, PadKind, PadNet, PadShape, PartEntry, PcbGraphic, PcbText,
-    Port, PortDirection, PourOver, PowerPort, PowerPortStyle, Project, ProjectFabPreset,
-    ProjectProperties, ProjectProps, Restriction, Severity, SheetFrame, SheetGraphic, SheetShape,
-    SheetSize, SheetText, Side, Stackup, StackupEntry, Track, TrackGeometry, UnitInstance, Uuid,
-    Via, Waiver, Wire, Zone, ZoneCutout, ZoneNameScheme,
+    GerberSettings, GraphicShape, Guide, GuideKind, Hole, InDocument, Justify, Keepout,
+    KeepoutShape, Layer, LayerKind, LayerSet, LayerSpan, Net, NetClass, NetLabel, NoConnect,
+    Object, Orientation, OutputJob, OutputOrigin, Outputs, PadKind, PadNet, PadShape, PartEntry,
+    PcbGraphic, PcbText, Port, PortDirection, PourOver, PowerPort, PowerPortStyle, Project,
+    ProjectFabPreset, ProjectProperties, ProjectProps, Restriction, Severity, SheetFrame,
+    SheetGraphic, SheetShape, SheetSize, SheetText, Side, Stackup, StackupEntry, Track,
+    TrackGeometry, UnitInstance, Uuid, Via, Waiver, Wire, Zone, ZoneCutout, ZoneNameScheme,
 };
 use reda_engine::model::{
     ConnectionStyle, CopperRole, DesignRule, DielectricKind, FabRules, LayerGroup, PadCopperShape,
@@ -103,7 +103,12 @@ struct PcbSeed {
         bool,
         Option<ZoneConnection>,
     ),
+    /// Guides: a point or a line's angle, position, name and the three switches.
+    guides: Vec<GuideSeed>,
 }
+
+/// A Guide: `None` for a point, else a line's angle; its position, name and switches.
+type GuideSeed = (Option<i64>, Point, Option<String>, [bool; 3]);
 
 /// A text object; the Layer is an index into the seed's Layers.
 #[derive(Clone, Debug)]
@@ -714,11 +719,20 @@ prop_compose! {
             any::<bool>(),
             prop::option::of(zone_connection()),
         ),
+        guides in prop::collection::vec(
+            (
+                prop::option::of(0i64..180_000),
+                point(),
+                prop::option::of("[A-Za-z0-9][A-Za-z0-9 ]{0,9}"),
+                prop::array::uniform3(any::<bool>()),
+            ),
+            0..3,
+        ),
     ) -> PcbSeed {
         PcbSeed {
             base, name, title, rules, severities, outline, cutouts, classes, nets, texts,
             graphics, footprint, copper, stack, finish, vias, rules_v2, mechanical, heights,
-            pad_stack,
+            pad_stack, guides,
         }
     }
 }
@@ -1198,6 +1212,23 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
             .into_iter()
             .map(|c| Object::NetClass(InDocument::new(doc, c))),
     );
+    for (angle, at, name, [shown, enabled, locked]) in seed.guides {
+        let guide = Guide {
+            uuid: id(),
+            kind: if angle.is_some() {
+                GuideKind::Line
+            } else {
+                GuideKind::Point
+            },
+            at,
+            angle: angle.map(reda_engine::model::geom::Millideg),
+            name,
+            shown,
+            enabled,
+            locked,
+        };
+        objects.push(Object::Guide(InDocument::new(doc, guide)));
+    }
     let entry = DocumentEntry {
         uuid: doc,
         kind: DocumentKind::Pcb,

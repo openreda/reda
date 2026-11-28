@@ -41,6 +41,7 @@ fn frame(generation: u64, scene: &Arc<Scene>) -> CanvasFrame {
             generation,
             scene: scene.clone(),
             layers: None,
+            guides: Default::default(),
         },
         theme: Theme::Dark,
         view: View {

@@ -282,6 +282,7 @@ impl Shell {
             }
             tab.grid = grids.of(project, tab.document);
             tab.grid_visible = grids.visible(project, tab.document);
+            tab.aids_shown = !grids.aids_hidden;
             tab.grid_origin = grid::origin(project, tab.document);
             if tab.palette.generation != self.palette.generation {
                 tab.palette = self.palette.clone();
@@ -344,6 +345,7 @@ impl Shell {
                 generation: self.generation,
                 scene: Arc::new(scene),
                 layers,
+                guides: Arc::default(),
             };
         }
         let handle = match self.engine.project() {
@@ -352,6 +354,7 @@ impl Shell {
                 generation: 0,
                 scene: Arc::default(),
                 layers: None,
+                guides: Arc::default(),
             },
         };
         SceneHandle {
@@ -392,10 +395,15 @@ impl Shell {
             crate::pcb::view::filter_drills(pcb, &mut scene, &layers);
             layers.into()
         });
+        let guides = project
+            .pcb_document(document)
+            .map(|pcb| pcb.guides().cloned().collect())
+            .unwrap_or_default();
         SceneHandle {
             generation: 0,
             scene: Arc::new(scene),
             layers,
+            guides: Arc::new(guides),
         }
     }
 

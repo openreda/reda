@@ -11,6 +11,7 @@
 pub mod auto_pan;
 mod camera;
 mod gpu;
+mod guides;
 pub mod interact;
 pub mod markers;
 mod widget;

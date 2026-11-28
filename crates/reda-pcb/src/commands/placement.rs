@@ -1,5 +1,6 @@
-//! Arranging what is placed on the board: Footprints, Free Pads, Dimensions, the Output
-//! Origin, and the Board Outline and Board Cutouts (Move Board Shape).
+//! Arranging what is placed on the board: Footprints, Free Pads, Dimensions, Guides, the
+//! Output Origin, and the Board Outline and Board Cutouts (Move Board Shape, which carries
+//! every Guide along with the outline).
 //!
 //! Every Command here resolves its `objects` to [`Item`]s, works out one [`Op`] per item
 //! and writes the results back in one transaction. Locked objects refuse every Op unless
@@ -16,7 +17,7 @@ use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::geom::{Vertex, contour_bounds};
 use reda_model::{
     BoardCutout, BoardOutline, Corners, Dimension, DimensionTextPosition, FootprintInstance,
-    FreePad, InDocument, Object, OutputOrigin, PcbDocument, Side, Uuid,
+    FreePad, Guide, InDocument, Object, OutputOrigin, PcbDocument, Side, Uuid, line_angle,
 };
 use schemars::JsonSchema;
 use serde::Serialize;
@@ -49,6 +50,7 @@ pub(super) enum Item {
     /// The Board Outline, moved alone by Move Board Shape.
     Outline(BoardOutline),
     Cutout(BoardCutout),
+    Guide(Guide),
 }
 
 /// A change of position applied to placed objects: what `pcb.move`, `pcb.rotate` and
@@ -71,6 +73,7 @@ impl Item {
             Item::Dimension(d) => d.uuid,
             Item::Outline(o) => o.uuid,
             Item::Cutout(c) => c.uuid,
+            Item::Guide(g) => g.uuid,
         }
     }
 
@@ -80,6 +83,7 @@ impl Item {
             Item::FreePad(p) => p.at,
             Item::Origin(o) => o.at,
             Item::Dimension(d) => d.a.point,
+            Item::Guide(g) => g.at,
             Item::Outline(_) | Item::Cutout(_) => self.contour_bounds().center(),
         }
     }
@@ -99,6 +103,7 @@ impl Item {
             Item::Footprint(f) => footprint_bounds(pcb, f),
             Item::FreePad(p) => free_pad_bounds(p),
             Item::Origin(o) => Bounds::of_point(o.at),
+            Item::Guide(g) => Bounds::of_point(g.at),
             Item::Dimension(d) => Bounds::of_point(d.a.point).union(Bounds::of_point(d.b.point)),
             Item::Outline(_) | Item::Cutout(_) => self.contour_bounds(),
         }
@@ -107,6 +112,7 @@ impl Item {
     fn apply(&mut self, op: Op) {
         match self {
             Item::Dimension(d) => return move_dimension(d, op),
+            Item::Guide(g) => return move_guide(g, op),
             Item::Outline(BoardOutline { vertices, .. })
             | Item::Cutout(BoardCutout { vertices, .. }) => return move_contour(vertices, op),
             _ => {}
@@ -120,7 +126,7 @@ impl Item {
                 (&mut p.at, Some(&mut p.rotation), None)
             }
             Item::Origin(o) => (&mut o.at, None, None),
-            Item::Dimension(_) | Item::Outline(_) | Item::Cutout(_) => {
+            Item::Dimension(_) | Item::Outline(_) | Item::Cutout(_) | Item::Guide(_) => {
                 unreachable!("moved above")
             }
         };
@@ -155,8 +161,43 @@ impl Item {
             Item::Dimension(d) => Object::Dimension(InDocument::new(document, *d)),
             Item::Outline(o) => Object::BoardOutline(InDocument::new(document, o)),
             Item::Cutout(c) => Object::BoardCutout(InDocument::new(document, c)),
+            Item::Guide(g) => Object::Guide(InDocument::new(document, g)),
         }
     }
+}
+
+/// Moves, turns or mirrors a Guide: its point, and a line's direction with it.
+fn move_guide(g: &mut Guide, op: Op) {
+    match op {
+        Op::Translate(by) => g.at = g.at + by,
+        Op::Rotate(about, angle) => {
+            g.at = rotate(g.at, about, angle);
+            g.angle = g.angle.map(|a| line_angle(a + angle));
+        }
+        Op::Flip(x) => {
+            g.at.x = x * 2 - g.at.x;
+            g.angle = g.angle.map(|a| line_angle(-a));
+        }
+    }
+}
+
+/// The Guides a move of `items` carries besides them: every other Guide on the board when
+/// the Board Outline moves (Move Board Shape), after the outline's `ops`. Locks don't hold
+/// them back, as with `pcb.board.move`: they belong to the board.
+fn carried_guides(pcb: &PcbDocument, items: &[Item], outline_ops: &[Op]) -> Vec<Item> {
+    if !items.iter().any(|i| matches!(i, Item::Outline(_))) {
+        return Vec::new();
+    }
+    pcb.guides()
+        .filter(|g| !items.iter().any(|i| i.uuid() == g.uuid))
+        .map(|g| {
+            let mut item = Item::Guide(g.clone());
+            for op in outline_ops {
+                item.apply(*op);
+            }
+            item
+        })
+        .collect()
 }
 
 /// Moves, turns or mirrors a closed contour. Mirroring reverses each arc's direction.
@@ -244,12 +285,14 @@ pub(super) fn resolve(pcb: &PcbDocument, uuids: &[Uuid]) -> Result<Vec<Item>, Co
             Item::Outline(o.clone())
         } else if let Some(c) = pcb.cutout(uuid) {
             Item::Cutout(c.clone())
+        } else if let Some(g) = pcb.guide(uuid) {
+            Item::Guide(g.clone())
         } else {
             return Err(CommandError::invalid_params(
                 &format!("/objects/{i}"),
                 format!(
-                    "{uuid} is not a Footprint, Free Pad, Dimension, Output Origin, Board \
-                     Outline or Board Cutout on the board"
+                    "{uuid} is not a Footprint, Free Pad, Dimension, Guide, Output Origin, \
+                     Board Outline or Board Cutout on the board"
                 ),
             ));
         };
@@ -336,11 +379,13 @@ pub fn preview_including_locked(
     ops: &[Op],
 ) -> Result<Vec<Object>, CommandError> {
     let mut items = resolve(pcb, objects)?;
+    let carried = carried_guides(pcb, &items, ops);
     for item in &mut items {
         for op in ops {
             item.apply(*op);
         }
     }
+    items.extend(carried);
     Ok(items.into_iter().map(|i| i.into_object(pcb.uuid)).collect())
 }
 
@@ -355,9 +400,16 @@ fn place(
     let pcb = super::pcb(cx)?;
     refuse_locked(pcb, &items, include_locked)?;
     let document = pcb.uuid;
+    let ops: Vec<Op> = ops.into_iter().collect();
+    let outline_op = items
+        .iter()
+        .zip(&ops)
+        .find_map(|(i, op)| matches!(i, Item::Outline(_)).then_some(*op));
+    let carried = carried_guides(pcb, &items, outline_op.as_slice());
     for (item, op) in items.iter_mut().zip(ops) {
         item.apply(op);
     }
+    items.extend(carried);
     let objects = items.iter().map(Item::uuid).collect();
     let tx = cx.tx()?;
     for item in items {

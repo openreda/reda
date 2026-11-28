@@ -195,6 +195,7 @@ fn placeable(pcb: &PcbDocument, object: Uuid) -> bool {
         || pcb.cutout(object).is_some()
         || pcb.outline().is_some_and(|o| o.uuid == object)
         || pcb.output_origin().is_some_and(|o| o.uuid == object)
+        || pcb.guide(object).is_some()
 }
 
 fn first_vertex(vertices: &[Vertex]) -> Option<Point> {
@@ -221,6 +222,7 @@ fn board_anchor(pcb: &PcbDocument, object: Uuid) -> Option<Point> {
                 .filter(|o| o.uuid == object)
                 .map(|o| o.at)
         })
+        .or_else(|| pcb.guide(object).map(|g| g.at))
 }
 
 /// The point of a library shape that a nudge puts on the grid.

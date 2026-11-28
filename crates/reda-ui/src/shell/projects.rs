@@ -150,6 +150,7 @@ impl Shell {
             view.grid_y = grid.and_then(|g| g.y_if_not_square());
             view.snap_mode = snap.as_ref().map(|s| s.mode);
             view.gridless = snap.as_ref().is_some_and(|s| s.gridless);
+            view.snap_guides = snap.as_ref().map(|s| s.guides);
             view.hotspots_off = snap.as_ref().map(|s| {
                 (s.hotspots_off.iter())
                     .map(|k| crate::snap::hotspot_name(*k).to_owned())
@@ -303,10 +304,15 @@ impl Shell {
             let mode = view
                 .snap_mode
                 .filter(|m| working_state::SnapMode::offered(ty).contains(m));
-            if mode.is_some() || view.gridless || view.hotspots_off.is_some() {
+            if mode.is_some()
+                || view.gridless
+                || view.hotspots_off.is_some()
+                || view.snap_guides.is_some()
+            {
                 let mut snap = working.default_snap(ty);
                 snap.mode = mode.unwrap_or(snap.mode);
                 snap.gridless = view.gridless;
+                snap.guides = view.snap_guides.unwrap_or(snap.guides);
                 if let Some(off) = &view.hotspots_off {
                     let offered = crate::snap::offered(ty);
                     snap.hotspots_off = (offered.iter())
