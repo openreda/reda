@@ -29448,6 +29448,44 @@
             ],
             "type": "object"
           },
+          "InDocument33": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "default": {
+                "description": "The grid a board opened with no view state starts on. At most one row has it.",
+                "type": "boolean"
+              },
+              "in_cycle": {
+                "description": "G and Shift+G step through it.",
+                "type": "boolean"
+              },
+              "step_x": {
+                "description": "The snap step along X, and along Y too unless `step_y` is set.",
+                "format": "length",
+                "type": "string"
+              },
+              "step_y": {
+                "description": "Step Y, when it differs from Step X.",
+                "format": "length",
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "visible": {
+                "description": "The visible grid's fine spacing along X, as in a preset row; along Y it is the\nsame multiple of Step Y. Left out, it is Step X.",
+                "format": "length",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "step_x",
+              "in_cycle"
+            ],
+            "type": "object"
+          },
           "InDocument4": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
@@ -31123,6 +31161,19 @@
                 "properties": {
                   "type": {
                     "const": "guide",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument33",
+                "properties": {
+                  "type": {
+                    "const": "board_grid",
                     "type": "string"
                   }
                 },
@@ -34483,6 +34534,11 @@
               {
                 "const": "guide",
                 "description": "A placed line or point on the board the cursor snaps to.",
+                "type": "string"
+              },
+              {
+                "const": "board_grid",
+                "description": "A grid step saved with the board.",
                 "type": "string"
               }
             ]
@@ -38231,6 +38287,44 @@
             ],
             "type": "object"
           },
+          "InDocument33": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "default": {
+                "description": "The grid a board opened with no view state starts on. At most one row has it.",
+                "type": "boolean"
+              },
+              "in_cycle": {
+                "description": "G and Shift+G step through it.",
+                "type": "boolean"
+              },
+              "step_x": {
+                "description": "The snap step along X, and along Y too unless `step_y` is set.",
+                "format": "length",
+                "type": "string"
+              },
+              "step_y": {
+                "description": "Step Y, when it differs from Step X.",
+                "format": "length",
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "visible": {
+                "description": "The visible grid's fine spacing along X, as in a preset row; along Y it is the\nsame multiple of Step Y. Left out, it is Step X.",
+                "format": "length",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "step_x",
+              "in_cycle"
+            ],
+            "type": "object"
+          },
           "InDocument4": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
@@ -39906,6 +40000,19 @@
                 "properties": {
                   "type": {
                     "const": "guide",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument33",
+                "properties": {
+                  "type": {
+                    "const": "board_grid",
                     "type": "string"
                   }
                 },
@@ -44994,6 +45101,226 @@
         "type": "null"
       },
       "title": "Delete Board Cutout"
+    },
+    {
+      "category": "pcb",
+      "description": "Saves a grid step with the board, so G and Shift+G offer it beside the user's presets. Steps keep the unit they are typed in. At most one Board Grid is the `default` a board opened with no view state starts on.",
+      "icon": "grid",
+      "id": "pcb.board_grid.add",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "TypedLength": {
+            "description": "A length that keeps the unit it was typed in: a number and a unit (nm, um, mm, mil or in) such as \"0.15mm\" or \"10mil\", or integer nanometres.",
+            "oneOf": [
+              {
+                "description": "Nanometres, with no unit of its own.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "default": {
+            "default": false,
+            "description": "The grid a board opened with no view state starts on. Refused while another\nBoard Grid has it.",
+            "type": "boolean"
+          },
+          "in_cycle": {
+            "default": null,
+            "description": "G and Shift+G step through it; on when left out.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "step_x": {
+            "$ref": "#/$defs/TypedLength",
+            "description": "The snap step along X (and Y, unless `step_y` is given), such as `\"0.5mm\"` or\n`\"25mil\"`; the unit is kept. A bare integer of nanometres is kept in mm."
+          },
+          "step_y": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/TypedLength"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Step Y, when it differs from Step X."
+          },
+          "visible": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/TypedLength"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The visible grid's fine spacing along X; along Y the same multiple of Step Y.\nUnset is Step X."
+          }
+        },
+        "required": [
+          "step_x"
+        ],
+        "title": "BoardGridAddParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a Command that creates one object returns.",
+        "properties": {
+          "uuid": {
+            "description": "The new object's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid"
+        ],
+        "title": "Created",
+        "type": "object"
+      },
+      "title": "Add Board Grid"
+    },
+    {
+      "category": "pcb",
+      "description": "Deletes one Board Grid from the board. A view on its step keeps it until the grid is next changed.",
+      "icon": "delete",
+      "id": "pcb.board_grid.delete",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "uuid": {
+            "description": "The Board Grid's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid"
+        ],
+        "title": "BoardGridDeleteParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Delete Board Grid"
+    },
+    {
+      "category": "pcb",
+      "description": "Changes the given fields of one Board Grid and keeps the rest: its steps, visible spacing, In cycle and the Default mark.",
+      "icon": "grid",
+      "id": "pcb.board_grid.set",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "TypedLength": {
+            "description": "A length that keeps the unit it was typed in: a number and a unit (nm, um, mm, mil or in) such as \"0.15mm\" or \"10mil\", or integer nanometres.",
+            "oneOf": [
+              {
+                "description": "Nanometres, with no unit of its own.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "default": {
+            "default": null,
+            "description": "Marks or clears the Default. Marking is refused while another Board Grid has it.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "in_cycle": {
+            "default": null,
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "step_x": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/TypedLength"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "A new Step X; the unit is kept."
+          },
+          "step_y": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/TypedLength"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "A new Step Y; `null` makes the grid square."
+          },
+          "uuid": {
+            "description": "The Board Grid's UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "visible": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/TypedLength"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "A new visible spacing; `null` makes it Step X."
+          }
+        },
+        "required": [
+          "uuid"
+        ],
+        "title": "BoardGridSetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Edit Board Grid"
     },
     {
       "category": "pcb",

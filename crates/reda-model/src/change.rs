@@ -15,8 +15,8 @@ use crate::pcb::{
     Track, Via, Zone, ZoneCutout,
 };
 use crate::{
-    DocumentEntry, Footprint, FootprintCopy, Guide, LibraryElement, NetLabel, NoConnect, Part,
-    PartEntry, Port, PowerPort, ProjectProps, SheetFrame, SheetGraphic, SheetText, Symbol,
+    BoardGrid, DocumentEntry, Footprint, FootprintCopy, Guide, LibraryElement, NetLabel, NoConnect,
+    Part, PartEntry, Port, PowerPort, ProjectProps, SheetFrame, SheetGraphic, SheetText, Symbol,
     UnitInstance, Uuid, Waiver, Wire,
 };
 
@@ -66,6 +66,7 @@ pub enum Object {
     FreePad(InDocument<FreePad>),
     OutputOrigin(InDocument<OutputOrigin>),
     Guide(InDocument<Guide>),
+    BoardGrid(InDocument<BoardGrid>),
     // Left out of schemas so the catalogue is the same with and without the feature.
     #[cfg(feature = "test-objects")]
     #[schemars(skip)]
@@ -157,6 +158,8 @@ pub enum ObjectType {
     OutputOrigin,
     /// A placed line or point on the board the cursor snaps to.
     Guide,
+    /// A grid step saved with the board.
+    BoardGrid,
     /// The test-only Probe.
     #[cfg(feature = "test-objects")]
     #[schemars(skip)]
@@ -205,6 +208,7 @@ impl Object {
             Object::FreePad(o) => o.uuid,
             Object::OutputOrigin(o) => o.uuid,
             Object::Guide(o) => o.uuid,
+            Object::BoardGrid(o) => o.uuid,
             #[cfg(feature = "test-objects")]
             Object::Probe(p) => p.uuid,
         }
@@ -251,6 +255,7 @@ impl Object {
             Object::FreePad(_) => ObjectType::FreePad,
             Object::OutputOrigin(_) => ObjectType::OutputOrigin,
             Object::Guide(_) => ObjectType::Guide,
+            Object::BoardGrid(_) => ObjectType::BoardGrid,
             #[cfg(feature = "test-objects")]
             Object::Probe(_) => ObjectType::Probe,
         }
@@ -298,6 +303,7 @@ impl Object {
             Object::FreePad(o) => Scope::Document(o.document),
             Object::OutputOrigin(o) => Scope::Document(o.document),
             Object::Guide(o) => Scope::Document(o.document),
+            Object::BoardGrid(o) => Scope::Document(o.document),
             #[cfg(feature = "test-objects")]
             Object::Probe(p) => p.document.map_or(Scope::Project, Scope::Document),
         }

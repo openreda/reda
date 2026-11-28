@@ -204,11 +204,11 @@ fn open_refuses_a_sheet_whose_uuid_disagrees_with_the_project_file() {
     assert_eq!(err.code, ErrorCode::Rejected);
 }
 
-/// Document-level grids left the reserved names with format 3, but the PCB file has no
-/// table for them until Board Grids arrive: not even an empty one, and it refuses one on
-/// read. (Guides have their table; a board without any leaves it out.)
+/// Document-level grids left the reserved names with format 3. A board without Board
+/// Grids leaves `grids` out (and without Guides, `guides`), and the file refuses a
+/// `grids` that is not the `{board: [...]}` table.
 #[test]
-fn grids_are_not_yet_in_the_pcb_file() {
+fn grids_and_guides_are_left_out_of_a_board_without_any() {
     let (_dir, folder) = saved_project("open-reserved");
     let file = folder.join("Demo.redapcb");
     let text = std::fs::read_to_string(&file).unwrap();
@@ -221,12 +221,20 @@ fn grids_are_not_yet_in_the_pcb_file() {
     );
     let schema: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(schema).unwrap()).unwrap();
-    assert!(schema["properties"].get("grids").is_none());
+    assert!(schema["properties"].get("grids").is_some());
     assert!(schema["properties"].get("guides").is_some());
-    edit(&file, "\"format\":", "\"grids\": [], \"format\":");
-    let err = test_engine().run_err("project.open", json!({"path": folder}));
-    assert_eq!(err.code, ErrorCode::Rejected);
-    assert!(err.message.contains("grids"), "{}", err.message);
+    for (grids, says) in [("{\"board\": 3}", "sequence"), ("{\"stray\": []}", "stray")] {
+        let (_dir, folder) = saved_project("open-bad-table");
+        let file = folder.join("Demo.redapcb");
+        edit(
+            &file,
+            "\"format\":",
+            &format!("\"grids\": {grids}, \"format\":"),
+        );
+        let err = test_engine().run_err("project.open", json!({"path": folder}));
+        assert_eq!(err.code, ErrorCode::Rejected);
+        assert!(err.message.contains(says), "{grids}: {}", err.message);
+    }
 }
 
 #[test]

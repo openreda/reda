@@ -9,14 +9,14 @@ use reda_engine::format::LoadError;
 use reda_engine::format::library::{read_footprint, read_part, read_symbol};
 use reda_engine::model::geom::{Millideg, Nm, Point, Vertex};
 use reda_engine::model::{
-    BoardCutout, BoardOutline, BoardSetup, Column, ColumnSource, ComponentRef, ComponentType,
-    CopperEntry, DielectricEntry, DocumentEntry, DocumentKind, DrcCheck, DrcSeverities, ErcCheck,
-    ErcSettings, FabPreset, FileNaming, FootprintCopy, FootprintInstance, FrameSize, FreePad,
-    GerberSettings, GraphicShape, Guide, GuideKind, Hole, InDocument, Justify, Keepout,
-    KeepoutShape, Layer, LayerKind, LayerSet, LayerSpan, Net, NetClass, NetLabel, NoConnect,
-    Object, Orientation, OutputJob, OutputOrigin, Outputs, PadKind, PadNet, PadShape, PartEntry,
-    PcbGraphic, PcbText, Port, PortDirection, PourOver, PowerPort, PowerPortStyle, Project,
-    ProjectFabPreset, ProjectProperties, ProjectProps, Restriction, Severity, SheetFrame,
+    BoardCutout, BoardGrid, BoardOutline, BoardSetup, Column, ColumnSource, ComponentRef,
+    ComponentType, CopperEntry, DielectricEntry, DocumentEntry, DocumentKind, DrcCheck,
+    DrcSeverities, ErcCheck, ErcSettings, FabPreset, FileNaming, FootprintCopy, FootprintInstance,
+    FrameSize, FreePad, GerberSettings, GraphicShape, Guide, GuideKind, Hole, InDocument, Justify,
+    Keepout, KeepoutShape, Layer, LayerKind, LayerSet, LayerSpan, Net, NetClass, NetLabel,
+    NoConnect, Object, Orientation, OutputJob, OutputOrigin, Outputs, PadKind, PadNet, PadShape,
+    PartEntry, PcbGraphic, PcbText, Port, PortDirection, PourOver, PowerPort, PowerPortStyle,
+    Project, ProjectFabPreset, ProjectProperties, ProjectProps, Restriction, Severity, SheetFrame,
     SheetGraphic, SheetShape, SheetSize, SheetText, Side, Stackup, StackupEntry, Track,
     TrackGeometry, UnitInstance, Uuid, Via, Waiver, Wire, Zone, ZoneCutout, ZoneNameScheme,
 };
@@ -25,6 +25,7 @@ use reda_engine::model::{
     PreferredSeeds, Purpose, RuleKind, RuleLayers, RuleScope, RuleValues, UnusedLayers,
     ViaDiameter, ViaType, ZoneConnection,
 };
+use reda_engine::model::{LengthUnit, TypedLength};
 use reda_engine::store::{encode, load_from};
 use serde_json::Value;
 
@@ -105,6 +106,21 @@ struct PcbSeed {
     ),
     /// Guides: a point or a line's angle, position, name and the three switches.
     guides: Vec<GuideSeed>,
+    /// Board Grids: Step X, Step Y, Visible and In cycle; the first one is the Default
+    /// when the flag is set.
+    board_grids: (Vec<BoardGridSeed>, bool),
+}
+
+/// A Board Grid: Step X, an optional Step Y and Visible, and In cycle.
+type BoardGridSeed = (TypedLength, Option<TypedLength>, Option<TypedLength>, bool);
+
+/// A positive length in mm, µm or mil that its own unit writes exactly.
+fn typed_length() -> impl Strategy<Value = TypedLength> {
+    prop_oneof![
+        (1i64..10_000_000).prop_map(|nm| TypedLength::new(Nm(nm), LengthUnit::Mm)),
+        (1i64..10_000_000).prop_map(|nm| TypedLength::new(Nm(nm), LengthUnit::Um)),
+        (1i64..40_000).prop_map(|k| TypedLength::new(Nm(254 * k), LengthUnit::Mil)),
+    ]
 }
 
 /// A Guide: `None` for a point, else a line's angle; its position, name and switches.
@@ -728,11 +744,23 @@ prop_compose! {
             ),
             0..3,
         ),
+        board_grids in (
+            prop::collection::vec(
+                (
+                    typed_length(),
+                    prop::option::of(typed_length()),
+                    prop::option::of(typed_length()),
+                    any::<bool>(),
+                ),
+                0..3,
+            ),
+            any::<bool>(),
+        ),
     ) -> PcbSeed {
         PcbSeed {
             base, name, title, rules, severities, outline, cutouts, classes, nets, texts,
             graphics, footprint, copper, stack, finish, vias, rules_v2, mechanical, heights,
-            pad_stack, guides,
+            pad_stack, guides, board_grids,
         }
     }
 }
@@ -1228,6 +1256,18 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
             locked,
         };
         objects.push(Object::Guide(InDocument::new(doc, guide)));
+    }
+    let (grids, first_is_default) = seed.board_grids;
+    for (i, (step_x, step_y, visible, in_cycle)) in grids.into_iter().enumerate() {
+        let grid = BoardGrid {
+            uuid: id(),
+            step_x,
+            step_y,
+            visible,
+            in_cycle,
+            default: i == 0 && first_is_default,
+        };
+        objects.push(Object::BoardGrid(InDocument::new(doc, grid)));
     }
     let entry = DocumentEntry {
         uuid: doc,
