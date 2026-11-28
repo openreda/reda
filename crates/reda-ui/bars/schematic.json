@@ -25,12 +25,12 @@
           "id": "edit.align",
           "title": "menu-edit-align",
           "items": [
-            { "id": "edit.align.left", "command": "schematic.align", "params": { "objects": "$selection", "to": "left" }, "title": "menu-edit-align-left" },
-            { "id": "edit.align.right", "command": "schematic.align", "params": { "objects": "$selection", "to": "right" }, "title": "menu-edit-align-right" },
-            { "id": "edit.align.top", "command": "schematic.align", "params": { "objects": "$selection", "to": "top" }, "title": "menu-edit-align-top" },
-            { "id": "edit.align.bottom", "command": "schematic.align", "params": { "objects": "$selection", "to": "bottom" }, "title": "menu-edit-align-bottom" },
-            { "id": "edit.align.center_x", "command": "schematic.align", "params": { "objects": "$selection", "to": "center_x" }, "title": "menu-edit-align-center-x" },
-            { "id": "edit.align.center_y", "command": "schematic.align", "params": { "objects": "$selection", "to": "center_y" }, "title": "menu-edit-align-center-y" },
+            { "id": "edit.align.left", "command": "schematic.align", "params": { "objects": "$selection", "key": "$selection_key", "to": "left" }, "title": "menu-edit-align-left" },
+            { "id": "edit.align.right", "command": "schematic.align", "params": { "objects": "$selection", "key": "$selection_key", "to": "right" }, "title": "menu-edit-align-right" },
+            { "id": "edit.align.top", "command": "schematic.align", "params": { "objects": "$selection", "key": "$selection_key", "to": "top" }, "title": "menu-edit-align-top" },
+            { "id": "edit.align.bottom", "command": "schematic.align", "params": { "objects": "$selection", "key": "$selection_key", "to": "bottom" }, "title": "menu-edit-align-bottom" },
+            { "id": "edit.align.center_x", "command": "schematic.align", "params": { "objects": "$selection", "key": "$selection_key", "to": "center_x" }, "title": "menu-edit-align-center-x" },
+            { "id": "edit.align.center_y", "command": "schematic.align", "params": { "objects": "$selection", "key": "$selection_key", "to": "center_y" }, "title": "menu-edit-align-center-y" },
             "separator",
             { "id": "edit.distribute.horizontal", "command": "schematic.distribute", "params": { "objects": "$selection", "direction": "horizontal" }, "title": "menu-edit-distribute-horizontal" },
             { "id": "edit.distribute.vertical", "command": "schematic.distribute", "params": { "objects": "$selection", "direction": "vertical" }, "title": "menu-edit-distribute-vertical" }

@@ -19,18 +19,36 @@ const DEFAULT_GRID: Nm = Nm::from_mil(50);
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum AlignTo {
-    /// Left edges on the leftmost.
+    /// Left edges on the leftmost (or the key's).
     Left,
-    /// Right edges on the rightmost.
+    /// Right edges on the rightmost (or the key's).
     Right,
-    /// Top edges on the topmost.
+    /// Top edges on the topmost (or the key's).
     Top,
-    /// Bottom edges on the bottommost.
+    /// Bottom edges on the bottommost (or the key's).
     Bottom,
-    /// Centres on one vertical line through the middle of the selection's extent.
+    /// Centres on one vertical line through the middle of the selection's extent (or the
+    /// key's centre).
     CenterX,
-    /// Centres on one horizontal line through the middle of the selection's extent.
+    /// Centres on one horizontal line through the middle of the selection's extent (or
+    /// the key's centre).
     CenterY,
+}
+
+impl AlignTo {
+    /// How far `each` moves to line up with `on`: the selection's extent, or the key's box.
+    fn offset(self, on: Bounds, each: Bounds) -> Point {
+        let zero = Nm::ZERO;
+        let (dx, dy) = match self {
+            AlignTo::Left => (on.min.x - each.min.x, zero),
+            AlignTo::Right => (on.max.x - each.max.x, zero),
+            AlignTo::Top => (zero, on.max.y - each.max.y),
+            AlignTo::Bottom => (zero, on.min.y - each.min.y),
+            AlignTo::CenterX => (on.center().x - each.center().x, zero),
+            AlignTo::CenterY => (zero, on.center().y - each.center().y),
+        };
+        Point::new(dx, dy)
+    }
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -41,6 +59,10 @@ pub struct AlignParams {
     /// markers, Ports, Power Ports, text).
     pub objects: Vec<Uuid>,
     pub to: AlignTo,
+    /// The key object, one of `objects`: the rest line up on it and it stays put. Without
+    /// one they line up on the selection's extremes.
+    #[serde(default)]
+    pub key: Option<Uuid>,
     /// Keep connections as a drag does. Off by default (detached).
     #[serde(default)]
     pub keep_connections: bool,
@@ -55,7 +77,9 @@ impl Command for Align {
         id: "schematic.align",
         title: "Align",
         description: "Aligns the selected objects' left, right, top or bottom edges, or \
-                      their centres, moving each as a whole. Up is +y.",
+                      their centres, moving each as a whole. Up is +y. With a `key` they \
+                      line up on it and it stays put; without one, on the selection's \
+                      extremes.",
         category: "schematic",
         icon: "align",
         kind: Kind::Edit,
@@ -65,23 +89,44 @@ impl Command for Align {
 
     fn run(&self, cx: &mut Context<'_>, p: AlignParams) -> Result<EditResult, CommandError> {
         let to = p.to;
-        arrange(
-            cx,
-            &p.objects,
-            (p.keep_connections, p.wiring),
-            |all, each| {
-                let zero = Nm::ZERO;
-                let (dx, dy) = match to {
-                    AlignTo::Left => (all.min.x - each.min.x, zero),
-                    AlignTo::Right => (all.max.x - each.max.x, zero),
-                    AlignTo::Top => (zero, all.max.y - each.max.y),
-                    AlignTo::Bottom => (zero, all.min.y - each.min.y),
-                    AlignTo::CenterX => (all.center().x - each.center().x, zero),
-                    AlignTo::CenterY => (zero, all.center().y - each.center().y),
-                };
-                Point::new(dx, dy)
-            },
-        )
+        let how = (p.keep_connections, p.wiring);
+        let Some(key) = p.key else {
+            return arrange(cx, &p.objects, how, |all, each| to.offset(all, each));
+        };
+        let project = cx.project()?;
+        let objects = resolve(project, &p.objects, "/objects")?;
+        let document = one_sheet(&objects, "/objects")?;
+        let body = crate::sheet(project, document)?;
+        let on = objects
+            .iter()
+            .find(|o| o.uuid() == key)
+            .map(|o| bounds(body, o))
+            .ok_or_else(|| {
+                CommandError::invalid_params(
+                    "/key",
+                    format!("the key {key} is not one of the objects"),
+                )
+            })?;
+        // The key stays put, so it is left out of the move.
+        let moves: Vec<(Object, Placement)> = objects
+            .into_iter()
+            .filter(|o| o.uuid() != key)
+            .map(|o| {
+                let by = to.offset(on, bounds(body, &o));
+                (o, Placement::Translate(by))
+            })
+            .collect();
+        if !moves.is_empty() {
+            let (keep_connections, wiring) = how;
+            place_anew(
+                cx,
+                document,
+                &moves,
+                keep_connections,
+                &wiring.unwrap_or_default(),
+            )?;
+        }
+        Ok(EditResult { document })
     }
 }
 

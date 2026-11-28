@@ -19,6 +19,11 @@ use serde::{Deserialize, Serialize};
 pub struct Selection {
     /// Selected objects, by UUID, in the order they were picked.
     pub objects: Vec<Uuid>,
+    /// The key object, one of `objects`: the first-selected one while the selection was
+    /// built by clicks, which Align lines up on and the canvas draws heavier. A rectangle
+    /// selection has none (see [`picking::key_after`]).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub key: Option<Uuid>,
     /// Selected Pads of Footprint instances, which have no UUID of their own.
     pub pads: Vec<PadRef>,
     /// Independently selected Component fields, identified by Unit and field name.
@@ -56,6 +61,15 @@ impl Selection {
             && self.fields.is_empty()
             && self.texts.is_empty()
             && self.nets.is_empty()
+    }
+
+    /// Keeps only the objects `keep` accepts. A dropped key passes to the next object in
+    /// pick order, as when Shift+click drops it.
+    pub fn retain_objects(&mut self, keep: impl FnMut(&Uuid) -> bool) {
+        self.objects.retain(keep);
+        if self.key.is_some_and(|k| !self.objects.contains(&k)) {
+            self.key = self.objects.first().copied();
+        }
     }
 
     /// How many things are selected: objects, Wire segments, Pads and Nets.
@@ -220,6 +234,10 @@ pub struct SelectionSetParams {
     /// The objects to select, by UUID; none when left out.
     #[serde(default)]
     objects: Vec<Uuid>,
+    /// The key object, one of `objects`: what Align lines up on. A selection made by
+    /// clicks has its first pick as the key; a rectangle selection has none.
+    #[serde(default)]
+    key: Option<Uuid>,
     /// Pads of Footprint instances to select.
     #[serde(default)]
     pads: Vec<PadRef>,
@@ -254,7 +272,8 @@ impl Command for SelectionSet {
         id: "selection.set",
         title: "Select",
         description: "Replaces the selection with the given objects, Footprint Pads and \
-                      highlighted Nets. With no params it clears the selection.",
+                      highlighted Nets, and the key object Align lines up on. With no \
+                      params it clears the selection.",
         category: "selection",
         icon: "select",
         kind: Kind::View,
@@ -269,8 +288,15 @@ impl Command for SelectionSet {
     ) -> Result<SelectionSetResult, CommandError> {
         let mut objects = p.objects;
         objects.extend(p.edges.iter().map(|e| e.contour));
+        if let Some(key) = p.key.filter(|k| !objects.contains(k)) {
+            return Err(CommandError::invalid_params(
+                "/key",
+                format!("the key {key} is not one of the objects"),
+            ));
+        }
         let selection = Selection {
             objects: dedup(objects),
+            key: p.key,
             pads: dedup(p.pads),
             fields: dedup(p.fields),
             texts: dedup(p.texts),

@@ -181,6 +181,43 @@ fn a_selected_object_is_lighter_and_haloed_without_new_geometry() {
 }
 
 #[test]
+fn the_key_object_has_a_heavier_halo_than_the_rest_of_the_selection() {
+    let Some(gpu) = headless() else { return };
+    let scene = square_on_paper();
+    let palette = Palette::shipped(Theme::Dark);
+    let view = view_of(&scene, 100);
+    let render = |flags| {
+        gpu.render(&scene, &view, &palette, Highlight::new().mark(id(2), flags))
+            .unwrap()
+    };
+    let selected = render(Flags::SELECTED);
+    let key = render(Flags::SELECTED | Flags::KEY);
+    let paper = rgb(palette.color(ColorKey::Schematic(SchematicColor::Paper)));
+    // The square's left edge is at x = 40 px. The plain halo is 3 px wide; the key's
+    // reaches further out, and is stronger where both show.
+    assert_eq!(pixel(&selected, 35, 50), paper);
+    assert_ne!(pixel(&key, 35, 50), paper, "the key's halo is wider");
+    let strength = |c: [u8; 4]| (0..3).map(|i| c[i].abs_diff(paper[i]) as u32).sum::<u32>();
+    assert!(
+        strength(pixel(&key, 38, 50)) > strength(pixel(&selected, 38, 50)),
+        "the key's halo is stronger: {:?} vs {:?}",
+        pixel(&key, 38, 50),
+        pixel(&selected, 38, 50)
+    );
+    // Inside, the key is drawn as any selected object.
+    assert_eq!(pixel(&key, 50, 50), pixel(&selected, 50, 50));
+    // Still well clear further out.
+    assert_eq!(pixel(&key, 25, 50), paper);
+    // KEY alone, without SELECTED, draws nothing extra.
+    assert_eq!(
+        render(Flags::KEY).rgba,
+        gpu.render(&scene, &view, &palette, &Highlight::new())
+            .unwrap()
+            .rgba
+    );
+}
+
+#[test]
 fn selecting_a_child_marks_only_its_ink_and_selecting_the_parent_includes_it() {
     let Some(gpu) = headless() else { return };
     let mut scene = square_on_paper();

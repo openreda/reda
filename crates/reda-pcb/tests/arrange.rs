@@ -252,3 +252,109 @@ fn swap_and_arrange_outside_refuse_locked_footprints_unless_included() {
     }
     assert!(footprint(&engine, r[1]).locked, "the lock stays");
 }
+
+#[test]
+fn align_with_a_key_lines_up_on_the_key_which_stays_put() {
+    let dir = TempDir::new("arrange-align-key");
+    let mut engine = engine(&dir);
+    let r = synced(&mut engine, 3);
+    engine.run_ok(
+        "pcb.move",
+        json!({"objects": [r[1]], "by": {"x": "10mm", "y": "5mm"}}),
+    );
+    engine.run_ok(
+        "pcb.move",
+        json!({"objects": [r[2]], "by": {"x": "-6mm", "y": "-3mm"}}),
+    );
+    let (a, key, c) = (at(&engine, r[0]), at(&engine, r[1]), at(&engine, r[2]));
+
+    // The same Footprint each time, so a shared left edge is a shared origin x: the key's,
+    // not the leftmost's (r[2]) as without a key.
+    let moved = engine.run_ok(
+        "pcb.align",
+        json!({"objects": r, "to": "left", "key": r[1]}),
+    );
+    assert_eq!(at(&engine, r[1]), key, "the key stays put");
+    assert_eq!(at(&engine, r[0]), Point::new(key.x, a.y));
+    assert_eq!(at(&engine, r[2]), Point::new(key.x, c.y));
+    assert_eq!(
+        moved["result"]["objects"],
+        json!([r[0], r[2]]),
+        "the key is not moved"
+    );
+
+    engine.run_ok(
+        "pcb.align",
+        json!({"objects": r, "to": "bottom", "key": r[1]}),
+    );
+    for f in &r {
+        assert_eq!(at(&engine, *f), key, "bottoms on the key's, not the lowest");
+    }
+}
+
+#[test]
+fn align_with_a_key_on_each_side_and_centre_matches_the_key() {
+    for to in ["right", "top", "center_x", "center_y"] {
+        let dir = TempDir::new("arrange-align-key-each");
+        let mut engine = engine(&dir);
+        let r = synced(&mut engine, 3);
+        engine.run_ok(
+            "pcb.move",
+            json!({"objects": [r[0]], "by": {"x": "7mm", "y": "4mm"}}),
+        );
+        let key = at(&engine, r[2]);
+        engine.run_ok("pcb.align", json!({"objects": r, "to": to, "key": r[2]}));
+        assert_eq!(at(&engine, r[2]), key, "{to}: the key stays put");
+        for f in &r[..2] {
+            let p = at(&engine, *f);
+            match to {
+                "right" | "center_x" => assert_eq!(p.x, key.x, "{to}"),
+                _ => assert_eq!(p.y, key.y, "{to}"),
+            }
+        }
+    }
+}
+
+#[test]
+fn a_locked_key_stays_put_without_include_locked_but_a_locked_other_still_refuses() {
+    let dir = TempDir::new("arrange-align-key-locked");
+    let mut engine = engine(&dir);
+    let r = synced(&mut engine, 3);
+    engine.run_ok(
+        "pcb.move",
+        json!({"objects": [r[0]], "by": {"x": "3mm", "y": "2mm"}}),
+    );
+    engine.run_ok("pcb.lock", json!({"objects": [r[1]], "locked": true}));
+    let key = at(&engine, r[1]);
+
+    engine.run_ok("pcb.align", json!({"objects": r, "to": "top", "key": r[1]}));
+    assert_eq!(at(&engine, r[0]).y, key.y);
+    assert_eq!(at(&engine, r[1]), key);
+
+    let err = engine.run_err("pcb.align", json!({"objects": r, "to": "top", "key": r[0]}));
+    assert_eq!(err.code, ErrorCode::Rejected, "{}", err.message);
+    assert_eq!(err.details.unwrap()["locked"][0], r[1].to_string());
+}
+
+#[test]
+fn a_key_outside_the_objects_is_refused_and_distribute_takes_no_key() {
+    let dir = TempDir::new("arrange-align-key-outside");
+    let mut engine = engine(&dir);
+    let r = synced(&mut engine, 3);
+    let before: Vec<Point> = r.iter().map(|f| at(&engine, *f)).collect();
+
+    let err = engine.run_err(
+        "pcb.align",
+        json!({"objects": r[..2], "to": "left", "key": r[2]}),
+    );
+    assert_eq!(err.code, ErrorCode::InvalidParams, "{}", err.message);
+    assert_eq!(err.details.unwrap()["pointer"], "/key");
+
+    let err = engine.run_err(
+        "pcb.distribute",
+        json!({"objects": r, "direction": "horizontal", "key": r[0]}),
+    );
+    assert_eq!(err.code, ErrorCode::InvalidParams, "{}", err.message);
+    let after: Vec<Point> = r.iter().map(|f| at(&engine, *f)).collect();
+    assert_eq!(after, before);
+}

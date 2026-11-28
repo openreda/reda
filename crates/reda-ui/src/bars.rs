@@ -53,6 +53,13 @@ pub const UNDO_STACK: &str = "$undo_stack";
 /// array of UUIDs. An item using it is greyed while nothing there is selected.
 pub const SELECTION: &str = "$selection";
 
+/// The raw-params placeholder for the selection's key object ([`Selection::key`]), by
+/// UUID, when it is selected on the active Document. A field holding it is left out while
+/// there is none (a rectangle selection), so Align lines up on the extremes.
+///
+/// [`Selection::key`]: crate::selection::Selection::key
+pub const SELECTION_KEY: &str = "$selection_key";
+
 /// The raw-params placeholder for the selected Wire segments on the active sheet, as an
 /// array of `{wire, index}` (empty when none). With some selected, [`SELECTION`] in the
 /// same params may be empty, so Delete deletes segments alone.
@@ -358,6 +365,16 @@ pub fn resolve_in(
         .map(|d| selected_on(shell, d))
         .filter(|s| !s.is_empty() || by_segments)
         .map(|s| json!(s));
+    let key = document
+        .zip(shell.selection().key)
+        .filter(|_| mentions(&params, SELECTION_KEY))
+        .filter(|(d, key)| selected_on(shell, *d).contains(key));
+    match key {
+        Some((_, key)) => {
+            let _ = fill(&mut params, SELECTION_KEY, Some(&json!(key)));
+        }
+        None => drop_placeholder(&mut params, SELECTION_KEY),
+    }
     let segments = json!(segments);
     let select_all = command == "selection.set" && params["objects"].as_str() == Some(SELECTABLE);
     let filled = fill(&mut params, UNDO_STACK, undo.as_ref())
@@ -538,6 +555,7 @@ fn summary_map(map: &Map<String, Value>, value: fn(&Value) -> String) -> String 
                     ACTIVE_DOCUMENT
                         | UNDO_STACK
                         | SELECTION
+                        | SELECTION_KEY
                         | SEGMENTS
                         | CLIPBOARD
                         | GRID
