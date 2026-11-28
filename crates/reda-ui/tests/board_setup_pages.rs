@@ -58,7 +58,8 @@ fn the_rules_group_gains_mask_and_paste_and_zone_connections_then_stackup() {
             "Teardrops",
             "Stackup",
             "Net Classes",
-            "DRC"
+            "DRC",
+            "Grids"
         ]
     );
     // Neither has a DRC severity.

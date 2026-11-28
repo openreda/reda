@@ -94,5 +94,9 @@
     {"uuid":"00000000-0000-4000-8000-000000000042","kind":"line","at":{"x":-3000000,"y":12000000},"angle":0,"name":"Column","shown":true,"enabled":false,"locked":false},
     {"uuid":"00000000-0000-4000-8000-000000000043","kind":"line","at":{"x":-18000000,"y":22000000},"angle":135000,"name":"Diagonal","shown":true,"enabled":true,"locked":false},
     {"uuid":"00000000-0000-4000-8000-000000000044","kind":"point","at":{"x":-10620000,"y":14700000},"shown":true,"enabled":true,"locked":true}
-  ]
+  ],
+  "grids": {"board":[
+    {"uuid":"00000000-0000-4000-8000-000000000047","step_x":"0.35mm","in_cycle":true},
+    {"uuid":"00000000-0000-4000-8000-000000000048","step_x":"25mil","visible":"100mil","in_cycle":true,"default":true}
+  ]}
 }

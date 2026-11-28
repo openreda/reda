@@ -15,14 +15,20 @@
 //! docs/spec/v0.3/grids-guides.md#grid-x--y): a preset row's optional `snap_y`, or the
 //! custom value `0.5, 1.27`. Snapping, the arrow steps and the visible grid each follow
 //! their own axis, and the status bar shows `X × Y`. Sheets and Symbols keep one step.
+//!
+//! A board also offers its own Board Grids (docs/spec/v0.3/grids-guides.md#board-grids):
+//! G and Shift+G cycle its In-cycle ones together with the In-cycle presets of the units
+//! the board shows, and a board with no grid of its own in the view state starts on its
+//! Default Board Grid. Picking or cycling to a Board Grid leaves the units as they are.
 
 mod commands;
 pub mod custom_dialog;
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use reda_engine::command::Length;
 use reda_engine::model::geom::{Nm, Point};
-use reda_engine::model::{DocumentKind, LibraryElement, Project, Uuid};
+use reda_engine::model::{BoardGrid, DocumentKind, LibraryElement, Project, Uuid};
 use reda_engine::preferences::{
     GridPreferences, GridRow, GridStyle, GridTables, Preferences, Units,
 };
@@ -232,6 +238,50 @@ pub fn row_of(tables: &GridTables, step: Step) -> Option<&GridRow> {
     tables.rows().find(|r| Step::of_row(r) == step)
 }
 
+/// A Board Grid as a preset row: its steps, Visible and In cycle.
+pub fn board_row(grid: &BoardGrid) -> GridRow {
+    GridRow {
+        snap: Length(grid.x()),
+        snap_y: grid.step_y.map(|y| Length(y.nm())),
+        range: None,
+        visible: Length(grid.visible_xy().0),
+        in_cycle: grid.in_cycle,
+    }
+}
+
+/// `document`'s Board Grids as preset rows, when it is a board; none otherwise.
+pub fn board_rows(project: Option<&Project>, document: Uuid) -> Vec<GridRow> {
+    project
+        .and_then(|p| p.pcb_document(document))
+        .map(|pcb| pcb.board_grids().map(board_row).collect())
+        .unwrap_or_default()
+}
+
+/// The step of `document`'s Default Board Grid, when it is a board with one.
+pub fn board_default(project: Option<&Project>, document: Uuid) -> Option<Step> {
+    let grid = project?.pcb_document(document)?.default_board_grid()?;
+    Some(Step::new(grid.x(), Some(grid.y())))
+}
+
+/// Whether `step` is one of `document`'s Board Grids.
+pub fn is_board_grid(project: Option<&Project>, document: Uuid, step: Step) -> bool {
+    (board_rows(project, document).iter()).any(|r| Step::of_row(r) == step)
+}
+
+/// The steps G and Shift+G go through on a Document whose preset table is `imperial`:
+/// the In-cycle rows of that table and, on a board, its In-cycle Board Grids, sorted by
+/// size (Step X, then Step Y) with equal steps once.
+pub fn cycle_of(tables: &GridTables, imperial: bool, board: &[GridRow]) -> Vec<Step> {
+    let mut cycle: Vec<Step> = (tables.table(imperial).iter())
+        .chain(board)
+        .filter(|r| r.in_cycle)
+        .map(Step::of_row)
+        .collect();
+    cycle.sort();
+    cycle.dedup();
+    cycle
+}
+
 /// The grid a Document type starts on under `preferences`: its `default_grid` when that
 /// is one of the type's rows (the square one, when a row with a Step Y shares its Step X),
 /// else the type's default (a board's in its default units).
@@ -300,18 +350,26 @@ impl Grids {
         if let Some(grid) = self.picked.get(&document) {
             return *grid;
         }
+        if let Some(step) = board_default(project, document) {
+            return step;
+        }
         project
             .and_then(|p| document_type(p, document))
             .map_or(Step::square(SCHEMATIC_DEFAULT), |ty| self.start_of(ty))
     }
 
-    /// The row `document`'s grid is on, unless it is custom or has none.
+    /// The row `document`'s grid is on, unless it is custom or has none: a board's own
+    /// Board Grid before a preset of the same step.
     pub fn row(&self, project: Option<&Project>, document: Uuid) -> Option<GridRow> {
         let ty = project.and_then(|p| document_type(p, document))?;
         if self.custom.contains_key(&document) {
             return None;
         }
-        row_of(self.tables(ty), self.of(project, document)).copied()
+        let step = self.of(project, document);
+        let board = board_rows(project, document);
+        (board.iter().find(|r| Step::of_row(r) == step))
+            .or_else(|| row_of(self.tables(ty), step))
+            .copied()
     }
 
     /// Whether `document` is on a custom grid.
@@ -345,6 +403,31 @@ impl Grids {
             style: self.tables.style,
             coarse: self.tables.coarse_multiplier,
         }
+    }
+
+    /// The steps a grid picker offers on `document`: its preset rows, only those of the
+    /// `imperial` or metric table when given, then a board's Board Grids in either units.
+    pub fn offered(
+        &self,
+        project: Option<&Project>,
+        document: Uuid,
+        imperial: Option<bool>,
+    ) -> Vec<Step> {
+        let Some(ty) = project.and_then(|p| document_type(p, document)) else {
+            return Vec::new();
+        };
+        let tables = self.tables(ty);
+        let mut steps: Vec<Step> = (tables.rows())
+            .filter(|r| imperial.is_none_or(|i| tables.is_imperial(r.snap.0) == i))
+            .map(Step::of_row)
+            .collect();
+        for row in board_rows(project, document) {
+            let step = Step::of_row(&row);
+            if !steps.contains(&step) {
+                steps.push(step);
+            }
+        }
+        steps
     }
 
     /// The rows of `document`'s grid tables, imperial first.

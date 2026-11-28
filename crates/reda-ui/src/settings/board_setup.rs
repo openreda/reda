@@ -4,8 +4,8 @@
 //! override table and the check's DRC severity, plus "Apply Fab Preset Rules…". Net
 //! Classes holds the grid (a Default row for the board-wide records, then one row per
 //! class in rank order) and the Net table. DRC holds every check's severity, with the
-//! values that have no rule page. Everything it changes is on the PCB Document's undo
-//! stack.
+//! values that have no rule page. Grids lists the board's Board Grids. Everything it
+//! changes is on the PCB Document's undo stack.
 //!
 //! The pages are views of one shared [`BoardSetupDraft`], so a severity shown on a rule's
 //! page and on the DRC page is one draft. The first page loads it and hands its steps to
@@ -22,8 +22,11 @@ use crate::shell::Shell;
 use crate::tr;
 
 mod draw;
+mod grids;
 mod length;
 mod model;
+
+pub use grids::{BoardGridRow, GridsPage};
 
 pub use model::{
     ANGLES, BoardSetupDraft, ClassKey, ClassRow, FabPreview, GRID_FIELDS, GRID_KINDS,
@@ -524,6 +527,7 @@ pub fn dialog(project: &Project) -> SettingsDialog {
     pages.push(Box::new(StackupPage { view: view(false) }));
     pages.push(Box::new(NetClassesPage { view: view(false) }));
     pages.push(Box::new(DrcPage { view: view(false) }));
+    pages.push(Box::new(GridsPage::default()));
     let dialog = SettingsDialog::new(tr!("board-setup-title"), pages, project);
     match project.pcb() {
         Some(pcb) => dialog.on_stack(Scope::Document(pcb.uuid)),

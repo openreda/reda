@@ -282,14 +282,9 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
             let label = tr!("layers-grid");
             let dropdown = widgets::dropdown("layers-grid", format_step(current, view.units));
             let shown = dropdown.show(ui, |ui| {
-                let rows = shell.grids().rows(shell.engine().elements(), pcb.uuid);
-                let tables = shell.grids().tables(crate::bars::DocumentType::Pcb).clone();
                 let imperial = view.units == reda_engine::preferences::Units::Mil;
-                for g in rows
-                    .iter()
-                    .map(crate::grid::Step::of_row)
-                    .filter(|g| tables.is_imperial(g.x) == imperial)
-                {
+                let grids = shell.grids();
+                for g in grids.offered(shell.engine().elements(), pcb.uuid, Some(imperial)) {
                     widgets::choice_value(ui, &mut grid, g, format_step(g, view.units));
                 }
             });

@@ -1,6 +1,6 @@
 //! The Board Setup dialog in the window, driven through AccessKit with `egui_kittest`:
-//! opened from the PCB Document's menu in the Projects panel, its rule pages, Net Classes
-//! and DRC pages, and OK committing one `batch`.
+//! opened from the PCB Document's menu in the Projects panel, its rule pages, Net Classes,
+//! DRC and Grids pages, and OK committing one `batch`.
 
 use std::path::Path;
 
@@ -84,6 +84,7 @@ fn board_setup_opens_from_the_pcb_menu_with_a_page_per_rule() {
         "Silkscreen",
         "Net Classes",
         "DRC",
+        "Grids",
     ] {
         h.get_by_role_and_label(Role::TreeItem, title);
     }
@@ -658,4 +659,33 @@ fn the_clearance_pair_grid_commits_its_edited_cell() {
             .value,
         Some(Nm(125000))
     );
+}
+
+#[test]
+fn the_grids_page_adds_a_default_board_grid_on_ok() {
+    let (home, work) = (TempDir::new("bsd-home"), TempDir::new("bsd-work"));
+    let mut h = harness(home.path(), work.path(), "Gridded");
+    open_board_setup(&mut h, "Gridded");
+    page(&mut h, "Grids");
+    h.get_by_label("No Board Grids yet.");
+    h.get_by_label("Add Board Grid").click();
+    h.run();
+    assert!(disabled(&h, "OK"), "a new row needs a step");
+    h.get_by_role_and_label(Role::TextInput, "Board Grid 1: Step")
+        .click();
+    h.run();
+    h.get_by_role_and_label(Role::TextInput, "Board Grid 1: Step")
+        .type_text("25mil, 0.5");
+    h.run();
+    h.get_by_role_and_label(Role::CheckBox, "Default").click();
+    h.run();
+    assert!(!disabled(&h, "OK"));
+    h.get_by_label("OK").click();
+    h.run();
+    let board = pcb(&h);
+    assert_eq!(board.board_grids().count(), 1);
+    let grid = board.default_board_grid().expect("a Default Board Grid");
+    assert_eq!(grid.step_x.text().as_deref(), Some("25mil"));
+    assert_eq!(grid.step_y.and_then(|y| y.text()).as_deref(), Some("0.5mm"));
+    assert!(grid.in_cycle);
 }

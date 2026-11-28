@@ -71,7 +71,8 @@ fn board_setup_has_a_page_per_rule_then_net_classes_and_drc() {
             "Teardrops",
             "Stackup",
             "Net Classes",
-            "DRC"
+            "DRC",
+            "Grids"
         ]
     );
     assert!(!d.has_changes());
