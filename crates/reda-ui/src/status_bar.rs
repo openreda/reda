@@ -281,15 +281,14 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
     out
 }
 
-/// The grid menu: the type's rows, Custom… and the visible grid's switch. The grid in
+/// The grid menu: the type's rows and a board's Board Grids, Custom… and the visible grid's switch. The grid in
 /// force and a visible grid are ticked.
 fn grid_menu(ui: &mut Ui, shell: &Shell, document: Uuid, out: &mut Vec<Out>) {
     let grids = shell.grids();
     let project = shell.engine().elements();
     let current = grids.of(project, document);
     let custom = grids.is_custom(document);
-    for row in grids.rows(project, document) {
-        let step = grid::Step::of_row(&row);
+    for step in grids.offered(project, document, None) {
         let row = widgets::menu_item(grid::step_label(step)).checked(!custom && step == current);
         if ui.add(row).clicked() {
             out.push(Out::Run(

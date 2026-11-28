@@ -295,8 +295,10 @@ impl Shell {
                 continue;
             };
             let step = view.grid.map(|x| grid::Step::new(x, view.grid_y));
+            let project = self.engine.project();
             if let Some(g) = step.filter(|g| {
                 grid::row_of(grid::tables_in(&prefs.editing.grid, kind.into()), *g).is_some()
+                    || grid::is_board_grid(project, *document, *g)
             }) {
                 picked.insert(*document, g);
             }
