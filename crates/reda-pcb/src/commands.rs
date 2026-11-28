@@ -15,6 +15,7 @@ mod graphic;
 mod guide;
 pub(crate) mod layer;
 mod layer_count;
+pub mod local_grid;
 mod measure;
 mod mechanical;
 mod net;
@@ -86,6 +87,7 @@ pub fn register_all_with_user(
     dimension::register_all(registry);
     guide::register_all(registry);
     board_grid::register_all(registry);
+    local_grid::register_all(registry);
     track::register_all(registry);
     track_edit::register_all(registry);
     via::register_all(registry);

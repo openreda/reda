@@ -38,9 +38,10 @@ impl Command for BoardMove {
         id: "pcb.board.move",
         title: "Move Board",
         description: "Moves the whole board by `dx`, `dy`: the Board Outline, its Board \
-                      Cutouts, the Output Origin, every Guide and every object with any part \
-                      inside the outline. A Track crossing the edge moves whole; objects wholly \
-                      outside, such as unplaced Footprints, stay. Locked objects move too \
+                      Cutouts, the Output Origin, every Guide and Local Grid, and every \
+                      object with any part inside the outline. A Track crossing the edge \
+                      moves whole; objects wholly outside, such as unplaced Footprints, \
+                      stay. Locked objects move too \
                       and stay locked.",
         category: "pcb",
         icon: "move",
@@ -162,11 +163,17 @@ fn moved(pcb: &PcbDocument, fonts: &Fonts, by: Point) -> Result<Vec<Object>, Com
         origin.at = origin.at + by;
         out.push(Object::OutputOrigin(InDocument::new(doc, origin)));
     }
-    // Guides mark places on the board, inside its outline or not.
+    // Guides and Local Grids mark places on the board, inside its outline or not.
     for g in pcb.guides() {
         let mut g = g.clone();
         g.at = g.at + by;
         out.push(Object::Guide(InDocument::new(doc, g)));
+    }
+    for g in pcb.local_grids() {
+        let mut g = g.clone();
+        let reda_model::LocalGridShape::Cartesian(c) = &mut g.shape;
+        c.origin = c.origin + by;
+        out.push(Object::LocalGrid(InDocument::new(doc, g)));
     }
     for f in pcb.footprints() {
         let pads = placed_pads(pcb, f).into_iter().map(|p| boxed(p.bounds()));

@@ -25744,6 +25744,26 @@
       "presets": [],
       "result": {
         "$defs": {
+          "AppliesTo": {
+            "description": "Which objects a Local Grid snaps while they are placed or moved. One that does not\napply to the object in flight is skipped as if it weren't there.",
+            "oneOf": [
+              {
+                "const": "all",
+                "description": "Everything.",
+                "type": "string"
+              },
+              {
+                "const": "components",
+                "description": "Components only.",
+                "type": "string"
+              },
+              {
+                "const": "not_components",
+                "description": "Everything but Components.",
+                "type": "string"
+              }
+            ]
+          },
           "ArrowPosition": {
             "description": "Where a Dimension's arrows sit.",
             "oneOf": [
@@ -29486,6 +29506,47 @@
             ],
             "type": "object"
           },
+          "InDocument34": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "applies_to": {
+                "$ref": "#/$defs/AppliesTo"
+              },
+              "enabled": {
+                "description": "The cursor snaps to it.",
+                "type": "boolean"
+              },
+              "locked": {
+                "description": "Locked against moves, reshapes and deletes, as any placed object.",
+                "type": "boolean"
+              },
+              "name": {
+                "description": "Unique on the board; the status bar shows it while the cursor is inside.",
+                "type": "string"
+              },
+              "shape": {
+                "$ref": "#/$defs/LocalGridShape"
+              },
+              "shown": {
+                "description": "Drawn on the canvas. A hidden Local Grid still snaps while it is enabled.",
+                "type": "boolean"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "name",
+              "applies_to",
+              "shown",
+              "enabled",
+              "locked",
+              "shape"
+            ],
+            "type": "object"
+          },
           "InDocument4": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
@@ -29977,6 +30038,60 @@
               "step"
             ],
             "type": "object"
+          },
+          "LocalGridShape": {
+            "description": "The area a Local Grid covers and the grid points inside it.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "description": "A rectangle with a rectangular grid, both turned by the same rotation.",
+                "properties": {
+                  "height": {
+                    "description": "Along the grid's Y axis, in nm.",
+                    "format": "int64",
+                    "type": "integer"
+                  },
+                  "kind": {
+                    "const": "cartesian",
+                    "type": "string"
+                  },
+                  "origin": {
+                    "$ref": "#/$defs/Point",
+                    "description": "A grid point and the rectangle's first corner, in nm from design zero."
+                  },
+                  "rotation": {
+                    "description": "The grid's X axis, counter-clockwise from +x, in `[0°, 360°)`.",
+                    "format": "int64",
+                    "type": "integer"
+                  },
+                  "step_x": {
+                    "description": "A length with the unit it was typed in, such as \"0.5mm\" or \"25mil\" (nm, um, mm, mil or in).",
+                    "format": "length",
+                    "type": "string"
+                  },
+                  "step_y": {
+                    "description": "A length with the unit it was typed in, such as \"0.5mm\" or \"25mil\" (nm, um, mm, mil or in).",
+                    "format": "length",
+                    "type": "string"
+                  },
+                  "width": {
+                    "description": "Along the grid's X axis, in nm.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "origin",
+                  "rotation",
+                  "step_x",
+                  "step_y",
+                  "width",
+                  "height"
+                ],
+                "type": "object"
+              }
+            ]
           },
           "LocallyEdited": {
             "description": "A changed default where the Component holds a value of its own.",
@@ -31174,6 +31289,19 @@
                 "properties": {
                   "type": {
                     "const": "board_grid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument34",
+                "properties": {
+                  "type": {
+                    "const": "local_grid",
                     "type": "string"
                   }
                 },
@@ -34540,6 +34668,11 @@
                 "const": "board_grid",
                 "description": "A grid step saved with the board.",
                 "type": "string"
+              },
+              {
+                "const": "local_grid",
+                "description": "A named area of the board with its own grid.",
+                "type": "string"
               }
             ]
           }
@@ -34583,6 +34716,26 @@
       "presets": [],
       "result": {
         "$defs": {
+          "AppliesTo": {
+            "description": "Which objects a Local Grid snaps while they are placed or moved. One that does not\napply to the object in flight is skipped as if it weren't there.",
+            "oneOf": [
+              {
+                "const": "all",
+                "description": "Everything.",
+                "type": "string"
+              },
+              {
+                "const": "components",
+                "description": "Components only.",
+                "type": "string"
+              },
+              {
+                "const": "not_components",
+                "description": "Everything but Components.",
+                "type": "string"
+              }
+            ]
+          },
           "ArrowPosition": {
             "description": "Where a Dimension's arrows sit.",
             "oneOf": [
@@ -38325,6 +38478,47 @@
             ],
             "type": "object"
           },
+          "InDocument34": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "applies_to": {
+                "$ref": "#/$defs/AppliesTo"
+              },
+              "enabled": {
+                "description": "The cursor snaps to it.",
+                "type": "boolean"
+              },
+              "locked": {
+                "description": "Locked against moves, reshapes and deletes, as any placed object.",
+                "type": "boolean"
+              },
+              "name": {
+                "description": "Unique on the board; the status bar shows it while the cursor is inside.",
+                "type": "string"
+              },
+              "shape": {
+                "$ref": "#/$defs/LocalGridShape"
+              },
+              "shown": {
+                "description": "Drawn on the canvas. A hidden Local Grid still snaps while it is enabled.",
+                "type": "boolean"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "name",
+              "applies_to",
+              "shown",
+              "enabled",
+              "locked",
+              "shape"
+            ],
+            "type": "object"
+          },
           "InDocument4": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
@@ -38816,6 +39010,60 @@
               "step"
             ],
             "type": "object"
+          },
+          "LocalGridShape": {
+            "description": "The area a Local Grid covers and the grid points inside it.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "description": "A rectangle with a rectangular grid, both turned by the same rotation.",
+                "properties": {
+                  "height": {
+                    "description": "Along the grid's Y axis, in nm.",
+                    "format": "int64",
+                    "type": "integer"
+                  },
+                  "kind": {
+                    "const": "cartesian",
+                    "type": "string"
+                  },
+                  "origin": {
+                    "$ref": "#/$defs/Point",
+                    "description": "A grid point and the rectangle's first corner, in nm from design zero."
+                  },
+                  "rotation": {
+                    "description": "The grid's X axis, counter-clockwise from +x, in `[0°, 360°)`.",
+                    "format": "int64",
+                    "type": "integer"
+                  },
+                  "step_x": {
+                    "description": "A length with the unit it was typed in, such as \"0.5mm\" or \"25mil\" (nm, um, mm, mil or in).",
+                    "format": "length",
+                    "type": "string"
+                  },
+                  "step_y": {
+                    "description": "A length with the unit it was typed in, such as \"0.5mm\" or \"25mil\" (nm, um, mm, mil or in).",
+                    "format": "length",
+                    "type": "string"
+                  },
+                  "width": {
+                    "description": "Along the grid's X axis, in nm.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "origin",
+                  "rotation",
+                  "step_x",
+                  "step_y",
+                  "width",
+                  "height"
+                ],
+                "type": "object"
+              }
+            ]
           },
           "LocallyEdited": {
             "description": "A changed default where the Component holds a value of its own.",
@@ -40013,6 +40261,19 @@
                 "properties": {
                   "type": {
                     "const": "board_grid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument34",
+                "properties": {
+                  "type": {
+                    "const": "local_grid",
                     "type": "string"
                   }
                 },
@@ -44805,7 +45066,7 @@
     },
     {
       "category": "pcb",
-      "description": "Moves the whole board by `dx`, `dy`: the Board Outline, its Board Cutouts, the Output Origin, every Guide and every object with any part inside the outline. A Track crossing the edge moves whole; objects wholly outside, such as unplaced Footprints, stay. Locked objects move too and stay locked.",
+      "description": "Moves the whole board by `dx`, `dy`: the Board Outline, its Board Cutouts, the Output Origin, every Guide and Local Grid, and every object with any part inside the outline. A Track crossing the edge moves whole; objects wholly outside, such as unplaced Footprints, stay. Locked objects move too and stay locked.",
       "icon": "move",
       "id": "pcb.board.move",
       "kind": "edit",
@@ -50798,7 +51059,7 @@
             "type": "boolean"
           },
           "objects": {
-            "description": "The Footprints, Free Pads, Dimensions, Guides, Output Origin, Board Outline and Board\nCutouts\nto flip, by UUID.",
+            "description": "The Footprints, Free Pads, Dimensions, Guides, Local Grids, Output Origin, Board\nOutline and Board Cutouts to flip, by UUID.",
             "items": {
               "format": "uuid",
               "type": "string"
@@ -56008,7 +56269,514 @@
     },
     {
       "category": "pcb",
-      "description": "Locks placed objects (Footprints, Tracks, Vias, Zones, Free Pads, text, graphics, Dimensions, Keepouts, Guides, the Board Outline and Board Cutouts) against geometry changes, or unlocks them. A lock refuses moving, turning, flipping, deleting and reshaping unless a Command is given `include_locked`; other values stay editable, and Sync, Update from Library and `pcb.board.move` still apply.",
+      "description": "Places a Local Grid: a named area of the board with its own grid, which replaces the everyday grid inside it. It goes last in the priority order (`pcb.local_grid.reorder` moves it); where two overlap, the first wins. No output, export or 3D view shows one.",
+      "icon": "grid",
+      "id": "pcb.local_grid.add",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Angle": {
+            "description": "An angle, counter-clockwise: integer millidegrees, or degrees such as \"45deg\".",
+            "oneOf": [
+              {
+                "description": "Millidegrees.",
+                "type": "integer"
+              },
+              {
+                "description": "A number of degrees followed by deg.",
+                "format": "angle",
+                "type": "string"
+              }
+            ]
+          },
+          "AppliesTo": {
+            "description": "Which objects a Local Grid snaps while they are placed or moved. One that does not\napply to the object in flight is skipped as if it weren't there.",
+            "oneOf": [
+              {
+                "const": "all",
+                "description": "Everything.",
+                "type": "string"
+              },
+              {
+                "const": "components",
+                "description": "Components only.",
+                "type": "string"
+              },
+              {
+                "const": "not_components",
+                "description": "Everything but Components.",
+                "type": "string"
+              }
+            ]
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "ShapeParam": {
+            "description": "A Local Grid's shape as Commands take it.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "description": "A `width` × `height` rectangle from `origin` along the grid's own axes, turned\n`rotation` counter-clockwise, with grid points every `step_x` along X and `step_y`\nalong Y from `origin`.",
+                "properties": {
+                  "height": {
+                    "$ref": "#/$defs/Length",
+                    "description": "Along the grid's Y axis; positive."
+                  },
+                  "kind": {
+                    "const": "cartesian",
+                    "type": "string"
+                  },
+                  "origin": {
+                    "$ref": "#/$defs/PointParam",
+                    "description": "A grid point and the rectangle's first corner, from design zero as every\nCommand's coordinates (never snapped)."
+                  },
+                  "rotation": {
+                    "$ref": "#/$defs/Angle",
+                    "default": 0,
+                    "description": "The grid's X axis, counter-clockwise from +x; 0° when left out. Kept in\n`[0°, 360°)`."
+                  },
+                  "step_x": {
+                    "$ref": "#/$defs/TypedLength",
+                    "description": "The step along the grid's X axis, such as `\"0.5mm\"` or `\"25mil\"`; the unit is\nkept. A bare integer of nanometres is kept in mm."
+                  },
+                  "step_y": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/TypedLength"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "The step along its Y axis; Step X when left out."
+                  },
+                  "width": {
+                    "$ref": "#/$defs/Length",
+                    "description": "Along the grid's X axis; positive."
+                  }
+                },
+                "required": [
+                  "kind",
+                  "origin",
+                  "step_x",
+                  "width",
+                  "height"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "TypedLength": {
+            "description": "A length that keeps the unit it was typed in: a number and a unit (nm, um, mm, mil or in) such as \"0.15mm\" or \"10mil\", or integer nanometres.",
+            "oneOf": [
+              {
+                "description": "Nanometres, with no unit of its own.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "applies_to": {
+            "$ref": "#/$defs/AppliesTo",
+            "default": "all",
+            "description": "Which objects it snaps while they are placed or moved: `all` (when left out),\n`components` or `not_components`."
+          },
+          "enabled": {
+            "default": null,
+            "description": "The cursor snaps to it; on when left out.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "locked": {
+            "default": false,
+            "description": "Locked against moves, reshapes and deletes; off when left out.",
+            "type": "boolean"
+          },
+          "name": {
+            "default": null,
+            "description": "Unique on the board; \"Local Grid N\" (the first free N) when left out.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "shape": {
+            "$ref": "#/$defs/ShapeParam"
+          },
+          "shown": {
+            "default": null,
+            "description": "Drawn on the canvas; on when left out. A hidden Local Grid still snaps.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "shape"
+        ],
+        "title": "LocalGridAddParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a Command that creates one object returns.",
+        "properties": {
+          "uuid": {
+            "description": "The new object's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid"
+        ],
+        "title": "Created",
+        "type": "object"
+      },
+      "title": "Add Local Grid"
+    },
+    {
+      "category": "pcb",
+      "description": "Deletes one Local Grid from the board.",
+      "icon": "delete",
+      "id": "pcb.local_grid.delete",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "include_locked": {
+            "default": false,
+            "description": "Deletes a locked Local Grid too; without it a locked one refuses the Command.",
+            "type": "boolean"
+          },
+          "uuid": {
+            "description": "The Local Grid's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid"
+        ],
+        "title": "LocalGridDeleteParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Delete Local Grid"
+    },
+    {
+      "category": "pcb",
+      "description": "Moves one Local Grid in the priority order, just before `before` or to the end. Where Local Grids overlap, the first in the order wins; the everyday grid is always last.",
+      "icon": "grid",
+      "id": "pcb.local_grid.reorder",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "before": {
+            "default": null,
+            "description": "The Local Grid it goes just before; the end of the list (just above the everyday\ngrid) when left out.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "local_grid": {
+            "description": "The Local Grid to move in the priority order.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "local_grid"
+        ],
+        "title": "LocalGridReorderParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Reorder Local Grid"
+    },
+    {
+      "category": "pcb",
+      "description": "Changes the given fields of one Local Grid and keeps the rest: its name, Applies to, shape, and the shown, enabled and locked switches.",
+      "icon": "grid",
+      "id": "pcb.local_grid.set",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Angle": {
+            "description": "An angle, counter-clockwise: integer millidegrees, or degrees such as \"45deg\".",
+            "oneOf": [
+              {
+                "description": "Millidegrees.",
+                "type": "integer"
+              },
+              {
+                "description": "A number of degrees followed by deg.",
+                "format": "angle",
+                "type": "string"
+              }
+            ]
+          },
+          "AppliesTo": {
+            "description": "Which objects a Local Grid snaps while they are placed or moved. One that does not\napply to the object in flight is skipped as if it weren't there.",
+            "oneOf": [
+              {
+                "const": "all",
+                "description": "Everything.",
+                "type": "string"
+              },
+              {
+                "const": "components",
+                "description": "Components only.",
+                "type": "string"
+              },
+              {
+                "const": "not_components",
+                "description": "Everything but Components.",
+                "type": "string"
+              }
+            ]
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "ShapeParam": {
+            "description": "A Local Grid's shape as Commands take it.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "description": "A `width` × `height` rectangle from `origin` along the grid's own axes, turned\n`rotation` counter-clockwise, with grid points every `step_x` along X and `step_y`\nalong Y from `origin`.",
+                "properties": {
+                  "height": {
+                    "$ref": "#/$defs/Length",
+                    "description": "Along the grid's Y axis; positive."
+                  },
+                  "kind": {
+                    "const": "cartesian",
+                    "type": "string"
+                  },
+                  "origin": {
+                    "$ref": "#/$defs/PointParam",
+                    "description": "A grid point and the rectangle's first corner, from design zero as every\nCommand's coordinates (never snapped)."
+                  },
+                  "rotation": {
+                    "$ref": "#/$defs/Angle",
+                    "default": 0,
+                    "description": "The grid's X axis, counter-clockwise from +x; 0° when left out. Kept in\n`[0°, 360°)`."
+                  },
+                  "step_x": {
+                    "$ref": "#/$defs/TypedLength",
+                    "description": "The step along the grid's X axis, such as `\"0.5mm\"` or `\"25mil\"`; the unit is\nkept. A bare integer of nanometres is kept in mm."
+                  },
+                  "step_y": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/TypedLength"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "The step along its Y axis; Step X when left out."
+                  },
+                  "width": {
+                    "$ref": "#/$defs/Length",
+                    "description": "Along the grid's X axis; positive."
+                  }
+                },
+                "required": [
+                  "kind",
+                  "origin",
+                  "step_x",
+                  "width",
+                  "height"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "TypedLength": {
+            "description": "A length that keeps the unit it was typed in: a number and a unit (nm, um, mm, mil or in) such as \"0.15mm\" or \"10mil\", or integer nanometres.",
+            "oneOf": [
+              {
+                "description": "Nanometres, with no unit of its own.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "applies_to": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AppliesTo"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "enabled": {
+            "default": null,
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "include_locked": {
+            "default": false,
+            "description": "Reshapes a locked Local Grid too; without it `shape` on a locked one is refused.",
+            "type": "boolean"
+          },
+          "locked": {
+            "default": null,
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "name": {
+            "default": null,
+            "description": "A new name, unique on the board.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "shape": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ShapeParam"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A new shape, given whole."
+          },
+          "shown": {
+            "default": null,
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "uuid": {
+            "description": "The Local Grid's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid"
+        ],
+        "title": "LocalGridSetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Edit Local Grid"
+    },
+    {
+      "category": "pcb",
+      "description": "Locks placed objects (Footprints, Tracks, Vias, Zones, Free Pads, text, graphics, Dimensions, Keepouts, Guides, Local Grids, the Board Outline and Board Cutouts) against geometry changes, or unlocks them. A lock refuses moving, turning, flipping, deleting and reshaping unless a Command is given `include_locked`; other values stay editable, and Sync, Update from Library and `pcb.board.move` still apply.",
       "icon": "lock",
       "id": "pcb.lock",
       "kind": "edit",
@@ -56021,7 +56789,7 @@
             "type": "boolean"
           },
           "objects": {
-            "description": "The objects to lock or unlock, by UUID: Footprints, Tracks, Vias, Zones, Free Pads,\ntext, graphics, Dimensions, Keepouts, Guides, the Board Outline and Board Cutouts.",
+            "description": "The objects to lock or unlock, by UUID: Footprints, Tracks, Vias, Zones, Free Pads,\ntext, graphics, Dimensions, Keepouts, Guides, Local Grids, the Board Outline and\nBoard Cutouts.",
             "items": {
               "format": "uuid",
               "type": "string"
@@ -56583,7 +57351,7 @@
     },
     {
       "category": "pcb",
-      "description": "Moves Footprints, Free Pads, Dimensions, Guides, the Output Origin, the Board Outline and Board Cutouts by an offset. Moving the Board Outline without the rest is Move Board Shape, which carries every Guide too; `pcb.board.move` moves the whole board. Refused when any of them is locked (unless `include_locked`), or a Dimension without the objects it references.",
+      "description": "Moves Footprints, Free Pads, Dimensions, Guides, Local Grids, the Output Origin, the Board Outline and Board Cutouts by an offset. Moving the Board Outline without the rest is Move Board Shape, which carries every Guide and Local Grid too; `pcb.board.move` moves the whole board. Refused when any of them is locked (unless `include_locked`), or a Dimension without the objects it references.",
       "icon": "move",
       "id": "pcb.move",
       "kind": "edit",
@@ -56634,7 +57402,7 @@
             "type": "boolean"
           },
           "objects": {
-            "description": "The Footprints, Free Pads, Dimensions, Guides, Output Origin, Board Outline and Board\nCutouts\nto move, by UUID.",
+            "description": "The Footprints, Free Pads, Dimensions, Guides, Local Grids, Output Origin, Board\nOutline and Board Cutouts to move, by UUID.",
             "items": {
               "format": "uuid",
               "type": "string"
@@ -61318,7 +62086,7 @@
     },
     {
       "category": "pcb",
-      "description": "Turns Footprints, Free Pads, Dimensions, Guides, the Output Origin, the Board Outline and Board Cutouts counter-clockwise (90° by default) about a point: a lone object turns in place, a selection about the middle of its extent. Refused when any of them is locked (unless `include_locked`).",
+      "description": "Turns Footprints, Free Pads, Dimensions, Guides, Local Grids, the Output Origin, the Board Outline and Board Cutouts counter-clockwise (90° by default) about a point: a lone object turns in place, a selection about the middle of its extent. Refused when any of them is locked (unless `include_locked`).",
       "icon": "rotate",
       "id": "pcb.rotate",
       "kind": "edit",
@@ -61402,7 +62170,7 @@
             "type": "boolean"
           },
           "objects": {
-            "description": "The Footprints, Free Pads, Dimensions, Guides, Output Origin, Board Outline and Board\nCutouts\nto turn, by UUID.",
+            "description": "The Footprints, Free Pads, Dimensions, Guides, Local Grids, Output Origin, Board\nOutline and Board Cutouts to turn, by UUID.",
             "items": {
               "format": "uuid",
               "type": "string"

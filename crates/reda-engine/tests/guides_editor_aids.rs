@@ -1,5 +1,5 @@
-//! Guides are editor aids (docs/spec/v0.3/grids-guides.md#the-four-things): no output,
-//! export or rendered image shows one, and no check reads one.
+//! Guides and Local Grids are editor aids (docs/spec/v0.3/grids-guides.md#the-four-things):
+//! no output, export or rendered image shows one, and no check reads one.
 
 use std::path::Path;
 
@@ -38,6 +38,19 @@ fn add_guides(engine: &mut TestEngine) -> Vec<Uuid> {
     .collect()
 }
 
+/// A Guide of each kind and a Local Grid over the Via: the editor aids.
+fn add_aids(engine: &mut TestEngine) -> Vec<Uuid> {
+    let mut aids = add_guides(engine);
+    let out = engine.run_ok(
+        "pcb.local_grid.add",
+        json!({"name": "Header", "shape": {"kind": "cartesian",
+               "origin": {"x": "2mm", "y": "2mm"}, "rotation": 30_000, "step_x": "1.27mm",
+               "width": "10mm", "height": "8mm"}}),
+    );
+    aids.push(out["result"]["uuid"].as_str().unwrap().parse().unwrap());
+    aids
+}
+
 /// Every file a run of the job wrote under `fab/`, by name, with its bytes.
 fn fab_files(engine: &mut TestEngine) -> Vec<(String, Vec<u8>)> {
     let out = engine.run_ok("output.job.run", json!({"job": JOB}));
@@ -67,23 +80,23 @@ fn render(engine: &mut TestEngine) -> Value {
 }
 
 #[test]
-fn the_fab_outputs_and_a_render_are_the_same_with_and_without_guides() {
+fn the_fab_outputs_and_a_render_are_the_same_with_and_without_guides_and_local_grids() {
     let dir = TempDir::new("guides-outputs");
     let mut engine = board(&dir);
     let before = fab_files(&mut engine);
     let image = render(&mut engine);
     assert!(image.as_str().is_some_and(|svg| svg.contains("<svg")));
     assert!(!before.is_empty());
-    add_guides(&mut engine);
+    add_aids(&mut engine);
     assert_eq!(fab_files(&mut engine), before);
     assert_eq!(render(&mut engine), image);
 }
 
 #[test]
-fn the_board_scene_holds_no_guide() {
+fn the_board_scene_holds_no_guide_or_local_grid() {
     let dir = TempDir::new("guides-scene");
     let mut engine = board(&dir);
-    let guides = add_guides(&mut engine);
+    let guides = add_aids(&mut engine);
     let pcb = engine.project().unwrap().pcb().unwrap().uuid;
     let scene = engine.board_scene(pcb, &Default::default()).unwrap();
     assert!(!scene.items.is_empty());
@@ -91,12 +104,12 @@ fn the_board_scene_holds_no_guide() {
 }
 
 #[test]
-fn drc_reads_no_guide() {
+fn drc_reads_no_guide_or_local_grid() {
     let dir = TempDir::new("guides-drc");
     let mut engine = board(&dir);
     let before = engine.run_ok("drc.run", json!({}))["violations"].clone();
     assert!(before.is_array(), "{before}");
-    add_guides(&mut engine);
+    add_aids(&mut engine);
     let after = engine.run_ok("drc.run", json!({}))["violations"].clone();
     assert_eq!(after, before);
 }
