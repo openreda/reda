@@ -149,17 +149,24 @@ pub fn prefill(pcb: &PcbDocument, name: &str, outline_free: bool) -> (Target, Ru
     (Target::Reference, Rule::Reference)
 }
 
-/// The UUID of the first Reference Layer in `layers`, added at the end of the Mechanical
-/// Layers when there is none.
+/// The UUID of the board's first Reference Layer, as `board` has its Layers, or of the
+/// one added at the end of `layers` when it has none. `added_reference` remembers that
+/// one, so every row shares it rather than a New Mechanical Layer that took the Purpose.
 pub(crate) fn reference_layer(
+    board: &LayerSet,
     layers: &mut LayerSet,
     added: &mut Vec<Uuid>,
+    added_reference: &mut Option<Uuid>,
     new_id: &mut dyn FnMut() -> Uuid,
 ) -> Uuid {
-    if let Some(layer) = layers.first_with_purpose(Purpose::Reference) {
+    if let Some(layer) = board.first_with_purpose(Purpose::Reference) {
         return layer.uuid;
     }
+    if let Some(uuid) = *added_reference {
+        return uuid;
+    }
     let uuid = new_id();
+    *added_reference = Some(uuid);
     layers.push_mechanical(uuid, Purpose::Reference);
     added.push(uuid);
     uuid

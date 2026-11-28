@@ -232,6 +232,28 @@ fn a_board_without_a_reference_layer_gets_one_for_the_rows_that_need_it() {
 }
 
 #[test]
+fn a_new_mechanical_layer_does_not_stand_in_for_the_missing_reference_layer() {
+    let dir = TempDir::new("dxf-new-before-reference");
+    let mut e = board(&dir);
+    let reference = layer_named(&e, "Reference");
+    e.run_ok("pcb.layer.remove", json!({"layer": reference}));
+    // The first row asks for a new Layer, which takes the Purpose Reference; the rows
+    // pre-filled to the Reference Layer still get one of their own.
+    let out = import(
+        &mut e,
+        json!({"path": fixture("layers.dxf"), "mapping": {"Top Silkscreen": "new_mechanical"}}),
+    );
+    let added: Vec<Uuid> = serde_json::from_value(out["layers_added"].clone()).unwrap();
+    let names: Vec<_> = added
+        .iter()
+        .map(|l| pcb(&e).layers().layer(*l).unwrap().name.clone().unwrap())
+        .collect();
+    assert_eq!(names, ["Top Silkscreen", "Reference"]);
+    let on = |layer: Uuid| graphics(&e).iter().filter(|g| g.layer == layer).count();
+    assert_eq!((on(added[0]), on(added[1])), (1, 4 + 2 + 1));
+}
+
+#[test]
 fn the_unit_comes_from_insunits_or_is_mm_and_the_scale_multiplies() {
     let dir = TempDir::new("dxf-units");
     let mut e = board(&dir);

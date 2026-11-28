@@ -190,6 +190,7 @@ fn planned(
     }
     let mut layers = pcb.layers().clone();
     let mut layers_added = Vec::new();
+    let mut added_reference = None;
     let mut rows = Vec::new();
     let mut landings = BTreeMap::new();
     for name in &names {
@@ -209,9 +210,13 @@ fn planned(
             Target::NewMechanical => {
                 Landing::Layer(new_mechanical(&mut layers, name, &mut layers_added, new_id))
             }
-            Target::Reference => {
-                Landing::Layer(reference_layer(&mut layers, &mut layers_added, new_id))
-            }
+            Target::Reference => Landing::Layer(reference_layer(
+                pcb.layers(),
+                &mut layers,
+                &mut layers_added,
+                &mut added_reference,
+                new_id,
+            )),
             Target::Layer(layer) => {
                 let layer = layer.resolve(pcb, &pointer(name))?;
                 if !takes_drawing(layer) {
@@ -290,7 +295,13 @@ fn planned(
     let mut outline_layer = None;
     for row in &rows {
         if landings[row.name.as_str()] == Landing::BoardOutline {
-            let layer = reference_layer(&mut layers, &mut layers_added, new_id);
+            let layer = reference_layer(
+                pcb.layers(),
+                &mut layers,
+                &mut layers_added,
+                &mut added_reference,
+                new_id,
+            );
             outline_layer = Some(layer);
             messages.push(format!(
                 "DXF layer {:?} went on the Layer {:?}, not the Board Outline: select its \
