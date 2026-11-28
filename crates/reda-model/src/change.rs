@@ -15,9 +15,9 @@ use crate::pcb::{
     Track, Via, Zone, ZoneCutout,
 };
 use crate::{
-    DocumentEntry, Footprint, FootprintCopy, LibraryElement, NetLabel, NoConnect, Part, PartEntry,
-    Port, PowerPort, ProjectProps, SheetFrame, SheetGraphic, SheetText, Symbol, UnitInstance, Uuid,
-    Waiver, Wire,
+    DocumentEntry, Footprint, FootprintCopy, Guide, LibraryElement, NetLabel, NoConnect, Part,
+    PartEntry, Port, PowerPort, ProjectProps, SheetFrame, SheetGraphic, SheetText, Symbol,
+    UnitInstance, Uuid, Waiver, Wire,
 };
 
 // New object kinds add a variant here, a table in `crate::Project`, and arms in
@@ -65,6 +65,7 @@ pub enum Object {
     ZoneCutout(InDocument<ZoneCutout>),
     FreePad(InDocument<FreePad>),
     OutputOrigin(InDocument<OutputOrigin>),
+    Guide(InDocument<Guide>),
     // Left out of schemas so the catalogue is the same with and without the feature.
     #[cfg(feature = "test-objects")]
     #[schemars(skip)]
@@ -154,6 +155,8 @@ pub enum ObjectType {
     FreePad,
     /// Where the editor and relative manufacturing outputs measure coordinates from.
     OutputOrigin,
+    /// A placed line or point on the board the cursor snaps to.
+    Guide,
     /// The test-only Probe.
     #[cfg(feature = "test-objects")]
     #[schemars(skip)]
@@ -201,6 +204,7 @@ impl Object {
             Object::ZoneCutout(o) => o.uuid,
             Object::FreePad(o) => o.uuid,
             Object::OutputOrigin(o) => o.uuid,
+            Object::Guide(o) => o.uuid,
             #[cfg(feature = "test-objects")]
             Object::Probe(p) => p.uuid,
         }
@@ -246,6 +250,7 @@ impl Object {
             Object::ZoneCutout(_) => ObjectType::ZoneCutout,
             Object::FreePad(_) => ObjectType::FreePad,
             Object::OutputOrigin(_) => ObjectType::OutputOrigin,
+            Object::Guide(_) => ObjectType::Guide,
             #[cfg(feature = "test-objects")]
             Object::Probe(_) => ObjectType::Probe,
         }
@@ -292,6 +297,7 @@ impl Object {
             Object::ZoneCutout(o) => Scope::Document(o.document),
             Object::FreePad(o) => Scope::Document(o.document),
             Object::OutputOrigin(o) => Scope::Document(o.document),
+            Object::Guide(o) => Scope::Document(o.document),
             #[cfg(feature = "test-objects")]
             Object::Probe(p) => p.document.map_or(Scope::Project, Scope::Document),
         }

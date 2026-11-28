@@ -1545,6 +1545,74 @@
         }
       ]
     },
+    "Guide": {
+      "additionalProperties": false,
+      "description": "A placed Guide. Field order is the on-disk key order.",
+      "properties": {
+        "angle": {
+          "description": "A line's direction, counter-clockwise from +x, in `[0°, 180°)`; a point has none.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "at": {
+          "$ref": "#/$defs/Point",
+          "description": "The point a line runs through, or the point itself."
+        },
+        "enabled": {
+          "description": "The cursor snaps to it.",
+          "type": "boolean"
+        },
+        "kind": {
+          "$ref": "#/$defs/GuideKind"
+        },
+        "locked": {
+          "description": "Locked against moves and deletes, as any placed object.",
+          "type": "boolean"
+        },
+        "name": {
+          "description": "An optional name, shown in the Grids & Guides list.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "shown": {
+          "description": "Drawn on the canvas. A hidden Guide still snaps while it is enabled.",
+          "type": "boolean"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uuid",
+        "kind",
+        "at",
+        "shown",
+        "enabled",
+        "locked"
+      ],
+      "type": "object"
+    },
+    "GuideKind": {
+      "description": "Whether a Guide is an infinite line or a single point.",
+      "oneOf": [
+        {
+          "const": "line",
+          "description": "An infinite line through `at` at `angle`.",
+          "type": "string"
+        },
+        {
+          "const": "point",
+          "description": "The point `at`.",
+          "type": "string"
+        }
+      ]
+    },
     "Hole": {
       "additionalProperties": false,
       "description": "A drilled hole: round when `width == height`, otherwise a slot along the longer side.\nSizes are the finished diameter.",
@@ -4209,6 +4277,14 @@
       "description": "Lines, arcs and rectangles on copper, silkscreen and Mechanical Layers.",
       "items": {
         "$ref": "#/$defs/PcbGraphic"
+      },
+      "type": "array"
+    },
+    "guides": {
+      "default": [],
+      "description": "The Guides the cursor snaps to, sorted by UUID; left out while the board has none.\nEditor aids: no output reads them.",
+      "items": {
+        "$ref": "#/$defs/Guide"
       },
       "type": "array"
     },
