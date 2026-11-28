@@ -5,23 +5,33 @@
 //! from the DXF origin point (the Output Origin, otherwise design zero). Board Y grows
 //! upwards, as DXF's does, so Y keeps its sign. With `at`, the drawing's lower-left corner
 //! lands there instead.
+//!
+//! Graphics become lines and arcs at one line width, ellipses and splines fitted within
+//! [`FIT_TOLERANCE`]; TEXT and MTEXT become free text in the default stroke font.
 
 use std::collections::BTreeMap;
 
 use reda_command::CommandError;
 use reda_model::geom::{Millideg, Nm, Point};
-use reda_model::{GraphicShape, PcbDocument, PcbGraphic, Uuid};
+use reda_model::{GraphicShape, PcbDocument, PcbGraphic, PcbText, TextStyle, Uuid};
 use schemars::JsonSchema;
 use serde::Serialize;
 
+use crate::Drawing;
 use crate::mapping::{Rule, Target, new_mechanical, prefill, reference_layer, takes_drawing};
-use crate::shape::{Piece, Xy};
+use crate::shape::{Piece, Shape, Xy};
+use crate::text::Text;
 use crate::units::Unit;
-use crate::{Drawing, Entity};
 
 /// How far from design zero an imported drawing may reach: 1 m. Further than that is a
 /// wrong unit or scale, and would overflow the board's geometry.
 pub const REACH: Nm = Nm(1_000_000_000);
+
+/// How far a fitted ellipse or spline may stray from the true curve: 0.005 mm.
+pub const FIT_TOLERANCE: Nm = Nm(5_000);
+
+/// The skipped count of text on the row that becomes the Board Outline.
+const OUTLINE_TEXT: &str = "text on the Board Outline layer";
 
 /// What the Commands' params ask for, defaults filled in.
 #[derive(Clone, Debug)]
@@ -100,6 +110,10 @@ pub struct Plan {
     pub layers_added: Vec<Uuid>,
     /// The new graphics, in entity order.
     pub graphics: Vec<PcbGraphic>,
+    /// The new free texts, in entity order.
+    pub texts: Vec<PcbText>,
+    /// Every new graphic and text, in entity order.
+    pub objects: Vec<Uuid>,
     /// What the Messages panel says about the import.
     pub messages: Vec<String>,
 }
@@ -144,7 +158,7 @@ fn planned(
     new_id: &mut dyn FnMut() -> Uuid,
     build: bool,
 ) -> Result<Plan, CommandError> {
-    let mut warnings = Vec::new();
+    let mut warnings = drawing.warnings.clone();
     let file_unit = drawing.insunits.and_then(Unit::from_insunits);
     if let Some(code) = drawing.insunits
         && code != 0
@@ -259,17 +273,28 @@ fn planned(
     };
 
     // Placement.
-    let imported: Vec<&Entity> = drawing
-        .entities
-        .iter()
-        .filter(|e| landings[e.layer.as_str()] != Landing::Skip)
-        .collect();
-    let pieces: Vec<(&str, Piece)> = imported
-        .iter()
-        .flat_map(|e| e.shape.pieces().into_iter().map(|p| (e.layer.as_str(), p)))
-        .collect();
-    let bounds = extent(pieces.iter().map(|(_, p)| p));
     let k = unit.nm() * options.scale;
+    // A nanometre is left for rounding to the board's grid.
+    let tolerance = (FIT_TOLERANCE.0 - 1) as f64 / k;
+    let mut skipped = drawing.skipped.clone();
+    let mut items: Vec<(&str, Item<'_>)> = Vec::new();
+    for entity in &drawing.entities {
+        let landing = landings[entity.layer.as_str()];
+        match (&entity.shape, landing) {
+            (_, Landing::Skip) => {}
+            (Shape::Text(_), Landing::BoardOutline) => {
+                *skipped.entry(OUTLINE_TEXT.to_owned()).or_default() += 1
+            }
+            (Shape::Text(text), _) => items.push((&entity.layer, Item::Text(text))),
+            (shape, _) => items.extend(
+                shape
+                    .pieces(tolerance)
+                    .into_iter()
+                    .map(|p| (entity.layer.as_str(), Item::Piece(p))),
+            ),
+        }
+    }
+    let bounds = extent(items.iter().map(|(_, item)| item));
     let dxf_origin = pcb
         .output_origin()
         .map_or(Point::new(Nm(0), Nm(0)), |o| o.at);
@@ -332,28 +357,49 @@ fn planned(
     }
 
     let mut graphics = Vec::new();
-    let mut dropped = 0;
-    for (dxf_layer, piece) in pieces.iter().filter(|_| build) {
+    let mut texts = Vec::new();
+    let mut objects = Vec::new();
+    let (mut dropped, mut dropped_texts) = (0, 0);
+    for (dxf_layer, item) in items.iter().filter(|_| build) {
         let layer = match landings[dxf_layer] {
             Landing::Layer(uuid) => uuid,
             Landing::BoardOutline => outline_layer.expect("added above"),
             Landing::Skip => continue,
         };
-        let Some(shape) = graphic(*piece, &place) else {
-            dropped += 1;
-            continue;
-        };
-        graphics.push(PcbGraphic {
-            uuid: new_id(),
-            locked: false,
-            layer,
-            width: options.line_width,
-            shape,
-        });
+        match item {
+            Item::Piece(piece) => {
+                let Some(shape) = graphic(*piece, &place) else {
+                    dropped += 1;
+                    continue;
+                };
+                let uuid = new_id();
+                objects.push(uuid);
+                graphics.push(PcbGraphic {
+                    uuid,
+                    locked: false,
+                    layer,
+                    width: options.line_width,
+                    shape,
+                });
+            }
+            Item::Text(text) => {
+                let Some(text) = free_text(text, layer, k, &place, new_id) else {
+                    dropped_texts += 1;
+                    continue;
+                };
+                objects.push(text.uuid);
+                texts.push(text);
+            }
+        }
     }
     if dropped > 0 {
         warnings.push(format!(
             "{dropped} lines or arcs shorter than a nanometre were left out"
+        ));
+    }
+    if dropped_texts > 0 {
+        warnings.push(format!(
+            "{dropped_texts} texts less than a nanometre high were left out"
         ));
     }
 
@@ -366,7 +412,7 @@ fn planned(
         line_width: options.line_width,
         close_gaps: options.close_gaps,
         layers: rows,
-        skipped: drawing.skipped.clone(),
+        skipped,
         warnings,
     };
     Ok(Plan {
@@ -374,7 +420,44 @@ fn planned(
         layers: (!layers_added.is_empty()).then_some(layers),
         layers_added,
         graphics,
+        texts,
+        objects,
         messages,
+    })
+}
+
+/// What one entity lands as: pieces of a graphic, or a text.
+enum Item<'d> {
+    Piece(Piece),
+    Text(&'d Text),
+}
+
+/// A text as free board text on `layer`, `k` nanometres to the drawing unit, in the default
+/// stroke font; `None` when it is less than a nanometre high.
+fn free_text(
+    text: &Text,
+    layer: Uuid,
+    k: f64,
+    place: &dyn Fn(Xy) -> (f64, f64),
+    new_id: &mut dyn FnMut() -> Uuid,
+) -> Option<PcbText> {
+    let height = Nm((text.height * k).round() as i64);
+    if height < Nm(1) {
+        return None;
+    }
+    let (x, y) = place(text.at);
+    let mut style = TextStyle::of_height(height);
+    style.justify = text.justify;
+    Some(PcbText {
+        uuid: new_id(),
+        locked: false,
+        layer,
+        text: reda_model::text::escape(&text.text).into_owned(),
+        position: Point::new(Nm(x.round() as i64), Nm(y.round() as i64)),
+        style,
+        frame: None,
+        rotation: Millideg((text.rotation * 1000.0).round() as i64).normalized(),
+        mirrored: false,
     })
 }
 
@@ -388,10 +471,18 @@ fn in_mm(nm: f64) -> f64 {
     nm.round() / 1e6
 }
 
-/// The smallest box around `pieces`, arcs by their extreme points.
-fn extent<'p>(pieces: impl Iterator<Item = &'p Piece>) -> Option<(Xy, Xy)> {
+/// The smallest box around `items`, arcs by their extreme points and texts by their
+/// anchors.
+fn extent<'i>(items: impl Iterator<Item = &'i Item<'i>>) -> Option<(Xy, Xy)> {
     let mut points = Vec::new();
-    for piece in pieces {
+    for item in items {
+        let piece = match item {
+            Item::Piece(piece) => piece,
+            Item::Text(text) => {
+                points.push(text.at);
+                continue;
+            }
+        };
         match *piece {
             Piece::Line { from, to } => points.extend([from, to]),
             Piece::Arc {
@@ -422,6 +513,12 @@ fn extent<'p>(pieces: impl Iterator<Item = &'p Piece>) -> Option<(Xy, Xy)> {
                 }
             }
         }
+    }
+    // A point past what a float holds makes the drawing endless, so it is refused on its
+    // size.
+    if points.iter().any(|p| !(p.x.is_finite() && p.y.is_finite())) {
+        let endless = f64::INFINITY;
+        return Some((Xy::new(-endless, -endless), Xy::new(endless, endless)));
     }
     let mut points = points.into_iter();
     let first = points.next()?;

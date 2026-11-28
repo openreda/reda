@@ -1,0 +1,88 @@
+999
+ARC, CIRCLE and LWPOLYLINE seen from below: extrusion (0, 0, -1).
+  0
+SECTION
+  2
+HEADER
+  9
+$ACADVER
+  1
+AC1015
+  9
+$INSUNITS
+ 70
+4
+  0
+ENDSEC
+  0
+SECTION
+  2
+ENTITIES
+  0
+ARC
+  8
+Flipped
+ 10
+10.0
+ 20
+0.0
+ 30
+0.0
+ 40
+2.0
+210
+0.0
+220
+0.0
+230
+-1.0
+ 50
+0.0
+ 51
+90.0
+  0
+CIRCLE
+  8
+Flipped
+ 10
+3.0
+ 20
+4.0
+ 30
+0.0
+ 40
+1.0
+210
+0.0
+220
+0.0
+230
+-1.0
+  0
+LWPOLYLINE
+  8
+Flipped
+ 90
+2
+ 70
+0
+ 10
+0.0
+ 20
+0.0
+ 42
+1.0
+ 10
+2.0
+ 20
+0.0
+210
+0.0
+220
+0.0
+230
+-1.0
+  0
+ENDSEC
+  0
+EOF

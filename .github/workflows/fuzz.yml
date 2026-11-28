@@ -1,5 +1,5 @@
-# Weekly fuzzing of file loading, the KiCad import reader and the STEP reader
-# (docs/spec/v0.1/quality-and-release.md#testing, docs/spec/v0.3/step.md).
+# Weekly fuzzing of file loading, the KiCad import reader, the STEP reader and the DXF
+# reader (docs/spec/v0.1/quality-and-release.md#testing, docs/spec/v0.3/testing.md#fuzzing).
 # Scheduled and manual only: it never runs on pull requests, so it never gates a merge.
 # A crash uploads the failing inputs; reproduce one with
 #   cargo +nightly fuzz run <target> fuzz/artifacts/<target>/<crash file>
@@ -82,4 +82,26 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: fuzz-artifacts-read_step
+          path: fuzz/artifacts
+
+  read_dxf:
+    name: fuzz read_dxf
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install nightly
+        run: rustup toolchain install nightly --profile minimal
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-fuzz
+      - name: Fuzz for 20 minutes
+        working-directory: fuzz
+        run: |
+          mkdir -p corpus/read_dxf
+          cargo +nightly fuzz run read_dxf corpus/read_dxf ../crates/reda-import-dxf/tests/fixtures -- -max_total_time=1200
+      - name: Upload crashing inputs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-artifacts-read_dxf
           path: fuzz/artifacts
