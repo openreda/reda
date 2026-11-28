@@ -1,6 +1,7 @@
 //! Binary DXF (DXF Reference, "Binary DXF Files"): the sentinel, then the same groups as
 //! an ASCII file, each a group code and a value in the type its code gives ("Group Code
-//! Value Types"). Numbers are little-endian; strings end with a NUL byte.
+//! Value Types"). Numbers are little-endian; strings end with a NUL byte. Integers take
+//! the bytes their type gives: 280–289 are 16-bit integers, so two bytes, like 60–79.
 //!
 //! Group codes take two bytes from AutoCAD R13 on, and one byte before (255 and then two
 //! bytes for a code above 254). The first group is always `0 SECTION`, so a zero byte after
@@ -57,9 +58,6 @@ struct Reader<'a> {
     wide: bool,
 }
 
-/// How many groups ahead a guess at a value's size is checked.
-const LOOK_AHEAD: usize = 4;
-
 impl<'a> Reader<'a> {
     fn place(&self, at: usize) -> Place {
         Place::Byte(self.offset + at)
@@ -89,8 +87,7 @@ impl<'a> Reader<'a> {
     }
 
     /// The group at `at` and where the next one starts; `None` at the end of the file.
-    /// `ahead` is how many groups further a guess at a value's size is checked.
-    fn group(&self, at: usize, ahead: usize) -> Result<Option<(Raw<'a>, usize)>, ReadError> {
+    fn group(&self, at: usize) -> Result<Option<(Raw<'a>, usize)>, ReadError> {
         let Some((code, len)) = self.code_at(at) else {
             if at < self.bytes.len() {
                 return Err(ReadError::at(
@@ -116,11 +113,6 @@ impl<'a> Reader<'a> {
                 (Cow::Borrowed(&rest[..end]), at + end + 1)
             }
             Value::Real => (number(f64::from_le_bytes(self.array(at)?)), at + 8),
-            // The Reference gives 280–289 two bytes, but files are written with one too;
-            // the groups after say which.
-            Value::Int16 if (280..=289).contains(&code) && self.one_byte_fits(at, ahead) => {
-                (integer(i64::from(self.array::<1>(at)?[0] as i8)), at + 1)
-            }
             Value::Int16 => (
                 integer(i64::from(i16::from_le_bytes(self.array(at)?))),
                 at + 2,
@@ -148,24 +140,6 @@ impl<'a> Reader<'a> {
             },
             next,
         )))
-    }
-
-    /// Whether `ahead` groups read from `at`, or the file ends first.
-    fn reads(&self, mut at: usize, ahead: usize) -> bool {
-        for _ in 0..ahead {
-            match self.group(at, ahead - 1) {
-                Ok(Some((_, next))) => at = next,
-                Ok(None) => return true,
-                Err(_) => return false,
-            }
-        }
-        true
-    }
-
-    /// Whether the 280–289 value at `at` takes one byte: the groups after read that way,
-    /// or don't read with two bytes either.
-    fn one_byte_fits(&self, at: usize, ahead: usize) -> bool {
-        ahead == 0 || self.reads(at + 1, ahead) || !self.reads(at + 2, ahead)
     }
 }
 
@@ -196,7 +170,7 @@ pub(crate) fn raw_tags(bytes: &[u8], offset: usize) -> Result<Vec<Raw<'_>>, Read
     };
     let mut tags = Vec::new();
     let mut at = 0;
-    while let Some((tag, next)) = reader.group(at, LOOK_AHEAD)? {
+    while let Some((tag, next)) = reader.group(at)? {
         let eof = tag.code == 0 && tag.value.as_ref() == b"EOF";
         tags.push(tag);
         at = next;
@@ -266,11 +240,24 @@ mod tests {
     }
 
     #[test]
-    fn a_one_byte_280_value_is_read_when_the_next_code_says_so() {
-        let file = wide_file(&[1]);
+    fn a_280_value_takes_two_bytes_as_its_16_bit_type_gives() {
+        // "Group Code Value Types": 280–289 are 16-bit integers, stored in two bytes.
+        let file = wide_file(&[0x2C, 0x01]);
         let raws = raw_tags(&file, 22).unwrap();
-        assert_eq!(values(&raws)[7], (280, "1".to_owned()));
+        assert_eq!(values(&raws)[7], (280, "300".to_owned()));
         assert_eq!(raws.last().unwrap().value.as_ref(), b"EOF");
+        // A value one byte short leaves the groups after it misread, so the file is refused.
+        let err = raw_tags(&wide_file(&[1]), 22).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                ReadError::Malformed {
+                    at: Some(Place::Byte(_)),
+                    ..
+                }
+            ),
+            "{err}"
+        );
     }
 
     #[test]
