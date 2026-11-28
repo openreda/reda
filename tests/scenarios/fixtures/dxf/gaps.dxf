@@ -1,0 +1,96 @@
+999
+An outline of four lines with a 0.0005 mm and a 0.05 mm gap, and a closed bow tie crossing itself.
+  0
+SECTION
+  2
+HEADER
+  9
+$ACADVER
+  1
+AC1015
+  9
+$INSUNITS
+ 70
+4
+  0
+ENDSEC
+  0
+SECTION
+  2
+ENTITIES
+  0
+LINE
+  8
+OUTLINE
+ 10
+0.0
+ 20
+0.0
+ 11
+100.0
+ 21
+0.0
+  0
+LINE
+  8
+OUTLINE
+ 10
+100.0
+ 20
+0.0005
+ 11
+100.0
+ 21
+80.0
+  0
+LINE
+  8
+OUTLINE
+ 10
+100.0
+ 20
+80.0
+ 11
+0.0
+ 21
+80.0
+  0
+LINE
+  8
+OUTLINE
+ 10
+0.0
+ 20
+80.0
+ 11
+0.0
+ 21
+0.05
+  0
+LWPOLYLINE
+  8
+OUTLINE
+ 90
+4
+ 70
+1
+ 10
+120.0
+ 20
+0.0
+ 10
+140.0
+ 20
+20.0
+ 10
+140.0
+ 20
+0.0
+ 10
+120.0
+ 20
+20.0
+  0
+ENDSEC
+  0
+EOF

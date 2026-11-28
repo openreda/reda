@@ -12,6 +12,8 @@
 //! - [`units`]: `$INSUNITS` and the units a drawing can be read in;
 //! - [`mapping`]: DXF layer to board target, with the four pre-fill rules;
 //! - [`import`]: the report a preview returns, and the Layers and graphics an import adds;
+//! - [`outline`]: the Board Outline row's loops: the outline, its cutouts, and the gaps
+//!   and crossings that keep the rest graphics;
 //! - [`commands`]: `pcb.import_dxf.preview` and `pcb.import_dxf`.
 
 mod binary;
@@ -20,6 +22,7 @@ mod encoding;
 mod fit;
 pub mod import;
 pub mod mapping;
+pub mod outline;
 mod reader;
 mod shape;
 mod spline;

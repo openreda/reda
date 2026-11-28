@@ -54452,7 +54452,7 @@
     },
     {
       "category": "pcb",
-      "description": "Imports a DXF drawing, ASCII or binary, as one undo step: lines, arcs, circles and polylines as board graphics, bulges as exact arcs, ellipses and splines fitted with arcs within 0.005 mm, TEXT and MTEXT as free text in the stroke font, and each INSERT exploded in place. DWG is refused. It lands at its file coordinates on the Output Origin (design zero without one), or with its lower-left corner at `at`. Each DXF layer goes to its `mapping` target or the pre-filled one: a board Layer of the same name, the Board Outline for an outline-like name, a Mechanical Layer whose Purpose the name suggests, or else the Reference Layer, added if the board has none. Returns the preview's report and the new objects.",
+      "description": "Imports a DXF drawing, ASCII or binary, as one undo step: lines, arcs, circles and polylines as board graphics, bulges as exact arcs, ellipses and splines fitted with arcs within 0.005 mm, TEXT and MTEXT as free text in the stroke font, and each INSERT exploded in place. DWG is refused. It lands at its file coordinates on the Output Origin (design zero without one), or with its lower-left corner at `at`. Each DXF layer goes to its `mapping` target or the pre-filled one: a board Layer of the same name, the Board Outline for an outline-like name, a Mechanical Layer whose Purpose the name suggests, or else the Reference Layer, added if the board has none. The Board Outline row's largest loop replaces the Board Outline, and the loops wholly inside it, circles included, replace the Board Cutouts; open and crossing shapes and other loops land on the Reference Layer, with Messages saying why. Returns the preview's report and the new objects.",
       "icon": "library_import",
       "id": "pcb.import_dxf",
       "kind": "edit",
@@ -54635,6 +54635,51 @@
             ],
             "type": "object"
           },
+          "OutlineReport": {
+            "description": "What the row mapped to the Board Outline makes, through the loop builder.",
+            "properties": {
+              "board_cutouts": {
+                "description": "The loops wholly inside the outline, circles included, that become Board Cutouts.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "builds_outline": {
+                "description": "Its largest loop becomes the Board Outline. False when nothing on it closes: no\noutline is guessed, and the board's own stays.",
+                "type": "boolean"
+              },
+              "layer": {
+                "description": "The DXF layer.",
+                "type": "string"
+              },
+              "on_reference": {
+                "description": "The lines and arcs that land as graphics on the Reference Layer instead: open or\ncrossing shapes, and loops outside the outline or inside a cutout.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "problems": {
+                "description": "Each gap (its middle and size) and crossing, gaps first, each by position.",
+                "items": {
+                  "$ref": "#/$defs/Problem"
+                },
+                "type": "array"
+              },
+              "replaces": {
+                "description": "The board's Board Outline and its Board Cutouts are replaced.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "layer",
+              "builds_outline",
+              "board_cutouts",
+              "replaces",
+              "on_reference",
+              "problems"
+            ],
+            "type": "object"
+          },
           "Point": {
             "additionalProperties": false,
             "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
@@ -54655,6 +54700,45 @@
               "y"
             ],
             "type": "object"
+          },
+          "Problem": {
+            "description": "A gap or crossing in the Board Outline row, before anything is imported.",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point",
+                "description": "The gap's middle, or where the shape crosses or touches itself or another loop."
+              },
+              "kind": {
+                "$ref": "#/$defs/ProblemKind"
+              },
+              "size": {
+                "description": "How far apart the gap's two ends are; left out for a crossing.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "kind",
+              "at"
+            ],
+            "type": "object"
+          },
+          "ProblemKind": {
+            "oneOf": [
+              {
+                "const": "gap",
+                "description": "Two ends that should meet are further apart than `close_gaps`.",
+                "type": "string"
+              },
+              {
+                "const": "crossing",
+                "description": "A shape crosses or touches itself, three ends meet, or a loop crosses one kept.",
+                "type": "string"
+              }
+            ]
           },
           "Rule": {
             "description": "The pre-fill rule that chose a row's target.",
@@ -54720,6 +54804,22 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "description": "What an import did.",
         "properties": {
+          "board_cutouts": {
+            "description": "The Board Cutouts made from the loops inside it.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "board_outline": {
+            "description": "The Board Outline made from the Board Outline row's largest loop.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "close_gaps": {
             "description": "How far apart line ends may be and still close a loop on the Board Outline row.",
             "format": "int64",
@@ -54764,7 +54864,7 @@
             "type": "array"
           },
           "objects": {
-            "description": "The new graphics and texts, in file order, ready to select.",
+            "description": "The new graphics and texts, in file order, then the new Board Outline and Board\nCutouts, ready to select.",
             "items": {
               "format": "uuid",
               "type": "string"
@@ -54774,6 +54874,17 @@
           "origin": {
             "$ref": "#/$defs/Point",
             "description": "Where the DXF file's origin lands: the Output Origin or design zero, or wherever\n`at` moves it."
+          },
+          "outline": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/OutlineReport"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What the row mapped to the Board Outline makes; left out when no row is."
           },
           "scale": {
             "format": "double",
@@ -54823,7 +54934,7 @@
     },
     {
       "category": "pcb",
-      "description": "Reads a DXF file and returns what `pcb.import_dxf` would do, changing nothing: each DXF layer with its entity count and pre-filled target, the unit and the drawing's size in mm, and the entities it skips, counted per type.",
+      "description": "Reads a DXF file and returns what `pcb.import_dxf` would do, changing nothing: each DXF layer with its entity count and pre-filled target, the unit and the drawing's size in mm, the entities it skips, counted per type, and what the Board Outline row makes: whether it builds and replaces the Board Outline, its Board Cutouts, and each gap (with its size) and crossing, ends meeting within `close_gaps`.",
       "icon": "library_import",
       "id": "pcb.import_dxf.preview",
       "kind": "query",
@@ -54966,6 +55077,51 @@
             ],
             "type": "object"
           },
+          "OutlineReport": {
+            "description": "What the row mapped to the Board Outline makes, through the loop builder.",
+            "properties": {
+              "board_cutouts": {
+                "description": "The loops wholly inside the outline, circles included, that become Board Cutouts.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "builds_outline": {
+                "description": "Its largest loop becomes the Board Outline. False when nothing on it closes: no\noutline is guessed, and the board's own stays.",
+                "type": "boolean"
+              },
+              "layer": {
+                "description": "The DXF layer.",
+                "type": "string"
+              },
+              "on_reference": {
+                "description": "The lines and arcs that land as graphics on the Reference Layer instead: open or\ncrossing shapes, and loops outside the outline or inside a cutout.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "problems": {
+                "description": "Each gap (its middle and size) and crossing, gaps first, each by position.",
+                "items": {
+                  "$ref": "#/$defs/Problem"
+                },
+                "type": "array"
+              },
+              "replaces": {
+                "description": "The board's Board Outline and its Board Cutouts are replaced.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "layer",
+              "builds_outline",
+              "board_cutouts",
+              "replaces",
+              "on_reference",
+              "problems"
+            ],
+            "type": "object"
+          },
           "Point": {
             "additionalProperties": false,
             "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
@@ -54986,6 +55142,45 @@
               "y"
             ],
             "type": "object"
+          },
+          "Problem": {
+            "description": "A gap or crossing in the Board Outline row, before anything is imported.",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point",
+                "description": "The gap's middle, or where the shape crosses or touches itself or another loop."
+              },
+              "kind": {
+                "$ref": "#/$defs/ProblemKind"
+              },
+              "size": {
+                "description": "How far apart the gap's two ends are; left out for a crossing.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "kind",
+              "at"
+            ],
+            "type": "object"
+          },
+          "ProblemKind": {
+            "oneOf": [
+              {
+                "const": "gap",
+                "description": "Two ends that should meet are further apart than `close_gaps`.",
+                "type": "string"
+              },
+              {
+                "const": "crossing",
+                "description": "A shape crosses or touches itself, three ends meet, or a loop crosses one kept.",
+                "type": "string"
+              }
+            ]
           },
           "Rule": {
             "description": "The pre-fill rule that chose a row's target.",
@@ -55082,6 +55277,17 @@
           "origin": {
             "$ref": "#/$defs/Point",
             "description": "Where the DXF file's origin lands: the Output Origin or design zero, or wherever\n`at` moves it."
+          },
+          "outline": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/OutlineReport"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What the row mapped to the Board Outline makes; left out when no row is."
           },
           "scale": {
             "format": "double",

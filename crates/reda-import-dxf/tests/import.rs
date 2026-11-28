@@ -120,33 +120,33 @@ fn every_row_lands_on_its_target_as_one_undo_step() {
     let layers_before = pcb(&e).layers().clone();
     let out = import(&mut e, json!({"path": fixture("layers.dxf")}));
     let objects: Vec<Uuid> = serde_json::from_value(out["objects"].clone()).unwrap();
-    // A line, a line, the outline's four lines, two half arcs, a line and an arc.
-    assert_eq!(objects.len(), 10);
+    // A line, a line, two half arcs, a line and an arc, then the Board Outline that the
+    // EDGE_CUTS rectangle becomes.
+    assert_eq!(objects.len(), 7);
     let all = graphics(&e);
-    assert_eq!(all.len(), 10);
-    assert!(objects.iter().all(|o| pcb(&e).graphic(*o).is_some()));
+    assert_eq!(all.len(), 6);
+    assert!(objects[..6].iter().all(|o| pcb(&e).graphic(*o).is_some()));
+    assert_eq!(pcb(&e).outline().map(|o| o.uuid), Some(objects[6]));
     let on = |title: &str| {
         let layer = layer_named(&e, title);
         all.iter().filter(|g| g.layer == layer).count()
     };
     assert_eq!(on("Top Silkscreen"), 1);
     assert_eq!(on("Dimensions"), 2);
-    // The Board Outline row lands on the Reference Layer, with a Messages entry saying
-    // how to make it the outline, beside PCB-PROFILE's circle and the Notes arc.
-    assert_eq!(on("Reference"), 4 + 2 + 1);
+    // PCB-PROFILE's circle and the Notes arc.
+    assert_eq!(on("Reference"), 2 + 1);
     assert_eq!(pcb(&e).layers(), &layers_before);
     let messages = out["messages"].as_array().unwrap();
-    assert_eq!(messages.len(), 1, "{messages:?}");
-    assert!(
-        messages[0]
-            .as_str()
-            .unwrap()
-            .contains("pcb.board_outline.add_from_graphics"),
-        "{messages:?}"
+    assert_eq!(
+        messages,
+        &[json!(
+            "DXF layer \"EDGE_CUTS\" became the Board Outline and 0 Board Cutouts."
+        )]
     );
     let doc = pcb(&e).uuid;
     e.run_ok("edit.undo", json!({"document": doc}));
     assert!(graphics(&e).is_empty());
+    assert!(pcb(&e).outline().is_none());
 }
 
 #[test]
@@ -231,7 +231,7 @@ fn a_board_without_a_reference_layer_gets_one_for_the_rows_that_need_it() {
         (Some("Reference"), Purpose::Reference)
     );
     let on_it = graphics(&e).iter().filter(|g| g.layer == added[0]).count();
-    assert_eq!(on_it, 4 + 2 + 1);
+    assert_eq!(on_it, 2 + 1);
 }
 
 #[test]
@@ -253,7 +253,7 @@ fn a_new_mechanical_layer_does_not_stand_in_for_the_missing_reference_layer() {
         .collect();
     assert_eq!(names, ["Top Silkscreen", "Reference"]);
     let on = |layer: Uuid| graphics(&e).iter().filter(|g| g.layer == layer).count();
-    assert_eq!((on(added[0]), on(added[1])), (1, 4 + 2 + 1));
+    assert_eq!((on(added[0]), on(added[1])), (1, 2 + 1));
 }
 
 #[test]

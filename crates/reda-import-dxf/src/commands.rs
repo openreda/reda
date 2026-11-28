@@ -107,8 +107,15 @@ pub struct ImportParams {
 pub struct ImportResult {
     #[serde(flatten)]
     pub report: Report,
-    /// The new graphics and texts, in file order, ready to select.
+    /// The new graphics and texts, in file order, then the new Board Outline and Board
+    /// Cutouts, ready to select.
     pub objects: Vec<Uuid>,
+    /// The Board Outline made from the Board Outline row's largest loop.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub board_outline: Option<Uuid>,
+    /// The Board Cutouts made from the loops inside it.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub board_cutouts: Vec<Uuid>,
     /// The Mechanical Layers the import added.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub layers_added: Vec<Uuid>,
@@ -189,8 +196,10 @@ impl Command for Preview {
         title: "Preview DXF Import",
         description: "Reads a DXF file and returns what `pcb.import_dxf` would do, changing \
                       nothing: each DXF layer with its entity count and pre-filled target, the \
-                      unit and the drawing's size in mm, and the entities it skips, counted \
-                      per type.",
+                      unit and the drawing's size in mm, the entities it skips, counted per \
+                      type, and what the Board Outline row makes: whether it builds and \
+                      replaces the Board Outline, its Board Cutouts, and each gap (with its \
+                      size) and crossing, ends meeting within `close_gaps`.",
         category: "pcb",
         icon: "library_import",
         kind: Kind::Query,
@@ -224,8 +233,11 @@ impl Command for Import {
                       DXF layer goes to its `mapping` target or the pre-filled one: a board \
                       Layer of the same name, the Board Outline for an outline-like name, a \
                       Mechanical Layer whose Purpose the name suggests, or else the Reference \
-                      Layer, added if the board has none. Returns the preview's report and \
-                      the new objects.",
+                      Layer, added if the board has none. The Board Outline row's largest \
+                      loop replaces the Board Outline, and the loops wholly inside it, \
+                      circles included, replace the Board Cutouts; open and crossing shapes \
+                      and other loops land on the Reference Layer, with Messages saying why. \
+                      Returns the preview's report and the new objects.",
         category: "pcb",
         icon: "library_import",
         kind: Kind::Edit,
@@ -256,9 +268,22 @@ impl Command for Import {
         for text in plan.texts {
             tx.insert(Object::PcbText(InDocument::new(document, text)))?;
         }
+        for old in plan.replaced {
+            tx.remove(old)?;
+        }
+        let board_outline = plan.outline.as_ref().map(|o| o.uuid);
+        if let Some(outline) = plan.outline {
+            tx.insert(Object::BoardOutline(InDocument::new(document, outline)))?;
+        }
+        let board_cutouts = plan.cutouts.iter().map(|c| c.uuid).collect();
+        for cutout in plan.cutouts {
+            tx.insert(Object::BoardCutout(InDocument::new(document, cutout)))?;
+        }
         Ok(ImportResult {
             report: plan.report,
             objects: plan.objects,
+            board_outline,
+            board_cutouts,
             layers_added: plan.layers_added,
             messages: plan.messages,
         })

@@ -8,17 +8,24 @@
 //!
 //! Graphics become lines and arcs at one line width, ellipses and splines fitted within
 //! [`FIT_TOLERANCE`]; TEXT and MTEXT become free text in the default stroke font.
+//!
+//! The row mapped to the Board Outline goes through the loop builder ([`crate::outline`]):
+//! its largest loop replaces the Board Outline and the loops inside it the Board Cutouts.
+//! The rest of it lands on the Reference Layer, with a Messages entry saying why.
 
 use std::collections::BTreeMap;
 
 use reda_command::CommandError;
-use reda_model::geom::{Millideg, Nm, Point};
-use reda_model::{GraphicShape, PcbDocument, PcbGraphic, PcbText, TextStyle, Uuid};
+use reda_model::geom::{Millideg, Nm, Point, Segment};
+use reda_model::{
+    BoardCutout, BoardOutline, GraphicShape, PcbDocument, PcbGraphic, PcbText, TextStyle, Uuid,
+};
 use schemars::JsonSchema;
 use serde::Serialize;
 
 use crate::Drawing;
 use crate::mapping::{Rule, Target, new_mechanical, prefill, reference_layer, takes_drawing};
+use crate::outline::{self, Problem, ProblemKind, Stray};
 use crate::shape::{Piece, Shape, Xy};
 use crate::text::Text;
 use crate::units::Unit;
@@ -98,7 +105,29 @@ pub struct Report {
     pub layers: Vec<LayerRow>,
     /// The entities not imported, counted per DXF entity type.
     pub skipped: BTreeMap<String, usize>,
+    /// What the row mapped to the Board Outline makes; left out when no row is.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub outline: Option<OutlineReport>,
     pub warnings: Vec<String>,
+}
+
+/// What the row mapped to the Board Outline makes, through the loop builder.
+#[derive(Clone, Debug, PartialEq, Serialize, JsonSchema)]
+pub struct OutlineReport {
+    /// The DXF layer.
+    pub layer: String,
+    /// Its largest loop becomes the Board Outline. False when nothing on it closes: no
+    /// outline is guessed, and the board's own stays.
+    pub builds_outline: bool,
+    /// The loops wholly inside the outline, circles included, that become Board Cutouts.
+    pub board_cutouts: usize,
+    /// The board's Board Outline and its Board Cutouts are replaced.
+    pub replaces: bool,
+    /// The lines and arcs that land as graphics on the Reference Layer instead: open or
+    /// crossing shapes, and loops outside the outline or inside a cutout.
+    pub on_reference: usize,
+    /// Each gap (its middle and size) and crossing, gaps first, each by position.
+    pub problems: Vec<Problem>,
 }
 
 /// What an import adds.
@@ -116,6 +145,12 @@ pub struct Plan {
     pub objects: Vec<Uuid>,
     /// What the Messages panel says about the import.
     pub messages: Vec<String>,
+    /// The new Board Outline, from the Board Outline row's largest loop.
+    pub outline: Option<BoardOutline>,
+    /// The new Board Cutouts.
+    pub cutouts: Vec<BoardCutout>,
+    /// The Board Outline and Board Cutouts the new ones replace.
+    pub replaced: Vec<Uuid>,
 }
 
 /// Where a row's pieces go.
@@ -314,30 +349,7 @@ fn planned(
     );
     let place = |p: Xy| (origin.x + p.x * k, origin.y + p.y * k);
 
-    // The Board Outline row's pieces wait on the Reference Layer, where
-    // `pcb.board_outline.add_from_graphics` converts them.
-    let mut messages = Vec::new();
-    let mut outline_layer = None;
-    for row in &rows {
-        if landings[row.name.as_str()] == Landing::BoardOutline {
-            let layer = reference_layer(
-                pcb.layers(),
-                &mut layers,
-                &mut layers_added,
-                &mut added_reference,
-                new_id,
-            );
-            outline_layer = Some(layer);
-            messages.push(format!(
-                "DXF layer {:?} went on the Layer {:?}, not the Board Outline: select its \
-                 graphics there and use pcb.board_outline.add_from_graphics to make the \
-                 Board Outline.",
-                row.name,
-                layer_name(&layers, layer)
-            ));
-        }
-    }
-
+    let mut within_reach = true;
     if let Some((min, max)) = bounds {
         let far = [place(min), place(max)]
             .into_iter()
@@ -353,17 +365,75 @@ fn planned(
                 return Err(CommandError::rejected(reach));
             }
             warnings.push(reach);
+            within_reach = false;
         }
+    }
+
+    // The Board Outline row through the loop builder. What doesn't become the outline or a
+    // cutout lands on the Reference Layer.
+    let mut messages = Vec::new();
+    let outline_row = rows
+        .iter()
+        .find(|row| landings[row.name.as_str()] == Landing::BoardOutline)
+        .map(|row| row.name.clone());
+    let mut strays: BTreeMap<usize, Stray> = BTreeMap::new();
+    let mut outline_report = None;
+    let mut loops = outline::Loops::default();
+    if let Some(row) = &outline_row {
+        let mut segments = Vec::new();
+        let mut item_of = Vec::new();
+        for (k, (dxf_layer, item)) in items.iter().enumerate() {
+            if let (Landing::BoardOutline, Item::Piece(piece)) = (landings[dxf_layer], item)
+                && within_reach
+                && let Some(shape) = graphic(*piece, &place)
+            {
+                segments.push(segment(shape));
+                item_of.push(k);
+            }
+        }
+        loops = outline::build(&segments, options.close_gaps);
+        strays = loops
+            .strays
+            .iter()
+            .map(|(&i, &why)| (item_of[i], why))
+            .collect();
+        let builds = loops.outline.is_some();
+        outline_report = Some(OutlineReport {
+            layer: row.clone(),
+            builds_outline: builds,
+            board_cutouts: loops.cutouts.len(),
+            replaces: builds && (pcb.outline().is_some() || pcb.cutouts().next().is_some()),
+            on_reference: strays.len(),
+            problems: loops.problems.clone(),
+        });
+    }
+    let mut outline_layer = None;
+    if build && !strays.is_empty() {
+        outline_layer = Some(reference_layer(
+            pcb.layers(),
+            &mut layers,
+            &mut layers_added,
+            &mut added_reference,
+            new_id,
+        ));
     }
 
     let mut graphics = Vec::new();
     let mut texts = Vec::new();
     let mut objects = Vec::new();
     let (mut dropped, mut dropped_texts) = (0, 0);
-    for (dxf_layer, item) in items.iter().filter(|_| build) {
+    for (n, (dxf_layer, item)) in items.iter().enumerate().filter(|_| build) {
         let layer = match landings[dxf_layer] {
             Landing::Layer(uuid) => uuid,
-            Landing::BoardOutline => outline_layer.expect("added above"),
+            Landing::BoardOutline if strays.contains_key(&n) => outline_layer.expect("added above"),
+            Landing::BoardOutline => {
+                // Taken into the Board Outline or a Board Cutout, unless it rounds to
+                // nothing.
+                if graphic(*item.piece(), &place).is_none() {
+                    dropped += 1;
+                }
+                continue;
+            }
             Landing::Skip => continue,
         };
         match item {
@@ -403,6 +473,36 @@ fn planned(
         ));
     }
 
+    let (mut outline, mut cutouts, mut replaced) = (None, Vec::new(), Vec::new());
+    if let (Some(row), true) = (&outline_row, build) {
+        let reference = outline_layer.map(|l| layer_name(&layers, l));
+        messages.extend(outline_messages(row, &loops, &strays, reference.as_deref()));
+        if let Some(vertices) = loops.outline.take() {
+            replaced.extend(pcb.outline().map(|o| o.uuid));
+            replaced.extend(pcb.cutouts().map(|c| c.uuid));
+            let made = BoardOutline::new(new_id(), vertices);
+            objects.push(made.uuid);
+            outline = Some(made);
+            for vertices in loops.cutouts.drain(..) {
+                let cutout = BoardCutout::new(new_id(), vertices);
+                objects.push(cutout.uuid);
+                cutouts.push(cutout);
+            }
+            let old_cutouts = pcb.cutouts().count();
+            let replacing = match (pcb.outline().is_some(), old_cutouts) {
+                (false, 0) => String::new(),
+                (true, n) => {
+                    format!(", replacing the board's Board Outline and its {n} Board Cutouts")
+                }
+                (false, n) => format!(", replacing the board's {n} Board Cutouts"),
+            };
+            messages.push(format!(
+                "DXF layer {row:?} became the Board Outline and {} Board Cutouts{replacing}.",
+                cutouts.len()
+            ));
+        }
+    }
+
     let report = Report {
         unit,
         file_unit,
@@ -413,6 +513,7 @@ fn planned(
         close_gaps: options.close_gaps,
         layers: rows,
         skipped,
+        outline: outline_report,
         warnings,
     };
     Ok(Plan {
@@ -423,13 +524,90 @@ fn planned(
         texts,
         objects,
         messages,
+        outline,
+        cutouts,
+        replaced,
     })
+}
+
+/// A board graphic line or arc as a loop builder segment.
+fn segment(shape: GraphicShape) -> Segment {
+    match shape {
+        GraphicShape::Line { from, to } => Segment::line(from, to),
+        GraphicShape::Arc { from, to, sweep } => Segment::arc(from, to, sweep),
+        GraphicShape::Rect { .. } => unreachable!("pieces are lines and arcs"),
+    }
+}
+
+/// What the Messages panel says about the Board Outline row `row`: each gap and crossing,
+/// and how many of its lines and arcs went on the Layer `reference` for each reason.
+fn outline_messages(
+    row: &str,
+    loops: &outline::Loops,
+    strays: &BTreeMap<usize, Stray>,
+    reference: Option<&str>,
+) -> Vec<String> {
+    let mm = |nm: Nm| nm.mm_exact();
+    let mut out = Vec::new();
+    for problem in &loops.problems {
+        let (x, y) = (mm(problem.at.x), mm(problem.at.y));
+        out.push(match (problem.kind, problem.size) {
+            (ProblemKind::Gap, Some(size)) => format!(
+                "DXF layer {row:?} has a gap of {} mm at ({x} mm, {y} mm), more than Close \
+                 gaps up to, so the shape there does not close.",
+                mm(size)
+            ),
+            _ => format!("DXF layer {row:?} has a shape crossing at ({x} mm, {y} mm)."),
+        });
+    }
+    let mut counts: BTreeMap<Stray, usize> = BTreeMap::new();
+    for why in strays.values() {
+        *counts.entry(*why).or_default() += 1;
+    }
+    let reference = reference.unwrap_or("Reference");
+    for (why, n) in counts {
+        let what = match why {
+            Stray::Open => "do not close a loop",
+            Stray::Crossing => "form loops that cross themselves or another loop",
+            Stray::Flat => "form loops that enclose no area",
+            Stray::Outside => "form loops outside the Board Outline",
+            Stray::InCutout => "form loops inside a Board Cutout",
+        };
+        let fix = match why {
+            Stray::Open | Stray::Crossing | Stray::Flat => {
+                ": repair them there and use pcb.board_outline.add_from_graphics or \
+                 pcb.board_cutout.add_from_graphics"
+            }
+            Stray::Outside | Stray::InCutout => "",
+        };
+        out.push(format!(
+            "{n} lines and arcs of DXF layer {row:?} {what}, so they went on the Layer \
+             {reference:?} as graphics{fix}."
+        ));
+    }
+    if loops.outline.is_none() {
+        out.push(format!(
+            "DXF layer {row:?} has no closed loop, so it made no Board Outline; the board's \
+             own is kept."
+        ));
+    }
+    out
 }
 
 /// What one entity lands as: pieces of a graphic, or a text.
 enum Item<'d> {
     Piece(Piece),
     Text(&'d Text),
+}
+
+impl Item<'_> {
+    /// The piece of a graphic; the Board Outline row has no texts here.
+    fn piece(&self) -> &Piece {
+        match self {
+            Item::Piece(piece) => piece,
+            Item::Text(_) => unreachable!("text on the Board Outline row is skipped"),
+        }
+    }
 }
 
 /// A text as free board text on `layer`, `k` nanometres to the drawing unit, in the default
