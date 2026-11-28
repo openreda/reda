@@ -1,8 +1,9 @@
 //! Cursor snapping: one model for every editor (docs/spec/v0.1/editing.md#cursor-snapping).
 //!
 //! A snap is a pure function of the cursor, the [`Target`]s the editor gathered from its
-//! Document ([`hotspots`]), any alignment [`Guide`]s, and the [`Rules`] in force. The
-//! levels rank **Hotspot, then alignment guide, then grid**. Capture is a length checked
+//! Document ([`hotspots`]), any alignment [`Guide`]s, and the [`Rules`] in force (which
+//! carry the Document's placed Guides, [`PlacedGuide`]). The levels rank **Hotspot, then
+//! Guide, then alignment guide, then grid** (docs/spec/v0.3/grids-guides.md#snapping). Capture is a length checked
 //! on both axes: the cursor must be within it in X and in Y. Boards and Footprints use one
 //! Snap Distance (a Preference); sheets and Symbols use the grid preset's Electrical
 //! Range ([`crate::shell::Shell::electrical_range`]).
@@ -13,6 +14,7 @@
 
 pub mod hotspots;
 mod palette;
+mod placed;
 mod session;
 mod suspend;
 
@@ -25,6 +27,7 @@ pub use palette::{
     PaletteRequests, controls as palette_controls, mode_label, palette_button,
     register as register_palette,
 };
+pub use placed::PlacedGuide;
 pub use reda_engine::preferences::Hotspot;
 pub use session::{held, rules, rules_on, snap_at, suspend, to_grid};
 pub use suspend::Suspend;
@@ -187,7 +190,10 @@ pub struct Rules {
     /// Hotspot kinds turned off in the checklist.
     pub off: BTreeSet<Hotspot>,
     /// The alignment guide level is in force (`Mod` suspends it with object snap).
-    pub guides: bool,
+    pub alignment: bool,
+    /// The Guide level: the Document's enabled Guides, or none when the Guides switch is
+    /// off or `Mod` suspends them.
+    pub placed: Vec<PlacedGuide>,
 }
 
 impl Rules {
@@ -198,7 +204,8 @@ impl Rules {
             grid,
             objects: Objects::Off,
             off: BTreeSet::new(),
-            guides: false,
+            alignment: false,
+            placed: Vec::new(),
         }
     }
 
@@ -233,8 +240,10 @@ impl Rules {
 pub enum Hit {
     /// A Hotspot of `object`.
     Hotspot { kind: Hotspot, object: Uuid },
+    /// A placed Guide: on a line, a point Guide or where two cross.
+    Guide { object: Uuid },
     /// An alignment guide, on one axis or both.
-    Guide,
+    Alignment,
     /// The grid.
     Grid,
     /// Nothing: Gridless (or the grid suspended) and no Hotspot near.
@@ -254,7 +263,8 @@ impl Hit {
     pub fn label(self) -> String {
         match self {
             Hit::Hotspot { kind, .. } => hotspot_label(kind),
-            Hit::Guide => crate::tr!("snap-hit-guide"),
+            Hit::Guide { .. } => crate::tr!("snap-hit-guide"),
+            Hit::Alignment => crate::tr!("snap-hit-alignment"),
             Hit::Grid => crate::tr!("snap-hit-grid"),
             Hit::Free => crate::tr!("snap-hit-free"),
         }
@@ -262,7 +272,8 @@ impl Hit {
 }
 
 /// Paints the snap marker at the screen point `c`: a cross on the grid, a diamond on an
-/// alignment guide, and a ring naming the Hotspot it hit. Free points have none.
+/// alignment guide, a diamond named "Guide" on a Guide, and a ring naming the Hotspot it
+/// hit. Free points have none.
 pub fn marker(painter: &egui::Painter, c: egui::Pos2, hit: Hit, color: egui::Color32) {
     use egui::{Stroke, vec2};
     match hit {
@@ -278,7 +289,7 @@ pub fn marker(painter: &egui::Painter, c: egui::Pos2, hit: Hit, color: egui::Col
             );
         }
         Hit::Free => {}
-        Hit::Guide => {
+        Hit::Guide { .. } | Hit::Alignment => {
             let r = 5.0;
             let points = vec![
                 c + vec2(0.0, -r),
@@ -288,6 +299,15 @@ pub fn marker(painter: &egui::Painter, c: egui::Pos2, hit: Hit, color: egui::Col
                 c + vec2(0.0, -r),
             ];
             painter.add(egui::Shape::line(points, Stroke::new(1.5, color)));
+            if matches!(hit, Hit::Guide { .. }) {
+                painter.text(
+                    c + vec2(9.0, -9.0),
+                    egui::Align2::LEFT_BOTTOM,
+                    hit.label(),
+                    egui::FontId::proportional(11.0),
+                    color,
+                );
+            }
         }
         Hit::Hotspot { .. } => {
             painter.circle_stroke(c, 6.0, Stroke::new(2.0, color));
@@ -310,8 +330,9 @@ pub struct Snapped {
 }
 
 /// `at` (nm) snapped by `rules`: onto the nearest captured point Hotspot, else the
-/// nearest captured segment, else the alignment guides on each axis they catch (the other
-/// axis on the grid), else the grid, else left where it is.
+/// nearest captured segment, else a point Guide or Guide crossing, else the nearest line
+/// Guide (along it on the grid), else the alignment guides on each axis they catch (the
+/// other axis on the grid), else the grid, else left where it is.
 pub fn snap(at: (f64, f64), targets: &[Target], guides: &[Guide], rules: &Rules) -> Snapped {
     let dist = |p: (f64, f64)| (p.0 - at.0).hypot(p.1 - at.1);
     let usable = || targets.iter().filter(|t| rules.takes(t));
@@ -359,6 +380,14 @@ pub fn snap(at: (f64, f64), targets: &[Target], guides: &[Guide], rules: &Rules)
             },
         };
     }
+    let guide = placed::point(at, &rules.placed, rules.capture)
+        .or_else(|| placed::on_line(at, &rules.placed, rules.capture, rules.grid));
+    if let Some((p, object)) = guide {
+        return Snapped {
+            at: p,
+            hit: Hit::Guide { object },
+        };
+    }
     let near = |values: &mut dyn Iterator<Item = Nm>, v: f64| {
         values
             .map(|g| (g, (g.0 as f64 - v).abs()))
@@ -366,7 +395,7 @@ pub fn snap(at: (f64, f64), targets: &[Target], guides: &[Guide], rules: &Rules)
             .min_by(|a, b| a.1.total_cmp(&b.1))
             .map(|(g, _)| g)
     };
-    let guides = if rules.guides { guides } else { &[] };
+    let guides = if rules.alignment { guides } else { &[] };
     let gx = near(
         &mut guides.iter().filter_map(|g| match g {
             Guide::X(x) => Some(*x),
@@ -385,7 +414,7 @@ pub fn snap(at: (f64, f64), targets: &[Target], guides: &[Guide], rules: &Rules)
     if gx.is_some() || gy.is_some() {
         return Snapped {
             at: Point::new(gx.unwrap_or(grid.x), gy.unwrap_or(grid.y)),
-            hit: Hit::Guide,
+            hit: Hit::Alignment,
         };
     }
     Snapped {

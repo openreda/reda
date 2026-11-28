@@ -122,6 +122,8 @@ fn rank_with_locks(shell: &Shell, document: Uuid, item: &Item, protect: bool) ->
         FilterKind::FootprintInstance => 2,
         FilterKind::Zone | FilterKind::Keepout | FilterKind::ZoneCutout => 3,
         FilterKind::BoardOutline | FilterKind::BoardCutout => 4,
+        // Under the pointer a Guide is picked last: it never takes a click from copper.
+        FilterKind::Guide => 5,
         _ if item.layer
             == shell
                 .board_view()
@@ -544,8 +546,46 @@ fn document_scene(shell: &Shell, document: Uuid) -> Scene {
                 look: Default::default(),
             });
         }
+        if shell.document_tab(document).is_some_and(|t| t.aids_shown) {
+            scene.items.extend(
+                pcb.guides()
+                    .filter(|g| g.shown)
+                    .map(|g| guide_item(g, layer)),
+            );
+        }
     }
     scene
+}
+
+/// How far either way a line Guide reaches in the pick scene: past any board.
+const GUIDE_REACH: f64 = 10e9;
+
+/// A shown Guide as something to pick: a thin line out past any board, or a dot.
+fn guide_item(guide: &reda_engine::model::Guide, layer: SceneLayer) -> Item {
+    use reda_engine::model::geom::{Nm, Point};
+    use reda_engine::render::{BoardColor, ColorKey, Primitive};
+    let (a, b) = match guide.angle {
+        Some(angle) => {
+            let t = (angle.0 as f64 / 1000.0).to_radians();
+            let (dx, dy) = (t.cos() * GUIDE_REACH, t.sin() * GUIDE_REACH);
+            let at = |s: f64| {
+                Point::new(
+                    Nm((guide.at.x.0 as f64 + s * dx).round() as i64),
+                    Nm((guide.at.y.0 as f64 + s * dy).round() as i64),
+                )
+            };
+            (at(-1.0), at(1.0))
+        }
+        None => (guide.at, guide.at),
+    };
+    Item {
+        object: guide.uuid,
+        child: None,
+        layer,
+        color: ColorKey::Board(BoardColor::Guide),
+        primitive: Primitive::Capsule { a, b, width: Nm(0) },
+        look: Default::default(),
+    }
 }
 
 /// Everything eligible on this canvas, with children collapsed into a picked parent.

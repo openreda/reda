@@ -194,6 +194,9 @@ pub struct Grids {
     pub custom: BTreeMap<Uuid, Option<Nm>>,
     /// Documents whose visible grid is turned off.
     pub hidden: BTreeSet<Uuid>,
+    /// Show Grids & Guides is off (`view.grids_guides.show`): no Guide is drawn or picked,
+    /// though each still snaps.
+    pub aids_hidden: bool,
     pub schematic: Step,
     pub pcb: Step,
     /// The `editing.grid` Preferences.
@@ -206,6 +209,7 @@ impl Default for Grids {
             picked: BTreeMap::new(),
             custom: BTreeMap::new(),
             hidden: BTreeSet::new(),
+            aids_hidden: false,
             schematic: Step::square(SCHEMATIC_DEFAULT),
             pcb: Step::square(pcb_default(Units::Mm)),
             tables: GridPreferences::default(),

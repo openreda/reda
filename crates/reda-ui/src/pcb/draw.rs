@@ -1,6 +1,6 @@
 //! The PCB drawing Tools: Board Outline (polygon or rectangle) and Cutouts, Zones and
 //! Keepouts, text, lines, arcs and rectangles on the active Layer, Free Pads, the
-//! Output Origin and the measure Tool. (Mechanical Parts are placed
+//! Output Origin, Guides and the measure Tool. (Mechanical Parts are placed
 //! from the Library panel by the placement Tool, `crate::placement`.)
 //!
 //! Each is a small state machine over the same pointer events as the select Tool
@@ -11,8 +11,9 @@
 //!   `tool.undo_segment` (Backspace) takes back the last corner.
 //! - **Two points** (outline rectangle, line, rectangle): two clicks, or one drag.
 //! - **Arcs**: the two ends, then a point the arc passes through.
-//! - **One point** (text, Free Pad, Output Origin): a click; text then
-//!   asks for its words ([`Draw::pending_text`]).
+//! - **One point** (text, Free Pad, Output Origin, line and point Guides): a click; text
+//!   then asks for its words ([`Draw::pending_text`]). A line Guide's angle is
+//!   [`Draw::guide_angle`], which Space (`tool.rotate`) cycles.
 //! - **Measure**: a click starts, the cursor follows, a second click finishes it
 //!   ([`super::measure`] keeps it); the next click starts another.
 //!
@@ -24,7 +25,7 @@
 
 mod geometry;
 
-use reda_engine::model::geom::{Nm, Point};
+use reda_engine::model::geom::{Millideg, Nm, Point};
 use reda_engine::model::{LayerKind, Project, Uuid};
 use reda_engine::pcb::Copper;
 use reda_engine::preferences::{ArcToolMode, DrawingKind, KeepoutToolShape, ObjectDefaults};
@@ -87,7 +88,12 @@ fn shape(tool: Tool, keepout: KeepoutToolShape) -> Shape {
             Shape::TwoPoints
         }
         Tool::Arc => Shape::Arc,
-        Tool::Text | Tool::FreePad | Tool::OutputOrigin | Tool::RotateAbout => Shape::Point,
+        Tool::Text
+        | Tool::FreePad
+        | Tool::OutputOrigin
+        | Tool::Guide
+        | Tool::PointGuide
+        | Tool::RotateAbout => Shape::Point,
         Tool::Measure => Shape::Measure,
         Tool::Dimension => Shape::Dimension,
         // Not a board drawing Tool (see `Tool::draws_on_board`).
@@ -116,7 +122,20 @@ pub struct Draw {
     keepout: KeepoutToolShape,
     /// The arc Tool's mode, from its Preference when the cursor last moved.
     arc: ArcToolMode,
+    /// The line Guide Tool's angle: 0°, 90°, 45° or 135° (−45°).
+    guide_angle: Millideg,
 }
+
+/// The angles Space cycles a line Guide through: horizontal, vertical, +45°, −45°.
+const GUIDE_ANGLES: [Millideg; 4] = [
+    Millideg(0),
+    Millideg(90_000),
+    Millideg(45_000),
+    Millideg(135_000),
+];
+
+/// How far either way of the cursor a line Guide's preview reaches: past any canvas.
+const GUIDE_PREVIEW_REACH: f64 = 10e9;
 
 impl Default for Draw {
     fn default() -> Draw {
@@ -131,6 +150,7 @@ impl Default for Draw {
             measure: None,
             keepout: KeepoutToolShape::Polygon,
             arc: ArcToolMode::Edge,
+            guide_angle: GUIDE_ANGLES[0],
         }
     }
 }
@@ -166,9 +186,36 @@ impl Draw {
         self.cursor
     }
 
-    /// What to draw over the canvas while a shape is in progress.
+    /// The angle the line Guide Tool places at.
+    pub fn guide_angle(&self) -> Millideg {
+        self.guide_angle
+    }
+
+    /// Space with the line Guide Tool: the next of horizontal, vertical, +45° and −45°.
+    pub fn cycle_guide_angle(&mut self) {
+        let i = GUIDE_ANGLES.iter().position(|a| *a == self.guide_angle);
+        self.guide_angle = GUIDE_ANGLES[i.map_or(0, |i| (i + 1) % GUIDE_ANGLES.len())];
+    }
+
+    /// What to draw over the canvas while a shape is in progress (the line Guide Tool:
+    /// the Guide a click would place).
     pub fn preview(&self) -> Option<Preview> {
         let cursor = self.cursor.map(|s| s.at);
+        if self.tool == Tool::Guide {
+            let c = cursor?;
+            let t = (self.guide_angle.0 as f64 / 1000.0).to_radians();
+            let (dx, dy) = (t.cos() * GUIDE_PREVIEW_REACH, t.sin() * GUIDE_PREVIEW_REACH);
+            let at = |s: f64| {
+                Point::new(
+                    Nm((c.x.0 as f64 + s * dx).round() as i64),
+                    Nm((c.y.0 as f64 + s * dy).round() as i64),
+                )
+            };
+            return Some(Preview {
+                points: vec![at(-1.0), at(1.0)],
+                closed: false,
+            });
+        }
         match self.shape() {
             Shape::Polygon => {
                 if self.points.is_empty() {
@@ -665,6 +712,14 @@ impl Draw {
                 ("pcb.free_pad.add", params)
             }
             Tool::OutputOrigin => ("pcb.output_origin.set", json!({"at": xy(points[0])})),
+            Tool::Guide => (
+                "pcb.guide.add",
+                json!({"kind": "line", "at": xy(points[0]), "angle": self.guide_angle.0}),
+            ),
+            Tool::PointGuide => (
+                "pcb.guide.add",
+                json!({"kind": "point", "at": xy(points[0])}),
+            ),
             Tool::MoveBy => {
                 let by = points[1] - points[0];
                 (

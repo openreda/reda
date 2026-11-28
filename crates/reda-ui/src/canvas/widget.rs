@@ -316,6 +316,7 @@ pub fn canvas_paint(ui: &mut Ui, input: &CanvasInputs, tab: &DocumentTab, theme:
     };
     paint(ui.painter(), rect, frame);
     overlay(ui, input, &tab.overlay, &palette);
+    super::guides::draw(ui, input, tab, &palette);
     super::markers::draw(ui, input, tab, &palette);
 }
 

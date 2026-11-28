@@ -1,5 +1,5 @@
 //! Working state: per Document, the Selection Filter and the object snap options
-//! (mode, Gridless and the Hotspot checklist), changed by `selection.filter.set` and `view.snap.set`. With the
+//! (mode, Gridless, the Guides switch and the Hotspot checklist), changed by `selection.filter.set` and `view.snap.set`. With the
 //! grid ([`crate::grid`]) and the board's units ([`crate::pcb::BoardView`]) it is kept in
 //! `.reda/view.json`, never in the Document, so changing it never dirties one. The
 //! Preferences hold only the defaults ([`WorkingState::follow`]).
@@ -55,6 +55,8 @@ pub enum FilterKind {
     BoardOutline,
     BoardCutout,
     OutputOrigin,
+    /// A board's Guide: picked last under the pointer.
+    Guide,
     /// A Symbol's Pin.
     Pin,
     /// A Symbol's or Footprint's drawing.
@@ -91,6 +93,7 @@ impl FilterKind {
             BoardOutline => "board_outline",
             BoardCutout => "board_cutout",
             OutputOrigin => "output_origin",
+            Guide => "guide",
             Pin => "pin",
             Graphic => "graphic",
             Text => "text",
@@ -130,6 +133,7 @@ impl FilterKind {
             ObjectType::BoardOutline => K::BoardOutline,
             ObjectType::BoardCutout => K::BoardCutout,
             ObjectType::OutputOrigin => K::OutputOrigin,
+            ObjectType::Guide => K::Guide,
             _ => return None,
         })
     }
@@ -164,6 +168,7 @@ pub const PCB_KINDS: &[FilterKind] = &[
     FilterKind::BoardOutline,
     FilterKind::BoardCutout,
     FilterKind::OutputOrigin,
+    FilterKind::Guide,
 ];
 
 /// The kinds the Symbol editor's Filter lists.
@@ -231,6 +236,14 @@ pub struct SnapOptions {
     pub gridless: bool,
     /// The Hotspot kinds turned off in the checklist.
     pub hotspots_off: BTreeSet<Hotspot>,
+    /// The Guide level is on: the cursor snaps to the Document's enabled Guides. Always
+    /// off on a sheet or Symbol, which have no Guides.
+    pub guides: bool,
+}
+
+/// Whether Documents of type `ty` hold Guides: boards and Footprints.
+fn has_guides(ty: DocumentType) -> bool {
+    matches!(ty, DocumentType::Pcb | DocumentType::Footprint)
 }
 
 impl SnapOptions {
@@ -240,6 +253,7 @@ impl SnapOptions {
             mode: SnapMode::offered(ty)[0],
             gridless: false,
             hotspots_off: BTreeSet::new(),
+            guides: has_guides(ty),
         }
     }
 
@@ -269,6 +283,7 @@ impl SnapOptions {
                 .filter(|k| offered.contains(k))
                 .copied()
                 .collect(),
+            guides: has_guides(ty) && preferences.snap.guides,
         }
     }
 }
@@ -459,6 +474,9 @@ pub struct SnapSetParams {
     /// `port_anchor` and `label_anchor`.
     #[serde(default)]
     hotspots: BTreeMap<Hotspot, bool>,
+    /// Turn the Guide level on or off: snapping onto the Document's enabled Guides.
+    #[serde(default)]
+    guides: Option<bool>,
 }
 
 struct SnapSet;
@@ -468,8 +486,9 @@ impl Command for SnapSet {
         id: "view.snap.set",
         title: "Set Snap Options",
         description: "Sets a Document's object snap mode (Active Layer, All Layers or Off on \
-                      a board or Footprint; On or Off on a sheet or Symbol), Gridless and \
-                      its Hotspot checklist. With no changes it returns them as they are.",
+                      a board or Footprint; On or Off on a sheet or Symbol), Gridless, \
+                      the Guides switch and its Hotspot checklist. With no changes it \
+                      returns them as they are.",
         category: "view",
         icon: "grid",
         kind: Kind::View,
@@ -500,6 +519,12 @@ impl Command for SnapSet {
                 format!("this Document type's Hotspots are {}", names.join(", ")),
             ));
         }
+        if p.guides.is_some() && !has_guides(ty) {
+            return Err(CommandError::invalid_params(
+                "/guides",
+                "only boards and Footprints have Guides",
+            ));
+        }
         let state = cx.view::<WorkingState>()?;
         let mut options = state.snap(p.document, ty);
         if let Some(mode) = p.mode {
@@ -507,6 +532,9 @@ impl Command for SnapSet {
         }
         if let Some(gridless) = p.gridless {
             options.gridless = gridless;
+        }
+        if let Some(guides) = p.guides {
+            options.guides = guides;
         }
         for (kind, on) in p.hotspots {
             match on {

@@ -7,6 +7,7 @@
 
 mod annotation;
 mod arc_tool;
+mod guides;
 mod library;
 mod overview;
 mod plated_edge;
@@ -260,6 +261,7 @@ fn content(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
                     },
                 );
             }
+            let guide = guides::selected(ui, shell, project, units(shell), &mut out);
             track::show(ui, shell, project, units(shell), &mut out);
             plated_edge::show(ui, shell, project, &mut out);
             annotation::show(ui, shell, project, units(shell), &mut out);
@@ -281,6 +283,7 @@ fn content(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
                 });
             }
             if properties.component.is_none()
+                && !guide
                 && properties.vertices.is_none()
                 && !properties.details.is_empty()
             {

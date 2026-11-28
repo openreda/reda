@@ -62,6 +62,11 @@ pub enum Tool {
     FreePad,
     /// Places (or moves) the Output Origin.
     OutputOrigin,
+    /// Places line Guides, one per click, until Esc; Space cycles horizontal, vertical,
+    /// +45° and −45°.
+    Guide,
+    /// Places point Guides, one per click, until Esc.
+    PointGuide,
     /// Measures between two points.
     Measure,
     /// Places a linear Dimension on the active Layer: its two ends (each attached to the
@@ -124,6 +129,8 @@ impl Tool {
             Tool::Rect => "rect",
             Tool::FreePad => "free_pad",
             Tool::OutputOrigin => "output_origin",
+            Tool::Guide => "guide",
+            Tool::PointGuide => "point_guide",
             Tool::Measure => "measure",
             Tool::Dimension => "dimension",
             Tool::MoveBy => "move_by",
@@ -160,7 +167,7 @@ impl Tool {
 }
 
 /// The PCB drawing Tools with a Preset each: (Tool, title, icon).
-const BOARD_TOOLS: [(Tool, &str, &str); 16] = [
+const BOARD_TOOLS: [(Tool, &str, &str); 18] = [
     (Tool::BoardOutline, "Board Outline", "board_outline"),
     (
         Tool::BoardOutlineRect,
@@ -178,6 +185,8 @@ const BOARD_TOOLS: [(Tool, &str, &str); 16] = [
     (Tool::Dimension, "Dimension", "measure"),
     (Tool::FreePad, "Free Pad", "pad"),
     (Tool::OutputOrigin, "Output Origin", "origin"),
+    (Tool::Guide, "Line Guide", "place_guides"),
+    (Tool::PointGuide, "Point Guide", "place_guides"),
     (Tool::Measure, "Measure", "measure"),
     (Tool::MoveBy, "Move by Two Points", "move"),
     (Tool::Swap, "Swap", "move"),

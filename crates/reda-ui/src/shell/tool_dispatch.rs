@@ -185,6 +185,8 @@ impl Shell {
             && let Some(symbol) = crate::element_editor::active_symbol(self)
         {
             crate::symbol_editor::rotate(self, symbol);
+        } else if how == Turn::Rotate && self.tool() == Tool::Guide && self.board_is_active() {
+            self.pcb_draw.cycle_guide_angle();
         } else if crate::placement::placing(self).is_some() {
             // The Command has already turned the Part being placed.
             crate::placement::refresh(self);
