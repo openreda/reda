@@ -1,0 +1,46 @@
+  0
+SECTION
+  2
+HEADER
+  9
+$ACADVER
+  1
+AC1015
+  9
+$INSUNITS
+ 70
+     4
+  0
+ENDSEC
+  0
+SECTION
+  2
+ENTITIES
+  0
+LINE
+  5
+2A
+330
+1F
+100
+AcDbEntity
+  8
+Sketch
+100
+AcDbLine
+ 10
+10.0
+ 20
+-5.5
+ 30
+0.0
+ 11
+40.25
+ 21
+1.5E+01
+ 31
+0.0
+  0
+ENDSEC
+  0
+EOF

@@ -53643,6 +53643,683 @@
     },
     {
       "category": "pcb",
+      "description": "Imports a DXF drawing's lines, arcs, circles and polylines as board graphics, as one undo step. It lands at its file coordinates on the Output Origin (design zero without one), or with its lower-left corner at `at`. Each DXF layer goes to its `mapping` target or the pre-filled one: a board Layer of the same name, the Board Outline for an outline-like name, a Mechanical Layer whose Purpose the name suggests, or else the Reference Layer, added if the board has none. Bulges become exact arcs. Returns the preview's report and the new objects.",
+      "icon": "library_import",
+      "id": "pcb.import_dxf",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "Unit": {
+            "description": "A drawing unit.",
+            "enum": [
+              "nm",
+              "um",
+              "mm",
+              "cm",
+              "dm",
+              "m",
+              "microinch",
+              "mil",
+              "inch",
+              "foot",
+              "yard"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PointParam"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Place with cursor: the point the drawing's lower-left corner lands on, instead of\nits file coordinates on the DXF origin point."
+          },
+          "close_gaps": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "How far apart line ends may be and still close a loop on the Board Outline row;\n0.001 mm when left out."
+          },
+          "line_width": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The pen width of every line and arc; 0.15 mm when left out."
+          },
+          "mapping": {
+            "additionalProperties": {
+              "description": "Where a DXF layer goes: \"skip\"; \"board_outline\"; \"new_mechanical\", a new Mechanical Layer named after the DXF layer with the Purpose Reference; \"reference\", the first Mechanical Layer with the Purpose Reference, added if there is none; or a copper, silkscreen, Courtyard, Assembly or Mechanical Layer by UUID or name, such as \"silkscreen_top\".",
+              "type": "string"
+            },
+            "description": "Targets by DXF layer name; the rows left out are pre-filled.",
+            "type": "object"
+          },
+          "path": {
+            "description": "The DXF file, as an absolute path.",
+            "type": "string"
+          },
+          "scale": {
+            "default": null,
+            "description": "A factor the drawing is scaled by; 1 when left out.",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Unit"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The drawing's unit; `$INSUNITS`'s when left out, or mm when the file has none."
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "ImportParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "LayerRow": {
+            "description": "One DXF layer that holds readable entities, and where it goes.",
+            "properties": {
+              "entities": {
+                "description": "Its readable entities.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "layer_name": {
+                "description": "The name of the board Layer it lands on; left out for `skip` and `board_outline`.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "name": {
+                "description": "The DXF layer's name, as `mapping` keys it.",
+                "type": "string"
+              },
+              "new_layer": {
+                "description": "The import adds that Layer.",
+                "type": "boolean"
+              },
+              "prefill": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Rule"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The pre-fill rule that chose the target; left out when `mapping` gave it."
+              },
+              "target": {
+                "description": "Its target as `mapping` takes it: `skip`, `board_outline`, the Layer's UUID, or\n`new_mechanical` or `reference` for a Layer the import adds.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "entities",
+              "target"
+            ],
+            "type": "object"
+          },
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "Rule": {
+            "description": "The pre-fill rule that chose a row's target.",
+            "oneOf": [
+              {
+                "const": "same_name",
+                "description": "The DXF layer has a board Layer's name, in any case.",
+                "type": "string"
+              },
+              {
+                "const": "outline",
+                "description": "Its name contains \"outline\", \"edge\", \"board\", \"profile\" or \"contour\".",
+                "type": "string"
+              },
+              {
+                "const": "purpose",
+                "description": "Its name suggests a Purpose, such as \"dim\" for Dimensions.",
+                "type": "string"
+              },
+              {
+                "const": "reference",
+                "description": "Anything else: the first Reference Layer.",
+                "type": "string"
+              }
+            ]
+          },
+          "Size": {
+            "description": "The drawing's resulting size in mm.",
+            "properties": {
+              "height": {
+                "format": "double",
+                "type": "number"
+              },
+              "width": {
+                "format": "double",
+                "type": "number"
+              }
+            },
+            "required": [
+              "width",
+              "height"
+            ],
+            "type": "object"
+          },
+          "Unit": {
+            "description": "A drawing unit.",
+            "enum": [
+              "nm",
+              "um",
+              "mm",
+              "cm",
+              "dm",
+              "m",
+              "microinch",
+              "mil",
+              "inch",
+              "foot",
+              "yard"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What an import did.",
+        "properties": {
+          "close_gaps": {
+            "description": "How far apart line ends may be and still close a loop on the Board Outline row.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "file_unit": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Unit"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The unit `$INSUNITS` gives; left out when it is missing, unitless or not a length\na board drawing uses."
+          },
+          "layers": {
+            "description": "The DXF layers that hold readable entities, in the order they first appear.",
+            "items": {
+              "$ref": "#/$defs/LayerRow"
+            },
+            "type": "array"
+          },
+          "layers_added": {
+            "description": "The Mechanical Layers the import added.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "line_width": {
+            "description": "The pen width of every imported line and arc.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "messages": {
+            "description": "What the Messages panel says about the import.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "objects": {
+            "description": "The new graphics, in file order, ready to select.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "origin": {
+            "$ref": "#/$defs/Point",
+            "description": "Where the DXF file's origin lands: the Output Origin or design zero, or wherever\n`at` moves it."
+          },
+          "scale": {
+            "format": "double",
+            "type": "number"
+          },
+          "size": {
+            "$ref": "#/$defs/Size",
+            "description": "The width and height of the imported rows' entities, in mm, as they land."
+          },
+          "skipped": {
+            "additionalProperties": {
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "description": "The entities not imported, counted per DXF entity type.",
+            "type": "object"
+          },
+          "unit": {
+            "$ref": "#/$defs/Unit",
+            "description": "The unit the drawing is read in."
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "unit",
+          "scale",
+          "size",
+          "origin",
+          "line_width",
+          "close_gaps",
+          "layers",
+          "skipped",
+          "warnings",
+          "objects",
+          "messages"
+        ],
+        "title": "ImportResult",
+        "type": "object"
+      },
+      "title": "Import DXF"
+    },
+    {
+      "category": "pcb",
+      "description": "Reads a DXF file and returns what `pcb.import_dxf` would do, changing nothing: each DXF layer with its entity count and pre-filled target, the unit and the drawing's size in mm, and the entities it skips, counted per type.",
+      "icon": "library_import",
+      "id": "pcb.import_dxf.preview",
+      "kind": "query",
+      "params": {
+        "$defs": {
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "Unit": {
+            "description": "A drawing unit.",
+            "enum": [
+              "nm",
+              "um",
+              "mm",
+              "cm",
+              "dm",
+              "m",
+              "microinch",
+              "mil",
+              "inch",
+              "foot",
+              "yard"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "close_gaps": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "How far apart line ends may be and still close a loop on the Board Outline row;\n0.001 mm when left out."
+          },
+          "mapping": {
+            "additionalProperties": {
+              "description": "Where a DXF layer goes: \"skip\"; \"board_outline\"; \"new_mechanical\", a new Mechanical Layer named after the DXF layer with the Purpose Reference; \"reference\", the first Mechanical Layer with the Purpose Reference, added if there is none; or a copper, silkscreen, Courtyard, Assembly or Mechanical Layer by UUID or name, such as \"silkscreen_top\".",
+              "type": "string"
+            },
+            "description": "Targets by DXF layer name; the rows left out are pre-filled.",
+            "type": "object"
+          },
+          "path": {
+            "description": "The DXF file, as an absolute path.",
+            "type": "string"
+          },
+          "scale": {
+            "default": null,
+            "description": "A factor the drawing is scaled by; 1 when left out.",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Unit"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The drawing's unit; `$INSUNITS`'s when left out, or mm when the file has none."
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "PreviewParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "LayerRow": {
+            "description": "One DXF layer that holds readable entities, and where it goes.",
+            "properties": {
+              "entities": {
+                "description": "Its readable entities.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "layer_name": {
+                "description": "The name of the board Layer it lands on; left out for `skip` and `board_outline`.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "name": {
+                "description": "The DXF layer's name, as `mapping` keys it.",
+                "type": "string"
+              },
+              "new_layer": {
+                "description": "The import adds that Layer.",
+                "type": "boolean"
+              },
+              "prefill": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Rule"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The pre-fill rule that chose the target; left out when `mapping` gave it."
+              },
+              "target": {
+                "description": "Its target as `mapping` takes it: `skip`, `board_outline`, the Layer's UUID, or\n`new_mechanical` or `reference` for a Layer the import adds.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "entities",
+              "target"
+            ],
+            "type": "object"
+          },
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "Rule": {
+            "description": "The pre-fill rule that chose a row's target.",
+            "oneOf": [
+              {
+                "const": "same_name",
+                "description": "The DXF layer has a board Layer's name, in any case.",
+                "type": "string"
+              },
+              {
+                "const": "outline",
+                "description": "Its name contains \"outline\", \"edge\", \"board\", \"profile\" or \"contour\".",
+                "type": "string"
+              },
+              {
+                "const": "purpose",
+                "description": "Its name suggests a Purpose, such as \"dim\" for Dimensions.",
+                "type": "string"
+              },
+              {
+                "const": "reference",
+                "description": "Anything else: the first Reference Layer.",
+                "type": "string"
+              }
+            ]
+          },
+          "Size": {
+            "description": "The drawing's resulting size in mm.",
+            "properties": {
+              "height": {
+                "format": "double",
+                "type": "number"
+              },
+              "width": {
+                "format": "double",
+                "type": "number"
+              }
+            },
+            "required": [
+              "width",
+              "height"
+            ],
+            "type": "object"
+          },
+          "Unit": {
+            "description": "A drawing unit.",
+            "enum": [
+              "nm",
+              "um",
+              "mm",
+              "cm",
+              "dm",
+              "m",
+              "microinch",
+              "mil",
+              "inch",
+              "foot",
+              "yard"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a preview returns, and an import with it.",
+        "properties": {
+          "close_gaps": {
+            "description": "How far apart line ends may be and still close a loop on the Board Outline row.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "file_unit": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Unit"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The unit `$INSUNITS` gives; left out when it is missing, unitless or not a length\na board drawing uses."
+          },
+          "layers": {
+            "description": "The DXF layers that hold readable entities, in the order they first appear.",
+            "items": {
+              "$ref": "#/$defs/LayerRow"
+            },
+            "type": "array"
+          },
+          "line_width": {
+            "description": "The pen width of every imported line and arc.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "origin": {
+            "$ref": "#/$defs/Point",
+            "description": "Where the DXF file's origin lands: the Output Origin or design zero, or wherever\n`at` moves it."
+          },
+          "scale": {
+            "format": "double",
+            "type": "number"
+          },
+          "size": {
+            "$ref": "#/$defs/Size",
+            "description": "The width and height of the imported rows' entities, in mm, as they land."
+          },
+          "skipped": {
+            "additionalProperties": {
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "description": "The entities not imported, counted per DXF entity type.",
+            "type": "object"
+          },
+          "unit": {
+            "$ref": "#/$defs/Unit",
+            "description": "The unit the drawing is read in."
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "unit",
+          "scale",
+          "size",
+          "origin",
+          "line_width",
+          "close_gaps",
+          "layers",
+          "skipped",
+          "warnings"
+        ],
+        "title": "Report",
+        "type": "object"
+      },
+      "title": "Preview DXF Import"
+    },
+    {
+      "category": "pcb",
       "description": "Adds a Keepout on copper `layer`, or on every copper Layer if left out: a `polygon` (default) inside `vertices`, or a `line` through them `width` wide. It keeps out the kinds in `restrict` (default: Tracks, Vias, Zones, SMD and through-hole Pads; `footprints` is checked by Courtyard). Copper keeps the normal clearance from it unless `zero_keepout_clearance` is set. It is never plotted.",
       "icon": "keepout",
       "id": "pcb.keepout.add",

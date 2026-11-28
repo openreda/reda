@@ -3274,6 +3274,7 @@ dependencies = [
  "directories",
  "proptest",
  "reda-command",
+ "reda-import-dxf",
  "reda-import-kicad",
  "reda-library",
  "reda-model",
@@ -3293,6 +3294,19 @@ dependencies = [
 name = "reda-geom"
 version = "0.0.0"
 dependencies = [
+ "schemars",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "reda-import-dxf"
+version = "0.0.0"
+dependencies = [
+ "reda-command",
+ "reda-model",
+ "reda-pcb",
+ "reda-testkit",
  "schemars",
  "serde",
  "serde_json",

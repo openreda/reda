@@ -933,6 +933,33 @@ impl PcbDocument {
         })
     }
 
+    /// A Layer's name in English-language files, such as a DXF layer: "Top Copper",
+    /// "Bottom Silkscreen", "Board Outline", inner copper by position and name ("L2 GND"),
+    /// a Mechanical Layer by its own name.
+    pub fn layer_title(&self, layer: &Layer) -> String {
+        if let Some(label) = self.inner_layer_label(layer.uuid) {
+            return label;
+        }
+        if let (LayerKind::Mechanical, Some(name)) = (layer.kind, &layer.name) {
+            return name.clone();
+        }
+        let kind = match layer.kind {
+            LayerKind::Copper => "Copper",
+            LayerKind::Silkscreen => "Silkscreen",
+            LayerKind::SolderMask => "Solder Mask",
+            LayerKind::Paste => "Paste",
+            LayerKind::Courtyard => "Courtyard",
+            LayerKind::Assembly => "Assembly",
+            LayerKind::BoardOutline => "Board Outline",
+            LayerKind::Mechanical => "Mechanical",
+        };
+        match layer.side {
+            Some(Side::Top) => format!("Top {kind}"),
+            Some(Side::Bottom) => format!("Bottom {kind}"),
+            None => kind.to_owned(),
+        }
+    }
+
     /// The copper Layers a Via's span joins, top to bottom; empty when the span names a
     /// Layer that is not copper.
     pub fn span_layers(&self, span: LayerSpan) -> Vec<Uuid> {
