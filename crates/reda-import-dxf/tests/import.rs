@@ -107,7 +107,10 @@ fn the_preview_changes_nothing_and_reports_rows_mapping_size_and_skipped() {
     assert_eq!(report["origin"], json!({"x": 0, "y": 0}));
     assert_eq!(report["line_width"], 150_000);
     assert_eq!(report["close_gaps"], 1_000);
-    assert_eq!(report["skipped"], json!({"HATCH": 1, "TEXT": 1}));
+    assert_eq!(
+        report["skipped"],
+        json!({"HATCH": 1, "TEXT with no height": 1})
+    );
 }
 
 #[test]

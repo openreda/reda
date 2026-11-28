@@ -3,3 +3,5 @@
 # Binary goldens are never text, whatever their first bytes look like.
 *.pdf binary
 *.zip binary
+*.dwg binary
+crates/reda-import-dxf/tests/fixtures/binary.dxf binary

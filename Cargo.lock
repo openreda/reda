@@ -3303,6 +3303,7 @@ dependencies = [
 name = "reda-import-dxf"
 version = "0.0.0"
 dependencies = [
+ "proptest",
  "reda-command",
  "reda-model",
  "reda-pcb",

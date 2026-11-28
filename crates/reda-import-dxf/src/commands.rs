@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use crate::import::{Options, Report, plan, report};
 use crate::mapping::Target;
 use crate::units::Unit;
-use crate::{Drawing, read};
+use crate::{Drawing, ReadError, read};
 
 /// Adds the DXF import Commands.
 pub fn register_all(registry: &mut Registry) {
@@ -107,7 +107,7 @@ pub struct ImportParams {
 pub struct ImportResult {
     #[serde(flatten)]
     pub report: Report,
-    /// The new graphics, in file order, ready to select.
+    /// The new graphics and texts, in file order, ready to select.
     pub objects: Vec<Uuid>,
     /// The Mechanical Layers the import added.
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -129,11 +129,16 @@ fn read_file(path: &Path) -> Result<Drawing, CommandError> {
         }
         _ => CommandError::rejected(format!("could not read {}: {e}", path.display())),
     })?;
-    read(&bytes).map_err(|e| {
-        CommandError::rejected(format!(
+    read(&bytes).map_err(|e| match e {
+        ReadError::Dwg => CommandError::rejected(format!(
+            "{} is a DWG drawing, which DXF import does not read; save it as DXF (ASCII or \
+             binary, any version) from the CAD tool that made it, and import that",
+            path.display()
+        )),
+        e => CommandError::rejected(format!(
             "{} is not a readable DXF file: {e}",
             path.display()
-        ))
+        )),
     })
 }
 
@@ -210,14 +215,17 @@ impl Command for Import {
     const META: Meta = Meta {
         id: "pcb.import_dxf",
         title: "Import DXF",
-        description: "Imports a DXF drawing's lines, arcs, circles and polylines as board \
-                      graphics, as one undo step. It lands at its file coordinates on the \
-                      Output Origin (design zero without one), or with its lower-left corner \
-                      at `at`. Each DXF layer goes to its `mapping` target or the pre-filled \
-                      one: a board Layer of the same name, the Board Outline for an \
-                      outline-like name, a Mechanical Layer whose Purpose the name suggests, \
-                      or else the Reference Layer, added if the board has none. Bulges become \
-                      exact arcs. Returns the preview's report and the new objects.",
+        description: "Imports a DXF drawing, ASCII or binary, as one undo step: lines, \
+                      arcs, circles and polylines as board graphics, bulges as exact arcs, \
+                      ellipses and splines fitted with arcs within 0.005 mm, TEXT and MTEXT \
+                      as free text in the stroke font, and each INSERT exploded in place. \
+                      DWG is refused. It lands at its file coordinates on the Output Origin \
+                      (design zero without one), or with its lower-left corner at `at`. Each \
+                      DXF layer goes to its `mapping` target or the pre-filled one: a board \
+                      Layer of the same name, the Board Outline for an outline-like name, a \
+                      Mechanical Layer whose Purpose the name suggests, or else the Reference \
+                      Layer, added if the board has none. Returns the preview's report and \
+                      the new objects.",
         category: "pcb",
         icon: "library_import",
         kind: Kind::Edit,
@@ -242,13 +250,15 @@ impl Command for Import {
         if let Some(layers) = plan.layers {
             tx.replace(Object::LayerSet(InDocument::new(document, layers)))?;
         }
-        let objects = plan.graphics.iter().map(|g| g.uuid).collect();
         for graphic in plan.graphics {
             tx.insert(Object::PcbGraphic(InDocument::new(document, graphic)))?;
         }
+        for text in plan.texts {
+            tx.insert(Object::PcbText(InDocument::new(document, text)))?;
+        }
         Ok(ImportResult {
             report: plan.report,
-            objects,
+            objects: plan.objects,
             layers_added: plan.layers_added,
             messages: plan.messages,
         })

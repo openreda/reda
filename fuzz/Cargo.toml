@@ -1,5 +1,6 @@
 # cargo-fuzz targets (nightly only): `cargo +nightly fuzz run load_project`,
-# `cargo +nightly fuzz run import_kicad` and `cargo +nightly fuzz run read_step`.
+# `cargo +nightly fuzz run import_kicad`, `cargo +nightly fuzz run read_step` and
+# `cargo +nightly fuzz run read_dxf`.
 # Kept out of the main workspace, so stable builds, cargo-deny and the dependency-edge
 # check never see libfuzzer-sys. Run weekly by .github/workflows/fuzz.yml; never a merge gate.
 [package]
@@ -15,6 +16,7 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4"
 reda-engine = { path = "../crates/reda-engine" }
+reda-import-dxf = { path = "../crates/reda-import-dxf" }
 reda-import-kicad = { path = "../crates/reda-import-kicad" }
 reda-step = { path = "../crates/reda-step" }
 
@@ -39,6 +41,13 @@ bench = false
 [[bin]]
 name = "read_step"
 path = "fuzz_targets/read_step.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "read_dxf"
+path = "fuzz_targets/read_dxf.rs"
 test = false
 doc = false
 bench = false

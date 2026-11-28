@@ -1,0 +1,196 @@
+999
+INSERT: nested and turned, an array, a missing block, a loop.
+  0
+SECTION
+  2
+HEADER
+  9
+$ACADVER
+  1
+AC1015
+  9
+$INSUNITS
+ 70
+4
+  0
+ENDSEC
+  0
+SECTION
+  2
+BLOCKS
+  0
+BLOCK
+  8
+0
+  2
+Inner
+ 70
+0
+ 10
+0.0
+ 20
+0.0
+ 30
+0.0
+  3
+Inner
+  0
+LINE
+  8
+0
+ 10
+0.0
+ 20
+0.0
+ 11
+1.0
+ 21
+0.0
+  0
+CIRCLE
+  8
+Holes
+ 10
+0.0
+ 20
+0.0
+ 40
+0.5
+  0
+ENDBLK
+  8
+0
+  0
+BLOCK
+  8
+0
+  2
+Outer
+ 70
+0
+ 10
+1.0
+ 20
+1.0
+ 30
+0.0
+  3
+Outer
+  0
+INSERT
+  8
+0
+  2
+inner
+ 10
+1.0
+ 20
+1.0
+ 41
+2.0
+ 42
+2.0
+  0
+LINE
+  8
+Frame
+ 10
+1.0
+ 20
+1.0
+ 11
+1.0
+ 21
+2.0
+  0
+ENDBLK
+  8
+0
+  0
+BLOCK
+  8
+0
+  2
+Loop
+ 70
+0
+ 10
+0.0
+ 20
+0.0
+ 30
+0.0
+  3
+Loop
+  0
+INSERT
+  8
+0
+  2
+Loop
+ 10
+1.0
+ 20
+0.0
+  0
+ENDBLK
+  8
+0
+  0
+ENDSEC
+  0
+SECTION
+  2
+ENTITIES
+  0
+INSERT
+  8
+Parts
+  2
+Outer
+ 10
+10.0
+ 20
+0.0
+ 50
+90.0
+  0
+INSERT
+  8
+Array
+  2
+Inner
+ 10
+0.0
+ 20
+20.0
+ 70
+2
+ 71
+1
+ 44
+5.0
+  0
+INSERT
+  8
+Parts
+  2
+Nowhere
+ 10
+0.0
+ 20
+0.0
+  0
+INSERT
+  8
+Parts
+  2
+Loop
+ 10
+0.0
+ 20
+0.0
+  0
+ENDSEC
+  0
+EOF

@@ -1,6 +1,13 @@
-//! What the reader keeps of each entity, in the file's own units and Y-up axes, and how
-//! each one breaks into straight and circular [`Piece`]s, the only two shapes a drawing
-//! becomes on the board.
+//! What the reader keeps of each entity, in the file's own units and Y-up axes, seen from
+//! above, and how each one breaks into straight and circular [`Piece`]s, the only two
+//! shapes a drawing's graphics become on the board. Ellipses and splines are fitted with
+//! arcs ([`crate::fit`]); text is kept as text.
+
+use std::f64::consts::TAU;
+
+use crate::fit::fit;
+use crate::spline::Spline;
+use crate::text::Text;
 
 /// A point in drawing units.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -42,8 +49,23 @@ pub enum Shape {
     },
     /// CIRCLE.
     Circle { centre: Xy, radius: f64 },
-    /// LWPOLYLINE: `closed` joins the last vertex back to the first with its bulge.
+    /// LWPOLYLINE or POLYLINE: `closed` joins the last vertex back to the first with its
+    /// bulge.
     Polyline { vertices: Vec<Vertex>, closed: bool },
+    /// An elliptical arc: `centre + u·cos t + v·sin t` for `t` from `start` to
+    /// `start + sweep`, in radians, `sweep` up to a full turn. `u` and `v` are conjugate
+    /// half-diameters: an ELLIPSE's major axis and minor axis, or a circle seen at a slant.
+    Ellipse {
+        centre: Xy,
+        u: Xy,
+        v: Xy,
+        start: f64,
+        sweep: f64,
+    },
+    /// SPLINE.
+    Spline(Spline),
+    /// TEXT or MTEXT, which becomes free text rather than graphics.
+    Text(Text),
 }
 
 /// A straight or circular piece of a drawing.
@@ -65,10 +87,52 @@ pub enum Piece {
 }
 
 impl Shape {
+    /// The elliptical arc `centre + u·cos t + v·sin t` from `start` sweeping `sweep`
+    /// radians (positive, a full turn when 0), as an [`Shape::Arc`] or [`Shape::Circle`]
+    /// when it is circular.
+    pub fn conic(centre: Xy, u: Xy, v: Xy, start: f64, sweep: f64) -> Shape {
+        let sweep = sweep.rem_euclid(TAU);
+        let sweep = if sweep == 0.0 || TAU - sweep < 1e-12 {
+            TAU
+        } else {
+            sweep
+        };
+        let (ru, rv) = (u.x.hypot(u.y), v.x.hypot(v.y));
+        let dot = u.x * v.x + u.y * v.y;
+        let circular = ru > 0.0 && (ru - rv).abs() <= 1e-9 * ru && dot.abs() <= 1e-9 * ru * ru;
+        if !circular {
+            return Shape::Ellipse {
+                centre,
+                u,
+                v,
+                start,
+                sweep,
+            };
+        }
+        let radius = (ru + rv) / 2.0;
+        if sweep == TAU {
+            return Shape::Circle { centre, radius };
+        }
+        let base = u.y.atan2(u.x);
+        // Clockwise when v is a quarter turn clockwise from u.
+        let (from, to) = if u.x * v.y - u.y * v.x > 0.0 {
+            (base + start, base + start + sweep)
+        } else {
+            (base - start - sweep, base - start)
+        };
+        Shape::Arc {
+            centre,
+            radius,
+            start: from.to_degrees().rem_euclid(360.0),
+            end: to.to_degrees().rem_euclid(360.0),
+        }
+    }
+
     /// The pieces this shape is drawn with. A circle, and an arc of a full turn, become
     /// two half arcs; a polyline becomes one piece per segment, its bulged segments exact
-    /// arcs. Segments of no length are left out.
-    pub fn pieces(&self) -> Vec<Piece> {
+    /// arcs. Ellipses and splines are fitted with arcs within `tolerance`, in drawing
+    /// units. Segments of no length are left out, and text has no pieces.
+    pub fn pieces(&self, tolerance: f64) -> Vec<Piece> {
         match *self {
             Shape::Line { from, to } => vec![Piece::Line { from, to }],
             Shape::Arc {
@@ -101,6 +165,29 @@ impl Shape {
                 }
                 pieces
             }
+            Shape::Ellipse {
+                centre,
+                u,
+                v,
+                start,
+                sweep,
+            } => {
+                let at = |t: f64| {
+                    let (sin, cos) = t.sin_cos();
+                    Xy::new(
+                        centre.x + u.x * cos + v.x * sin,
+                        centre.y + u.y * cos + v.y * sin,
+                    )
+                };
+                // Quarter turns at most, so no span starts and ends at the same point.
+                let spans = (sweep / (TAU / 4.0)).ceil().max(1.0) as usize;
+                let breaks: Vec<f64> = (0..=spans)
+                    .map(|i| start + sweep * i as f64 / spans as f64)
+                    .collect();
+                fit(&at, &breaks, tolerance)
+            }
+            Shape::Spline(ref spline) => fit(&|t| spline.point(t), &spline.breaks(), tolerance),
+            Shape::Text(_) => Vec::new(),
         }
     }
 }
@@ -124,7 +211,7 @@ fn arc_pieces(centre: Xy, radius: f64, start: f64, sweep: f64) -> Vec<Piece> {
 
 /// The segment from `from` to `to` with `bulge`: a line, or the exact arc through both
 /// ends sweeping 4·atan(bulge).
-fn bulged(from: Xy, to: Xy, bulge: f64) -> Piece {
+pub(crate) fn bulged(from: Xy, to: Xy, bulge: f64) -> Piece {
     if bulge == 0.0 {
         return Piece::Line { from, to };
     }

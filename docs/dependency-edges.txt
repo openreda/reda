@@ -46,6 +46,7 @@ reda-engine -> zip [dev]
 reda-geom -> schemars
 reda-geom -> serde
 reda-geom -> serde_json [dev]
+reda-import-dxf -> proptest [dev]
 reda-import-dxf -> reda-command
 reda-import-dxf -> reda-model
 reda-import-dxf -> reda-pcb
