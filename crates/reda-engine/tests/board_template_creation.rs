@@ -759,3 +759,174 @@ fn refusals_write_nothing_and_carry_the_preview_s_problems() {
     let out = engine.run_ok("project.overview", json!({}));
     assert_eq!(out["documents"].as_array().unwrap().len(), 1, "{out}");
 }
+
+/// The fixture with its host group on Fabrication Notes, a second Fabrication Notes
+/// group and a General one: Purposes a new board has no Layer for.
+fn fixture_needing_layers() -> BoardTemplate {
+    let mut t = fixture(None);
+    t.uuid = id(102_000);
+    t.name = "Notes board".into();
+    t.drawing_groups = serde_json::from_value(json!([
+        {"uuid": s(140), "name": "Key dimensions", "purpose": "dimensions"},
+        {"uuid": s(141), "name": "Fab notes", "purpose": "fabrication_notes"},
+        {"uuid": s(142), "name": "Glue", "purpose": "general"},
+        {"uuid": s(143), "name": "More fab notes", "purpose": "fabrication_notes"}
+    ]))
+    .unwrap();
+    t.drawings = serde_json::from_value(json!([
+        {"uuid": s(150), "group": s(140), "kind": "dimension", "locked": true,
+         "a": {"x": 0, "y": 0}, "b": {"x": "width", "y": 0}, "offset": "-3"},
+        {"uuid": s(152), "group": s(141), "kind": "text", "locked": true, "text": "ENIG",
+         "position": {"x":"10","y":"-5"}, "height": "2"},
+        {"uuid": s(153), "group": s(142), "kind": "line", "locked": true, "width": "0.1",
+         "from": {"x":0,"y":"-2"}, "to": {"x":"width","y":"-2"}},
+        {"uuid": s(154), "group": s(143), "kind": "text", "locked": true, "text": "1.6 MM",
+         "position": {"x":"10","y":"-8"}, "height": "2"}
+    ]))
+    .unwrap();
+    t
+}
+
+/// The Mechanical Layers of the open board, in Layer order.
+fn mechanical_layers(engine: &TestEngine) -> Vec<reda_engine::model::Layer> {
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    (pcb.layers().layers.iter())
+        .filter(|l| l.kind == reda_engine::model::LayerKind::Mechanical)
+        .cloned()
+        .collect()
+}
+
+#[test]
+fn creation_adds_a_mechanical_layer_for_a_purpose_the_board_lacks() {
+    use reda_engine::model::Purpose;
+    let home = TempDir::new("template-home");
+    let work = TempDir::new("template-work");
+    let mut engine = engine_with_fixture(home.path(), work.path());
+    let notes_lib = work.path().join("notes-lib");
+    write_library(&notes_lib, 2, &[("Notes", &fixture_needing_layers())]);
+    engine.run_ok(
+        "app.preferences.set",
+        json!({"key": "libraries.paths", "value": [work.path().join("user-lib"), notes_lib]}),
+    );
+    let out = engine.run_ok(
+        "project.new",
+        json!({"path": work.path(), "name": "Notes",
+               "board_template": {"element": id(102_000).to_string()}}),
+    );
+    let objects = created(&out["seeded"]);
+
+    // The new board's two, then one Layer per missing Purpose in group order, each named
+    // after its Purpose and unsided. The second Fabrication Notes group finds the Layer
+    // the first one added.
+    let expected = [
+        ("Dimensions", Purpose::Dimensions),
+        ("Reference", Purpose::Reference),
+        ("Fabrication Notes", Purpose::FabricationNotes),
+        ("General", Purpose::General),
+    ];
+    let shape = |layers: &[reda_engine::model::Layer]| -> Vec<(String, Purpose, bool)> {
+        (layers.iter())
+            .map(|l| (l.name.clone().unwrap(), l.purpose, l.side.is_none()))
+            .collect()
+    };
+    let mechanical = mechanical_layers(&engine);
+    assert_eq!(
+        shape(&mechanical),
+        expected.map(|(n, p)| (n.to_owned(), p, true))
+    );
+    let layer_of = |engine: &mut TestEngine, n: u128| {
+        let layer = get(engine, &objects[&s(n)]["created"])["layer"].clone();
+        layer.as_str().unwrap().parse::<Uuid>().unwrap()
+    };
+    assert_eq!(layer_of(&mut engine, 150), mechanical[0].uuid);
+    assert_eq!(layer_of(&mut engine, 152), mechanical[2].uuid);
+    assert_eq!(layer_of(&mut engine, 153), mechanical[3].uuid);
+    assert_eq!(layer_of(&mut engine, 154), mechanical[2].uuid);
+
+    // The added Layers are on disk with the board and open again.
+    let mut reopened = test_engine_with_library(&starter_library());
+    reopened.run_ok("project.open", json!({"path": work.path().join("Notes")}));
+    assert_eq!(shape(&mechanical_layers(&reopened)), shape(&mechanical));
+}
+
+#[test]
+fn built_ins_put_key_dimensions_on_dimensions_and_host_context_on_reference() {
+    use reda_engine::model::Purpose;
+    let folder = starter_library().join("board-templates");
+    let mut files: Vec<PathBuf> = std::fs::read_dir(&folder)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.extension().is_some_and(|e| e == "redaboard"))
+        .collect();
+    files.sort();
+    assert_eq!(files.len(), 9, "{files:?}");
+    let mut reference_groups = vec![];
+    for file in files {
+        let template: Value = serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
+        let name = template["name"].as_str().unwrap().to_owned();
+        let groups = (template["drawing_groups"].as_array().cloned()).unwrap_or_default();
+        // Every built-in but Custom rectangle has a Key dimensions group, on Dimensions;
+        // every other group is host or mating context, on Reference.
+        let key = groups.iter().find(|g| g["name"] == "Key dimensions");
+        assert_eq!(key.is_some(), name != "Custom rectangle", "{name}");
+        for group in &groups {
+            let expected = if group["name"] == "Key dimensions" {
+                "dimensions"
+            } else {
+                let group = group["name"].as_str().unwrap().to_owned();
+                reference_groups.push((name.clone(), group));
+                "reference"
+            };
+            assert_eq!(group["purpose"], expected, "{name}: {group}");
+        }
+
+        // Created at its defaults, each drawing lands on the new board's Layer of its
+        // group's Purpose, and no Layer is added.
+        let work = TempDir::new("built-in-drawings");
+        let mut engine = test_engine_with_library(&starter_library());
+        let out = engine.run_ok(
+            "project.new",
+            json!({"path": work.path(), "name": "Built", "board_template": {
+                "element": template["uuid"]}}),
+        );
+        let objects = created(&out["seeded"]);
+        let mechanical = mechanical_layers(&engine);
+        let names: Vec<_> = (mechanical.iter())
+            .map(|l| l.name.clone().unwrap())
+            .collect();
+        assert_eq!(names, ["Dimensions", "Reference"], "{name}");
+        let mut checked = 0;
+        for drawing in (template["drawings"].as_array().cloned()).unwrap_or_default() {
+            let Some(made) = objects.get(drawing["uuid"].as_str().unwrap()) else {
+                continue; // gated out at the defaults
+            };
+            let layer = get(&mut engine, &made["created"])["layer"].clone();
+            let group = (groups.iter())
+                .find(|g| g["uuid"] == drawing["group"])
+                .unwrap();
+            let purpose = if group["purpose"] == "dimensions" {
+                Purpose::Dimensions
+            } else {
+                Purpose::Reference
+            };
+            let on = (mechanical.iter())
+                .find(|l| layer == json!(l.uuid))
+                .unwrap_or_else(|| panic!("{name}: {drawing} is on {layer}"));
+            assert_eq!(on.purpose, purpose, "{name}: {drawing}");
+            checked += 1;
+        }
+        assert_eq!(checked > 0, key.is_some(), "{name}");
+    }
+    reference_groups.sort();
+    assert_eq!(
+        reference_groups,
+        [
+            (
+                "Add-on board for Raspberry Pi",
+                "Host board outline (approximate)"
+            ),
+            ("PCI Express add-in card", "Bracket outline (approximate)"),
+        ]
+        .map(|(a, b)| (a.to_owned(), b.to_owned()))
+    );
+}

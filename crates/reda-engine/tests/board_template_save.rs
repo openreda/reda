@@ -416,6 +416,106 @@ fn objects_names_exactly_what_comes_along() {
 }
 
 #[test]
+fn each_mechanical_layer_with_content_is_one_drawing_group_named_after_it() {
+    use reda_engine::commands::board_template::{CandidateKind, candidates};
+    use reda_engine::model::Purpose;
+    let mut b = setup("save-mechanical");
+    b.create("Offset", json!({"element": s(100)}));
+    let pcb = b.engine.project().unwrap().pcb().unwrap().uuid;
+    let add = |b: &mut Setup, params: Value| {
+        let mut params = params;
+        params["document"] = json!(pcb);
+        params["kind"] = json!("mechanical");
+        b.engine.run_ok("pcb.layer.add", params)["result"]["uuid"].clone()
+    };
+    // A sided General Layer with a text, an empty Assembly Notes Layer, and the
+    // Dimensions Layer renamed.
+    let glue = add(&mut b, json!({"name": "Glue", "side": "bottom"}));
+    let empty = add(&mut b, json!({"purpose": "assembly_notes"}));
+    b.engine.run_ok(
+        "pcb.text.add",
+        json!({"layer": glue, "text": "GLUE", "x": "20mm", "y": "10mm"}),
+    );
+    b.engine.run_ok(
+        "pcb.layer.set",
+        json!({"layer": "mechanical", "name": "Key dims"}),
+    );
+
+    // One tick per Mechanical Layer with content, in Layer order, ticked by default.
+    let listed: Vec<(String, Option<Purpose>, bool)> = candidates(b.engine.project().unwrap())
+        .into_iter()
+        .filter(|c| c.kind == CandidateKind::Drawings)
+        .map(|c| (c.layer_name.unwrap(), c.purpose, c.default))
+        .collect();
+    assert_eq!(
+        listed,
+        [
+            ("Key dims".to_owned(), Some(Purpose::Dimensions), true),
+            ("Reference".to_owned(), Some(Purpose::Reference), true),
+            ("Glue".to_owned(), Some(Purpose::General), true),
+        ]
+    );
+
+    // Each becomes one group named after its Layer, carrying its Purpose.
+    b.save("All", json!({}));
+    let t = b.saved("All");
+    let groups: Vec<(&str, Purpose)> = (t.drawing_groups.iter())
+        .map(|g| (g.name.as_str(), g.purpose))
+        .collect();
+    assert_eq!(
+        groups,
+        [
+            ("Key dims", Purpose::Dimensions),
+            ("Reference", Purpose::Reference),
+            ("Glue", Purpose::General),
+        ]
+    );
+    let glue_group = t.drawing_groups[2].uuid;
+    let on_glue: Vec<_> = (t.drawings.iter())
+        .filter(|d| d.group == glue_group)
+        .collect();
+    assert_eq!(on_glue.len(), 1);
+    assert_eq!(on_glue[0].text.as_deref(), Some("GLUE"));
+
+    // `objects` names a Mechanical Layer by UUID; an empty one is no candidate.
+    b.save("Glue only", json!({"objects": [glue]}));
+    let t = b.saved("Glue only");
+    assert_eq!(t.drawing_groups.len(), 1);
+    assert_eq!(
+        (
+            t.drawing_groups[0].name.as_str(),
+            t.drawing_groups[0].purpose
+        ),
+        ("Glue", Purpose::General)
+    );
+    assert_eq!(t.drawings.len(), 1);
+    let err = b.engine.run_err(
+        "library.board_template.save",
+        json!({"library": b.mine, "name": "Empty", "objects": [empty]}),
+    );
+    assert_eq!(err.code, ErrorCode::InvalidParams, "{err:?}");
+    assert_eq!(err.details.as_ref().unwrap()["pointer"], "/objects/0");
+
+    // Made into a board again, each group finds its Layer by Purpose: the General one
+    // gets a new General Layer, since a new board has none.
+    let element = b.saved("All").uuid;
+    b.create("Again", json!({"element": element}));
+    let layers = b.engine.project().unwrap().pcb().unwrap().layers().clone();
+    let names: Vec<_> = (layers.layers.iter())
+        .filter(|l| l.kind == reda_engine::model::LayerKind::Mechanical)
+        .map(|l| (l.name.clone().unwrap(), l.purpose))
+        .collect();
+    assert_eq!(
+        names,
+        [
+            ("Dimensions".to_owned(), Purpose::Dimensions),
+            ("Reference".to_owned(), Purpose::Reference),
+            ("General".to_owned(), Purpose::General),
+        ]
+    );
+}
+
+#[test]
 fn refusals_write_nothing() {
     let mut b = setup("save-refusals");
     // A board with no outline.

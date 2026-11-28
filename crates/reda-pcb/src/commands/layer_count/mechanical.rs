@@ -2,7 +2,6 @@
 //! Outline with a Purpose and an optional side. None of them touches the Stackup.
 use super::super::layer::LayerRef;
 use super::*;
-use reda_model::Purpose;
 
 /// The Mechanical Layers of `layers`, in Layer order.
 fn mechanical(layers: &LayerSet) -> impl Iterator<Item = &Layer> {
@@ -34,20 +33,6 @@ pub(in crate::commands) fn checked_name(
         ));
     }
     Ok(name.to_owned())
-}
-
-/// The name a new Layer with `purpose` takes: the Purpose's own, numbered on a clash
-/// ("Dimensions 2").
-fn default_name(layers: &LayerSet, purpose: Purpose) -> String {
-    let taken = |name: &str| mechanical(layers).any(|l| l.name.as_deref() == Some(name));
-    let title = purpose.title();
-    if !taken(title) {
-        return title.to_owned();
-    }
-    (2..)
-        .map(|n| format!("{title} {n}"))
-        .find(|name| !taken(name))
-        .expect("an unbounded count of names")
 }
 
 /// The Mechanical Layer `layer` names, or an error at `pointer`.
@@ -83,7 +68,7 @@ pub(super) fn add_plan(
     let purpose = p.purpose.unwrap_or_default();
     let name = match &p.name {
         Some(name) => checked_name(layers, name, None, "/name")?,
-        None => default_name(layers, purpose),
+        None => layers.new_mechanical_name(purpose),
     };
     let at = match p.before {
         Some(before) => {

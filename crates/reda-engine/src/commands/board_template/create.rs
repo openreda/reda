@@ -17,8 +17,8 @@ use reda_model::{
     BoardCutout, BoardOutline, BoardTemplate, ComponentRef, Dimension, DimensionEnd, DrawingKind,
     EdgeBevel, EdgeConnector, FootprintCopy, FootprintInstance, GraphicShape, Hotspot, HotspotRef,
     InDocument, Keepout, KeepoutShape, KeepoutShapeKind, LayerKind, Object, PadNet, PartEntry,
-    PcbGraphic, PcbText, PlatedEdge, PlatedEdges, Project, Side, TemplateCopperLayer, TemplatePart,
-    TextJustify, TextStyle, Transaction, UnitInstance, Uuid,
+    PcbGraphic, PcbText, PlatedEdge, PlatedEdges, Project, Purpose, Side, TemplateCopperLayer,
+    TemplatePart, TextJustify, TextStyle, Transaction, UnitInstance, Uuid,
 };
 use schemars::JsonSchema;
 use serde::Serialize;
@@ -192,19 +192,6 @@ pub(crate) fn write(
     let layers = w.project().pcb_document(pcb).expect("the new PCB").layers();
     let copper = |side| layers.find(LayerKind::Copper, Some(side)).map(|l| l.uuid);
     let (top, bottom) = (copper(Side::Top), copper(Side::Bottom));
-    // A drawing group goes on the first Mechanical Layer with its Purpose.
-    let mechanical: Vec<_> = layers
-        .layers
-        .iter()
-        .filter(|l| l.kind == LayerKind::Mechanical)
-        .map(|l| (l.purpose, l.uuid))
-        .collect();
-    let drawing_layer = |purpose| {
-        mechanical
-            .iter()
-            .find(|(p, _)| *p == purpose)
-            .map(|(_, uuid)| *uuid)
-    };
 
     for row in frame.keepouts.iter().filter(|k| !k.excluded) {
         let uuid = w.new_id();
@@ -258,12 +245,7 @@ pub(crate) fn write(
             designator: None,
             component: None,
         });
-        let layer = drawing_layer(group.purpose).ok_or_else(|| {
-            CommandError::internal(format!(
-                "the new board has no {} Layer",
-                group.purpose.title()
-            ))
-        })?;
+        let layer = drawing_layer(w, pcb, group.purpose)?;
         for drawing in group.drawings.iter().filter(|d| !d.excluded) {
             let uuid = w.new_id();
             objects.push(SeededObject::plain(drawing.uuid, uuid));
@@ -295,6 +277,20 @@ pub(crate) fn write(
         values: frame.values.clone(),
         objects,
     })
+}
+
+/// The Layer a drawing group with `purpose` goes on: the board's first Mechanical Layer
+/// with that Purpose, or a new one added after the others when there is none.
+fn drawing_layer(w: &mut dyn Writer, pcb: Uuid, purpose: Purpose) -> Result<Uuid, CommandError> {
+    let layers = w.project().pcb_document(pcb).expect("the new PCB").layers();
+    if let Some(layer) = layers.first_with_purpose(purpose) {
+        return Ok(layer.uuid);
+    }
+    let mut layers = layers.clone();
+    let uuid = w.new_id();
+    layers.push_mechanical(uuid, purpose);
+    w.replace(Object::LayerSet(InDocument::new(pcb, layers)))?;
+    Ok(uuid)
 }
 
 /// A frame contour as a Board Outline (a cutout takes its fields), with its Plated Edges

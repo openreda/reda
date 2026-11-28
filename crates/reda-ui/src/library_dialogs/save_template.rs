@@ -4,7 +4,8 @@
 //! The rows are [`candidates`](reda_engine::commands::board_template::candidates) with
 //! their defaults: the outline always, Locked Components, Mechanical Parts and Free Pads,
 //! every cutout and Keepout but inner-layer ones (listed, unselectable, with the reason),
-//! and both drawing Layers. Save sends exactly the ticked objects.
+//! and one row per Mechanical Layer with content, which becomes a drawing group named
+//! after the Layer. Save sends exactly the ticked objects.
 
 use std::any::Any;
 

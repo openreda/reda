@@ -237,6 +237,38 @@ impl LayerSet {
             .iter()
             .find(|l| l.kind == LayerKind::Mechanical && l.purpose == purpose)
     }
+
+    /// The name a new Mechanical Layer with `purpose` takes: the Purpose's own, numbered
+    /// on a clash with another Mechanical Layer's ("Dimensions 2").
+    pub fn new_mechanical_name(&self, purpose: Purpose) -> String {
+        let taken = |name: &str| {
+            self.layers
+                .iter()
+                .any(|l| l.kind == LayerKind::Mechanical && l.name.as_deref() == Some(name))
+        };
+        let title = purpose.title();
+        if !taken(title) {
+            return title.to_owned();
+        }
+        (2..)
+            .map(|n| format!("{title} {n}"))
+            .find(|name| !taken(name))
+            .expect("an unbounded count of names")
+    }
+
+    /// Appends an unsided Mechanical Layer with `purpose`, named after it, as the last
+    /// Mechanical Layer.
+    pub fn push_mechanical(&mut self, uuid: Uuid, purpose: Purpose) {
+        let name = self.new_mechanical_name(purpose);
+        self.layers.push(Layer {
+            uuid,
+            kind: LayerKind::Mechanical,
+            side: None,
+            name: Some(name),
+            purpose,
+            role: CopperRole::Signal,
+        });
+    }
 }
 
 crate::check::severities! {
