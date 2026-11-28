@@ -1,6 +1,7 @@
 //! The DXF reader against the hand-written fixtures in `tests/fixtures/`, each written from
 //! Autodesk's DXF Reference: one file per entity it reads, a file with no `$INSUNITS`, one
-//! in inches, and one full of entities it skips.
+//! in inches, and one full of entities it skips. The entities added later, and the file
+//! forms and encodings, are in `entities.rs` and `files.rs`.
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -71,7 +72,7 @@ fn an_arc_sweeps_counter_clockwise_from_start_to_end_even_across_zero() {
     let drawing = fixture("arc.dxf");
     let Piece::Arc {
         from, to, sweep, ..
-    } = drawing.entities[0].shape.pieces()[0]
+    } = drawing.entities[0].shape.pieces(1e-6)[0]
     else {
         panic!("not an arc")
     };
@@ -79,7 +80,7 @@ fn an_arc_sweeps_counter_clockwise_from_start_to_end_even_across_zero() {
     assert_near(to, xy(5.0, 7.0));
     assert!((sweep - 90.0).abs() < 1e-9);
     // 300° to 60° goes through 0°: 120°, not -240°.
-    let Piece::Arc { sweep, from, .. } = drawing.entities[1].shape.pieces()[0] else {
+    let Piece::Arc { sweep, from, .. } = drawing.entities[1].shape.pieces(1e-6)[0] else {
         panic!("not an arc")
     };
     assert!((sweep - 120.0).abs() < 1e-9, "{sweep}");
@@ -97,7 +98,7 @@ fn a_circle_becomes_two_half_arcs() {
             radius: 1.5
         }
     );
-    let pieces = drawing.entities[0].shape.pieces();
+    let pieces = drawing.entities[0].shape.pieces(1e-6);
     assert_eq!(pieces.len(), 2);
     for (piece, (a, b)) in pieces
         .iter()
@@ -156,7 +157,7 @@ fn an_lwpolyline_reads_its_vertices_bulges_and_closed_flag() {
 #[test]
 fn a_closed_polyline_becomes_separate_lines_and_exact_arcs_from_its_bulges() {
     let drawing = fixture("lwpolyline.dxf");
-    let pieces = drawing.entities[0].shape.pieces();
+    let pieces = drawing.entities[0].shape.pieces(1e-6);
     assert_eq!(pieces.len(), 4, "{pieces:?}");
     assert_eq!(
         pieces[0],
@@ -201,7 +202,7 @@ fn a_closed_polyline_becomes_separate_lines_and_exact_arcs_from_its_bulges() {
 #[test]
 fn a_negative_bulge_turns_clockwise() {
     let drawing = fixture("lwpolyline.dxf");
-    let pieces = drawing.entities[1].shape.pieces();
+    let pieces = drawing.entities[1].shape.pieces(1e-6);
     assert_eq!(pieces.len(), 2);
     // tan(-90° / 4): a quarter turn clockwise from (0, 0) to (10, 0), bulging up from a
     // centre below the chord.
@@ -233,24 +234,28 @@ fn an_inch_file_reads_insunits_1() {
 }
 
 #[test]
-fn other_entities_block_contents_and_paper_space_are_skipped_and_counted_per_type() {
+fn other_entities_and_paper_space_are_skipped_and_counted_per_type() {
     let drawing = fixture("skipped.dxf");
-    // Only the model-space LINE is read; the block's LINE is not drawn by itself.
-    assert_eq!(drawing.entities.len(), 1);
-    assert_eq!(
-        drawing.entities[0].shape,
-        Shape::Line {
-            from: xy(0.0, 0.0),
-            to: xy(5.0, 0.0)
-        }
-    );
+    // The TEXT, the INSERT's block LINE (on layer 0, so on the INSERT's layer) and the
+    // model-space LINE are read; the block's LINE is not drawn by itself.
+    let read: Vec<(&str, &Shape)> = drawing
+        .entities
+        .iter()
+        .map(|e| (e.layer.as_str(), &e.shape))
+        .collect();
+    assert_eq!(read.len(), 3, "{read:?}");
+    assert!(matches!(read[0], ("Notes", Shape::Text(t)) if t.text == "EOF"));
+    let line = |x1, y1, x2, y2| Shape::Line {
+        from: xy(x1, y1),
+        to: xy(x2, y2),
+    };
+    assert_eq!(read[1], ("Notes", &line(0.0, 0.0, 1.0, 1.0)));
+    assert_eq!(read[2], ("Notes", &line(0.0, 0.0, 5.0, 0.0)));
     let counts: BTreeMap<String, usize> = [
         ("DIMENSION", 1),
         ("HATCH", 1),
-        ("INSERT", 1),
         ("LINE in paper space", 1),
         ("POINT", 2),
-        ("TEXT", 1),
     ]
     .into_iter()
     .map(|(k, v)| (k.to_owned(), v))

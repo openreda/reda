@@ -1,0 +1,36 @@
+999
+Windows-1252 text.
+  0
+SECTION
+  2
+HEADER
+  9
+$ACADVER
+  1
+AC1015
+  9
+$DWGCODEPAGE
+  3
+ANSI_1252
+  0
+ENDSEC
+  0
+SECTION
+  2
+ENTITIES
+  0
+TEXT
+  8
+Café
+ 10
+0.0
+ 20
+0.0
+ 40
+1.0
+  1
+Größe 25%%d – “ok”
+  0
+ENDSEC
+  0
+EOF

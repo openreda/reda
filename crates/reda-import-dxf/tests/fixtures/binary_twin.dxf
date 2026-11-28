@@ -1,0 +1,114 @@
+999
+The ASCII twin of binary.dxf.
+  0
+SECTION
+  2
+HEADER
+  9
+$ACADVER
+  1
+AC1015
+  9
+$INSUNITS
+ 70
+4
+  0
+ENDSEC
+  0
+SECTION
+  2
+ENTITIES
+  0
+LINE
+  5
+2A
+  8
+Sketch
+ 62
+1
+ 10
+10.0
+ 20
+-5.5
+ 30
+0.0
+ 11
+40.25
+ 21
+15.0
+ 31
+0.0
+  0
+CIRCLE
+  8
+Holes
+ 10
+3.0
+ 20
+4.0
+ 40
+1.5
+370
+-1
+  0
+LWPOLYLINE
+  8
+Slot
+ 90
+3
+ 70
+1
+ 43
+0.0
+ 10
+0.0
+ 20
+0.0
+ 10
+20.0
+ 20
+0.0
+ 42
+1.0
+ 10
+20.0
+ 20
+10.0
+  0
+TEXT
+  8
+Notes
+ 10
+1.0
+ 20
+1.0
+ 40
+2.5
+  1
+Binary
+ 72
+1
+ 11
+2.0
+ 21
+1.0
+  0
+MTEXT
+  8
+Notes
+ 10
+0.1
+ 20
+0.2
+ 40
+1.0
+ 71
+1
+  1
+Two\Plines
+280
+1
+  0
+ENDSEC
+  0
+EOF

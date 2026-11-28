@@ -54125,7 +54125,7 @@
     },
     {
       "category": "pcb",
-      "description": "Imports a DXF drawing's lines, arcs, circles and polylines as board graphics, as one undo step. It lands at its file coordinates on the Output Origin (design zero without one), or with its lower-left corner at `at`. Each DXF layer goes to its `mapping` target or the pre-filled one: a board Layer of the same name, the Board Outline for an outline-like name, a Mechanical Layer whose Purpose the name suggests, or else the Reference Layer, added if the board has none. Bulges become exact arcs. Returns the preview's report and the new objects.",
+      "description": "Imports a DXF drawing, ASCII or binary, as one undo step: lines, arcs, circles and polylines as board graphics, bulges as exact arcs, ellipses and splines fitted with arcs within 0.005 mm, TEXT and MTEXT as free text in the stroke font, and each INSERT exploded in place. DWG is refused. It lands at its file coordinates on the Output Origin (design zero without one), or with its lower-left corner at `at`. Each DXF layer goes to its `mapping` target or the pre-filled one: a board Layer of the same name, the Board Outline for an outline-like name, a Mechanical Layer whose Purpose the name suggests, or else the Reference Layer, added if the board has none. Returns the preview's report and the new objects.",
       "icon": "library_import",
       "id": "pcb.import_dxf",
       "kind": "edit",
@@ -54437,7 +54437,7 @@
             "type": "array"
           },
           "objects": {
-            "description": "The new graphics, in file order, ready to select.",
+            "description": "The new graphics and texts, in file order, ready to select.",
             "items": {
               "format": "uuid",
               "type": "string"
