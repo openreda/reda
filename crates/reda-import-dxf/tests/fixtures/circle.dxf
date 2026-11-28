@@ -1,0 +1,30 @@
+  0
+SECTION
+  2
+HEADER
+  9
+$INSUNITS
+ 70
+4
+  0
+ENDSEC
+  0
+SECTION
+  2
+ENTITIES
+  0
+CIRCLE
+  8
+Holes
+ 10
+3.0
+ 20
+4.0
+ 30
+0.0
+ 40
+1.5
+  0
+ENDSEC
+  0
+EOF

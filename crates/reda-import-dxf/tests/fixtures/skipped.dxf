@@ -1,0 +1,168 @@
+  0
+SECTION
+  2
+HEADER
+  9
+$INSUNITS
+ 70
+4
+  0
+ENDSEC
+  0
+SECTION
+  2
+TABLES
+  0
+TABLE
+  2
+LAYER
+ 70
+2
+  0
+LAYER
+  2
+0
+ 70
+0
+ 62
+7
+  6
+CONTINUOUS
+  0
+LAYER
+  2
+Notes
+ 70
+0
+ 62
+1
+  6
+CONTINUOUS
+  0
+ENDTAB
+  0
+ENDSEC
+  0
+SECTION
+  2
+BLOCKS
+  0
+BLOCK
+  8
+0
+  2
+Logo
+ 70
+0
+ 10
+0.0
+ 20
+0.0
+  0
+LINE
+  8
+0
+ 10
+0.0
+ 20
+0.0
+ 11
+1.0
+ 21
+1.0
+  0
+ENDBLK
+  8
+0
+  0
+ENDSEC
+  0
+SECTION
+  2
+ENTITIES
+  0
+HATCH
+  8
+Notes
+ 10
+0.0
+ 20
+0.0
+  2
+SOLID
+ 70
+1
+  0
+TEXT
+  8
+Notes
+ 10
+1.0
+ 20
+1.0
+ 40
+2.5
+  1
+EOF
+  0
+POINT
+  8
+Notes
+ 10
+3.0
+ 20
+3.0
+  0
+POINT
+  8
+Notes
+ 10
+4.0
+ 20
+4.0
+  0
+DIMENSION
+  8
+Notes
+  2
+*D1
+  0
+INSERT
+  8
+Notes
+  2
+Logo
+ 10
+0.0
+ 20
+0.0
+  0
+LINE
+ 67
+1
+  8
+Notes
+ 10
+0.0
+ 20
+0.0
+ 11
+100.0
+ 21
+0.0
+  0
+LINE
+  8
+Notes
+ 10
+0.0
+ 20
+0.0
+ 11
+5.0
+ 21
+0.0
+  0
+ENDSEC
+  0
+EOF

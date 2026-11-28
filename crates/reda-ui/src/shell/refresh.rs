@@ -114,7 +114,7 @@ impl Shell {
             "schematic.find.step" => {
                 crate::panels::find::step(self, out["direction"] == "next");
             }
-            "schematic.paste" | "schematic.duplicate" | "pcb.paste" => {
+            "schematic.paste" | "schematic.duplicate" | "pcb.paste" | "pcb.import_dxf" => {
                 let objects = out["result"]["objects"].clone();
                 let _ = self
                     .engine

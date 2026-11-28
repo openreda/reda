@@ -27,6 +27,7 @@ pub fn registry() -> Registry {
         crate::preferences::waiver_author,
     );
     reda_library::register_all(&mut registry);
+    reda_import_dxf::register_all(&mut registry);
     let host = reda_library::GeneratorHost {
         store: crate::library::store_footprint,
         severities: crate::preferences::library_severities,
