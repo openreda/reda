@@ -132,6 +132,23 @@ fn save_board_as_template_lists_the_candidates_and_sends_the_ticked_ones() {
         "pcb.lock",
         json!({"objects": [j1], "locked": false}),
     );
+    // A third Mechanical Layer with a text, and an empty one.
+    let mechanical = |h: &mut Harness<'_, App>, params: Value| {
+        let mut params = params;
+        params["kind"] = json!("mechanical");
+        params["document"] = json!(pcb.uuid);
+        run(h, "pcb.layer.add", params)["result"]["uuid"].clone()
+    };
+    let fab = mechanical(
+        &mut h,
+        json!({"name": "Fab notes", "purpose": "fabrication_notes"}),
+    );
+    mechanical(&mut h, json!({"name": "Empty"}));
+    run(
+        &mut h,
+        "pcb.text.add",
+        json!({"layer": fab, "text": "ENIG", "x": "10mm", "y": "-5mm"}),
+    );
     h.run();
 
     click(&mut h, "Design");
@@ -154,6 +171,21 @@ fn save_board_as_template_lists_the_candidates_and_sends_the_ticked_ones() {
     assert_eq!(tick(&h, &connector), (true, false));
     assert_eq!(tick(&h, "Drawings on Dimensions"), (true, true));
     assert_eq!(tick(&h, "Drawings on Reference"), (true, true));
+    // One tick per Mechanical Layer with content: none for the empty one.
+    assert_eq!(tick(&h, "Drawings on Fab notes"), (true, true));
+    let drawing_rows: Vec<String> = h
+        .query_all_by_role(Role::CheckBox)
+        .filter_map(|n| n.accesskit_node().label())
+        .filter(|l| l.starts_with("Drawings on "))
+        .collect();
+    assert_eq!(
+        drawing_rows,
+        [
+            "Drawings on Dimensions",
+            "Drawings on Reference",
+            "Drawings on Fab notes"
+        ]
+    );
     // The inner-layer Keepout is listed but can't be ticked, and says why.
     let inner = h
         .query_all_by_role(Role::CheckBox)
@@ -209,12 +241,21 @@ fn save_board_as_template_lists_the_candidates_and_sends_the_ticked_ones() {
     let documentation = drawings(Purpose::Reference);
     assert!(objects.contains(&mechanical.as_str()), "{objects:?}");
     assert!(!objects.contains(&documentation.as_str()), "{objects:?}");
+    assert!(objects.contains(&fab.as_str().unwrap()), "{objects:?}");
     assert!(!objects.contains(&j1.to_string().as_str()), "{objects:?}");
     assert!(h.query_by_label("Save Board as Template").is_none());
-    assert!(
-        mine(&home)
-            .join("board-templates/My hat.redaboard")
-            .exists()
+    // Each ticked Layer is one drawing group named after it, carrying its Purpose.
+    let saved = std::fs::read(mine(&home).join("board-templates/My hat.redaboard")).unwrap();
+    let saved: Value = serde_json::from_slice(&saved).unwrap();
+    let groups: Vec<(&str, &str)> = (saved["drawing_groups"].as_array().unwrap().iter())
+        .map(|g| (g["name"].as_str().unwrap(), g["purpose"].as_str().unwrap()))
+        .collect();
+    assert_eq!(
+        groups,
+        [
+            ("Dimensions", "dimensions"),
+            ("Fab notes", "fabrication_notes")
+        ]
     );
 }
 
