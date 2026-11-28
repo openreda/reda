@@ -254,6 +254,42 @@ fn mod_shift_g_takes_one_value_or_two_in_the_documents_units() {
 }
 
 #[test]
+fn keep_on_this_board_in_the_custom_grid_form_adds_a_board_grid() {
+    let home = TempDir::new("gh-keep-home");
+    let work = TempDir::new("gh-keep-work");
+    let mut h = harness(home.path(), work.path());
+    // A sheet's form has no Keep on this board.
+    over_canvas(&mut h, 0.0);
+    h.key_press_modifiers(Modifiers::COMMAND | Modifiers::SHIFT, Key::G);
+    h.run();
+    assert!(h.query_by_label("Keep on this board").is_none());
+    h.key_press(Key::Escape);
+    h.run();
+
+    let pcb = open_board(&mut h);
+    over_canvas(&mut h, 0.0);
+    h.key_press_modifiers(Modifiers::COMMAND | Modifiers::SHIFT, Key::G);
+    h.run();
+    h.get_by_role_and_label(Role::TextInput, "Grid").click();
+    h.run();
+    h.get_by_role_and_label(Role::TextInput, "Grid")
+        .type_text("0.3");
+    h.run();
+    h.get_by_role_and_label(Role::CheckBox, "Keep on this board")
+        .click();
+    h.run();
+    h.get_all_by_label("Set Grid").last().unwrap().click();
+    h.run();
+    let shell = h.state().shell();
+    let board = shell.engine().project().unwrap().pcb().unwrap();
+    let grids: Vec<_> = board.board_grids().collect();
+    assert_eq!(grids.len(), 1);
+    assert_eq!(grids[0].step_x.text().as_deref(), Some("0.3mm"));
+    assert_eq!(shell.grid(pcb), reda_ui::grid::Step::square(Nm(300_000)));
+    assert!(!shell.grids().is_custom(pcb));
+}
+
+#[test]
 fn x_runs_right_to_left_on_a_board_seen_from_below() {
     let home = TempDir::new("gh-flip-home");
     let work = TempDir::new("gh-flip-work");
