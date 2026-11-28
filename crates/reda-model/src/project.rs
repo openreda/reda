@@ -469,6 +469,7 @@ impl Project {
             Object::Zone(o) => o.document,
             Object::Keepout(o) => o.document,
             Object::Guide(o) => o.document,
+            Object::BoardGrid(o) => o.document,
             Object::ZoneCutout(o) => o.document,
             Object::FreePad(o) => o.document,
             Object::OutputOrigin(o) => o.document,
@@ -674,6 +675,9 @@ impl Project {
             }
             Some(Object::Guide(o)) => {
                 self.pcb_mut(o.document).guides.insert(uuid, o.object);
+            }
+            Some(Object::BoardGrid(o)) => {
+                self.pcb_mut(o.document).board_grids.insert(uuid, o.object);
             }
             #[cfg(feature = "test-objects")]
             Some(Object::Probe(probe)) => {

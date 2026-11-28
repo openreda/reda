@@ -6,6 +6,7 @@
 
 pub mod annotate;
 pub mod auto_increment;
+mod board_grid;
 mod board_template;
 mod change;
 mod check;
@@ -28,8 +29,10 @@ mod project;
 mod schematic;
 pub mod text;
 mod transaction;
+pub mod typed_length;
 mod uuid;
 
+pub use board_grid::BoardGrid;
 pub use board_template::{
     BoardTemplate, ChoiceOption, ChoiceParameter, DisplayUnit, DrawingKind, LengthParameter,
     TemplateBevel, TemplateBoard, TemplateContour, TemplateCopperLayer, TemplateDimensionEnd,
@@ -96,6 +99,7 @@ pub use schematic::{
     UnitInstance, UnitSuffix, Wire,
 };
 pub use transaction::{Transaction, TxError};
+pub use typed_length::{LengthUnit, TypedLength};
 pub use uuid::{ParseUuidError, Uuid};
 
 /// Geometry types, re-exported so model users need no direct `reda-geom` dependency.

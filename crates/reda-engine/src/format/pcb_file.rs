@@ -88,7 +88,10 @@
 //!   ],
 //!   "guides": [
 //!     {"uuid":"…","kind":"line","at":{"x":0,"y":0},"angle":90000,"shown":true,"enabled":true,"locked":false}
-//!   ]
+//!   ],
+//!   "grids": {"board":[
+//!     {"uuid":"…","step_x":"0.5mm","step_y":"1.27mm","in_cycle":true,"default":true}
+//!   ]}
 //! }
 //! ```
 //!
@@ -103,17 +106,17 @@
 //! instances, each Pad's Net on its own line) are left out while the board has no
 //! Footprints. `dimensions`, `tracks`, `vias`, `free_pads`, `zones`, `keepouts`,
 //! `zone_cutouts`, `waivers` (of DRC Violations) and `guides` are left out while the board
-//! has none, `output_origin` while it is not set. A Keepout leaves out `layer` when it applies to every
+//! has none, and `grids` while it has no Board Grids (its `local` table is for Local Grids), `output_origin` while it is not set. A Keepout leaves out `layer` when it applies to every
 //! copper Layer; a `line` Keepout adds its `width`. Zone fills are never stored here: they
 //! live in the `.reda/` cache.
 
 use std::path::Path;
 
 use reda_model::{
-    BoardCutout, BoardOutline, BoardSetup, DesignRule, Dimension, DrcSeverities, EdgeConnector,
-    FootprintInstance, FreePad, Guide, InDocument, Keepout, LayerSet, Net, NetClass, Object,
-    OutputOrigin, PcbDocument, PcbGraphic, PcbText, Stackup, Track, Uuid, Via, Waiver, Zone,
-    ZoneCutout, ZoneNameScheme,
+    BoardCutout, BoardGrid, BoardOutline, BoardSetup, DesignRule, Dimension, DrcSeverities,
+    EdgeConnector, FootprintInstance, FreePad, Guide, InDocument, Keepout, LayerSet, Net, NetClass,
+    Object, OutputOrigin, PcbDocument, PcbGraphic, PcbText, Stackup, Track, Uuid, Via, Waiver,
+    Zone, ZoneCutout, ZoneNameScheme,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -195,6 +198,19 @@ pub(crate) struct PcbFile {
     /// Editor aids: no output reads them.
     #[serde(default)]
     guides: Vec<Guide>,
+    /// The grids stored with the board; left out while it has none.
+    #[serde(default)]
+    grids: Option<GridsFile>,
+}
+
+/// The PCB file's `grids`: the Board Grids, sorted by UUID.
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct GridsFile {
+    /// Grid steps saved with the board, offered in its grid cycle; at most one is the
+    /// `default` a board opened with no view state starts on.
+    #[serde(default)]
+    board: Vec<BoardGrid>,
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
@@ -300,6 +316,12 @@ pub(crate) fn write_pcb_file(pcb: &PcbDocument) -> Result<Vec<u8>, CanonicalErro
     }
     if pcb.guides().next().is_some() {
         w.table("guides", pcb.guides(), |g| g.uuid)?;
+    }
+    if pcb.board_grids().next().is_some() {
+        let grids = GridsFile {
+            board: pcb.board_grids().cloned().collect(),
+        };
+        w.container("grids", &grids, "board")?;
     }
     Ok(w.finish())
 }
@@ -433,6 +455,11 @@ pub(crate) fn read_pcb_file(
         file.guides
             .into_iter()
             .map(|g| Object::Guide(InDocument::new(doc, g))),
+    );
+    objects.extend(
+        (file.grids.into_iter())
+            .flat_map(|g| g.board)
+            .map(|g| Object::BoardGrid(InDocument::new(doc, g))),
     );
     for object in &mut objects {
         normalise_rotations(object);

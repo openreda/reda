@@ -1,6 +1,7 @@
 //! The PCB Commands. Each one edits the Project's PCB Document and is unavailable while
 //! the Project has none.
 
+mod board_grid;
 mod board_info;
 mod clipboard;
 mod copper;
@@ -84,6 +85,7 @@ pub fn register_all_with_user(
     graphic::register_all(registry);
     dimension::register_all(registry);
     guide::register_all(registry);
+    board_grid::register_all(registry);
     track::register_all(registry);
     track_edit::register_all(registry);
     via::register_all(registry);

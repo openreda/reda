@@ -13,7 +13,7 @@ use reda_geom::{Nm, Vertex};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::{FootprintCopy, Guide, Object, Severity, Uuid, Waiver};
+use crate::{BoardGrid, FootprintCopy, Guide, Object, Severity, Uuid, Waiver};
 
 mod copper;
 mod dimension;
@@ -613,6 +613,7 @@ pub struct PcbDocument {
     pub(crate) output_origins: BTreeMap<Uuid, OutputOrigin>,
     pub(crate) waivers: BTreeMap<Uuid, Waiver>,
     pub(crate) guides: BTreeMap<Uuid, Guide>,
+    pub(crate) board_grids: BTreeMap<Uuid, BoardGrid>,
 }
 
 impl PcbDocument {
@@ -641,6 +642,7 @@ impl PcbDocument {
             output_origins: BTreeMap::new(),
             waivers: BTreeMap::new(),
             guides: BTreeMap::new(),
+            board_grids: BTreeMap::new(),
         }
     }
 
@@ -1007,6 +1009,20 @@ impl PcbDocument {
         self.guides.get(&uuid)
     }
 
+    /// The Board Grids, sorted by UUID.
+    pub fn board_grids(&self) -> impl Iterator<Item = &BoardGrid> {
+        self.board_grids.values()
+    }
+
+    pub fn board_grid(&self, uuid: Uuid) -> Option<&BoardGrid> {
+        self.board_grids.get(&uuid)
+    }
+
+    /// The Board Grid marked Default, which a board opened with no view state starts on.
+    pub fn default_board_grid(&self) -> Option<&BoardGrid> {
+        self.board_grids.values().find(|g| g.default)
+    }
+
     /// The object with this UUID, if this Document holds it.
     pub(crate) fn object(&self, uuid: Uuid) -> Option<Object> {
         let doc = self.uuid;
@@ -1040,7 +1056,8 @@ impl PcbDocument {
             free_pads => FreePad,
             output_origins => OutputOrigin,
             waivers => Waiver,
-            guides => Guide
+            guides => Guide,
+            board_grids => BoardGrid
         )
     }
 
@@ -1079,7 +1096,8 @@ impl PcbDocument {
             free_pads => FreePad,
             output_origins => OutputOrigin,
             waivers => Waiver,
-            guides => Guide
+            guides => Guide,
+            board_grids => BoardGrid
         );
         out
     }
@@ -1108,6 +1126,7 @@ impl PcbDocument {
         self.output_origins.remove(&uuid);
         self.waivers.remove(&uuid);
         self.guides.remove(&uuid);
+        self.board_grids.remove(&uuid);
     }
 
     pub(crate) fn is_empty(&self) -> bool {
@@ -1133,6 +1152,7 @@ impl PcbDocument {
             && self.output_origins.is_empty()
             && self.waivers.is_empty()
             && self.guides.is_empty()
+            && self.board_grids.is_empty()
     }
 
     /// Checks the invariants a committed transaction must leave behind.
@@ -1222,6 +1242,18 @@ impl PcbDocument {
         }
         if let Some(problem) = self.guides.values().find_map(Guide::problem) {
             return Err(problem);
+        }
+        if let Some(problem) = self.board_grids.values().find_map(BoardGrid::problem) {
+            return Err(problem);
+        }
+        let defaults: Vec<Uuid> = (self.board_grids.values())
+            .filter(|g| g.default)
+            .map(|g| g.uuid)
+            .collect();
+        if let [first, second, ..] = defaults.as_slice() {
+            return Err(format!(
+                "Board Grids {first} and {second} are both marked Default; at most one may be"
+            ));
         }
         self.check_footprints()?;
         self.check_copper()?;

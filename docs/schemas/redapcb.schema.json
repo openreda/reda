@@ -56,6 +56,45 @@
       ],
       "type": "object"
     },
+    "BoardGrid": {
+      "additionalProperties": false,
+      "description": "One Board Grid. Field order is the on-disk key order. Each length keeps the unit it\nwas typed in (`\"0.5mm\"`, `\"25mil\"`).",
+      "properties": {
+        "default": {
+          "description": "The grid a board opened with no view state starts on. At most one row has it.",
+          "type": "boolean"
+        },
+        "in_cycle": {
+          "description": "G and Shift+G step through it.",
+          "type": "boolean"
+        },
+        "step_x": {
+          "description": "The snap step along X, and along Y too unless `step_y` is set.",
+          "format": "length",
+          "type": "string"
+        },
+        "step_y": {
+          "description": "Step Y, when it differs from Step X.",
+          "format": "length",
+          "type": "string"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "visible": {
+          "description": "The visible grid's fine spacing along X, as in a preset row; along Y it is the\nsame multiple of Step Y. Left out, it is Step X.",
+          "format": "length",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uuid",
+        "step_x",
+        "in_cycle"
+      ],
+      "type": "object"
+    },
     "BoardOutline": {
       "additionalProperties": false,
       "description": "The closed shape of the board's physical edge. The file stores each vertex with the\nmark of its Plated Edge, if any.",
@@ -1544,6 +1583,21 @@
           "type": "object"
         }
       ]
+    },
+    "GridsFile": {
+      "additionalProperties": false,
+      "description": "The PCB file's `grids`: the Board Grids, sorted by UUID.",
+      "properties": {
+        "board": {
+          "default": [],
+          "description": "Grid steps saved with the board, offered in its grid cycle; at most one is the\n`default` a board opened with no view state starts on.",
+          "items": {
+            "$ref": "#/$defs/BoardGrid"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
     },
     "Guide": {
       "additionalProperties": false,
@@ -4279,6 +4333,18 @@
         "$ref": "#/$defs/PcbGraphic"
       },
       "type": "array"
+    },
+    "grids": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/GridsFile"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The grids stored with the board; left out while it has none."
     },
     "guides": {
       "default": [],

@@ -266,15 +266,11 @@ fn board_figures(ui: &mut Ui, figures: &BoardFigures, units: Units) {
     });
 }
 
-/// The current grid with the preset picker.
+/// The current grid with the picker of presets and Board Grids.
 fn grid(ui: &mut Ui, shell: &Shell, board: bool, document: Uuid, out: &mut Vec<Out>) {
     let current = shell.grid(document);
-    let rows = shell.grids().rows(shell.engine().elements(), document);
-    let presets: Vec<_> = (rows.iter().map(crate::grid::Step::of_row))
-        .filter(|g| {
-            !board || crate::grid::is_imperial(g.x) == (shell.board_view().units == Units::Mil)
-        })
-        .collect();
+    let imperial = board.then(|| shell.board_view().units == Units::Mil);
+    let presets = (shell.grids()).offered(shell.engine().elements(), document, imperial);
     let mut picked = current;
     let response = widgets::dropdown("properties-grid", crate::grid::step_label(current))
         .show(ui, |ui| {

@@ -1,6 +1,8 @@
 //! The grid's view Commands: `view.grid.set`, `view.grid.cycle`, `view.grid.custom`,
 //! `view.grid.show` and `view.grids_guides.show`. A board or Footprint grid may have a Step Y (`grid_y`) other than its
-//! Step X (`grid`); sheets and Symbols keep a single step.
+//! Step X (`grid`); sheets and Symbols keep a single step. A board also offers its Board
+//! Grids: `view.grid.set` takes one, and `view.grid.cycle` steps through the In-cycle ones
+//! with the presets.
 
 use reda_engine::command::{Command, CommandError, Context, Kind, Length, Meta, Registry};
 use reda_engine::model::Uuid;
@@ -9,7 +11,10 @@ use reda_engine::preferences::{GridTables, Units};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use super::{Grids, Step, document_type, has_range, label, row_of, step_label};
+use super::{
+    Grids, Step, board_rows, cycle_of, document_type, has_range, is_board_grid, label, row_of,
+    step_label,
+};
 use crate::bars::DocumentType;
 use crate::pcb::BoardView;
 
@@ -134,12 +139,14 @@ impl Command for GridsGuidesShow {
 }
 
 /// Makes `grid` `document`'s grid (custom with `range` when `custom`); on a board,
-/// lengths then show in the grid's table's unit.
+/// lengths then show in the grid's table's unit, unless `keep_units` (a Board Grid, or a
+/// step of the board's cycle).
 fn put(
     cx: &mut Context<'_>,
     document: Uuid,
     grid: Step,
     custom: Option<Option<Nm>>,
+    keep_units: bool,
 ) -> Result<GridResult, CommandError> {
     let board = cx.project()?.pcb().is_some_and(|pcb| pcb.uuid == document);
     let ty = document_type(cx.project()?, document);
@@ -156,7 +163,10 @@ fn put(
             .and_then(|r| r.range)
             .map_or(super::default_range(grid.x), |r| r.0),
     });
-    if board && let Ok(view) = cx.view::<BoardView>() {
+    if board
+        && !keep_units
+        && let Ok(view) = cx.view::<BoardView>()
+    {
         view.units = if imperial { Units::Mil } else { Units::Mm };
     }
     let warning = range
@@ -187,12 +197,9 @@ fn document_tables(
 ) -> Result<(DocumentType, GridTables, Step), CommandError> {
     let ty = document_type(cx.project()?, document)
         .ok_or_else(|| CommandError::not_found(format!("no Document {document} with a grid")))?;
+    let project = cx.project()?.clone();
     let grids = cx.view::<Grids>()?;
-    let current = grids
-        .picked
-        .get(&document)
-        .copied()
-        .unwrap_or_else(|| grids.start_of(ty));
+    let current = grids.of(Some(&project), document);
     Ok((ty, grids.tables(ty).clone(), current))
 }
 
@@ -218,6 +225,7 @@ impl Command for GridSet {
                       0.25, 0.5, 1 or 2.5 mm on a sheet or Symbol; 0.1, 0.25, 0.5 or 1 mm, \
                       or 5, 10, 25 or 50 mil on a board or Footprint, whose units follow \
                       the grid's. A board or Footprint row may have a Step Y (`grid_y`). \
+                      A board also takes one of its Board Grids, which keeps the units. \
                       Discards a custom grid.",
         category: "view",
         icon: "grid",
@@ -229,14 +237,18 @@ impl Command for GridSet {
     fn run(&self, cx: &mut Context<'_>, p: GridSetParams) -> Result<GridResult, CommandError> {
         let (ty, tables, _) = document_tables(cx, p.document)?;
         let grid = step_of(ty, p.grid, p.grid_y)?;
-        if row_of(&tables, grid).is_none() {
-            let list: Vec<String> = tables.rows().map(|r| step_label(Step::of_row(r))).collect();
+        let board = is_board_grid(Some(cx.project()?), p.document, grid);
+        if row_of(&tables, grid).is_none() && !board {
+            let board = board_rows(Some(cx.project()?), p.document);
+            let list: Vec<String> = (tables.rows().chain(&board))
+                .map(|r| step_label(Step::of_row(r)))
+                .collect();
             return Err(CommandError::invalid_params(
                 "/grid",
                 format!("not a grid preset; pick one of {}", list.join(", ")),
             ));
         }
-        put(cx, p.document, grid, None)
+        put(cx, p.document, grid, None, board)
     }
 }
 
@@ -248,8 +260,10 @@ impl Command for GridCycle {
         title: "Cycle Snap Grid",
         description: "Steps a Document's snap grid to the next (G) or, with `back`, the \
                       previous (Shift+G) In cycle row of its preset table, sorted by size \
-                      (Step X, then Step Y), wrapping round. A custom grid is discarded for \
-                      the nearest row in that direction.",
+                      (Step X, then Step Y), wrapping round. On a board the table is the \
+                      one of the units it shows, joined by its In-cycle Board Grids, and \
+                      the units stay. A custom grid is discarded for the nearest row in \
+                      that direction.",
         category: "view",
         icon: "grid",
         kind: Kind::View,
@@ -260,13 +274,16 @@ impl Command for GridCycle {
     fn run(&self, cx: &mut Context<'_>, p: GridCycleParams) -> Result<GridResult, CommandError> {
         let (_, tables, current) = document_tables(cx, p.document)?;
         let custom = cx.view::<Grids>()?.is_custom(p.document);
-        let imperial = tables.is_imperial(current.x);
-        let mut cycle: Vec<Step> = (tables.table(imperial).iter())
-            .filter(|r| r.in_cycle)
-            .map(Step::of_row)
-            .collect();
-        cycle.sort();
-        cycle.dedup();
+        let board = cx
+            .project()?
+            .pcb()
+            .is_some_and(|pcb| pcb.uuid == p.document);
+        let rows = board_rows(Some(cx.project()?), p.document);
+        let imperial = match cx.view::<BoardView>() {
+            Ok(view) if board => view.units == Units::Mil,
+            _ => tables.is_imperial(current.x),
+        };
+        let cycle = cycle_of(&tables, imperial, &rows);
         if cycle.is_empty() {
             return Err(CommandError::rejected(
                 "no row of this grid table is In cycle",
@@ -285,7 +302,7 @@ impl Command for GridCycle {
                 .find(|g| **g < current)
                 .unwrap_or(&cycle[n - 1]),
         };
-        put(cx, p.document, grid, None)
+        put(cx, p.document, grid, None, board)
     }
 }
 
@@ -337,7 +354,7 @@ impl Command for GridCustom {
             Some(r) => Some(r.0),
             None => has_range(ty).then(|| super::default_range(grid.x)),
         };
-        put(cx, p.document, grid, Some(range))
+        put(cx, p.document, grid, Some(range), false)
     }
 }
 
