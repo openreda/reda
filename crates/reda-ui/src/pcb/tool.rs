@@ -166,7 +166,10 @@ struct PolygonPress {
 fn movable(kind: ObjectType) -> bool {
     matches!(
         kind,
-        ObjectType::FootprintInstance | ObjectType::FreePad | ObjectType::OutputOrigin
+        ObjectType::FootprintInstance
+            | ObjectType::FreePad
+            | ObjectType::OutputOrigin
+            | ObjectType::Guide
     )
 }
 
@@ -881,6 +884,8 @@ impl SelectTool {
                 Some(Object::FootprintInstance(f)) => Some(f.object.at),
                 Some(Object::FreePad(p)) => Some(p.object.at),
                 Some(Object::OutputOrigin(o)) => Some(o.object.at),
+                // A line Guide is held where the press is on it, so it doesn't jump.
+                Some(Object::Guide(g)) => Some(snap::PlacedGuide::of(&g.object).nearest(at)),
                 _ => None,
             })
             .unwrap_or(at);
@@ -960,7 +965,9 @@ impl SelectTool {
             return;
         };
         let mut rules = snap::rules(shell, m.document);
-        rules.guides &= shell.preferences().pcb.place.alignment_guides;
+        rules.alignment &= shell.preferences().pcb.place.alignment_guides;
+        // A Guide in flight is not something to snap to.
+        rules.placed.retain(|g| !m.objects.contains(&g.object));
         let snapped = snap::snap(xy(to - m.offset), &m.targets, &m.guides, &rules);
         let mut current = snapped.at;
         let avoid = shell.preferences().pcb.place.obstacle_mode == ObstacleMode::Avoid;
@@ -976,7 +983,7 @@ impl SelectTool {
                 current = m.base + place::avoid(pcb, &m.footprints, current - m.base);
             }
         }
-        self.guide_lines = if snapped.hit == Hit::Guide {
+        self.guide_lines = if snapped.hit == Hit::Alignment {
             m.guides
                 .iter()
                 .copied()

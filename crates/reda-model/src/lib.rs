@@ -12,6 +12,7 @@ mod check;
 mod derived;
 mod document;
 pub mod footprint_copper;
+mod guide;
 mod library;
 pub mod library_update;
 pub mod local_edit;
@@ -43,6 +44,7 @@ pub use check::{
     ViolationArg, Waived, Waiver, apply_waivers, ran_fully,
 };
 pub use document::{DocumentEntry, DocumentKind, ListedDocument};
+pub use guide::{Guide, GuideKind, line_angle};
 pub use library::{
     ComponentType, DESIGNATOR_FIELD, ElementSource, Field, Fields, Footprint, FootprintGenerator,
     FootprintGraphic, FootprintLayer, FootprintText, InsideEdge, LibraryElement, LibraryInfo,

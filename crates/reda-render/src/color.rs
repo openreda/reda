@@ -257,6 +257,8 @@ colors! {
     Inner28: INNER_DARK[3], INNER_LIGHT[3];
     Inner29: INNER_DARK[4], INNER_LIGHT[4];
     Inner30: INNER_DARK[5], INNER_LIGHT[5];
+    /// Guides: editor aids, drawn over the board on the canvas only.
+    Guide: Rgba::rgb(0x38, 0xd0, 0xe8), Rgba::rgb(0x00, 0x7c, 0xa0);
 
 }}
 

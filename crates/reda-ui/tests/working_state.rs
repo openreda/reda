@@ -152,14 +152,19 @@ fn snap_mode_and_gridless_per_document_type() {
         .unwrap();
     assert_eq!(
         out,
-        json!({"mode": "on", "gridless": false, "hotspots_off": []})
+        json!({"mode": "on", "gridless": false, "hotspots_off": [], "guides": false})
     );
+    // A sheet has no Guides to snap to.
+    let err = shell
+        .run("view.snap.set", json!({"document": sheet, "guides": true}))
+        .unwrap_err();
+    assert_eq!(err.details, Some(json!({"pointer": "/guides"})));
     let out = shell
         .run("view.snap.set", json!({"document": board}))
         .unwrap();
     assert_eq!(
         out,
-        json!({"mode": "active_layer", "gridless": false, "hotspots_off": []})
+        json!({"mode": "active_layer", "gridless": false, "hotspots_off": [], "guides": true})
     );
 
     let out = shell
@@ -170,7 +175,7 @@ fn snap_mode_and_gridless_per_document_type() {
         .unwrap();
     assert_eq!(
         out,
-        json!({"mode": "all_layers", "gridless": true, "hotspots_off": []})
+        json!({"mode": "all_layers", "gridless": true, "hotspots_off": [], "guides": true})
     );
     // The sheet is untouched.
     let out = shell
@@ -178,7 +183,7 @@ fn snap_mode_and_gridless_per_document_type() {
         .unwrap();
     assert_eq!(
         out,
-        json!({"mode": "on", "gridless": false, "hotspots_off": []})
+        json!({"mode": "on", "gridless": false, "hotspots_off": [], "guides": false})
     );
 
     let err = shell
@@ -253,7 +258,7 @@ fn the_working_state_is_kept_in_view_json_and_not_in_the_documents() {
         .unwrap();
     assert_eq!(
         out,
-        json!({"mode": "off", "gridless": true, "hotspots_off": []})
+        json!({"mode": "off", "gridless": true, "hotspots_off": [], "guides": true})
     );
     assert!(!again.selection_filter(board).allows(FilterKind::Zone));
     assert!(again.selection_filter(board).allows(FilterKind::Track));

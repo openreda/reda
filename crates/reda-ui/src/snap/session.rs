@@ -4,7 +4,7 @@ use reda_engine::model::LayerKind;
 use reda_engine::model::Uuid;
 use reda_engine::model::geom::Point;
 
-use super::{Grid, Objects, Rules, Snapped, Suspend, Target, snap};
+use super::{Grid, Objects, PlacedGuide, Rules, Snapped, Suspend, Target, snap};
 use crate::bars::{self, DocumentType};
 use crate::shell::Shell;
 use crate::tools::Tool;
@@ -45,13 +45,34 @@ pub fn rules_on(shell: &Shell, document: Uuid, pitch: crate::grid::Step) -> Rule
     };
     // Arrow steps are an exact count of grid steps: no Hotspot or guide catches them.
     let keyed = crate::edit_cursor::keyed(shell, document);
+    let placed = if options.guides && !suspend.objects() && !keyed {
+        placed_guides(shell, document)
+    } else {
+        Vec::new()
+    };
     Rules {
         capture,
         grid,
         objects: if keyed { Objects::Off } else { objects },
         off: options.hotspots_off,
-        guides: !suspend.objects() && !keyed,
+        alignment: !suspend.objects() && !keyed,
+        placed,
     }
+}
+
+/// The enabled Guides of `document`, shown or hidden: hidden ones still snap.
+fn placed_guides(shell: &Shell, document: Uuid) -> Vec<PlacedGuide> {
+    shell
+        .engine()
+        .project()
+        .and_then(|p| p.pcb_document(document))
+        .map(|pcb| {
+            pcb.guides()
+                .filter(|g| g.enabled)
+                .map(PlacedGuide::of)
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 /// `at` on `document` snapped onto `targets` by its [`rules`].

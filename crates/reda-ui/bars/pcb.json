@@ -31,6 +31,7 @@
         { "id": "view.inactive_layers", "command": "pcb.view.inactive_layers" },
         { "id": "view.from_bottom", "command": "pcb.view.from_bottom" },
         { "id": "view.ratsnest", "command": "pcb.ratsnest.show" },
+        { "id": "view.grids_guides", "command": "view.grids_guides.show" },
         "separator",
         { "id": "view.cross_select", "command": "view.cross_select.toggle" },
         { "id": "view.net_cross_probe", "command": "view.net_cross_probe.toggle" }
@@ -62,7 +63,15 @@
         "separator",
         { "id": "place.free_pad", "command": "tool.activate:free_pad" },
         { "id": "place.output_origin", "command": "tool.activate:output_origin" },
-        { "id": "place.output_origin_delete", "command": "pcb.output_origin.delete" }
+        { "id": "place.output_origin_delete", "command": "pcb.output_origin.delete" },
+        {
+          "id": "place.guide",
+          "title": "menu-place-guide",
+          "items": [
+            { "id": "place.guide.line", "command": "tool.activate:guide", "title": "menu-place-guide-line" },
+            { "id": "place.guide.point", "command": "tool.activate:point_guide", "title": "menu-place-guide-point" }
+          ]
+        }
       ]
     },
     {

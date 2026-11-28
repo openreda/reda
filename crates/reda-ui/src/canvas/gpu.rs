@@ -25,6 +25,9 @@ pub struct SceneHandle {
     /// For a PCB: the Layers to composite, bottom first, at their opacity. `None` draws
     /// every Layer opaque in Scene order (a sheet).
     pub layers: Option<Arc<[Composite]>>,
+    /// A board's Guides as this Scene's Project holds them (a move in flight carries
+    /// them): editor aids drawn over the canvas, never part of the Scene.
+    pub guides: Arc<Vec<reda_engine::model::Guide>>,
 }
 
 /// The selected and highlighted objects shared with the paint callback. `generation`

@@ -67,6 +67,8 @@ pub struct Preferences {
     pub editing: SelectionEditing,
     /// Input on every editor's canvas: the arrow keys' Edit Cursor and the wheel mapping.
     pub canvas: Canvas,
+    /// The snap levels a Document starts with switched on.
+    pub snap: Snap,
     pub user: User,
     /// Editing in Schematic Sheets.
     pub schematic: SchematicEditing,
@@ -154,6 +156,21 @@ pub struct Canvas {
     /// The wheel mapping: which modifiers make the wheel zoom, scroll or step the Layer,
     /// and how a touchpad scrolls.
     pub wheel: Wheel,
+}
+
+/// The snap levels a Document starts with (docs/spec/v0.3/grids-guides.md#snapping); the
+/// snap palette switches them per Document.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct Snap {
+    /// The cursor snaps to Guides, point Guides and where Guides cross.
+    pub guides: bool,
+}
+
+impl Default for Snap {
+    fn default() -> Snap {
+        Snap { guides: true }
+    }
 }
 
 impl Default for Canvas {

@@ -111,6 +111,8 @@ pub struct DocumentTab {
     pub grid: grid::Step,
     /// The visible grid the canvas draws.
     pub grid_visible: grid::Visible,
+    /// Show Grids & Guides: the canvas draws the board's shown Guides.
+    pub aids_shown: bool,
     /// The Document point the visible grid runs through.
     pub grid_origin: Point,
     /// What the editor has in flight on this canvas.
@@ -184,6 +186,7 @@ impl DocumentTab {
             markers_not_shown: 0,
             grid: grid::Step::square(grid::SCHEMATIC_DEFAULT),
             grid_visible: grid::Visible::default(),
+            aids_shown: true,
             grid_origin: Point::default(),
             interaction: Interaction::Idle,
             suspended: None,
