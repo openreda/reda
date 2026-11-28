@@ -246,6 +246,9 @@ fn nothing_selected_shows_the_overview_with_fix_for_health_checks() {
     }
     h.get_by_label("DRC run since the last edit");
     h.get_by_label("Not run yet");
+    // The panel scrolls: the Checks region sits below the Grids & Guides rows.
+    h.get_by_label("Fix Duplicate Copper").scroll_to_me();
+    h.run();
     h.get_by_label("Fix Duplicate Copper").click();
     h.run();
     let (id, params) = last_entry(&h);

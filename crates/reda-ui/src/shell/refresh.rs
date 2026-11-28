@@ -346,6 +346,7 @@ impl Shell {
                 scene: Arc::new(scene),
                 layers,
                 guides: Arc::default(),
+                local_grids: Arc::default(),
             };
         }
         let handle = match self.engine.project() {
@@ -355,6 +356,7 @@ impl Shell {
                 scene: Arc::default(),
                 layers: None,
                 guides: Arc::default(),
+                local_grids: Arc::default(),
             },
         };
         SceneHandle {
@@ -399,11 +401,16 @@ impl Shell {
             .pcb_document(document)
             .map(|pcb| pcb.guides().cloned().collect())
             .unwrap_or_default();
+        let local_grids = project
+            .pcb_document(document)
+            .map(|pcb| pcb.local_grids().cloned().collect())
+            .unwrap_or_default();
         SceneHandle {
             generation: 0,
             scene: Arc::new(scene),
             layers,
             guides: Arc::new(guides),
+            local_grids: Arc::new(local_grids),
         }
     }
 

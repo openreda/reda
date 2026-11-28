@@ -1,5 +1,25 @@
 {
   "$defs": {
+    "AppliesTo": {
+      "description": "Which objects a Local Grid snaps while they are placed or moved. One that does not\napply to the object in flight is skipped as if it weren't there.",
+      "oneOf": [
+        {
+          "const": "all",
+          "description": "Everything.",
+          "type": "string"
+        },
+        {
+          "const": "components",
+          "description": "Components only.",
+          "type": "string"
+        },
+        {
+          "const": "not_components",
+          "description": "Everything but Components.",
+          "type": "string"
+        }
+      ]
+    },
     "ArrowPosition": {
       "description": "Where a Dimension's arrows sit.",
       "oneOf": [
@@ -1586,13 +1606,19 @@
     },
     "GridsFile": {
       "additionalProperties": false,
-      "description": "The PCB file's `grids`: the Board Grids, sorted by UUID.",
+      "description": "The PCB file's `grids`: the Board Grids, sorted by UUID, and the Local Grids in\npriority order.",
       "properties": {
         "board": {
-          "default": [],
-          "description": "Grid steps saved with the board, offered in its grid cycle; at most one is the\n`default` a board opened with no view state starts on.",
+          "description": "Grid steps saved with the board, offered in its grid cycle; at most one is the\n`default` a board opened with no view state starts on. Left out while empty.",
           "items": {
             "$ref": "#/$defs/BoardGrid"
+          },
+          "type": "array"
+        },
+        "local": {
+          "description": "Areas of the board with their own grid, in priority order: where two overlap the\nfirst wins, and the everyday grid is last. Left out while empty.",
+          "items": {
+            "$ref": "#/$defs/LocalGrid"
           },
           "type": "array"
         }
@@ -2024,6 +2050,102 @@
         "to"
       ],
       "type": "object"
+    },
+    "LocalGrid": {
+      "additionalProperties": false,
+      "description": "A Local Grid. Field order is the on-disk key order.",
+      "properties": {
+        "applies_to": {
+          "$ref": "#/$defs/AppliesTo"
+        },
+        "enabled": {
+          "description": "The cursor snaps to it.",
+          "type": "boolean"
+        },
+        "locked": {
+          "description": "Locked against moves, reshapes and deletes, as any placed object.",
+          "type": "boolean"
+        },
+        "name": {
+          "description": "Unique on the board; the status bar shows it while the cursor is inside.",
+          "type": "string"
+        },
+        "shape": {
+          "$ref": "#/$defs/LocalGridShape"
+        },
+        "shown": {
+          "description": "Drawn on the canvas. A hidden Local Grid still snaps while it is enabled.",
+          "type": "boolean"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uuid",
+        "name",
+        "applies_to",
+        "shown",
+        "enabled",
+        "locked",
+        "shape"
+      ],
+      "type": "object"
+    },
+    "LocalGridShape": {
+      "description": "The area a Local Grid covers and the grid points inside it.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "A rectangle with a rectangular grid, both turned by the same rotation.",
+          "properties": {
+            "height": {
+              "description": "Along the grid's Y axis, in nm.",
+              "format": "int64",
+              "type": "integer"
+            },
+            "kind": {
+              "const": "cartesian",
+              "type": "string"
+            },
+            "origin": {
+              "$ref": "#/$defs/Point",
+              "description": "A grid point and the rectangle's first corner, in nm from design zero."
+            },
+            "rotation": {
+              "description": "The grid's X axis, counter-clockwise from +x, in `[0°, 360°)`.",
+              "format": "int64",
+              "type": "integer"
+            },
+            "step_x": {
+              "description": "A length with the unit it was typed in, such as \"0.5mm\" or \"25mil\" (nm, um, mm, mil or in).",
+              "format": "length",
+              "type": "string"
+            },
+            "step_y": {
+              "description": "A length with the unit it was typed in, such as \"0.5mm\" or \"25mil\" (nm, um, mm, mil or in).",
+              "format": "length",
+              "type": "string"
+            },
+            "width": {
+              "description": "Along the grid's X axis, in nm.",
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "kind",
+            "origin",
+            "rotation",
+            "step_x",
+            "step_y",
+            "width",
+            "height"
+          ],
+          "type": "object"
+        }
+      ]
     },
     "Mask": {
       "additionalProperties": false,

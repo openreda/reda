@@ -152,19 +152,29 @@ fn snap_mode_and_gridless_per_document_type() {
         .unwrap();
     assert_eq!(
         out,
-        json!({"mode": "on", "gridless": false, "hotspots_off": [], "guides": false})
+        json!({"mode": "on", "gridless": false, "hotspots_off": [], "guides": false,
+               "local_grids": false})
     );
     // A sheet has no Guides to snap to.
     let err = shell
         .run("view.snap.set", json!({"document": sheet, "guides": true}))
         .unwrap_err();
     assert_eq!(err.details, Some(json!({"pointer": "/guides"})));
+    // Nor Local Grids.
+    let err = shell
+        .run(
+            "view.snap.set",
+            json!({"document": sheet, "local_grids": true}),
+        )
+        .unwrap_err();
+    assert_eq!(err.details, Some(json!({"pointer": "/local_grids"})));
     let out = shell
         .run("view.snap.set", json!({"document": board}))
         .unwrap();
     assert_eq!(
         out,
-        json!({"mode": "active_layer", "gridless": false, "hotspots_off": [], "guides": true})
+        json!({"mode": "active_layer", "gridless": false, "hotspots_off": [], "guides": true,
+               "local_grids": true})
     );
 
     let out = shell
@@ -175,7 +185,8 @@ fn snap_mode_and_gridless_per_document_type() {
         .unwrap();
     assert_eq!(
         out,
-        json!({"mode": "all_layers", "gridless": true, "hotspots_off": [], "guides": true})
+        json!({"mode": "all_layers", "gridless": true, "hotspots_off": [], "guides": true,
+               "local_grids": true})
     );
     // The sheet is untouched.
     let out = shell
@@ -183,7 +194,8 @@ fn snap_mode_and_gridless_per_document_type() {
         .unwrap();
     assert_eq!(
         out,
-        json!({"mode": "on", "gridless": false, "hotspots_off": [], "guides": false})
+        json!({"mode": "on", "gridless": false, "hotspots_off": [], "guides": false,
+               "local_grids": false})
     );
 
     let err = shell
@@ -258,7 +270,8 @@ fn the_working_state_is_kept_in_view_json_and_not_in_the_documents() {
         .unwrap();
     assert_eq!(
         out,
-        json!({"mode": "off", "gridless": true, "hotspots_off": [], "guides": true})
+        json!({"mode": "off", "gridless": true, "hotspots_off": [], "guides": true,
+               "local_grids": true})
     );
     assert!(!again.selection_filter(board).allows(FilterKind::Zone));
     assert!(again.selection_filter(board).allows(FilterKind::Track));

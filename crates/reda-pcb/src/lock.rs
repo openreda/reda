@@ -1,7 +1,7 @@
 //! Locks on placed objects (docs/spec/v0.1/pcb.md#locks).
 //!
 //! Footprints, Tracks, Vias, Zones, Free Pads, text, graphics, Dimensions, Keepouts, the
-//! Board Outline, Board Cutouts and Guides carry `locked`. A lock blocks geometry changes only:
+//! Board Outline, Board Cutouts, Guides and Local Grids carry `locked`. A lock blocks geometry changes only:
 //! every Command that moves, turns, flips, deletes or reshapes an object refuses a locked
 //! one through [`refuse`] unless given `include_locked`. Sync, Update from Library and
 //! `pcb.board.move` still apply, and keep the lock.
@@ -51,6 +51,9 @@ pub fn lock_of(pcb: &PcbDocument, object: Uuid) -> Option<bool> {
     if let Some(g) = pcb.guide(object) {
         return Some(g.locked);
     }
+    if let Some(g) = pcb.local_grid(object) {
+        return Some(g.locked);
+    }
     pcb.cutout(object).map(|c| c.locked)
 }
 
@@ -80,6 +83,8 @@ fn name(pcb: &PcbDocument, object: Uuid) -> String {
         "a Board Cutout"
     } else if pcb.guide(object).is_some() {
         "a Guide"
+    } else if let Some(g) = pcb.local_grid(object) {
+        return format!("Local Grid \"{}\"", g.name);
     } else {
         "the Board Outline"
     };
@@ -142,5 +147,6 @@ pub(crate) fn with_lock(pcb: &PcbDocument, object: Uuid, locked: bool) -> Option
     set!(pcb.outline().filter(|o| o.uuid == object), BoardOutline);
     set!(pcb.cutout(object), BoardCutout);
     set!(pcb.guide(object), Guide);
+    set!(pcb.local_grid(object), LocalGrid);
     None
 }

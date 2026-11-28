@@ -91,6 +91,8 @@
 //!   ],
 //!   "grids": {"board":[
 //!     {"uuid":"…","step_x":"0.5mm","step_y":"1.27mm","in_cycle":true,"default":true}
+//!   ],"local":[
+//!     {"uuid":"…","name":"Header","applies_to":"all","shown":true,"enabled":true,"locked":false,"shape":{"kind":"cartesian","origin":{…},"rotation":0,"step_x":"2.54mm","step_y":"2.54mm","width":20000000,"height":5000000}}
 //!   ]}
 //! }
 //! ```
@@ -106,7 +108,9 @@
 //! instances, each Pad's Net on its own line) are left out while the board has no
 //! Footprints. `dimensions`, `tracks`, `vias`, `free_pads`, `zones`, `keepouts`,
 //! `zone_cutouts`, `waivers` (of DRC Violations) and `guides` are left out while the board
-//! has none, and `grids` while it has no Board Grids (its `local` table is for Local Grids), `output_origin` while it is not set. A Keepout leaves out `layer` when it applies to every
+//! has none, and `grids` while it has no Board Grids or Local Grids (each of its `board` and
+//! `local` tables is left out while empty; `local` is in priority order, first wins),
+//! `output_origin` while it is not set. A Keepout leaves out `layer` when it applies to every
 //! copper Layer; a `line` Keepout adds its `width`. Zone fills are never stored here: they
 //! live in the `.reda/` cache.
 
@@ -114,9 +118,9 @@ use std::path::Path;
 
 use reda_model::{
     BoardCutout, BoardGrid, BoardOutline, BoardSetup, DesignRule, Dimension, DrcSeverities,
-    EdgeConnector, FootprintInstance, FreePad, Guide, InDocument, Keepout, LayerSet, Net, NetClass,
-    Object, OutputOrigin, PcbDocument, PcbGraphic, PcbText, Stackup, Track, Uuid, Via, Waiver,
-    Zone, ZoneCutout, ZoneNameScheme,
+    EdgeConnector, FootprintInstance, FreePad, Guide, InDocument, Keepout, LayerSet, LocalGrid,
+    Net, NetClass, Object, OutputOrigin, PcbDocument, PcbGraphic, PcbText, Stackup, Track, Uuid,
+    Via, Waiver, Zone, ZoneCutout, ZoneNameScheme,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -203,14 +207,19 @@ pub(crate) struct PcbFile {
     grids: Option<GridsFile>,
 }
 
-/// The PCB file's `grids`: the Board Grids, sorted by UUID.
+/// The PCB file's `grids`: the Board Grids, sorted by UUID, and the Local Grids in
+/// priority order.
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct GridsFile {
     /// Grid steps saved with the board, offered in its grid cycle; at most one is the
-    /// `default` a board opened with no view state starts on.
-    #[serde(default)]
+    /// `default` a board opened with no view state starts on. Left out while empty.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     board: Vec<BoardGrid>,
+    /// Areas of the board with their own grid, in priority order: where two overlap the
+    /// first wins, and the everyday grid is last. Left out while empty.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    local: Vec<LocalGrid>,
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
@@ -317,11 +326,20 @@ pub(crate) fn write_pcb_file(pcb: &PcbDocument) -> Result<Vec<u8>, CanonicalErro
     if pcb.guides().next().is_some() {
         w.table("guides", pcb.guides(), |g| g.uuid)?;
     }
-    if pcb.board_grids().next().is_some() {
-        let grids = GridsFile {
-            board: pcb.board_grids().cloned().collect(),
-        };
-        w.container("grids", &grids, "board")?;
+    let grids = GridsFile {
+        board: pcb.board_grids().cloned().collect(),
+        local: pcb.local_grids().cloned().collect(),
+    };
+    let children: Vec<&str> = [
+        ("board", grids.board.is_empty()),
+        ("local", grids.local.is_empty()),
+    ]
+    .into_iter()
+    .filter(|(_, empty)| !empty)
+    .map(|(key, _)| key)
+    .collect();
+    if !children.is_empty() {
+        w.container_spread("grids", &grids, &children)?;
     }
     Ok(w.finish())
 }
@@ -456,11 +474,15 @@ pub(crate) fn read_pcb_file(
             .into_iter()
             .map(|g| Object::Guide(InDocument::new(doc, g))),
     );
-    objects.extend(
-        (file.grids.into_iter())
-            .flat_map(|g| g.board)
-            .map(|g| Object::BoardGrid(InDocument::new(doc, g))),
-    );
+    if let Some(grids) = file.grids {
+        objects
+            .extend((grids.board.into_iter()).map(|g| Object::BoardGrid(InDocument::new(doc, g))));
+        // The list order is the priority.
+        objects.extend(grids.local.into_iter().zip(0..).map(|(mut g, rank)| {
+            g.rank = rank;
+            Object::LocalGrid(InDocument::new(doc, g))
+        }));
+    }
     for object in &mut objects {
         normalise_rotations(object);
     }

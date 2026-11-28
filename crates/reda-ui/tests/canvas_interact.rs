@@ -219,6 +219,8 @@ fn the_cursor_snaps_to_the_grid_unless_an_electrical_target_is_near() {
         off: Default::default(),
         alignment: true,
         placed: Vec::new(),
+        local: Vec::new(),
+        component: false,
     };
     // Nothing near: the nearest 50 mil grid point.
     let snapped = snap(at(1.0, 1.4), &targets, &[], &rules);

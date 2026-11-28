@@ -71,7 +71,8 @@
             { "id": "place.guide.line", "command": "tool.activate:guide", "title": "menu-place-guide-line" },
             { "id": "place.guide.point", "command": "tool.activate:point_guide", "title": "menu-place-guide-point" }
           ]
-        }
+        },
+        { "id": "place.local_grid", "command": "tool.activate:local_grid", "title": "menu-place-local-grid" }
       ]
     },
     {

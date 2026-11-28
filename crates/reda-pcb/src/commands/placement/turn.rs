@@ -23,9 +23,8 @@ pub(super) fn register_all(registry: &mut Registry) {
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct MoveParams {
-    /// The Footprints, Free Pads, Dimensions, Guides, Output Origin, Board Outline and Board
-    /// Cutouts
-    /// to move, by UUID.
+    /// The Footprints, Free Pads, Dimensions, Guides, Local Grids, Output Origin, Board
+    /// Outline and Board Cutouts to move, by UUID.
     pub objects: Vec<Uuid>,
     /// How far to move them.
     pub by: PointParam,
@@ -40,9 +39,10 @@ impl Command for Move {
     const META: Meta = Meta {
         id: "pcb.move",
         title: "Move",
-        description: "Moves Footprints, Free Pads, Dimensions, Guides, the Output Origin, the \
-                      Board Outline and Board Cutouts by an offset. Moving the Board Outline \
-                      without the rest is Move Board Shape, which carries every Guide too; \
+        description: "Moves Footprints, Free Pads, Dimensions, Guides, Local Grids, the Output \
+                      Origin, the Board Outline and Board Cutouts by an offset. Moving the \
+                      Board Outline without the rest is Move Board Shape, which carries every \
+                      Guide and Local Grid too; \
                       `pcb.board.move` moves the whole board. \
                       Refused when any of them is locked (unless `include_locked`), or a \
                       Dimension without the objects it references.",
@@ -73,9 +73,8 @@ impl Command for Move {
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct RotateParams {
-    /// The Footprints, Free Pads, Dimensions, Guides, Output Origin, Board Outline and Board
-    /// Cutouts
-    /// to turn, by UUID.
+    /// The Footprints, Free Pads, Dimensions, Guides, Local Grids, Output Origin, Board
+    /// Outline and Board Cutouts to turn, by UUID.
     pub objects: Vec<Uuid>,
     /// Counter-clockwise; 90° when left out. Any angle is allowed.
     #[serde(default)]
@@ -95,8 +94,8 @@ impl Command for Rotate {
     const META: Meta = Meta {
         id: "pcb.rotate",
         title: "Rotate",
-        description: "Turns Footprints, Free Pads, Dimensions, Guides, the Output Origin, the Board \
-                      Outline and Board Cutouts counter-clockwise (90° by default) about a point: a lone object turns \
+        description: "Turns Footprints, Free Pads, Dimensions, Guides, Local Grids, the Output \
+                      Origin, the Board Outline and Board Cutouts counter-clockwise (90° by default) about a point: a lone object turns \
                       in place, a \
                       selection about the middle of its extent. Refused when any of them is \
                       locked (unless `include_locked`).",
@@ -131,9 +130,8 @@ impl Command for Rotate {
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct FlipParams {
-    /// The Footprints, Free Pads, Dimensions, Guides, Output Origin, Board Outline and Board
-    /// Cutouts
-    /// to flip, by UUID.
+    /// The Footprints, Free Pads, Dimensions, Guides, Local Grids, Output Origin, Board
+    /// Outline and Board Cutouts to flip, by UUID.
     pub objects: Vec<Uuid>,
     /// A point on the vertical line to mirror about: by default a lone object's own
     /// position, else the middle of the selection's extent. Only its x counts.
@@ -189,7 +187,8 @@ impl Command for Flip {
 #[serde(deny_unknown_fields)]
 pub struct LockParams {
     /// The objects to lock or unlock, by UUID: Footprints, Tracks, Vias, Zones, Free Pads,
-    /// text, graphics, Dimensions, Keepouts, Guides, the Board Outline and Board Cutouts.
+    /// text, graphics, Dimensions, Keepouts, Guides, Local Grids, the Board Outline and
+    /// Board Cutouts.
     pub objects: Vec<Uuid>,
     /// True locks their geometry; false unlocks it.
     pub locked: bool,
@@ -202,8 +201,8 @@ impl Command for Lock {
         id: "pcb.lock",
         title: "Lock",
         description: "Locks placed objects (Footprints, Tracks, Vias, Zones, Free Pads, text, \
-                      graphics, Dimensions, Keepouts, Guides, the Board Outline and Board \
-                      Cutouts) \
+                      graphics, Dimensions, Keepouts, Guides, Local Grids, the Board Outline \
+                      and Board Cutouts) \
                       against geometry changes, or unlocks them. A lock refuses moving, \
                       turning, flipping, deleting and reshaping unless a Command is given \
                       `include_locked`; other values stay editable, and Sync, Update from \

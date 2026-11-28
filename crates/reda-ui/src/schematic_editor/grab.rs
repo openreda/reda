@@ -235,7 +235,7 @@ impl Command for Nudge {
             NudgeDirection::Up => (0, p.steps),
             NudgeDirection::Down => (0, -p.steps),
         };
-        let (grid, _, _) = crate::edit_cursor::step_grid(cx, document)?;
+        let (grid, _, _) = crate::edit_cursor::step_grid(cx, document, None, false)?;
         let by = grid.step(at, dx, dy, false) - at;
         Ok(Nudged {
             objects: p.objects,

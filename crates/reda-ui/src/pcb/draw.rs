@@ -84,9 +84,12 @@ fn shape(tool: Tool, keepout: KeepoutToolShape) -> Shape {
         Tool::BoardOutline | Tool::BoardCutout | Tool::Zone | Tool::ZoneCutout | Tool::Keepout => {
             Shape::Polygon
         }
-        Tool::BoardOutlineRect | Tool::Line | Tool::Rect | Tool::MoveBy | Tool::Swap => {
-            Shape::TwoPoints
-        }
+        Tool::BoardOutlineRect
+        | Tool::Line
+        | Tool::Rect
+        | Tool::LocalGrid
+        | Tool::MoveBy
+        | Tool::Swap => Shape::TwoPoints,
         Tool::Arc => Shape::Arc,
         Tool::Text
         | Tool::FreePad
@@ -227,7 +230,10 @@ impl Draw {
                 Some(Preview { points, closed })
             }
             Shape::TwoPoints => {
-                let (&a, b) = (self.points.first()?, cursor?);
+                // A drag shows its shape before the release puts both ends down.
+                let first = self.points.first().copied();
+                let a = first.or(self.pressed.filter(|_| self.dragged))?;
+                let b = cursor?;
                 Some(match self.tool {
                     Tool::Keepout if self.keepout == KeepoutToolShape::Circle => Preview {
                         points: geometry::circle_points(a, b),
@@ -720,6 +726,23 @@ impl Draw {
                 "pcb.guide.add",
                 json!({"kind": "point", "at": xy(points[0])}),
             ),
+            Tool::LocalGrid => {
+                // The rectangle's lower-left corner is its origin, so its grid points
+                // line up with that corner; it steps by the everyday grid.
+                let (a, b) = (points[0], points[1]);
+                let origin = Point::new(a.x.min(b.x), a.y.min(b.y));
+                let (width, height) = ((a.x.0 - b.x.0).abs(), (a.y.0 - b.y.0).abs());
+                if width == 0 || height == 0 {
+                    return None;
+                }
+                let step = shell.grid(shell.engine().project()?.pcb()?.uuid);
+                (
+                    "pcb.local_grid.add",
+                    json!({"shape": {"kind": "cartesian", "origin": xy(origin),
+                                     "step_x": step.x.0, "step_y": step.y.0,
+                                     "width": width, "height": height}}),
+                )
+            }
             Tool::MoveBy => {
                 let by = points[1] - points[0];
                 (

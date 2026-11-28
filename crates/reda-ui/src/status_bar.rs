@@ -13,7 +13,7 @@
 //! button after these ([`crate::App`]). [`readout`] is the text, for tests; [`show`] draws.
 
 use egui::{Role, Ui, WidgetInfo};
-use reda_engine::model::Uuid;
+use reda_engine::model::{LocalGrid, LocalGridShape, Uuid};
 use reda_engine::preferences::Units;
 use serde_json::{Value, json};
 
@@ -105,6 +105,38 @@ fn has_canvas(shell: &Shell, document: Uuid) -> bool {
         || !crate::element_editor::is_element(shell.engine(), document)
 }
 
+/// The grid readout: the grid in use, or inside a Local Grid that grid's name and step.
+fn grid_text(shell: &Shell, document: Uuid) -> String {
+    match local_grid_at_cursor(shell, document) {
+        Some(local) => {
+            let LocalGridShape::Cartesian(c) = &local.shape;
+            let step = grid::Step::new(c.step_x.nm(), Some(c.step_y.nm()));
+            tr!(
+                "status-local-grid",
+                name = local.name.clone(),
+                grid = grid::step_label(step)
+            )
+        }
+        None => tr!("status-grid", grid = grid::step_label(shell.grid(document))),
+    }
+}
+
+/// The Local Grid in force where the cursor last snapped on the board `document`, if it
+/// is inside one whose level is on.
+pub fn local_grid_at_cursor(shell: &Shell, document: Uuid) -> Option<LocalGrid> {
+    if !shell.is_pcb(document) {
+        return None;
+    }
+    let snapped = match shell.tool() {
+        Tool::Route | Tool::Via => shell.router().snap(),
+        _ => shell.pcb_snap(),
+    }?;
+    let mut rules = crate::snap::rules(shell, document);
+    rules.component = shell.pcb_tool().carrying_component();
+    let at = (snapped.at.x.0 as f64, snapped.at.y.0 as f64);
+    rules.local_at(at).cloned()
+}
+
 /// The readout of the active Document.
 pub fn readout(shell: &Shell) -> Readout {
     let Some(tab) = shell.active_document() else {
@@ -147,7 +179,7 @@ pub fn readout(shell: &Shell) -> Readout {
         kind: Some(tr!("status-active", kind = kind)),
         cursor: cursor.filter(|_| canvas),
         delta: crate::delta::text(shell, document).filter(|_| canvas),
-        grid: canvas.then(|| tr!("status-grid", grid = grid::step_label(shell.grid(document)))),
+        grid: canvas.then(|| grid_text(shell, document)),
         snap,
         layer,
         prompt: prompt(shell, document).filter(|_| canvas),

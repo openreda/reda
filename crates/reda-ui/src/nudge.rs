@@ -196,6 +196,7 @@ fn placeable(pcb: &PcbDocument, object: Uuid) -> bool {
         || pcb.outline().is_some_and(|o| o.uuid == object)
         || pcb.output_origin().is_some_and(|o| o.uuid == object)
         || pcb.guide(object).is_some()
+        || pcb.local_grid(object).is_some()
 }
 
 fn first_vertex(vertices: &[Vertex]) -> Option<Point> {
@@ -223,6 +224,7 @@ fn board_anchor(pcb: &PcbDocument, object: Uuid) -> Option<Point> {
                 .map(|o| o.at)
         })
         .or_else(|| pcb.guide(object).map(|g| g.at))
+        .or_else(|| (pcb.local_grid(object)).and_then(|g| g.outline().first().copied()))
 }
 
 /// The point of a library shape that a nudge puts on the grid.
@@ -326,7 +328,11 @@ fn nudge(cx: &mut Context<'_>, kind: DocumentType, p: NudgeParams) -> Result<Nud
             "nothing is selected that can be nudged",
         ));
     };
-    let (grid, _, mirrored) = crate::edit_cursor::step_grid(cx, document)?;
+    // A Component nudged inside a Local Grid steps on it when it applies to Components.
+    let component = (cx.project().ok())
+        .and_then(|p| p.pcb_document(document))
+        .is_some_and(|pcb| objects.first().is_some_and(|o| pcb.footprint(*o).is_some()));
+    let (grid, _, mirrored) = crate::edit_cursor::step_grid(cx, document, Some(anchor), component)?;
     let dx = if mirrored { -p.dx } else { p.dx };
     let by = grid.step(anchor, dx, p.dy, false) - anchor;
     Ok(Nudged {

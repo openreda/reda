@@ -13,6 +13,7 @@ mod camera;
 mod gpu;
 mod guides;
 pub mod interact;
+mod local_grids;
 pub mod markers;
 mod widget;
 

@@ -5,7 +5,8 @@
 use reda_model::Uuid;
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_render::gpu::{
-    Canvas, Flags, GpuScene, Grid, GridSpec, Headless, Highlight, Image, RenderError, Writes,
+    Canvas, Flags, GpuScene, Grid, GridQuad, GridSpec, Headless, Highlight, Image, RenderError,
+    Writes,
 };
 use reda_render::{
     Align, BoardColor, ColorKey, Composite, GlyphRun, Palette, Primitive, Rgba, Scene, SceneLayer,
@@ -396,6 +397,9 @@ fn the_grid_draws_dots_on_grid_points_over_the_scene() {
         radius_px: 1.5,
         color: Rgba([0, 0, 0, 255]),
         paper: None,
+        angle: 0.0,
+        inside: None,
+        outside: Vec::new(),
     };
     grid.set(gpu.queue(), &view, Some(&spec));
     let img = gpu
@@ -444,6 +448,9 @@ fn the_grid_draws_bigger_coarse_dots_or_faint_fine_and_strong_coarse_lines() {
         radius_px: 1.5,
         color: Rgba([0, 0, 0, 255]),
         paper: None,
+        angle: 0.0,
+        inside: None,
+        outside: Vec::new(),
     };
     let mut draw = |spec: &GridSpec| {
         grid.set(gpu.queue(), &view, Some(spec));
@@ -501,6 +508,9 @@ fn a_grid_with_its_own_y_spacing_draws_dots_on_each_axis_step() {
         radius_px: 1.5,
         color: Rgba([0, 0, 0, 255]),
         paper: None,
+        angle: 0.0,
+        inside: None,
+        outside: Vec::new(),
     };
     grid.set(gpu.queue(), &view, Some(&spec));
     let img = gpu
@@ -523,6 +533,57 @@ fn push_board(scene: &mut Scene, layer: u128, color: BoardColor, primitive: Prim
         primitive,
         look: Default::default(),
     });
+}
+
+#[test]
+fn a_local_grid_draws_turned_inside_its_area_and_the_everyday_grid_leaves_it_out() {
+    let Some(gpu) = headless() else { return };
+    // Paper only: 100 mm square filling a 100 px image, so 1 px = 1 mm.
+    let mut scene = Scene::new(SceneSource::None);
+    let c = Point::new(mm(50), mm(50));
+    push(
+        &mut scene,
+        id(1),
+        SchematicColor::Paper,
+        filled_rect(c, 100, 100),
+    );
+    let palette = Palette::shipped(Theme::Light);
+    let paper = rgb(palette.color(ColorKey::Schematic(SchematicColor::Paper)));
+    let gs = GpuScene::new(gpu.device(), &scene);
+    let mut cv = Canvas::new(gpu.device(), gpu.renderer());
+    cv.set_palette(gpu.queue(), &palette);
+    let view = view_of(&scene, 100);
+    let mut grid = Grid::new(gpu.device(), gpu.renderer());
+    let black = Rgba([0, 0, 0, 255]);
+    let mm = |v: f64| v * 1_000_000.0;
+    // The Local Grid's area: 40 mm square from Document (0, 0).
+    let area = GridQuad {
+        corner: (0.0, 0.0),
+        a: (mm(40.0), 0.0),
+        b: (0.0, mm(40.0)),
+    };
+    let mut everyday = GridSpec::new((0.0, 0.0), (mm(10.0), mm(10.0)), black);
+    everyday.outside = vec![area];
+    // 10 mm along its own axes from (20 mm, 20 mm), turned 45°.
+    let mut local = GridSpec::new((mm(20.0), mm(20.0)), (mm(10.0), mm(10.0)), black);
+    local.angle = std::f64::consts::FRAC_PI_4;
+    local.inside = Some(area);
+    grid.set_all(gpu.device(), gpu.queue(), &view, &[everyday, local]);
+    let img = gpu
+        .render_frame_with(&gs, &mut cv, &view, |pass| grid.draw(pass))
+        .unwrap();
+    // The everyday grid's (60 mm, 30 mm), outside the area: pixel (60, 70).
+    assert_eq!(pixel(&img, 60, 70), [0, 0, 0, 255]);
+    // Its (30 mm, 20 mm) is inside, and no point of the turned grid: paper.
+    assert_eq!(pixel(&img, 30, 80), paper);
+    // One step along the turned X from (20 mm, 20 mm) is (27.07 mm, 27.07 mm): pixel
+    // (27, 72) holds its dot.
+    assert_eq!(pixel(&img, 27, 72), [0, 0, 0, 255]);
+    // So does the origin itself.
+    assert_eq!(pixel(&img, 20, 80), [0, 0, 0, 255]);
+    // Four steps along X and one along Y, (41.21 mm, 55.36 mm), is past the area's edge
+    // and far from any everyday point: pixel (41, 44) is not drawn.
+    assert_eq!(pixel(&img, 41, 44), paper);
 }
 
 /// How far each channel of `a` is from `b`, at most.
@@ -709,6 +770,9 @@ fn the_grid_stops_at_the_papers_edge() {
         radius_px: 1.5,
         color: Rgba([0, 0, 0, 255]),
         paper: Some(((0.0, 0.0), (100_000_000.0, 100_000_000.0))),
+        angle: 0.0,
+        inside: None,
+        outside: Vec::new(),
     };
     grid.set(gpu.queue(), &view, Some(&spec));
     let img = gpu

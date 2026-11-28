@@ -29,6 +29,7 @@ pub mod draw;
 pub mod layer_control;
 pub(crate) mod layer_hover;
 pub mod live_hover;
+pub mod local_grid_edit;
 pub mod marks;
 pub mod measure;
 pub mod placement_bar;

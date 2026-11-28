@@ -165,11 +165,16 @@ pub struct Canvas {
 pub struct Snap {
     /// The cursor snaps to Guides, point Guides and where Guides cross.
     pub guides: bool,
+    /// Inside a Local Grid, the cursor snaps to its grid.
+    pub local_grids: bool,
 }
 
 impl Default for Snap {
     fn default() -> Snap {
-        Snap { guides: true }
+        Snap {
+            guides: true,
+            local_grids: true,
+        }
     }
 }
 

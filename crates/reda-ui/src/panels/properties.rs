@@ -9,6 +9,7 @@ mod annotation;
 mod arc_tool;
 mod guides;
 mod library;
+pub(crate) mod local_grids;
 mod overview;
 mod plated_edge;
 pub(crate) mod rules;
@@ -261,7 +262,8 @@ fn content(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
                     },
                 );
             }
-            let guide = guides::selected(ui, shell, project, units(shell), &mut out);
+            let guide = guides::selected(ui, shell, project, units(shell), &mut out)
+                || local_grids::selected(ui, shell, project, units(shell), &mut out);
             track::show(ui, shell, project, units(shell), &mut out);
             plated_edge::show(ui, shell, project, &mut out);
             annotation::show(ui, shell, project, units(shell), &mut out);

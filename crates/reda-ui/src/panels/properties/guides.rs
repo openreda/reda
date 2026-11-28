@@ -2,7 +2,7 @@
 //! fields, and with nothing selected the board's **Grids & Guides** region, a row per
 //! Guide with its shown and enabled switches and Remove, the Show Grids & Guides toggle,
 //! and Add for each kind. Clicking a row's name selects that Guide. Every edit is a
-//! `pcb.guide.*` Command.
+//! `pcb.guide.*` Command. The board's Local Grids follow (see [`super::local_grids`]).
 
 use egui::Ui;
 use reda_engine::model::geom::Millideg;
@@ -117,10 +117,12 @@ pub(super) fn region(ui: &mut Ui, shell: &Shell, project: &Project, out: &mut Ve
             row(ui, shell, guide, units, out);
         });
     }
-    ui.horizontal(|ui| {
+    super::local_grids::rows(ui, shell, project, out);
+    ui.horizontal_wrapped(|ui| {
         for (tool, label) in [
             ("guide", tr!("properties-guides-add-line")),
             ("point_guide", tr!("properties-guides-add-point")),
+            ("local_grid", tr!("properties-local-grids-add")),
         ] {
             if ui.add(widgets::button(label)).clicked() {
                 out.push(Out::Run("tool.activate", json!({ "tool": tool })));
@@ -178,13 +180,13 @@ fn kind_name(kind: GuideKind) -> String {
 }
 
 /// An angle as degrees, without trailing zeros: `45`, `22.5`.
-fn degrees(angle: Millideg) -> String {
+pub(super) fn degrees(angle: Millideg) -> String {
     let text = format!("{:.3}", angle.0 as f64 / 1000.0);
     text.trim_end_matches('0').trim_end_matches('.').to_owned()
 }
 
 /// Degrees as typed, `45`, `-45°` or `22.5 deg`, in millidegrees.
-fn parse_degrees(text: &str) -> Option<Millideg> {
+pub(super) fn parse_degrees(text: &str) -> Option<Millideg> {
     let text = text.trim();
     let number = text
         .strip_suffix('°')

@@ -9,6 +9,9 @@ use reda_engine::format::LoadError;
 use reda_engine::format::library::{read_footprint, read_part, read_symbol};
 use reda_engine::model::geom::{Millideg, Nm, Point, Vertex};
 use reda_engine::model::{
+    AppliesTo, CartesianGrid, LengthUnit, LocalGrid, LocalGridShape, TypedLength,
+};
+use reda_engine::model::{
     BoardCutout, BoardGrid, BoardOutline, BoardSetup, Column, ColumnSource, ComponentRef,
     ComponentType, CopperEntry, DielectricEntry, DocumentEntry, DocumentKind, DrcCheck,
     DrcSeverities, ErcCheck, ErcSettings, FabPreset, FileNaming, FootprintCopy, FootprintInstance,
@@ -25,7 +28,6 @@ use reda_engine::model::{
     PreferredSeeds, Purpose, RuleKind, RuleLayers, RuleScope, RuleValues, UnusedLayers,
     ViaDiameter, ViaType, ZoneConnection,
 };
-use reda_engine::model::{LengthUnit, TypedLength};
 use reda_engine::store::{encode, load_from};
 use serde_json::Value;
 
@@ -109,7 +111,22 @@ struct PcbSeed {
     /// Board Grids: Step X, Step Y, Visible and In cycle; the first one is the Default
     /// when the flag is set.
     board_grids: (Vec<BoardGridSeed>, bool),
+    /// Cartesian Local Grids: Applies to (an index), origin, rotation, steps, width and
+    /// height (nm), and the three switches. They are ranked in reverse UUID order, so the
+    /// file's priority order is not its UUID order.
+    local_grids: Vec<LocalGridSeed>,
 }
+
+/// A Cartesian Local Grid's fields, as in [`PcbSeed::local_grids`].
+type LocalGridSeed = (
+    usize,
+    Point,
+    i64,
+    TypedLength,
+    TypedLength,
+    (i64, i64),
+    [bool; 3],
+);
 
 /// A Board Grid: Step X, an optional Step Y and Visible, and In cycle.
 type BoardGridSeed = (TypedLength, Option<TypedLength>, Option<TypedLength>, bool);
@@ -756,11 +773,23 @@ prop_compose! {
             ),
             any::<bool>(),
         ),
+        local_grids in prop::collection::vec(
+            (
+                0usize..3,
+                point(),
+                0i64..360_000,
+                typed_length(),
+                typed_length(),
+                (1i64..100_000_000, 1i64..100_000_000),
+                prop::array::uniform3(any::<bool>()),
+            ),
+            0..3,
+        ),
     ) -> PcbSeed {
         PcbSeed {
             base, name, title, rules, severities, outline, cutouts, classes, nets, texts,
             graphics, footprint, copper, stack, finish, vias, rules_v2, mechanical, heights,
-            pad_stack, guides, board_grids,
+            pad_stack, guides, board_grids, local_grids,
         }
     }
 }
@@ -1268,6 +1297,34 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
             default: i == 0 && first_is_default,
         };
         objects.push(Object::BoardGrid(InDocument::new(doc, grid)));
+    }
+    let n = seed.local_grids.len();
+    for (i, (applies, origin, rotation, step_x, step_y, (width, height), switches)) in
+        seed.local_grids.into_iter().enumerate()
+    {
+        let [shown, enabled, locked] = switches;
+        let grid = LocalGrid {
+            uuid: id(),
+            name: format!("Grid {i}"),
+            applies_to: [
+                AppliesTo::All,
+                AppliesTo::Components,
+                AppliesTo::NotComponents,
+            ][applies],
+            shown,
+            enabled,
+            locked,
+            shape: LocalGridShape::Cartesian(CartesianGrid {
+                origin,
+                rotation: Millideg(rotation),
+                step_x,
+                step_y,
+                width: Nm(width),
+                height: Nm(height),
+            }),
+            rank: (n - 1 - i) as u32,
+        };
+        objects.push(Object::LocalGrid(InDocument::new(doc, grid)));
     }
     let entry = DocumentEntry {
         uuid: doc,

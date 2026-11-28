@@ -121,6 +121,20 @@ impl CanonicalWriter {
         Ok(())
     }
 
+    /// Like [`CanonicalWriter::container`], spreading several array fields: each of
+    /// `children` must be there, and each of their elements goes on its own line.
+    pub fn container_spread<T: Serialize + ?Sized>(
+        &mut self,
+        key: &str,
+        value: &T,
+        children: &[&str],
+    ) -> Result<(), CanonicalError> {
+        let text = spread(key, value, children, 2)?;
+        self.key(key);
+        self.out.push_str(&text);
+        Ok(())
+    }
+
     /// Writes a table of containers (see [`CanonicalWriter::container`]), sorted by UUID as
     /// [`CanonicalWriter::table`] sorts.
     pub fn containers<T: Serialize>(

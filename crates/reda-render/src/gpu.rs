@@ -32,7 +32,7 @@ use crate::scene::{Scene, SceneLayer};
 use crate::view::View;
 
 pub use blit::{Blit, BlitSource};
-pub use grid::{Grid, GridSpec};
+pub use grid::{Grid, GridQuad, GridSpec, MAX_HOLES};
 pub use headless::{Headless, Image, RenderError};
 pub use instances::{Flags, Highlight};
 pub use target::Target;

@@ -28,6 +28,9 @@ pub struct SceneHandle {
     /// A board's Guides as this Scene's Project holds them (a move in flight carries
     /// them): editor aids drawn over the canvas, never part of the Scene.
     pub guides: Arc<Vec<reda_engine::model::Guide>>,
+    /// A board's Local Grids in priority order, as `guides` are carried: drawn by the
+    /// canvas's grid, never part of the Scene.
+    pub local_grids: Arc<Vec<reda_engine::model::LocalGrid>>,
 }
 
 /// The selected and highlighted objects shared with the paint callback. `generation`
@@ -136,6 +139,8 @@ pub struct CanvasFrame {
     /// The view in physical pixels; its size is the offscreen target's.
     pub view: View,
     pub grid: Option<GridSpec>,
+    /// A board's Local Grids, drawn after `grid`, each inside its own area.
+    pub local_grids: Vec<GridSpec>,
     /// The objects drawn selected.
     pub selection: SelectionHandle,
     /// The hovered object and a move in flight.
@@ -147,7 +152,7 @@ pub struct CanvasFrame {
 }
 
 /// What a recorded frame depended on.
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, PartialEq)]
 struct FrameKey {
     generation: u64,
     selection: u64,
@@ -157,6 +162,7 @@ struct FrameKey {
     theme: Theme,
     view: View,
     grid: Option<GridSpec>,
+    local_grids: Vec<GridSpec>,
 }
 
 impl FrameKey {
@@ -172,7 +178,8 @@ impl FrameKey {
             palette: frame.palette.generation,
             theme: frame.theme,
             view: frame.view,
-            grid: frame.grid,
+            grid: frame.grid.clone(),
+            local_grids: frame.local_grids.clone(),
         }
     }
 }
@@ -260,7 +267,7 @@ impl CanvasResources {
             .entry(frame.canvas)
             .or_insert_with(|| CanvasGpu::new(device, renderer, frame));
         let key = FrameKey::of(frame);
-        if gpu.last == Some(key) {
+        if gpu.last.as_ref() == Some(&key) {
             return false;
         }
         if gpu.generation != frame.scene.generation {
@@ -312,7 +319,11 @@ impl CanvasResources {
         let (dim, mask) = frame.selection.strengths;
         gpu.canvas.set_strengths(dim, mask);
         gpu.canvas.set_view(queue, &gpu.scene, &frame.view);
-        gpu.grid.set(queue, &frame.view, frame.grid.as_ref());
+        let grids: Vec<GridSpec> = (frame.grid.iter())
+            .chain(&frame.local_grids)
+            .cloned()
+            .collect();
+        gpu.grid.set_all(device, queue, &frame.view, &grids);
         let (target, _) = gpu.target.as_ref().expect("made above");
         let grid = &gpu.grid;
         match &frame.scene.layers {

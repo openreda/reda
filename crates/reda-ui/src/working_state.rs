@@ -57,6 +57,8 @@ pub enum FilterKind {
     OutputOrigin,
     /// A board's Guide: picked last under the pointer.
     Guide,
+    /// A board's Local Grid, by its boundary: picked after everything else.
+    LocalGrid,
     /// A Symbol's Pin.
     Pin,
     /// A Symbol's or Footprint's drawing.
@@ -94,6 +96,7 @@ impl FilterKind {
             BoardCutout => "board_cutout",
             OutputOrigin => "output_origin",
             Guide => "guide",
+            LocalGrid => "local_grid",
             Pin => "pin",
             Graphic => "graphic",
             Text => "text",
@@ -134,6 +137,7 @@ impl FilterKind {
             ObjectType::BoardCutout => K::BoardCutout,
             ObjectType::OutputOrigin => K::OutputOrigin,
             ObjectType::Guide => K::Guide,
+            ObjectType::LocalGrid => K::LocalGrid,
             _ => return None,
         })
     }
@@ -169,6 +173,7 @@ pub const PCB_KINDS: &[FilterKind] = &[
     FilterKind::BoardCutout,
     FilterKind::OutputOrigin,
     FilterKind::Guide,
+    FilterKind::LocalGrid,
 ];
 
 /// The kinds the Symbol editor's Filter lists.
@@ -239,11 +244,19 @@ pub struct SnapOptions {
     /// The Guide level is on: the cursor snaps to the Document's enabled Guides. Always
     /// off on a sheet or Symbol, which have no Guides.
     pub guides: bool,
+    /// The Local Grid level is on: inside one of the board's enabled Local Grids the
+    /// cursor snaps to its grid. Always off off a board, which alone has Local Grids.
+    pub local_grids: bool,
 }
 
 /// Whether Documents of type `ty` hold Guides: boards and Footprints.
 fn has_guides(ty: DocumentType) -> bool {
     matches!(ty, DocumentType::Pcb | DocumentType::Footprint)
+}
+
+/// Whether Documents of type `ty` hold Local Grids: boards only.
+pub(crate) fn has_local_grids(ty: DocumentType) -> bool {
+    ty == DocumentType::Pcb
 }
 
 impl SnapOptions {
@@ -254,6 +267,7 @@ impl SnapOptions {
             gridless: false,
             hotspots_off: BTreeSet::new(),
             guides: has_guides(ty),
+            local_grids: has_local_grids(ty),
         }
     }
 
@@ -284,6 +298,7 @@ impl SnapOptions {
                 .copied()
                 .collect(),
             guides: has_guides(ty) && preferences.snap.guides,
+            local_grids: has_local_grids(ty) && preferences.snap.local_grids,
         }
     }
 }
@@ -477,6 +492,10 @@ pub struct SnapSetParams {
     /// Turn the Guide level on or off: snapping onto the Document's enabled Guides.
     #[serde(default)]
     guides: Option<bool>,
+    /// Turn the Local Grid level on or off: snapping to a board's enabled Local Grids
+    /// inside them. Gridless turns them off too.
+    #[serde(default)]
+    local_grids: Option<bool>,
 }
 
 struct SnapSet;
@@ -487,7 +506,7 @@ impl Command for SnapSet {
         title: "Set Snap Options",
         description: "Sets a Document's object snap mode (Active Layer, All Layers or Off on \
                       a board or Footprint; On or Off on a sheet or Symbol), Gridless, \
-                      the Guides switch and its Hotspot checklist. With no changes it \
+                      the Guides and Local Grids switches and its Hotspot checklist. With no changes it \
                       returns them as they are.",
         category: "view",
         icon: "grid",
@@ -525,6 +544,12 @@ impl Command for SnapSet {
                 "only boards and Footprints have Guides",
             ));
         }
+        if p.local_grids.is_some() && !has_local_grids(ty) {
+            return Err(CommandError::invalid_params(
+                "/local_grids",
+                "only boards have Local Grids",
+            ));
+        }
         let state = cx.view::<WorkingState>()?;
         let mut options = state.snap(p.document, ty);
         if let Some(mode) = p.mode {
@@ -535,6 +560,9 @@ impl Command for SnapSet {
         }
         if let Some(guides) = p.guides {
             options.guides = guides;
+        }
+        if let Some(local_grids) = p.local_grids {
+            options.local_grids = local_grids;
         }
         for (kind, on) in p.hotspots {
             match on {

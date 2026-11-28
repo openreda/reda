@@ -1,6 +1,6 @@
-//! Arranging what is placed on the board: Footprints, Free Pads, Dimensions, Guides, the
-//! Output Origin, and the Board Outline and Board Cutouts (Move Board Shape, which carries
-//! every Guide along with the outline).
+//! Arranging what is placed on the board: Footprints, Free Pads, Dimensions, Guides, Local
+//! Grids, the Output Origin, and the Board Outline and Board Cutouts (Move Board Shape,
+//! which carries every Guide and Local Grid along with the outline).
 //!
 //! Every Command here resolves its `objects` to [`Item`]s, works out one [`Op`] per item
 //! and writes the results back in one transaction. Locked objects refuse every Op unless
@@ -17,7 +17,8 @@ use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::geom::{Vertex, contour_bounds};
 use reda_model::{
     BoardCutout, BoardOutline, Corners, Dimension, DimensionTextPosition, FootprintInstance,
-    FreePad, Guide, InDocument, Object, OutputOrigin, PcbDocument, Side, Uuid, line_angle,
+    FreePad, Guide, InDocument, LocalGrid, LocalGridShape, Object, OutputOrigin, PcbDocument, Side,
+    Uuid, line_angle,
 };
 use schemars::JsonSchema;
 use serde::Serialize;
@@ -51,6 +52,7 @@ pub(super) enum Item {
     Outline(BoardOutline),
     Cutout(BoardCutout),
     Guide(Guide),
+    LocalGrid(Box<LocalGrid>),
 }
 
 /// A change of position applied to placed objects: what `pcb.move`, `pcb.rotate` and
@@ -74,6 +76,7 @@ impl Item {
             Item::Outline(o) => o.uuid,
             Item::Cutout(c) => c.uuid,
             Item::Guide(g) => g.uuid,
+            Item::LocalGrid(g) => g.uuid,
         }
     }
 
@@ -84,6 +87,9 @@ impl Item {
             Item::Origin(o) => o.at,
             Item::Dimension(d) => d.a.point,
             Item::Guide(g) => g.at,
+            Item::LocalGrid(g) => match &g.shape {
+                LocalGridShape::Cartesian(c) => c.origin,
+            },
             Item::Outline(_) | Item::Cutout(_) => self.contour_bounds().center(),
         }
     }
@@ -104,6 +110,10 @@ impl Item {
             Item::FreePad(p) => free_pad_bounds(p),
             Item::Origin(o) => Bounds::of_point(o.at),
             Item::Guide(g) => Bounds::of_point(g.at),
+            Item::LocalGrid(g) => (g.outline().into_iter())
+                .map(Bounds::of_point)
+                .reduce(Bounds::union)
+                .expect("an outline has corners"),
             Item::Dimension(d) => Bounds::of_point(d.a.point).union(Bounds::of_point(d.b.point)),
             Item::Outline(_) | Item::Cutout(_) => self.contour_bounds(),
         }
@@ -113,6 +123,7 @@ impl Item {
         match self {
             Item::Dimension(d) => return move_dimension(d, op),
             Item::Guide(g) => return move_guide(g, op),
+            Item::LocalGrid(g) => return move_local_grid(g, op),
             Item::Outline(BoardOutline { vertices, .. })
             | Item::Cutout(BoardCutout { vertices, .. }) => return move_contour(vertices, op),
             _ => {}
@@ -126,7 +137,11 @@ impl Item {
                 (&mut p.at, Some(&mut p.rotation), None)
             }
             Item::Origin(o) => (&mut o.at, None, None),
-            Item::Dimension(_) | Item::Outline(_) | Item::Cutout(_) | Item::Guide(_) => {
+            Item::Dimension(_)
+            | Item::Outline(_)
+            | Item::Cutout(_)
+            | Item::Guide(_)
+            | Item::LocalGrid(_) => {
                 unreachable!("moved above")
             }
         };
@@ -162,6 +177,7 @@ impl Item {
             Item::Outline(o) => Object::BoardOutline(InDocument::new(document, o)),
             Item::Cutout(c) => Object::BoardCutout(InDocument::new(document, c)),
             Item::Guide(g) => Object::Guide(InDocument::new(document, g)),
+            Item::LocalGrid(g) => Object::LocalGrid(InDocument::new(document, *g)),
         }
     }
 }
@@ -181,17 +197,38 @@ fn move_guide(g: &mut Guide, op: Op) {
     }
 }
 
-/// The Guides a move of `items` carries besides them: every other Guide on the board when
-/// the Board Outline moves (Move Board Shape), after the outline's `ops`. Locks don't hold
-/// them back, as with `pcb.board.move`: they belong to the board.
-fn carried_guides(pcb: &PcbDocument, items: &[Item], outline_ops: &[Op]) -> Vec<Item> {
+/// Moves, turns or mirrors a Local Grid: its origin, and its rotation with it. Mirrored,
+/// the rectangle covers the mirror image of where it was, from the corner that becomes
+/// its first.
+fn move_local_grid(g: &mut LocalGrid, op: Op) {
+    let LocalGridShape::Cartesian(c) = &mut g.shape;
+    match op {
+        Op::Translate(by) => c.origin = c.origin + by,
+        Op::Rotate(about, angle) => {
+            c.origin = rotate(c.origin, about, angle);
+            c.rotation = (c.rotation + angle).normalized();
+        }
+        Op::Flip(x) => {
+            let corner = c.point((0.0, c.height.0 as f64));
+            c.origin = Point::new(x * 2 - corner.x, corner.y);
+            c.rotation = (Millideg::from_deg(180) - c.rotation).normalized();
+        }
+    }
+}
+
+/// The editor aids a move of `items` carries besides them: every other Guide and Local
+/// Grid on the board when the Board Outline moves (Move Board Shape), after the outline's
+/// `ops`. Locks don't hold them back, as with `pcb.board.move`: they belong to the board.
+fn carried_aids(pcb: &PcbDocument, items: &[Item], outline_ops: &[Op]) -> Vec<Item> {
     if !items.iter().any(|i| matches!(i, Item::Outline(_))) {
         return Vec::new();
     }
-    pcb.guides()
-        .filter(|g| !items.iter().any(|i| i.uuid() == g.uuid))
-        .map(|g| {
-            let mut item = Item::Guide(g.clone());
+    let guides = pcb.guides().map(|g| Item::Guide(g.clone()));
+    let grids = (pcb.local_grids()).map(|g| Item::LocalGrid(Box::new(g.clone())));
+    guides
+        .chain(grids)
+        .filter(|aid| !items.iter().any(|i| i.uuid() == aid.uuid()))
+        .map(|mut item| {
             for op in outline_ops {
                 item.apply(*op);
             }
@@ -287,12 +324,14 @@ pub(super) fn resolve(pcb: &PcbDocument, uuids: &[Uuid]) -> Result<Vec<Item>, Co
             Item::Cutout(c.clone())
         } else if let Some(g) = pcb.guide(uuid) {
             Item::Guide(g.clone())
+        } else if let Some(g) = pcb.local_grid(uuid) {
+            Item::LocalGrid(Box::new(g.clone()))
         } else {
             return Err(CommandError::invalid_params(
                 &format!("/objects/{i}"),
                 format!(
-                    "{uuid} is not a Footprint, Free Pad, Dimension, Guide, Output Origin, \
-                     Board Outline or Board Cutout on the board"
+                    "{uuid} is not a Footprint, Free Pad, Dimension, Guide, Local Grid, \
+                     Output Origin, Board Outline or Board Cutout on the board"
                 ),
             ));
         };
@@ -379,7 +418,7 @@ pub fn preview_including_locked(
     ops: &[Op],
 ) -> Result<Vec<Object>, CommandError> {
     let mut items = resolve(pcb, objects)?;
-    let carried = carried_guides(pcb, &items, ops);
+    let carried = carried_aids(pcb, &items, ops);
     for item in &mut items {
         for op in ops {
             item.apply(*op);
@@ -405,7 +444,7 @@ fn place(
         .iter()
         .zip(&ops)
         .find_map(|(i, op)| matches!(i, Item::Outline(_)).then_some(*op));
-    let carried = carried_guides(pcb, &items, outline_op.as_slice());
+    let carried = carried_aids(pcb, &items, outline_op.as_slice());
     for (item, op) in items.iter_mut().zip(ops) {
         item.apply(op);
     }

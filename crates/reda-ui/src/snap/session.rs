@@ -1,8 +1,7 @@
 //! The [`Rules`] in force on an open Document, and the keys held in flight.
 
-use reda_engine::model::LayerKind;
-use reda_engine::model::Uuid;
 use reda_engine::model::geom::Point;
+use reda_engine::model::{LayerKind, LocalGrid, Uuid};
 
 use super::{Grid, Objects, PlacedGuide, Rules, Snapped, Suspend, Target, snap};
 use crate::bars::{self, DocumentType};
@@ -50,6 +49,12 @@ pub fn rules_on(shell: &Shell, document: Uuid, pitch: crate::grid::Step) -> Rule
     } else {
         Vec::new()
     };
+    // Local Grids are grids: Gridless and `Mod`+Shift turn them off with the everyday one.
+    let local = if options.local_grids && grid.is_some() {
+        local_grids(shell, document)
+    } else {
+        Vec::new()
+    };
     Rules {
         capture,
         grid,
@@ -57,7 +62,20 @@ pub fn rules_on(shell: &Shell, document: Uuid, pitch: crate::grid::Step) -> Rule
         off: options.hotspots_off,
         alignment: !suspend.objects() && !keyed,
         placed,
+        local,
+        component: false,
     }
+}
+
+/// The enabled Local Grids of `document` in priority order, shown or hidden: hidden ones
+/// still snap.
+pub(crate) fn local_grids(shell: &Shell, document: Uuid) -> Vec<LocalGrid> {
+    shell
+        .engine()
+        .project()
+        .and_then(|p| p.pcb_document(document))
+        .map(|pcb| pcb.local_grids().filter(|g| g.enabled).cloned().collect())
+        .unwrap_or_default()
 }
 
 /// The enabled Guides of `document`, shown or hidden: hidden ones still snap.

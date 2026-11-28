@@ -90,6 +90,16 @@ pub fn controls(ui: &mut egui::Ui, shell: &Shell, document: Uuid) -> Vec<(&'stat
             ));
         }
     }
+    if crate::working_state::has_local_grids(ty) {
+        let mut local = options.local_grids;
+        let label = crate::tr!("snap-palette-local-grids");
+        if ui.add(widgets::checkbox(&mut local, label)).changed() {
+            commands.push((
+                "view.snap.set",
+                json!({"document": document, "local_grids": local}),
+            ));
+        }
+    }
     ui.separator();
     ui.label(crate::tr!("snap-palette-mode"));
     for &mode in SnapMode::offered(ty) {

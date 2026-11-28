@@ -13,7 +13,7 @@ use reda_geom::{Nm, Vertex};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::{BoardGrid, FootprintCopy, Guide, Object, Severity, Uuid, Waiver};
+use crate::{BoardGrid, FootprintCopy, Guide, LocalGrid, Object, Severity, Uuid, Waiver};
 
 mod copper;
 mod dimension;
@@ -614,6 +614,7 @@ pub struct PcbDocument {
     pub(crate) waivers: BTreeMap<Uuid, Waiver>,
     pub(crate) guides: BTreeMap<Uuid, Guide>,
     pub(crate) board_grids: BTreeMap<Uuid, BoardGrid>,
+    pub(crate) local_grids: BTreeMap<Uuid, LocalGrid>,
 }
 
 impl PcbDocument {
@@ -643,6 +644,7 @@ impl PcbDocument {
             waivers: BTreeMap::new(),
             guides: BTreeMap::new(),
             board_grids: BTreeMap::new(),
+            local_grids: BTreeMap::new(),
         }
     }
 
@@ -1023,6 +1025,22 @@ impl PcbDocument {
         self.board_grids.values().find(|g| g.default)
     }
 
+    /// The Local Grids in priority order: the first one a point is inside wins there.
+    pub fn local_grids(&self) -> impl Iterator<Item = &LocalGrid> {
+        let mut grids: Vec<&LocalGrid> = self.local_grids.values().collect();
+        grids.sort_by_key(|g| (g.rank, g.uuid));
+        grids.into_iter()
+    }
+
+    pub fn local_grid(&self, uuid: Uuid) -> Option<&LocalGrid> {
+        self.local_grids.get(&uuid)
+    }
+
+    /// The Local Grid named `name`, if any: names are unique on the board.
+    pub fn local_grid_named(&self, name: &str) -> Option<&LocalGrid> {
+        self.local_grids.values().find(|g| g.name == name)
+    }
+
     /// The object with this UUID, if this Document holds it.
     pub(crate) fn object(&self, uuid: Uuid) -> Option<Object> {
         let doc = self.uuid;
@@ -1057,7 +1075,8 @@ impl PcbDocument {
             output_origins => OutputOrigin,
             waivers => Waiver,
             guides => Guide,
-            board_grids => BoardGrid
+            board_grids => BoardGrid,
+            local_grids => LocalGrid
         )
     }
 
@@ -1097,7 +1116,8 @@ impl PcbDocument {
             output_origins => OutputOrigin,
             waivers => Waiver,
             guides => Guide,
-            board_grids => BoardGrid
+            board_grids => BoardGrid,
+            local_grids => LocalGrid
         );
         out
     }
@@ -1127,6 +1147,7 @@ impl PcbDocument {
         self.waivers.remove(&uuid);
         self.guides.remove(&uuid);
         self.board_grids.remove(&uuid);
+        self.local_grids.remove(&uuid);
     }
 
     pub(crate) fn is_empty(&self) -> bool {
@@ -1153,6 +1174,7 @@ impl PcbDocument {
             && self.waivers.is_empty()
             && self.guides.is_empty()
             && self.board_grids.is_empty()
+            && self.local_grids.is_empty()
     }
 
     /// Checks the invariants a committed transaction must leave behind.
@@ -1253,6 +1275,16 @@ impl PcbDocument {
         if let [first, second, ..] = defaults.as_slice() {
             return Err(format!(
                 "Board Grids {first} and {second} are both marked Default; at most one may be"
+            ));
+        }
+        if let Some(problem) = self.local_grids.values().find_map(LocalGrid::problem) {
+            return Err(problem);
+        }
+        let mut names = std::collections::BTreeSet::new();
+        if let Some(twice) = self.local_grids().find(|g| !names.insert(g.name.as_str())) {
+            return Err(format!(
+                "two Local Grids are named \"{}\"; a Local Grid's name is unique on the board",
+                twice.name
             ));
         }
         self.check_footprints()?;

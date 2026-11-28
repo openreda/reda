@@ -17,6 +17,7 @@ mod guide;
 mod library;
 pub mod library_update;
 pub mod local_edit;
+mod local_grid;
 pub mod net_name;
 mod openings;
 mod output;
@@ -55,6 +56,7 @@ pub use library::{
     TextFrame, TextHJustify, TextJustify, TextKnockout, TextStyle, TextVJustify, Unit, VALUE_FIELD,
     field_text,
 };
+pub use local_grid::{AppliesTo, CartesianGrid, LocalGrid, LocalGridShape};
 pub use output::{
     BomGroup, BomLayout, BomSettings, BottomPosition, BottomRotation, Column, ColumnSource,
     Construction, ConstructionEntry, ConstructionViaType, CplSettings, CplUnits, FabPreset,
